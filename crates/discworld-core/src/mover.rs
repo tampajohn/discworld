@@ -1028,6 +1028,15 @@ impl Mover {
                 if step.stuck {
                     let corners = match step.reason {
                         Some(crate::walk::Restriction::EnteringMover(actor)) => {
+                            // V1 SetNextDest accepts the closest reachable
+                            // position when the ultimate target is occupied.
+                            // Do this before choosing an obstacle corner: a
+                            // detour cannot make that destination reachable.
+                            if footprint.blocker(target, others, false).is_some() {
+                                next.finish_walk(resources, declarations)?;
+                                *self = next;
+                                return Ok(());
+                            }
                             let other = others
                                 .iter()
                                 .find(|m| m.actor == actor)
@@ -1726,6 +1735,36 @@ mod tests {
         assert!(routed);
         assert_eq!(detour.placement.position, [180, 100]);
         assert_eq!(detour.walk_target, None);
+        let mut occupied = detour.clone();
+        occupied
+            .stand(&resources, &declarations, &polygons, [50, 100], Handle(0))
+            .unwrap();
+        let occupied_serial = occupied
+            .begin_path_walk(&resources, &declarations, &polygons, [110, 100])
+            .unwrap();
+        let mut occupied_replay = occupied.clone();
+        for _ in 0..30 {
+            if occupied.walk_target.is_none() {
+                break;
+            }
+            occupied
+                .advance_direct_walk(&resources, &declarations, &polygons, &[other])
+                .unwrap();
+            occupied_replay
+                .advance_direct_walk(&resources, &declarations, &polygons, &[other])
+                .unwrap();
+            assert_eq!(occupied, occupied_replay);
+            assert!(
+                occupied.direct_leg.is_none(),
+                "occupied target must not detour"
+            );
+        }
+        assert_eq!(occupied.walk_target, None);
+        assert_eq!(occupied.walk_serial, occupied_serial);
+        assert_eq!(occupied.placement.position[1], 100);
+        assert!(occupied.placement.position[0] > 50);
+        assert!(occupied.placement.position[0] < 100);
+        assert_eq!(occupied.placement.standing, Handle(64));
         assert_eq!(mover.walk_serial, serial);
         assert_eq!(mover.placement.standing, Handle(64));
         assert_eq!(
