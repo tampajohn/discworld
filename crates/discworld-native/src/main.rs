@@ -206,6 +206,11 @@ fn run() -> Result<(), Box<dyn std::error::Error>> {
                 _ => 1,
             };
             sink.clear();
+            // Rodio clear() also pauses the sink. Restore playback state so
+            // returning to 1x cannot fill a paused queue and stall simulation.
+            if !paused && !stopped {
+                sink.play();
+            }
         }
         if window.is_key_pressed(Key::P, KeyRepeat::No) {
             paused = !paused;
