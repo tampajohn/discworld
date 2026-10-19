@@ -2468,7 +2468,12 @@ impl Engine {
                         .vm
                         .complete_library(call, 1, Some(self.conversation.icon))?;
                 }
-                10 => {
+                10 | 89 => {
+                    if call.id == 89 {
+                        let id = u32::try_from(args(&process.vm, 41)?[0])
+                            .map_err(|_| Error("invalid mover ID"))?;
+                        self.actors.get(id)?;
+                    }
                     self.declarations.apply(&mut process.vm, call, resources)?;
                 }
                 108 => {
@@ -3528,6 +3533,40 @@ mod tests {
         put(&mut scene, 104, 0x3334000b);
         put(&mut scene, 112, 1);
         (master, scene)
+    }
+    #[test]
+    fn scene_walking_actor_consumes_reels_and_preserves_lower_stack() {
+        let (master, mut scene) = fixtures();
+        scene[8] = 0;
+        let mut code = vec![0x0a, 0x00, 0x34, 0x33, 0, 0, 0, 0];
+        code.extend([0x41, 77, 3]);
+        for reel in 1..=40 {
+            code.extend([0x41, reel]);
+        }
+        code.extend([0x4e, 89, 0x4c, 0, 0]);
+        let resources = Resources(vec![&master, &scene, &code]);
+        let mut engine = Engine::bootstrap(&resources).unwrap();
+        engine.actors = crate::actor::Actors::new(1).unwrap();
+        let mut process = ScriptProcess::new(Handle((2 << 23) | 8));
+        assert_eq!(
+            engine
+                .run_process(&resources, None, None, None, &mut process)
+                .unwrap(),
+            Status::Halted
+        );
+        assert_eq!(engine.globals, [77]);
+        let banks = &engine.declarations.movers[&1];
+        assert_eq!(banks[0][0], Handle(1));
+        assert_eq!(banks[4][7], Handle(40));
+        assert_eq!(banks[9][0], Handle(33));
+        assert_eq!(banks[9][4], Handle(21));
+        assert!(engine.movers.is_empty()); // Declaration does not position or activate it.
+        engine.declarations.movers.get_mut(&1).unwrap()[0][8] = Handle(123);
+        let mut repeated = ScriptProcess::new(Handle((2 << 23) | 8));
+        engine
+            .run_process(&resources, None, None, None, &mut repeated)
+            .unwrap();
+        assert_eq!(engine.declarations.movers[&1][0][8], Handle(123));
     }
     #[test]
     fn script_timers_share_master_scene_state_and_tick_after_scripts() {

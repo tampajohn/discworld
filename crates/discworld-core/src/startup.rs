@@ -99,7 +99,8 @@ impl Declarations {
                 let reels = std::array::from_fn(|scale| {
                     std::array::from_fn(|i| {
                         if i >= 8 {
-                            return Handle(0);
+                            // WalkingActor replaces walking/standing banks only.
+                            return next.movers.get(&args[0]).map_or(Handle(0), |r| r[scale][i]);
                         }
                         let source = if scale < 5 {
                             scale
