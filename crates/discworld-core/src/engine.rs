@@ -231,6 +231,7 @@ pub struct Engine {
     pub globals: Vec<i32>,
     pub scene: Handle,
     pub ticks: u64,
+    timers: crate::timers::Timers,
     user_events: u64,
     left_events: u64,
     pub subtitles: bool,
@@ -1143,6 +1144,7 @@ impl Engine {
             globals: vec![0; count],
             scene: Handle(0),
             ticks: 0,
+            timers: crate::timers::Timers::default(),
             held_object: -1,
             held_cursor: None,
             last_interaction_tick: None,
@@ -1233,6 +1235,15 @@ impl Engine {
                 continue;
             }
             match call.id {
+                68 => {
+                    let a = args(&self.master, 4)?;
+                    self.timers.start(a[0], a[1], a[2] != 0, a[3] != 0)?;
+                    self.master.complete_library(call, 4, None)?;
+                }
+                79 => {
+                    let value = self.timers.get(args(&self.master, 1)?[0]);
+                    self.master.complete_library(call, 1, Some(value))?;
+                }
                 58 => {
                     if !self.save_scene_call(None)? {
                         self.master_stopped = true;
@@ -1950,6 +1961,7 @@ impl Engine {
                 content.tick(resources)?;
             }
         }
+        self.timers.tick()?;
         Ok(
             if self.processes.is_empty()
                 && self.scene_restore.is_none()
@@ -2274,6 +2286,15 @@ impl Engine {
                 continue;
             }
             match call.id {
+                68 => {
+                    let a = args(&process.vm, 4)?;
+                    self.timers.start(a[0], a[1], a[2] != 0, a[3] != 0)?;
+                    process.vm.complete_library(call, 4, None)?;
+                }
+                79 => {
+                    let value = self.timers.get(args(&process.vm, 1)?[0]);
+                    process.vm.complete_library(call, 1, Some(value))?;
+                }
                 13 => {
                     self.close_inventory();
                     process.vm.complete_library(call, 0, None)?;
@@ -3507,6 +3528,40 @@ mod tests {
         put(&mut scene, 104, 0x3334000b);
         put(&mut scene, 112, 1);
         (master, scene)
+    }
+    #[test]
+    fn script_timers_share_master_scene_state_and_tick_after_scripts() {
+        let (master, mut scene) = fixtures();
+        scene[8] = 0;
+        let code = [
+            0x41, 77, 3, 0x41, 10, 3, 3, 0x4e, 68, 3, 0x4e, 79, 0x4c, 0, 0x4c, 1, 0,
+        ];
+        scene[32..32 + code.len()].copy_from_slice(&code);
+        let resources = Resources(vec![&master, &scene]);
+        for master_script in [false, true] {
+            let mut engine = Engine::bootstrap(&resources).unwrap();
+            engine.globals.resize(2, 0);
+            let script = Handle((1 << 23) | 32);
+            if master_script {
+                engine.master_code = script;
+                engine.master = Machine::default();
+                assert_eq!(engine.run_master(&resources).unwrap(), None);
+            } else {
+                let mut process = ScriptProcess::new(script);
+                assert_eq!(
+                    engine
+                        .run_process(&resources, None, None, None, &mut process)
+                        .unwrap(),
+                    Status::Halted
+                );
+            }
+            assert_eq!(engine.globals, [10, 77]);
+            assert_eq!(engine.timers.get(1), 10);
+            engine.enter(&resources, Handle(1 << 23), 1, 0).unwrap();
+            assert_eq!(engine.timers.get(1), 10);
+            engine.tick(&resources).unwrap();
+            assert_eq!(engine.timers.get(1), 11);
+        }
     }
     #[test]
     fn inventory_gestures_dispatch_scripted_drop_and_reject_invalid_input() {

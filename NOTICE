@@ -68,3 +68,7 @@ polygons.cpp, scene.h, and movers.h at the pinned revision.
 
 Direct walking steps and facing calculations follow engines/tinsel/move.cpp
 NewCoOrdinates and GetDirection at the pinned revision.
+
+Script timers follow engines/tinsel/timers.cpp and timers.h, with library
+dispatch from tinlib.cpp and end-of-cycle advancement from tinsel.cpp,
+at the pinned ScummVM revision (GPL-3.0-or-later).

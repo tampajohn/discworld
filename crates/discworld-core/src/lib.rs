@@ -32,5 +32,6 @@ pub mod scroll;
 pub mod sequencer;
 pub mod startup;
 pub mod text;
+pub mod timers;
 
 pub mod walk;
