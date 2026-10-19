@@ -2578,7 +2578,7 @@ impl Engine {
                     }
                     process.vm.complete_library(call, 4, None)?;
                 }
-                1 | 4 | 5 => {
+                1 | 3 | 4 | 5 => {
                     let id = args(&process.vm, 1)?[0];
                     let actor = if id == -2 {
                         self.declarations
@@ -2593,6 +2593,16 @@ impl Engine {
                         .actors
                         .get(u32::try_from(actor).map_err(|_| Error("invalid actor ID"))?)?
                         .position;
+                    if call.id == 3 {
+                        let scale = self
+                            .movers
+                            .get(&actor)
+                            .ok_or(Error("ACTORSCALE actor has no mover"))?
+                            .placement
+                            .scale as i32;
+                        process.vm.complete_library(call, 1, Some(scale))?;
+                        continue;
+                    }
                     if call.id == 1 {
                         let direction = self
                             .movers
@@ -4241,6 +4251,7 @@ mod tests {
         ];
         scene[32..32 + code.len()].copy_from_slice(&code);
         scene[56..62].copy_from_slice(&[3, 0x4e, 1, 0x4c, 0, 0]);
+        scene[16..28].copy_from_slice(&[0x41, 77, 0x41, 0xfe, 0x4e, 3, 0x4c, 0, 0x4c, 1, 0, 0]);
         let base = 2u32 << 23;
         let mut film = vec![0; 64];
         for (at, value) in [
@@ -4297,7 +4308,27 @@ mod tests {
                     vec![-10, 90, 77]
                 }
             );
+            let mut scale_query = ScriptProcess::new(Handle((1 << 23) | 16));
+            if !moving {
+                assert_eq!(
+                    engine.run_process(&resources, None, None, None, &mut scale_query),
+                    Err(Error("ACTORSCALE actor has no mover"))
+                );
+            }
             if moving {
+                for scale in 1..=10 {
+                    engine.movers.get_mut(&1).unwrap().placement.scale = scale;
+                    let before = engine.movers.clone();
+                    let mut query = ScriptProcess::new(Handle((1 << 23) | 16));
+                    assert_eq!(
+                        engine
+                            .run_process(&resources, None, None, None, &mut query)
+                            .unwrap(),
+                        Status::Halted
+                    );
+                    assert_eq!(&engine.globals[..2], &[scale as i32, 77]);
+                    assert_eq!(engine.movers, before);
+                }
                 for (direction, expected) in [
                     (crate::mover::Direction::Left, 0),
                     (crate::mover::Direction::Right, 1),

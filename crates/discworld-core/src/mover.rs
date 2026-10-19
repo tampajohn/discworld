@@ -871,6 +871,17 @@ impl Mover {
         target: [i32; 2],
         cursor: [i32; 2],
     ) -> Result<u64, Error> {
+        // SetNextDest treats bNoPath like an ignore-path leg until MoveActor
+        // finds a path again. Keep this a normal walk, so constraints resume
+        // immediately after re-entry instead of remaining SWALK-like.
+        if self.no_path
+            && ((i64::from(self.placement.position[0]) - i64::from(target[0])).abs() >= 4
+                || (i64::from(self.placement.position[1]) - i64::from(target[1])).abs() >= 2)
+        {
+            let serial = self.begin_direct_walk(resources, declarations, polygons, target)?;
+            self.constrained_walk = true;
+            return Ok(serial);
+        }
         if self
             .placement
             .path
@@ -987,7 +998,7 @@ impl Mover {
         if from == target {
             next.finish_walk(resources, declarations)?;
         } else {
-            let position = if next.constrained_walk {
+            let position = if next.constrained_walk && !next.no_path {
                 let footprint = next.footprint(resources)?;
                 let leg_target = next.direct_leg.map_or(target, |leg| leg.target);
                 if from == leg_target && leg_target != target {
@@ -1642,15 +1653,26 @@ mod tests {
             .unwrap();
         assert_eq!(mover.placement.path, Some(0));
         assert!(mover.no_path);
-        let serial = mover
+        let mut direct = mover.clone();
+        direct
             .begin_direct_walk(&resources, &declarations, &polygons, [200, 178])
             .unwrap();
+        let serial = mover
+            .begin_walk(&resources, &declarations, &polygons, [200, 178], [200, 178])
+            .unwrap();
+        assert!(mover.constrained_walk);
         let mut restored = mover.clone();
         for step in 1..=12 {
+            direct
+                .advance_direct_walk(&resources, &declarations, &polygons, &[])
+                .unwrap();
             for m in [&mut mover, &mut restored] {
                 m.advance_direct_walk(&resources, &declarations, &polygons, &[])
                     .unwrap();
                 assert_eq!(m.placement.position, [248 - 4 * step, 178]);
+                assert_eq!(m.placement.position, direct.placement.position);
+                assert_eq!(m.no_path, step < 7);
+                assert!(m.constrained_walk);
                 assert_eq!(m.walk_target, Some([200, 178]));
             }
         }
