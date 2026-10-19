@@ -76,7 +76,7 @@ Point at the Luggage and use Action to open its inventory. Inventory actions exe
 | Area | Current evidence / limitation |
 | --- | --- |
 | Game resources | ISO reading, release identification, checked resource/chunk decoding; supplied release has 149 index entries and 1,732 chunk headers |
-| Graphics | Indexed image decoding, animation films, CPU composition, original fonts, scenes, movement and inventory UI; exact palette/translucency and all depth/timing cases remain unverified |
+| Graphics | Indexed image decoding, animation films, CPU composition, original fonts, scenes, movement, inventory UI and indexed overlay backing; full palette lifecycle and all depth/timing cases remain unverified |
 | Scripts | Original bytecode, library calls, cooperative scheduling, dialogue, inventory and scene transitions exercised by the recorded Act I route; unsupported behavior stops explicitly |
 | Audio | Original samples and XMIDI music through a local software synth; original hardware and native/browser fidelity are not established |
 | Gameplay | Opening, university and city routes, dialogue and several Act I puzzles; no start-to-credits completion yet |
@@ -143,6 +143,7 @@ The tools also support actors, world points, inventory cells, conversation topic
 | ![University dining room](docs/media/university.png) | ![Barber scene](docs/media/barber.png) |
 | Palace | Inventory scrolling |
 | ![Palace mirror pickup](docs/media/palace.png) | ![Original inventory graphics](docs/media/inventory.png) |
+| ![Pockets with indexed backing](docs/media/pockets-backdrop.png) | ![Map tutorial with indexed backing](docs/media/tutorial-backdrop.png) |
 
 These are actual 320×200 runtime captures from the supplied release, included to document implementation progress.
 

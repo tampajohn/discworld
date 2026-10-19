@@ -284,9 +284,10 @@ impl Frame {
             .collect::<Result<Vec<_>, Error>>()?;
         Ok(Self { layout, parts })
     }
-    /// Frame sprites only. Background translucency, title, and topic animations
-    /// must be composed separately at their respective inventory z layers.
+    /// Original translucent backing precedes the frame sprites; title and icons
+    /// are composed by the caller above the frame.
     pub fn draw(&self, resources: &Resources<'_>, surface: &mut Surface) -> Result<(), Error> {
+        surface.draw_backdrop(self.layout.background)?;
         for part in &self.parts {
             surface.draw_animation(resources, part)?;
         }

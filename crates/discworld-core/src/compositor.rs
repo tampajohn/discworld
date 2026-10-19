@@ -2,7 +2,8 @@
 //! CPU preview composition. Runtime palette allocation and special effects remain separate.
 use crate::{
     animation::Animation,
-    graphics::{Image, Resources, decode_tiles, read_palette},
+    graphics::{Image, IndexedImage, Resources, decode_tiles, read_palette},
+    indexed_surface::{IndexedSurface, Translucency},
     iso::Error,
 };
 
@@ -11,6 +12,14 @@ pub struct Surface {
     pub width: usize,
     pub height: usize,
     pub rgba: Vec<u8>,
+    backdrop: Option<Backdrop>,
+}
+
+#[derive(Debug, Clone, PartialEq, Eq)]
+struct Backdrop {
+    indices: IndexedSurface,
+    table: Translucency,
+    palette: [[u8; 3]; 256],
 }
 impl Surface {
     pub fn new(width: usize, height: usize) -> Result<Self, Error> {
@@ -26,9 +35,70 @@ impl Surface {
             width,
             height,
             rgba,
+            backdrop: None,
         })
     }
+    /// DOS V1 WrtNonZero copies raw tile indices. Keep those indices alongside
+    /// the preview colors so WrtTrans never has to infer an index from RGB.
+    /// Call before drawing this frame. Palette lifecycle outside the current
+    /// background (including retained entries of shorter palettes) is separate.
+    pub fn enable_backdrop(&mut self, colors: &[[u8; 3]]) -> Result<(), Error> {
+        let mut table = Translucency::default();
+        table.update(colors)?;
+        let mut palette = [[0; 3]; 256];
+        palette[1..=colors.len()].copy_from_slice(colors);
+        self.backdrop = Some(Backdrop {
+            indices: IndexedSurface::new(self.width, self.height)?,
+            table,
+            palette,
+        });
+        Ok(())
+    }
+    pub fn blit_indexed(
+        &mut self,
+        image: &IndexedImage,
+        palette: &[[u8; 3]],
+        position: [i64; 2],
+        flip: [bool; 2],
+    ) -> Result<(), Error> {
+        let rgba = image.rgba(palette)?;
+        self.blit_rgba(image.width, image.height, &rgba, position, flip)?;
+        if let Some(backdrop) = &mut self.backdrop {
+            backdrop
+                .indices
+                .blit(image, &std::array::from_fn(|i| i as u8), position, flip)?;
+        }
+        Ok(())
+    }
+    pub fn draw_backdrop(&mut self, bounds: [i32; 4]) -> Result<(), Error> {
+        let Some(backdrop) = &mut self.backdrop else {
+            return Ok(());
+        };
+        backdrop.indices.translucent_rect(&backdrop.table, bounds)?;
+        let mapped = backdrop.indices.present(&backdrop.palette)?;
+        let [x, y, width, height] = bounds.map(i64::from);
+        for yy in y.max(0)..(y + height).min(self.height as i64) {
+            for xx in x.max(0)..(x + width).min(self.width as i64) {
+                let offset = (yy as usize * self.width + xx as usize) * 4;
+                self.rgba[offset..offset + 4].copy_from_slice(&mapped.rgba[offset..offset + 4]);
+            }
+        }
+        Ok(())
+    }
     pub fn blit(
+        &mut self,
+        width: usize,
+        height: usize,
+        rgba: &[u8],
+        position: [i64; 2],
+        flip: [bool; 2],
+    ) -> Result<(), Error> {
+        if self.backdrop.is_some() {
+            return Err(Error("RGBA blit would discard backdrop indices"));
+        }
+        self.blit_rgba(width, height, rgba, position, flip)
+    }
+    fn blit_rgba(
         &mut self,
         width: usize,
         height: usize,
@@ -133,8 +203,7 @@ impl Surface {
         parts.sort_by_key(|part| (part.0, part.1[1]));
         for (_, position, image, palette, flip) in parts {
             let decoded = decode_tiles(resources, &image)?;
-            let rgba = decoded.rgba(&read_palette(resources, palette)?)?;
-            self.blit(decoded.width, decoded.height, &rgba, position, flip)?;
+            self.blit_indexed(&decoded, &read_palette(resources, palette)?, position, flip)?;
         }
         Ok(())
     }
@@ -142,6 +211,42 @@ impl Surface {
 #[cfg(test)]
 mod tests {
     use super::*;
+    #[test]
+    fn backdrop_uses_raw_destination_indices_and_preserves_uncovered_pixels() {
+        let mut background = vec![[0; 3]; 255];
+        background[0] = [63, 0, 0];
+        background[1] = [255, 0, 0];
+        background[227] = [10, 20, 30];
+        background[230] = [40, 50, 60];
+        let mut surface = Surface::new(4, 1).unwrap();
+        surface.enable_backdrop(&background).unwrap();
+        // Identical displayed RGB must still remap differently: indices, not
+        // brightness of the preview's per-object palette, drive WrtTrans.
+        let image = IndexedImage {
+            width: 4,
+            height: 1,
+            pixels: vec![1, 2, 0, 2],
+            coverage: vec![true, true, true, true],
+        };
+        surface
+            .blit_indexed(&image, &[[100; 3], [100; 3]], [0, 0], [false; 2])
+            .unwrap();
+        surface.draw_backdrop([-1, 0, 4, 1]).unwrap();
+        assert_eq!(
+            surface.rgba,
+            [
+                10, 20, 30, 255, 40, 50, 60, 255, 0, 0, 0, 255, 100, 100, 100, 255
+            ]
+        );
+        // A second overlay reads the first overlay's resulting index.
+        surface.draw_backdrop([0, 0, 1, 1]).unwrap();
+        assert_eq!(&surface.rgba[..4], &[0, 0, 0, 255]);
+        assert!(
+            surface
+                .blit(1, 1, &[1, 2, 3, 255], [0, 0], [false; 2])
+                .is_err()
+        );
+    }
     #[test]
     fn multipart_pieces_interleave_using_top_y_and_z_takes_priority() {
         use crate::{film::Reel, graphics::Handle};

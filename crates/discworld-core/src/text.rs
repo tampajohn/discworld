@@ -235,11 +235,10 @@ impl Layout {
                     .get_mut(232)
                     .ok_or(Error("missing V1 talk palette entry"))? = color;
             }
-            let rgba = decode_tiles(resources, &image)?.rgba(&palette)?;
-            surface.blit(
-                image.width as usize,
-                image.height as usize,
-                &rgba,
+            let decoded = decode_tiles(resources, &image)?;
+            surface.blit_indexed(
+                &decoded,
+                &palette,
                 [i64::from(glyph.x), i64::from(glyph.y)],
                 [false, false],
             )?;

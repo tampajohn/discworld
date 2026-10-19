@@ -3392,6 +3392,10 @@ impl Engine {
     pub fn render(&self, resources: &Resources<'_>) -> Result<Surface, Error> {
         let mut result = Surface::new(320, 200)?;
         if let Some(background) = &self.background {
+            if let Some(image) = background.images(resources)?.first() {
+                let palette = crate::graphics::Image::read(resources, *image)?.palette;
+                result.enable_backdrop(&crate::graphics::read_palette(resources, palette)?)?;
+            }
             result.draw_animation_offset(resources, background, self.world_origin)?;
         }
         let mut films = self.films.iter().collect::<Vec<_>>();
