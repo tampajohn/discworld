@@ -3264,6 +3264,15 @@ impl Engine {
                     self.sample_player.stop();
                     process.vm.complete_library(call, 0, None)?;
                 }
+                111 => {
+                    // V1 takes no arguments but writes into the caller's
+                    // allocated result slot, without yielding or consuming audio.
+                    process.vm.complete_library(
+                        call,
+                        1,
+                        Some(i32::from(self.sample_player.id.is_some())),
+                    )?;
+                }
                 51 | 112 => {
                     if call.id == 112 && self.sample_player.id.is_some() {
                         args(&process.vm, 2)?;
@@ -6011,6 +6020,45 @@ mod tests {
         let before = engine.clone();
         assert!(engine.tick(&resources).is_err());
         assert_eq!(engine, before);
+    }
+    #[test]
+    fn sampleplaying_returns_channel_state_without_consuming_arguments_or_audio() {
+        let (master, mut scene) = fixtures();
+        scene[8] = 0;
+        let code = [0x41, 77, 0x50, 1, 0x4e, 111, 0x4c, 0, 0x4c, 1, 0];
+        scene[32..32 + code.len()].copy_from_slice(&code);
+        let resources = Resources(vec![&master, &scene]);
+        let index = [0, 0, 0, 0, 4, 0, 0, 0];
+        let mut data = vec![0; 8];
+        data[4..8].copy_from_slice(&1000u32.to_le_bytes());
+        data.extend(vec![129; 1000]);
+        let bank = SampleBank::new(&index, &data).unwrap();
+        let mut engine = Engine::bootstrap(&resources).unwrap();
+        engine.globals.resize(2, 0);
+        for phase in 0..4 {
+            match phase {
+                1 => {
+                    engine.sample_player.play(&bank, 1).unwrap();
+                }
+                2 => {
+                    engine.sample_player.tick(&bank).unwrap();
+                }
+                3 => {
+                    engine.sample_player.tick(&bank).unwrap();
+                }
+                _ => {}
+            }
+            let before = engine.sample_player.clone();
+            let mut process = ScriptProcess::new(Handle((1 << 23) | 32));
+            assert_eq!(
+                engine
+                    .run_process(&resources, None, None, None, &mut process)
+                    .unwrap(),
+                Status::Halted
+            );
+            assert_eq!(engine.globals, [i32::from(matches!(phase, 1 | 2)), 77]);
+            assert_eq!(engine.sample_player, before);
+        }
     }
     #[test]
     fn tryplaysample_busy_channel_yields_once_without_replacing_or_retrying() {
