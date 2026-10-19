@@ -93,11 +93,9 @@ impl Actors {
             actor.masking = 0;
         }
         let mut scripts = Vec::new();
-        let mut seen = std::collections::BTreeSet::new();
         for definition in definitions {
-            if !seen.insert(definition.id) {
-                return Err(Error("duplicate scene actor"));
-            }
+            // V1 StartTaggedActors processes every record in order. Repeated
+            // IDs are valid (ALSHOP actor 56 starts with a null-code record).
             let actor = next.get_mut(definition.id)?;
             actor.hidden = false;
             actor.completed = false;
@@ -105,6 +103,14 @@ impl Actors {
             actor.script = definition.script;
             if actor.alive && actor.script.0 != 0 {
                 scripts.push((definition.id, actor.script));
+            }
+        }
+        // ActorEvent queues an actor ID; ActorTinselProcess resolves its code
+        // only when scheduled, after StartTaggedActors has read the full table.
+        for (id, code) in &mut scripts {
+            *code = next.get(*id)?.script;
+            if code.0 == 0 {
+                return Err(Error("queued actor startup has no final script"));
             }
         }
         *self = next;
@@ -115,6 +121,62 @@ impl Actors {
 #[cfg(test)]
 mod tests {
     use super::*;
+    #[test]
+    fn repeated_actor_records_keep_startup_order_and_last_definition() {
+        let mut actors = Actors::new(2).unwrap();
+        let definitions = [
+            Definition {
+                id: 1,
+                masking: 0,
+                script: Handle(0),
+            },
+            Definition {
+                id: 2,
+                masking: 1,
+                script: Handle(12),
+            },
+            Definition {
+                id: 1,
+                masking: 2,
+                script: Handle(24),
+            },
+            Definition {
+                id: 2,
+                masking: 9,
+                script: Handle(36),
+            },
+        ];
+        assert_eq!(
+            actors.enter(&definitions).unwrap(),
+            [(2, Handle(36)), (1, Handle(24)), (2, Handle(36))]
+        );
+        assert_eq!(
+            (
+                actors.get(1).unwrap().masking,
+                actors.get(1).unwrap().script
+            ),
+            (2, Handle(24))
+        );
+        assert_eq!(
+            (
+                actors.get(2).unwrap().masking,
+                actors.get(2).unwrap().script
+            ),
+            (9, Handle(36))
+        );
+        actors.disable(2).unwrap();
+        assert_eq!(actors.enter(&definitions).unwrap(), [(1, Handle(24))]);
+        assert_eq!(actors.enable(2).unwrap(), Some(Handle(36)));
+        let before = actors.clone();
+        let mut invalid = definitions.to_vec();
+        invalid.push(Definition {
+            id: 3,
+            masking: 0,
+            script: Handle(48),
+        });
+        assert!(actors.enter(&invalid).is_err());
+        assert_eq!(actors, before);
+    }
     #[test]
     fn v1_hotspot_quarters_and_edge_rules() {
         let bounds = [10, 20, 30, 100];

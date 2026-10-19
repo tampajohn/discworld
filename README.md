@@ -33,6 +33,8 @@ cargo run --release -p discworld-native -- \
 
 ### Watch the development playthrough
 
+Pass `--paused` to start a native session paused (including after `--from-tick` replay reconstruction); press **P** to resume. Replay reconstruction is not a persistent engine save.
+
 Double-click **Watch Discworld.command** to replay the recorded route from Rincewind's room, initially muted. It currently covers part of Act I, including the palace mirror, dragon breath, hair roller, staff exchange, kitchen net sequence and frying-pan delivery. Four Act I ingredients reach the Archchancellor; the imp remains. It pauses after the recorded route; reaching that point is not evidence that the rest of the game works.
 
 | Replay control | Action |
