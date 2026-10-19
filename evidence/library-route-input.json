@@ -1,0 +1,44 @@
+[
+  {
+    "tick": 8700,
+    "scene": "rinceroo.scn",
+    "polygon": 6,
+    "event": "action"
+  },
+  {
+    "tick": 9500,
+    "scene": "rinceroo.scn",
+    "polygon": 6,
+    "event": "walkto"
+  },
+  {
+    "tick": 9800,
+    "scene": "unseen.scn",
+    "polygon": 55,
+    "event": "look"
+  },
+  {
+    "tick": 12000,
+    "scene": "unseen.scn",
+    "polygon": 50,
+    "event": "walkto"
+  },
+  {
+    "tick": 16000,
+    "scene": "arch.scn",
+    "polygon": 8,
+    "event": "action"
+  },
+  {
+    "tick": 17000,
+    "scene": "arch.scn",
+    "polygon": 6,
+    "event": "walkto"
+  },
+  {
+    "tick": 19000,
+    "scene": "unseen.scn",
+    "polygon": 53,
+    "event": "walkto"
+  }
+]

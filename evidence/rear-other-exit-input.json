@@ -1,0 +1,52 @@
+[
+  {
+    "tick": 8700,
+    "scene": "rinceroo.scn",
+    "polygon": 6,
+    "event": "action"
+  },
+  {
+    "tick": 9500,
+    "scene": "rinceroo.scn",
+    "polygon": 6,
+    "event": "walkto"
+  },
+  {
+    "tick": 9800,
+    "scene": "unseen.scn",
+    "point": [
+      175,
+      180
+    ],
+    "event": "walkto"
+  },
+  {
+    "tick": 11000,
+    "scene": "unseen.scn",
+    "polygon": 54,
+    "event": "walkto"
+  },
+  {
+    "tick": 16000,
+    "scene": "unigard.scn",
+    "polygon": 29,
+    "event": "walkto"
+  },
+  {
+    "tick": 21000,
+    "scene": "closeup.scn",
+    "event": "key"
+  },
+  {
+    "tick": 21500,
+    "scene": "unigard.scn",
+    "polygon": 23,
+    "event": "walkto"
+  },
+  {
+    "tick": 24500,
+    "scene": "rear.scn",
+    "polygon": 2,
+    "event": "walkto"
+  }
+]

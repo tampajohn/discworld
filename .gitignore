@@ -1,0 +1,12 @@
+/target/
+/vendor/rustysynth/target/
+/vendor/rustysynth/Cargo.lock
+/.reference/
+/assets/
+*.iso
+*.ISO
+.DS_Store
+
+# Retain reproducible routes, not bulk generated diagnostics.
+/evidence/*
+!/evidence/*-input.json

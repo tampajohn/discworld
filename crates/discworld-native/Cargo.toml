@@ -1,0 +1,16 @@
+[package]
+name = "discworld-native"
+version = "0.1.0"
+edition.workspace = true
+rust-version.workspace = true
+license.workspace = true
+
+[dependencies]
+discworld-tools = { path = "../discworld-tools" }
+discworld-core = { path = "../discworld-core" }
+discworld-audio = { path = "../discworld-audio" }
+minifb = "=0.28.0"
+rodio = { version = "=0.21.1", default-features = false, features = ["playback"] }
+
+[lints]
+workspace = true

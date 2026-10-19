@@ -1,0 +1,70 @@
+Discworld Rust runtime
+
+This project is distributed under GPL-3.0-or-later; see LICENSE.
+Resource format and graphics behavior are informed by ScummVM's Tinsel engine:
+https://github.com/scummvm/scummvm/tree/96b42d42bc8533953bdd701db059cc33c839a9ff/engines/tinsel
+
+ScummVM is copyright its contributors. Upstream attribution:
+https://github.com/scummvm/scummvm/blob/96b42d42bc8533953bdd701db059cc33c839a9ff/COPYRIGHT
+
+In particular, graphics.rs implements the DOS tile behavior documented by
+graphics.cpp (WrtNonZero and DrawObject), handle.cpp (GetImage and GetPalette),
+and scene.h (resource handle layout). resource.rs uses the index and chunk
+formats documented in handle.cpp and scn.cpp. This is not a clean-room project.
+
+script.rs follows pcode.cpp instruction and frame semantics. library.rs preserves
+the DW1_CODES ordering from tinlib.cpp. scene.rs uses scene.cpp and handle.cpp
+scene, entrance, and actor formats at the same pinned revision.
+
+film.rs uses film.h and multiobj.h layouts. startup.rs follows declaration
+semantics in tinlib.cpp, cursor.cpp, dialogs.cpp, actors.cpp, and mareels.cpp.
+
+animation.rs follows anim.cpp. compositor.rs uses object.cpp and multiobj.cpp
+animation-point semantics. engine.rs follows the initial scene and library
+behavior in scene.cpp, bg.cpp, and tinlib.cpp; scheduling remains provisional.
+
+audio.rs follows the original DOS PCM archive and channel behavior in sound.cpp.
+PLAYSAMPLE, STOPSAMPLE, and WAITFRAME integration uses tinlib.cpp and play.cpp.
+
+The game data, artwork, dialogue, and audio remain separate proprietary assets.
+No playable game resources are included in the source distribution.
+The documentary runtime screenshots and animated montage in docs/media depict
+original game artwork. That artwork remains the property of its respective
+rights holders and is not covered by the runtime source license.
+The polygon reader and cooperative queue are informed by ScummVM's
+engines/tinsel/polygons.cpp and common/coroutines.cpp at the pinned revision.
+
+Actor startup state and WAITKEY behavior are informed by pinned ScummVM
+engines/tinsel/actors.cpp and engines/tinsel/tinlib.cpp.
+
+Music archive and XMIDI decoding are informed by pinned ScummVM
+engines/tinsel/music.cpp and audio/midiparser_xmidi.cpp.
+
+The sequencer also uses behavior from audio/midiparser.cpp.
+Control and cursor state use the V1 behavior from tinlib.cpp, events.cpp,
+and cursor.cpp at the pinned ScummVM revision.
+String decoding, fonts, and PRINT behavior are informed by strres.cpp,
+handle.cpp, text.cpp, and tinlib.cpp at that revision.
+vendor/rustysynth contains RustySynth 1.3.7, copyright Nobuaki Tanaka,
+under its retained MIT license. Local modifications are documented there.
+vendor/samples contains its two upstream SoundFont parser test fixtures.
+The locally downloaded TimGM6mb development SoundFont is not included in
+this repository; its separate GPL-2 notice is retained with the local asset.
+
+random.rs translates the generator in common/random.cpp and RandomFn in
+engines/tinsel/tinlib.cpp at the pinned ScummVM revision (GPL-3.0-or-later).
+
+Deferred scene transitions and fade tables follow engines/tinsel/tinsel.cpp,
+tinlib.cpp, bg.cpp, and faders.cpp at the same pinned revision.
+
+Scripted scroll motion and completion behavior follow engines/tinsel/scroll.cpp
+and tinlib.cpp at the pinned revision.
+
+Normal/talk film arbitration follows engines/tinsel/play.cpp t1PlayReel and
+actors.cpp at the pinned revision.
+
+Initial mover placement and scale selection follow engines/tinsel/movers.cpp,
+polygons.cpp, scene.h, and movers.h at the pinned revision.
+
+Direct walking steps and facing calculations follow engines/tinsel/move.cpp
+NewCoOrdinates and GetDirection at the pinned revision.

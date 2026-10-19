@@ -1,0 +1,17 @@
+[package]
+name = "discworld-tools"
+version = "0.1.0"
+edition.workspace = true
+rust-version.workspace = true
+license.workspace = true
+
+[dependencies]
+discworld-core = { path = "../discworld-core" }
+discworld-audio = { path = "../discworld-audio" }
+sha2 = "0.10"
+md-5 = "0.10"
+serde_json = "1"
+png = "0.17"
+
+[lints]
+workspace = true

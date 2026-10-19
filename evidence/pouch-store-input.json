@@ -1,0 +1,26 @@
+[
+  {
+    "tick": 8700,
+    "scene": "rinceroo.scn",
+    "polygon": 8,
+    "event": "action"
+  },
+  {
+    "tick": 10000,
+    "scene": "rinceroo.scn",
+    "polygon": 7,
+    "event": "action"
+  },
+  {
+    "tick": 11500,
+    "scene": "rinceroo.scn",
+    "actor": 7,
+    "event": "action"
+  },
+  {
+    "tick": 11600,
+    "scene": "rinceroo.scn",
+    "inventory_slot": 0,
+    "event": "walkto"
+  }
+]

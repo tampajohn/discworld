@@ -1,0 +1,36 @@
+//! Portable, checked readers and (eventually) the Discworld runtime.
+pub mod actor;
+pub mod animation;
+pub mod audio;
+pub mod compositor;
+pub mod control;
+pub mod conversation;
+pub mod conversation_window;
+pub mod destination;
+pub mod engine;
+pub mod film;
+pub mod graphics;
+pub mod indexed_surface;
+pub mod inventory;
+pub mod iso;
+pub mod library;
+pub mod mover;
+pub mod music;
+pub mod music_player;
+pub mod nodepath;
+pub mod palette;
+pub mod playback;
+pub mod polygon;
+pub mod random;
+pub mod resource;
+pub mod routing;
+pub mod scene;
+pub mod scene_hook;
+pub mod scheduler;
+pub mod script;
+pub mod scroll;
+pub mod sequencer;
+pub mod startup;
+pub mod text;
+
+pub mod walk;

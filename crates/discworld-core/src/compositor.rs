@@ -1,0 +1,277 @@
+// SPDX-License-Identifier: GPL-3.0-or-later
+//! CPU preview composition. Runtime palette allocation and special effects remain separate.
+use crate::{
+    animation::Animation,
+    graphics::{Image, Resources, decode_tiles, read_palette},
+    iso::Error,
+};
+
+#[derive(Debug, Clone, PartialEq, Eq)]
+pub struct Surface {
+    pub width: usize,
+    pub height: usize,
+    pub rgba: Vec<u8>,
+}
+impl Surface {
+    pub fn new(width: usize, height: usize) -> Result<Self, Error> {
+        let pixels = width
+            .checked_mul(height)
+            .filter(|n| *n <= 16_777_216)
+            .ok_or(Error("surface size limit"))?;
+        let mut rgba = vec![0; pixels * 4];
+        for pixel in rgba.chunks_exact_mut(4) {
+            pixel[3] = 255;
+        }
+        Ok(Self {
+            width,
+            height,
+            rgba,
+        })
+    }
+    pub fn blit(
+        &mut self,
+        width: usize,
+        height: usize,
+        rgba: &[u8],
+        position: [i64; 2],
+        flip: [bool; 2],
+    ) -> Result<(), Error> {
+        let [x, y] = position;
+        let [flip_x, flip_y] = flip;
+        if width.checked_mul(height).and_then(|n| n.checked_mul(4)) != Some(rgba.len())
+            || self
+                .width
+                .checked_mul(self.height)
+                .and_then(|n| n.checked_mul(4))
+                != Some(self.rgba.len())
+        {
+            return Err(Error("invalid pixel buffer"));
+        }
+        for dy in 0..height {
+            let Some(ty) = y.checked_add(dy as i64) else {
+                continue;
+            };
+            if ty < 0 || ty >= self.height as i64 {
+                continue;
+            }
+            for dx in 0..width {
+                let Some(tx) = x.checked_add(dx as i64) else {
+                    continue;
+                };
+                if tx < 0 || tx >= self.width as i64 {
+                    continue;
+                }
+                let sx = if flip_x { width - 1 - dx } else { dx };
+                let sy = if flip_y { height - 1 - dy } else { dy };
+                let src = (sy * width + sx) * 4;
+                if rgba[src + 3] == 0 {
+                    continue;
+                }
+                let dst = (ty as usize * self.width + tx as usize) * 4;
+                self.rgba[dst..dst + 4].copy_from_slice(&rgba[src..src + 4]);
+            }
+        }
+        Ok(())
+    }
+    pub fn draw_animation(
+        &mut self,
+        resources: &Resources<'_>,
+        animation: &Animation,
+    ) -> Result<(), Error> {
+        self.draw_animation_offset(resources, animation, [0, 0])
+    }
+    pub fn draw_animation_offset(
+        &mut self,
+        resources: &Resources<'_>,
+        animation: &Animation,
+        origin: [i32; 2],
+    ) -> Result<(), Error> {
+        self.draw_animations_ordered(resources, std::iter::once(animation), origin)
+    }
+    /// V1 sorts individual display objects by Z then rendered top Y. Multipart
+    /// frames must be allowed to interleave with other actors/foreground pieces.
+    /// Equal-key order retains the supplied order; persistent insertion history
+    /// is not yet represented by the caller.
+    pub fn draw_animations_ordered<'a>(
+        &mut self,
+        resources: &Resources<'_>,
+        animations: impl IntoIterator<Item = &'a Animation>,
+        origin: [i32; 2],
+    ) -> Result<(), Error> {
+        let mut parts = Vec::new();
+        for animation in animations {
+            let handles = animation.images(resources)?;
+            let Some(first) = handles.first() else {
+                continue;
+            };
+            let palette = Image::read(resources, *first)?.palette;
+            for handle in handles {
+                let image = Image::read(resources, handle)?;
+                let ax = if animation.flip_x {
+                    -i64::from(image.animation_x) + i64::from(image.width) - 1
+                } else {
+                    i64::from(image.animation_x)
+                };
+                let ay = if animation.flip_y {
+                    -i64::from(image.animation_y) + i64::from(image.height) - 1
+                } else {
+                    i64::from(image.animation_y)
+                };
+                let position = [
+                    i64::from(animation.object.x) - ax - i64::from(origin[0]),
+                    i64::from(animation.object.y) - ay - i64::from(origin[1]),
+                ];
+                parts.push((
+                    animation.object.z,
+                    position,
+                    image,
+                    palette,
+                    [animation.flip_x, animation.flip_y],
+                ));
+            }
+        }
+        parts.sort_by_key(|part| (part.0, part.1[1]));
+        for (_, position, image, palette, flip) in parts {
+            let decoded = decode_tiles(resources, &image)?;
+            let rgba = decoded.rgba(&read_palette(resources, palette)?)?;
+            self.blit(decoded.width, decoded.height, &rgba, position, flip)?;
+        }
+        Ok(())
+    }
+}
+#[cfg(test)]
+mod tests {
+    use super::*;
+    #[test]
+    fn multipart_pieces_interleave_using_top_y_and_z_takes_priority() {
+        use crate::{film::Reel, graphics::Handle};
+        let mut data = vec![0; 416];
+        for (at, value) in [
+            (16, 400u32),
+            (100, 1),
+            (108, 1),
+            (200, 128),
+            (204, 144),
+            (220, 160),
+            (240, 200),
+            (264, 220),
+            (280, 2),
+        ] {
+            data[at..at + 4].copy_from_slice(&value.to_le_bytes());
+        }
+        data[104..107].copy_from_slice(&[255, 0, 0]);
+        data[112..115].copy_from_slice(&[0, 0, 255]);
+        data[400..].fill(1);
+        for (at, offset_y, palette) in [(128, 0i16, 100u32), (144, -4, 100), (160, 0, 108)] {
+            data[at..at + 4].copy_from_slice(&[4, 0, 4, 0]);
+            data[at + 6..at + 8].copy_from_slice(&offset_y.to_le_bytes());
+            data[at + 8..at + 12].copy_from_slice(&96u32.to_le_bytes());
+            data[at + 12..at + 16].copy_from_slice(&palette.to_le_bytes());
+        }
+        let r = Resources(vec![&data]);
+        let a = Animation::new(
+            &r,
+            &Reel {
+                object: Handle(240),
+                script: Handle(300),
+            },
+            1,
+        )
+        .unwrap();
+        let mut b = Animation::new(
+            &r,
+            &Reel {
+                object: Handle(264),
+                script: Handle(300),
+            },
+            1,
+        )
+        .unwrap();
+        let mut surface = Surface::new(4, 8).unwrap();
+        surface
+            .draw_animations_ordered(&r, [&a, &b], [0, 0])
+            .unwrap();
+        let pixel = |s: &Surface, y: usize| s.rgba[y * 16..y * 16 + 4].to_vec();
+        assert_eq!(pixel(&surface, 2), [0, 0, 255, 255]);
+        assert_eq!(pixel(&surface, 4), [255, 0, 0, 255]);
+        b.object.z = 1;
+        surface
+            .draw_animations_ordered(&r, [&a, &b], [0, 0])
+            .unwrap();
+        assert_eq!(pixel(&surface, 4), [0, 0, 255, 255]);
+    }
+    #[test]
+    fn world_origin_moves_pixels_without_mutating_animation() {
+        use crate::{animation::Animation, film::Reel, graphics::Handle};
+        let mut data = vec![0; 128];
+        for (at, value) in [
+            (16, 112u32),
+            (32, 64),
+            (44, 640),
+            (64, 80),
+            (80, 0x00040004),
+            (88, 96),
+            (92, 100),
+            (100, 1),
+        ] {
+            data[at..at + 4].copy_from_slice(&value.to_le_bytes());
+        }
+        data[104..107].copy_from_slice(&[90, 80, 70]);
+        data[112..128].fill(1);
+        let resources = Resources(vec![&data]);
+        let animation = Animation::new(
+            &resources,
+            &Reel {
+                object: Handle(32),
+                script: Handle(108),
+            },
+            1,
+        )
+        .unwrap();
+        let before = animation.clone();
+        assert_eq!(
+            animation.bounds(&resources).unwrap(),
+            Some([640, 0, 643, 3])
+        );
+        let mut flipped = animation.clone();
+        flipped.flip_x = true;
+        flipped.flip_y = true;
+        assert_eq!(flipped.bounds(&resources).unwrap(), Some([637, -3, 640, 0]));
+        flipped.frame = Handle(0);
+        assert_eq!(flipped.bounds(&resources).unwrap(), None);
+        let mut world = Surface::new(4, 4).unwrap();
+        world
+            .draw_animation_offset(&resources, &animation, [640, 0])
+            .unwrap();
+        assert!(world.rgba.chunks_exact(4).all(|p| p == [90, 80, 70, 255]));
+        let mut screen = Surface::new(4, 4).unwrap();
+        screen.draw_animation(&resources, &animation).unwrap();
+        assert!(screen.rgba.chunks_exact(4).all(|p| p == [0, 0, 0, 255]));
+        let mut extreme = Surface::new(4, 4).unwrap();
+        extreme
+            .draw_animation_offset(&resources, &animation, [i32::MIN, i32::MAX])
+            .unwrap();
+        assert_eq!(extreme, screen);
+        assert_eq!(animation, before);
+    }
+    #[test]
+    fn clipping_and_transparency() {
+        let mut s = Surface::new(2, 1).unwrap();
+        s.blit(
+            3,
+            1,
+            &[1, 2, 3, 255, 4, 5, 6, 0, 7, 8, 9, 255],
+            [-1, 0],
+            [false, false],
+        )
+        .unwrap();
+        assert_eq!(s.rgba, [0, 0, 0, 255, 7, 8, 9, 255]);
+    }
+    #[test]
+    fn horizontal_flip() {
+        let mut s = Surface::new(2, 1).unwrap();
+        s.blit(2, 1, &[1, 2, 3, 255, 4, 5, 6, 255], [0, 0], [true, false])
+            .unwrap();
+        assert_eq!(s.rgba, [4, 5, 6, 255, 1, 2, 3, 255]);
+    }
+}

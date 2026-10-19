@@ -1,0 +1,59 @@
+[
+  {
+    "tick": 8700,
+    "scene": "rinceroo.scn",
+    "polygon": 6,
+    "event": "action"
+  },
+  {
+    "tick": 9500,
+    "scene": "rinceroo.scn",
+    "polygon": 6,
+    "event": "walkto"
+  },
+  {
+    "tick": 9800,
+    "scene": "unseen.scn",
+    "point": [
+      175,
+      180
+    ],
+    "event": "walkto"
+  },
+  {
+    "tick": 11000,
+    "scene": "unseen.scn",
+    "polygon": 49,
+    "event": "action"
+  },
+  {
+    "tick": 14500,
+    "scene": "closet.scn",
+    "polygon": 7,
+    "event": "action"
+  },
+  {
+    "tick": 16000,
+    "scene": "closet.scn",
+    "polygon": 6,
+    "event": "walkto"
+  },
+  {
+    "tick": 17500,
+    "scene": "unseen.scn",
+    "polygon": 48,
+    "event": "walkto"
+  },
+  {
+    "tick": 20500,
+    "scene": "rinceroo.scn",
+    "polygon": 12,
+    "event": "action"
+  },
+  {
+    "tick": 23000,
+    "scene": "rinceroo.scn",
+    "actor": 8,
+    "event": "walkto"
+  }
+]

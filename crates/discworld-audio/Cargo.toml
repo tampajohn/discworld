@@ -1,0 +1,13 @@
+[package]
+name = "discworld-audio"
+version = "0.1.0"
+edition.workspace = true
+rust-version.workspace = true
+license.workspace = true
+
+[dependencies]
+discworld-core = { path = "../discworld-core" }
+rustysynth = { path = "../../vendor/rustysynth" }
+
+[lints]
+workspace = true

@@ -1,0 +1,234 @@
+[
+  {
+    "tick": 8700,
+    "scene": "rinceroo.scn",
+    "polygon": 6,
+    "event": "action"
+  },
+  {
+    "tick": 9500,
+    "scene": "rinceroo.scn",
+    "polygon": 6,
+    "event": "walkto"
+  },
+  {
+    "tick": 9800,
+    "scene": "unseen.scn",
+    "point": [
+      175,
+      180
+    ],
+    "event": "walkto"
+  },
+  {
+    "tick": 11000,
+    "scene": "unseen.scn",
+    "polygon": 50,
+    "event": "walkto"
+  },
+  {
+    "tick": 15000,
+    "scene": "arch.scn",
+    "polygon": 8,
+    "event": "action"
+  },
+  {
+    "tick": 18500,
+    "scene": "arch.scn",
+    "polygon": 6,
+    "event": "walkto"
+  },
+  {
+    "tick": 21000,
+    "scene": "unseen.scn",
+    "polygon": 49,
+    "event": "action"
+  },
+  {
+    "tick": 24500,
+    "scene": "closet.scn",
+    "polygon": 7,
+    "event": "action"
+  },
+  {
+    "tick": 26000,
+    "scene": "closet.scn",
+    "polygon": 6,
+    "event": "walkto"
+  },
+  {
+    "tick": 27500,
+    "scene": "unseen.scn",
+    "polygon": 48,
+    "event": "walkto"
+  },
+  {
+    "tick": 30500,
+    "scene": "rinceroo.scn",
+    "polygon": 12,
+    "event": "action"
+  },
+  {
+    "tick": 33000,
+    "scene": "rinceroo.scn",
+    "actor": 8,
+    "event": "walkto"
+  },
+  {
+    "tick": 33300,
+    "scene": "rinceroo.scn",
+    "inventory_slot": 0,
+    "event": "walkto"
+  },
+  {
+    "tick": 33500,
+    "scene": "rinceroo.scn",
+    "event": "close_inventory"
+  },
+  {
+    "tick": 33600,
+    "scene": "rinceroo.scn",
+    "polygon": 6,
+    "event": "walkto"
+  },
+  {
+    "tick": 35000,
+    "scene": "unseen.scn",
+    "polygon": 53,
+    "event": "walkto"
+  },
+  {
+    "tick": 39000,
+    "scene": "library.scn",
+    "polygon": 40,
+    "event": "action"
+  },
+  {
+    "tick": 43000,
+    "scene": "library.scn",
+    "polygon": 35,
+    "event": "walkto"
+  },
+  {
+    "tick": 47000,
+    "scene": "unseen.scn",
+    "polygon": 50,
+    "event": "walkto"
+  },
+  {
+    "tick": 50000,
+    "scene": "arch.scn",
+    "polygon": 8,
+    "event": "action"
+  },
+  {
+    "tick": 54000,
+    "scene": "arch.scn",
+    "actor": 7,
+    "event": "walkto"
+  },
+  {
+    "tick": 54200,
+    "scene": "arch.scn",
+    "inventory_slot": 0,
+    "event": "walkto"
+  },
+  {
+    "tick": 54400,
+    "scene": "arch.scn",
+    "event": "close_inventory"
+  },
+  {
+    "tick": 54500,
+    "scene": "arch.scn",
+    "polygon": 6,
+    "event": "walkto"
+  },
+  {
+    "tick": 57000,
+    "scene": "unseen.scn",
+    "polygon": 54,
+    "event": "walkto"
+  },
+  {
+    "tick": 60000,
+    "scene": "unigard.scn",
+    "polygon": 29,
+    "event": "action"
+  },
+  {
+    "tick": 63000,
+    "scene": "unigard.scn",
+    "topic": 2,
+    "event": "topic"
+  },
+  {
+    "tick": 68000,
+    "scene": "unigard.scn",
+    "event": "close_conversation"
+  },
+  {
+    "tick": 68500,
+    "scene": "unigard.scn",
+    "polygon": 21,
+    "event": "walkto"
+  },
+  {
+    "tick": 72000,
+    "scene": "unigard.scn",
+    "polygon": 21,
+    "event": "action"
+  },
+  {
+    "tick": 76000,
+    "scene": "unigard.scn",
+    "polygon": 21,
+    "event": "walkto"
+  },
+  {
+    "tick": 80000,
+    "scene": "ankhmap.scn",
+    "polygon": 86,
+    "event": "walkto"
+  },
+  {
+    "tick": 84000,
+    "scene": "square.scn",
+    "polygon": 26,
+    "event": "action"
+  },
+  {
+    "tick": 88000,
+    "scene": "closeup.scn",
+    "event": "key"
+  },
+  {
+    "tick": 88500,
+    "scene": "square.scn",
+    "actor": 7,
+    "event": "walkto"
+  },
+  {
+    "tick": 88700,
+    "scene": "square.scn",
+    "inventory_slot": 1,
+    "event": "walkto"
+  },
+  {
+    "tick": 88900,
+    "scene": "square.scn",
+    "event": "close_inventory"
+  },
+  {
+    "tick": 89000,
+    "scene": "square.scn",
+    "polygon": 19,
+    "event": "action"
+  },
+  {
+    "tick": 93000,
+    "scene": "square.scn",
+    "topic": 2,
+    "event": "topic"
+  }
+]

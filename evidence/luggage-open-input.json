@@ -1,0 +1,20 @@
+[
+  {
+    "tick": 8700,
+    "scene": "rinceroo.scn",
+    "polygon": 8,
+    "event": "action"
+  },
+  {
+    "tick": 10000,
+    "scene": "rinceroo.scn",
+    "polygon": 7,
+    "event": "action"
+  },
+  {
+    "tick": 11500,
+    "scene": "rinceroo.scn",
+    "polygon": 12,
+    "event": "action"
+  }
+]

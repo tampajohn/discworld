@@ -1,0 +1,11 @@
+[
+  {
+    "tick": 8700,
+    "scene": "rinceroo.scn",
+    "point": [
+      260,
+      188
+    ],
+    "event": "walkto"
+  }
+]

@@ -1,0 +1,165 @@
+# Discworld — a Rust Tinsel runtime
+
+A work-in-progress replacement for the **Tinsel 1** engine that runs the original **Discworld English DOS CD v2** assets and scripts. The goal is the complete game, from opening to credits, on native macOS and a shared browser/WebAssembly engine, ultimately playable on an iPad in landscape with touch controls.
+
+**Currently:** a runnable macOS development host and a reproducible, expanding Act I playthrough. **Not yet:** a complete game, browser player, iPad release, or persistent save/load. This is an independent compatibility project, informed by a pinned ScummVM reference, not an official release or a clean-room implementation.
+
+![Scenes rendered by the Rust runtime](docs/media/runtime-montage.gif)
+
+*Animated montage of actual runtime framebuffer captures, not continuous gameplay footage. Original artwork belongs to its respective rights holders. The source distribution does not include playable game data.*
+
+## Run on macOS
+
+You need:
+
+- Rust/Cargo with edition 2024 support. Development checks currently use Rust 1.95; the workspace declares Rust 1.85 as its minimum, but that minimum has not been independently verified.
+- Your own **English DOS CD v2 Discworld ISO**. Other releases have not been validated.
+- A General MIDI `.sf2` SoundFont for software music synthesis. Development uses TimGM6mb; provide it separately and retain its license. Neither the ISO nor SoundFont is included.
+
+```sh
+git clone https://github.com/tampajohn/discworld.git
+cd discworld
+mkdir -p assets/soundfonts
+```
+
+Place your ISO in the repository root and your SoundFont at `assets/soundfonts/TimGM6mb.sf2`. The supplied launchers expect the ISO filename `Terry Pratchett's Discworld (1995)(Psygnosis).iso`. Double-click **Play Discworld.command**, or pass your own paths directly:
+
+```sh
+cargo run --release -p discworld-native -- \
+  "/path/to/discworld.iso" "/path/to/gm.sf2" --room
+```
+
+`--room` simulates the opening before showing Rincewind's room. Omit it to watch the opening in real time. Add `--mute` to start silently; the SoundFont is still required. Runtime logs from the launchers are retained under `assets/logs/`.
+
+### Watch the development playthrough
+
+Double-click **Watch Discworld.command** to replay the recorded route from Rincewind's room, initially muted. It currently covers part of Act I, including the palace mirror, dragon breath, hair roller, and staff puzzle. It pauses after the recorded route; reaching that point is not evidence that the rest of the game works.
+
+| Replay control | Action |
+| --- | --- |
+| **M** | Toggle sound |
+| **P** | Pause/resume |
+| **F** | Cycle 1×, 4×, and 16× speed |
+| **Esc** | Exit |
+
+Accelerated replay is silent; returning to normal speed restores the selected sound setting. Manual game inputs are disabled during replay to preserve its recorded route. Seek to a different tick by reconstructing the preceding game state:
+
+```sh
+cargo run --release -p discworld-native -- \
+  "/path/to/discworld.iso" "/path/to/gm.sf2" \
+  --replay evidence/dining-staff-input.json --from-tick 340000 --mute
+```
+
+### Play interactively
+
+These are development bindings, not yet the original click/double-click interface.
+
+| Control | Action |
+| --- | --- |
+| Mouse | Position the original game cursor |
+| Left click / **W** | Walk to a point or target; pick up/put down an inventory item |
+| **A** | Action on the pointed actor, object, or inventory item |
+| **L** | Look at the pointed target |
+| **I** | Open pockets |
+| **Backspace** | Close inventory/conversation |
+| Space / click during speech | Advance dialogue/waits |
+| Click conversation icon | Choose a topic |
+| Wheel / Up / Down | Scroll inventory by row |
+| Page Up / Page Down; Home / End | Scroll inventory by page or to its ends |
+| Scrollbar arrows/track | Scroll using the original inventory graphics |
+| **M**, **P**, **Esc** | Mute, pause, exit |
+
+Point at the Luggage and use Action to open its inventory. Inventory actions execute the original item scripts; storage restrictions are game behavior. The renderer uses the game's fonts and graphics. Slider dragging, inventory resizing, hover-label arbitration, original click timing, and touch controls remain unfinished.
+
+## What works, and what remains
+
+| Area | Current evidence / limitation |
+| --- | --- |
+| Game resources | ISO reading, release identification, checked resource/chunk decoding; supplied release has 149 index entries and 1,732 chunk headers |
+| Graphics | Indexed image decoding, animation films, CPU composition, original fonts, scenes, movement and inventory UI; exact palette/translucency and all depth/timing cases remain unverified |
+| Scripts | Original bytecode, library calls, cooperative scheduling, dialogue, inventory and scene transitions exercised by the recorded Act I route; unsupported behavior stops explicitly |
+| Audio | Original samples and XMIDI music through a local software synth; original hardware and native/browser fidelity are not established |
+| Gameplay | Opening, university and city routes, dialogue and several Act I puzzles; no start-to-credits completion yet |
+| State | In-memory scene save/restore for exercised cutaways; durable player save/load is not implemented |
+| macOS | Runnable native window/audio host with interactive and replay modes |
+| Browser/iPad | Portable core compiles for `wasm32-unknown-unknown`; browser presentation, audio, storage, touch input and device testing remain to be built |
+
+The project favors compatibility over skipping unsupported script behavior. A passing replay demonstrates that route, not general equivalence with ScummVM. Replays resolve targets explicitly, so they also do not prove mouse hit testing or touch usability.
+
+## Architecture
+
+| Component | Responsibility |
+| --- | --- |
+| `crates/discworld-core` | Portable resource readers, VM, scheduler, engine state, movement, rendering and UI behavior; no third-party dependencies |
+| `crates/discworld-audio` | Sample/music rendering and SoundFont synthesis |
+| `crates/discworld-native` | macOS development host using minifb and Rodio; keyboard/mouse input and visible replay |
+| `crates/discworld-tools` | ISO/resource audits, diagnostics, frame export and headless interaction replay |
+| `vendor/rustysynth` | RustySynth 1.3.7 with documented safe decoding changes and retained MIT license |
+| `evidence/*-input.json` | Reproducible interaction routes, without embedded game resources |
+
+Project Rust code forbids unsafe code. Native platform dependencies have their own bindings; this is not a claim that the complete dependency tree contains no unsafe code. The core is designed for shared deterministic simulation, but cross-platform equivalence still needs validation.
+
+## Validate and reproduce
+
+```sh
+cargo test --workspace
+cargo clippy --workspace --all-targets -- -D warnings
+rustup target add wasm32-unknown-unknown
+cargo check -p discworld-core --target wasm32-unknown-unknown
+cargo build --release -p discworld-native
+```
+
+Inspect resources without modifying the ISO:
+
+```sh
+cargo run --release -p discworld-tools -- inspect-iso "/path/to/discworld.iso"
+cargo run --release -p discworld-tools -- inspect-resources "/path/to/discworld.iso"
+cargo run --release -p discworld-tools -- audit-images "/path/to/discworld.iso"
+```
+
+Replay a short route headlessly and export the final frame:
+
+```sh
+mkdir -p assets/previews
+cargo run --release -p discworld-tools -- run-headless \
+  "/path/to/discworld.iso" 10000 assets/previews/wardrobe-replay.png \
+  - "/path/to/gm.sf2" 500 evidence/wardrobe-look-input.json
+```
+
+Use a **fresh output filename**: existing PNG/WAV outputs are not overwritten. `-` discards PCM while still synthesizing audio and checking clocks. Headless runs support up to 1,000,000 ticks without WAV capture; WAV capture is capped at 100,000 ticks. Reports go to stdout as JSON and include scene/state/interaction diagnostics. Original game data is needed for these integration runs; unit tests do not require the ISO.
+
+Input traces use strictly increasing, zero-based ticks and expected scene names. For example:
+
+```json
+[{"tick":8700,"scene":"rinceroo.scn","polygon":8,"event":"look"}]
+```
+
+The tools also support actors, world points, inventory cells, conversation topics and explicit window-closing events. Expected scenes and accepted interactions are checked. See the included traces and [runtime evidence](docs/text.md) for examples and limitations. Historical documentation names local report files that are deliberately excluded from this repository; reproduce the corresponding trace to generate reports locally.
+
+## Screenshots
+
+| University | Barber |
+| --- | --- |
+| ![University dining room](docs/media/university.png) | ![Barber scene](docs/media/barber.png) |
+| Palace | Inventory scrolling |
+| ![Palace mirror pickup](docs/media/palace.png) | ![Original inventory graphics](docs/media/inventory.png) |
+
+These are actual 320×200 runtime captures from the supplied release, included to document implementation progress.
+
+## Roadmap and reference material
+
+The full objective remains start-to-credits gameplay, complete interaction and save/load behavior, tested native and browser hosts, and landscape iPad touch play. Upcoming work includes completing the Act I route, implementing missing behavior as later scripts exercise it, reference comparisons, persistent saves, and browser integration. No release date is promised.
+
+- [Goal and milestones](docs/goal.md)
+- [Resource formats](docs/resource-format.md), [script runtime](docs/script-runtime.md), [scheduling](docs/scheduling.md)
+- [Runtime and puzzle evidence](docs/text.md), [controls](docs/control.md), [movement geometry](docs/polygons.md)
+- [Audio](docs/audio-runtime.md), [music](docs/music.md)
+- [Pinned reference setup](docs/reference-build.md)
+
+The behavioral reference is [ScummVM Tinsel at `96b42d42bc8533953bdd701db059cc33c839a9ff`](https://github.com/scummvm/scummvm/tree/96b42d42bc8533953bdd701db059cc33c839a9ff/engines/tinsel). The reference checkout is not included. Historical evidence documents reflect the scope at the time of each investigation; this README summarizes current host capabilities.
+
+## License and assets
+
+Runtime source is **GPL-3.0-or-later**; see [LICENSE](LICENSE) and [NOTICE](NOTICE) for ScummVM attribution and third-party details. This is **not a clean-room implementation**. Vendored RustySynth retains its MIT license and [local change record](vendor/rustysynth/LOCAL_CHANGES.md).
+
+Discworld game data, dialogue, artwork and audio remain proprietary and are not relicensed by this project. The documentary screenshots/GIF show original game artwork; the GPL source license does not grant rights to that artwork. Bring your own game files and SoundFont. ISO images, extracted assets, reference checkouts, generated audio and bulk local reports are excluded from version control.

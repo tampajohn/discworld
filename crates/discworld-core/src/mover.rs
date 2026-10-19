@@ -1,0 +1,2242 @@
+// SPDX-License-Identifier: GPL-3.0-or-later
+//! V1 initial mover placement and standing selection from movers.cpp/polygons.cpp.
+use crate::{
+    graphics::Handle,
+    iso::Error,
+    polygon::{Kind, Polygons},
+    startup::Declarations,
+};
+
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub enum Direction {
+    Left,
+    Right,
+    Forward,
+    Away,
+}
+impl Direction {
+    pub fn from_talk_constant(value: u32, current: Self) -> Result<Self, Error> {
+        match value {
+            0 => Ok(current),
+            1 => Ok(Self::Away),
+            2 => Ok(Self::Forward),
+            3 => Ok(Self::Left),
+            4 => Ok(Self::Right),
+            _ => Err(Error("not a direction constant")),
+        }
+    }
+    pub fn index(self) -> usize {
+        match self {
+            Self::Left => 0,
+            Self::Right => 1,
+            Self::Forward => 2,
+            Self::Away => 3,
+        }
+    }
+}
+#[derive(Debug, Clone, PartialEq, Eq)]
+pub struct Placement {
+    pub actor: i32,
+    pub position: [i32; 2],
+    pub direction: Direction,
+    pub path: Option<usize>,
+    pub node: Option<usize>,
+    pub scale: usize,
+    pub standing: Handle,
+    pub base_walk: Handle,
+    pub z_factor: i32,
+}
+impl Placement {
+    pub fn initial(
+        declarations: &Declarations,
+        polygons: &Polygons,
+        actor: i32,
+        mut position: [i32; 2],
+        film: Handle,
+    ) -> Result<Self, Error> {
+        let actor = if actor == -2 {
+            declarations
+                .lead
+                .as_ref()
+                .ok_or(Error("missing lead actor"))?
+                .id
+        } else {
+            actor
+        };
+        let reels = declarations
+            .movers
+            .get(&actor)
+            .ok_or(Error("actor is not a declared mover"))?;
+        let path = polygons.active.iter().position(|p| {
+            p.enabled
+                && matches!(p.definition.kind, Kind::Path | Kind::NodePath)
+                && p.contains(position)
+        });
+        let mut node = None;
+        if let Some(index) = path {
+            let p = &polygons.active[index].definition;
+            if p.kind == Kind::NodePath {
+                let nearest = crate::nodepath::nearest_node(p, position)?;
+                position = *p
+                    .nodes
+                    .get(nearest)
+                    .ok_or(Error("node path has no nodes"))?;
+                node = Some(nearest);
+            }
+        }
+        let scale_path = path.or_else(|| {
+            polygons
+                .active
+                .iter()
+                .position(|p| p.enabled && matches!(p.definition.kind, Kind::Path | Kind::NodePath))
+        });
+        let (scale, z_factor) = if let Some(index) = scale_path {
+            (
+                polygons.active[index].scale_at(position[1])?,
+                polygons.active[index].definition.z_factor,
+            )
+        } else {
+            (1, 0)
+        };
+        let direction = if film.0 <= 4 {
+            Direction::from_talk_constant(film.0, Direction::Forward)?
+        } else {
+            Direction::Forward
+        };
+        let standing = if film.0 <= 4 {
+            reels[scale - 1][4 + direction.index()]
+        } else {
+            film
+        };
+        let base_walk = reels[0][Direction::Forward.index()];
+        if standing.0 == 0 || base_walk.0 == 0 {
+            return Err(Error("missing mover reel"));
+        }
+        Ok(Self {
+            actor,
+            position,
+            direction,
+            path,
+            node,
+            scale,
+            standing,
+            base_walk,
+            z_factor,
+        })
+    }
+}
+/// Persistent mover object; standing changes only its animation script.
+#[derive(Debug, Clone, PartialEq, Eq)]
+pub struct Mover {
+    /// V1 hLastFilm: last selected reel film, including walking and talking.
+    pub last_film: Handle,
+    pub node_travel: Option<crate::nodepath::Travel>,
+    pub node_walk: Option<NodeWalk>,
+    pub direct_leg: Option<crate::walk::Leg>,
+    pub target_node_line: usize,
+    pub placement: Placement,
+    pub animation: crate::animation::Animation,
+    /// V1 walking phase, independent of the current reel's script counter.
+    pub step_phase: u8,
+    pub walk_serial: u64,
+    pub stop_requested: bool,
+    pub walk_target: Option<[i32; 2]>,
+    pub no_path: bool,
+    pub constrained_walk: bool,
+}
+#[derive(Debug, Clone, PartialEq, Eq)]
+pub struct NodeWalk {
+    difficulty: u8,
+    pub intermediate: [i32; 2],
+    pub destination_path: usize,
+    pub start: [i32; 2],
+    pub cursor: [i32; 2],
+    pub destination: crate::nodepath::Projection,
+    pub leg: crate::walk::Leg,
+}
+impl Mover {
+    fn route_node_leg(
+        polygons: &Polygons,
+        current: usize,
+        position: [i32; 2],
+        walk: &mut NodeWalk,
+        overshoot: bool,
+        footprint: Option<&crate::walk::Footprint>,
+        others: &[crate::walk::Footprint],
+    ) -> Result<crate::nodepath::Steering, Error> {
+        let intermediate = crate::routing::intermediate(
+            polygons,
+            crate::routing::Request {
+                current,
+                position,
+                ultimate: walk.destination.position,
+                overshoot,
+            },
+            footprint,
+            others,
+        )?;
+        walk.intermediate = intermediate.position;
+        let mut leg = crate::walk::Leg {
+            target: intermediate.position,
+            ultimate: walk.destination.position,
+            overshoot,
+            force_minor: false,
+        };
+        let mut from = position;
+        let mut previous_restricted = [false; 2];
+        for _ in 0..65536 {
+            let mut step = crate::walk::constrained_leg(from, leg, polygons, footprint, others)?;
+            if step.position == from && step.reached != [true; 2] {
+                let retry = crate::walk::constrained_leg(
+                    from,
+                    crate::walk::Leg {
+                        force_minor: true,
+                        ..leg
+                    },
+                    polygons,
+                    footprint,
+                    others,
+                )?;
+                if retry.position != from {
+                    step = retry;
+                }
+            }
+            if step.reached == [true; 2] && step.restricted == [false; 2] && !step.stuck {
+                return Ok(crate::nodepath::Steering::Move {
+                    position: step.position,
+                    overshoot: false,
+                });
+            }
+            if step.stuck
+                || step.restricted == [true; 2]
+                || (step.reached == [true, false] && step.restricted == [false, true])
+                || (step.reached == [false, true] && step.restricted == [true, false])
+            {
+                if matches!(
+                    step.reason,
+                    Some(
+                        crate::walk::Restriction::EnteringBlock(_)
+                            | crate::walk::Restriction::EnteringMover(_)
+                    )
+                ) {
+                    let corners = match step.reason {
+                        Some(crate::walk::Restriction::EnteringBlock(index)) => {
+                            polygons.active[index].definition.corners
+                        }
+                        Some(crate::walk::Restriction::EnteringMover(actor)) => {
+                            let footprint = footprint.ok_or(Error("missing moving footprint"))?;
+                            if footprint
+                                .blocker(walk.destination.position, others, false)
+                                .is_some()
+                            {
+                                return Err(Error("unsupported node destination inside mover"));
+                            }
+                            let other = others
+                                .iter()
+                                .find(|m| m.actor == actor)
+                                .ok_or(Error("missing blocking mover"))?;
+                            footprint.obstacle(other)
+                        }
+                        _ => unreachable!(),
+                    };
+                    // SetNextDest chooses from the actual mover position, not
+                    // the simulated probe position where collision was found.
+                    return Ok(crate::nodepath::Steering::Move {
+                        position: crate::routing::blocking_corner(
+                            polygons,
+                            corners,
+                            position,
+                            walk.intermediate,
+                        )?,
+                        overshoot: false,
+                    });
+                }
+                let target = if walk.difficulty == 0 {
+                    walk.difficulty = 1;
+                    crate::routing::center(&polygons.active[intermediate.path])
+                } else {
+                    walk.difficulty = walk.difficulty.saturating_add(1);
+                    crate::routing::corner(
+                        &polygons.active[current],
+                        &polygons.active[intermediate.path],
+                        from,
+                    )?
+                };
+                return Ok(crate::nodepath::Steering::Move {
+                    position: target,
+                    overshoot: false,
+                });
+            }
+            if (previous_restricted[0] && !step.restricted[0])
+                || (previous_restricted[1] && !step.restricted[1])
+            {
+                return Ok(crate::nodepath::Steering::Move {
+                    position: step.position,
+                    overshoot: false,
+                });
+            }
+            if from == step.position {
+                return Err(Error("stationary node intermediate probe"));
+            }
+            previous_restricted = step.restricted;
+            from = step.position;
+            leg.target = step.target;
+        }
+        Err(Error("node intermediate probe budget exhausted"))
+    }
+    fn begin_node_walk(
+        &mut self,
+        resources: &crate::graphics::Resources<'_>,
+        declarations: &Declarations,
+        polygons: &Polygons,
+        target: [i32; 2],
+        cursor: [i32; 2],
+    ) -> Result<u64, Error> {
+        let path = self.placement.path.ok_or(Error("node mover has no path"))?;
+        let p = &polygons.active[path];
+        let destination_path = polygons.active.iter().position(|p| {
+            p.enabled
+                && matches!(p.definition.kind, Kind::Path | Kind::NodePath)
+                && p.contains(target)
+        });
+        let destination_path =
+            destination_path.ok_or(Error("node walk destination has no path"))?;
+        let target_path = &polygons.active[destination_path];
+        if self.no_path || polygons.at(target, Kind::Block).is_some() {
+            return Err(Error("invalid resolved node destination"));
+        }
+        let mut next = self.clone();
+        next.stop_requested = false;
+        next.walk_serial = next
+            .walk_serial
+            .checked_add(1)
+            .ok_or(Error("walk serial overflow"))?;
+        let from = next.placement.position;
+        if (i64::from(from[0]) - i64::from(target[0])).abs() < 4
+            && (i64::from(from[1]) - i64::from(target[1])).abs() < 2
+        {
+            let direction =
+                crate::walk::direction(from, cursor, next.placement.direction, p.definition.reel)?;
+            next.select_walk_reel(
+                resources,
+                declarations,
+                direction,
+                next.placement.scale,
+                true,
+            )?;
+            next.finish_walk(resources, declarations)?;
+        } else {
+            let destination = if target_path.definition.kind == Kind::NodePath {
+                crate::nodepath::project(&target_path.definition, target)?
+            } else {
+                // Ordinary destinations have no target segment. The line is
+                // consulted only while following the ultimate node path.
+                crate::nodepath::Projection {
+                    position: target,
+                    line: 0,
+                }
+            };
+            if target_path.definition.kind == Kind::NodePath {
+                next.target_node_line = destination.line;
+            }
+            if !target_path.contains(destination.position) {
+                return Err(Error("projected node destination outside path"));
+            }
+            let mut travel = if p.definition.kind == Kind::NodePath {
+                // A node polygon can be crossed without following its nodes
+                // (V1 hFnpath == NOPOLY). Retarget that state through the
+                // ordinary router instead of requiring a traversal record.
+                next.node_travel.map(|mut travel| {
+                    travel.overshoot = false;
+                    travel
+                })
+            } else {
+                None
+            };
+            let mut walk = NodeWalk {
+                difficulty: 0,
+                intermediate: crate::routing::intermediate(
+                    polygons,
+                    crate::routing::Request {
+                        current: path,
+                        position: from,
+                        ultimate: destination.position,
+                        overshoot: false,
+                    },
+                    None,
+                    &[],
+                )?
+                .position,
+                destination_path,
+                start: from,
+                cursor,
+                destination,
+                leg: crate::walk::Leg {
+                    target: destination.position,
+                    ultimate: destination.position,
+                    overshoot: false,
+                    force_minor: false,
+                },
+            };
+            let steering = if let Some(travel) = &mut travel {
+                if destination_path == path {
+                    travel.start_within(&p.definition, destination)?
+                } else {
+                    let end = crate::routing::node_exit(polygons, path, destination_path)?;
+                    travel
+                        .start_leaving(&p.definition, from, end)?
+                        .ok_or(Error("unsupported preserved node exit leg"))?
+                }
+            } else {
+                let footprint = next.footprint(resources)?;
+                Self::route_node_leg(
+                    polygons,
+                    path,
+                    from,
+                    &mut walk,
+                    false,
+                    Some(&footprint),
+                    &[],
+                )?
+            };
+            let crate::nodepath::Steering::Move {
+                position,
+                overshoot,
+            } = steering
+            else {
+                return Err(Error("unexpected initial node routing request"));
+            };
+            let direction = crate::walk::direction(
+                from,
+                position,
+                next.placement.direction,
+                p.definition.reel,
+            )?;
+            next.select_walk_reel(
+                resources,
+                declarations,
+                direction,
+                p.scale_at(from[1])?,
+                true,
+            )?;
+            next.node_travel = travel;
+            next.walk_target = Some(destination.position);
+            walk.leg.target = position;
+            walk.leg.overshoot = overshoot;
+            next.node_walk = Some(walk);
+            next.constrained_walk = true;
+        }
+        *self = next;
+        Ok(self.walk_serial)
+    }
+    fn advance_node_walk(
+        &mut self,
+        resources: &crate::graphics::Resources<'_>,
+        declarations: &Declarations,
+        polygons: &Polygons,
+        others: &[crate::walk::Footprint],
+    ) -> Result<(), Error> {
+        let mut next = self.clone();
+        let mut walk = next.node_walk.clone().ok_or(Error("missing node walk"))?;
+        let mut travel = next.node_travel;
+        let footprint = next.footprint(resources)?;
+        let path = next.placement.path.ok_or(Error("node mover has no path"))?;
+        let p = &polygons.active[path];
+        let from = next.placement.position;
+        // V1 retries a stationary attempt with the minor-axis fallback using
+        // the original target, before invoking NotMoving.
+        let mut step =
+            crate::walk::constrained_leg(from, walk.leg, polygons, Some(&footprint), others)?;
+        if step.position == from {
+            step = crate::walk::constrained_leg(
+                from,
+                crate::walk::Leg {
+                    force_minor: true,
+                    ..walk.leg
+                },
+                polygons,
+                Some(&footprint),
+                others,
+            )?;
+        }
+        if step.position == from {
+            if (i64::from(from[0]) - i64::from(walk.destination.position[0])).abs() < 4
+                && (i64::from(from[1]) - i64::from(walk.destination.position[1])).abs() < 2
+            {
+                if from == walk.start {
+                    let direction = crate::walk::direction(
+                        from,
+                        walk.cursor,
+                        next.placement.direction,
+                        p.definition.reel,
+                    )?;
+                    next.select_walk_reel(
+                        resources,
+                        declarations,
+                        direction,
+                        next.placement.scale,
+                        false,
+                    )?;
+                }
+                next.finish_walk(resources, declarations)?;
+            } else {
+                let steering = if let Some(travel) = &mut travel {
+                    travel.advance(
+                        &p.definition,
+                        from,
+                        walk.destination.position,
+                        (path == walk.destination_path).then_some(walk.destination.line),
+                    )?
+                } else {
+                    crate::nodepath::Steering::Route
+                };
+                let steering = if steering == crate::nodepath::Steering::Route {
+                    let overshoot = travel.map_or(walk.leg.overshoot, |t| t.overshoot);
+                    Self::route_node_leg(
+                        polygons,
+                        path,
+                        from,
+                        &mut walk,
+                        overshoot,
+                        Some(&footprint),
+                        others,
+                    )?
+                } else {
+                    steering
+                };
+                let crate::nodepath::Steering::Move {
+                    position,
+                    overshoot,
+                } = steering
+                else {
+                    return Err(Error("unsupported node walk leaving current path"));
+                };
+                walk.leg.target = position;
+                walk.leg.overshoot = overshoot;
+                let direction = crate::walk::direction(
+                    from,
+                    position,
+                    next.placement.direction,
+                    p.definition.reel,
+                )?;
+                next.select_walk_reel(
+                    resources,
+                    declarations,
+                    direction,
+                    p.scale_at(from[1])?,
+                    false,
+                )?;
+                next.node_travel = travel;
+                next.node_walk = Some(walk);
+            }
+        } else {
+            if step.stuck {
+                return Err(Error("unsupported node walk collision response"));
+            }
+            let entered = if p.contains(step.position) {
+                path
+            } else {
+                crate::routing::path_at(polygons, step.position).unwrap_or(path)
+            };
+            let p = &polygons.active[entered];
+            next.select_walk_reel(
+                resources,
+                declarations,
+                next.placement.direction,
+                p.scale_at(step.position[1])?,
+                false,
+            )?;
+            next.animate_move(
+                resources,
+                declarations,
+                step.position,
+                p.definition.z_factor,
+            )?;
+            walk.leg.target = step.target;
+            if entered != path && p.definition.kind == Kind::Path {
+                next.node_travel = None;
+                next.placement.node = None;
+                next.placement.path = Some(entered);
+                if !p.definition.corners.contains(&walk.intermediate) {
+                    let footprint = next.footprint(resources)?;
+                    let overshoot = walk.leg.overshoot;
+                    let steering = Self::route_node_leg(
+                        polygons,
+                        entered,
+                        step.position,
+                        &mut walk,
+                        overshoot,
+                        Some(&footprint),
+                        others,
+                    )?;
+                    let crate::nodepath::Steering::Move {
+                        position,
+                        overshoot,
+                    } = steering
+                    else {
+                        return Err(Error("unexpected ordinary path routing result"));
+                    };
+                    walk.leg.target = position;
+                    walk.leg.overshoot = overshoot;
+                    let direction = crate::walk::direction(
+                        step.position,
+                        position,
+                        next.placement.direction,
+                        p.definition.reel,
+                    )?;
+                    next.select_walk_reel(
+                        resources,
+                        declarations,
+                        direction,
+                        p.scale_at(step.position[1])?,
+                        false,
+                    )?;
+                }
+                next.node_walk = Some(walk);
+                *self = next;
+                return Ok(());
+            }
+            if entered != path {
+                let entry = crate::routing::enter_node(
+                    polygons,
+                    entered,
+                    step.position,
+                    walk.destination_path,
+                    walk.destination,
+                )?;
+                let mut entered_travel = entry.travel;
+                next.placement.path = Some(entered);
+                next.placement.node = entered_travel.map(|t| t.line);
+                let steering = match entry.action {
+                    crate::routing::EntryAction::Bypass => {
+                        let footprint = next.footprint(resources)?;
+                        let overshoot = walk.leg.overshoot;
+                        Self::route_node_leg(
+                            polygons,
+                            entered,
+                            step.position,
+                            &mut walk,
+                            overshoot,
+                            Some(&footprint),
+                            others,
+                        )?
+                    }
+                    crate::routing::EntryAction::Move(position) => {
+                        crate::nodepath::Steering::Move {
+                            position,
+                            overshoot: true,
+                        }
+                    }
+                    crate::routing::EntryAction::Next => entered_travel
+                        .as_mut()
+                        .ok_or(Error("missing entering node state"))?
+                        .advance(
+                            &p.definition,
+                            step.position,
+                            walk.destination.position,
+                            (entered == walk.destination_path).then_some(walk.destination.line),
+                        )?,
+                };
+                let crate::nodepath::Steering::Move {
+                    position,
+                    overshoot,
+                } = steering
+                else {
+                    return Err(Error("unsupported immediate node exit"));
+                };
+                walk.leg.target = position;
+                walk.leg.overshoot = overshoot;
+                let direction = crate::walk::direction(
+                    step.position,
+                    position,
+                    next.placement.direction,
+                    p.definition.reel,
+                )?;
+                next.select_walk_reel(
+                    resources,
+                    declarations,
+                    direction,
+                    p.scale_at(step.position[1])?,
+                    false,
+                )?;
+                next.node_travel = entered_travel;
+                next.placement.node = entered_travel.map(|t| t.line);
+                next.placement.path = Some(entered);
+            }
+            next.node_walk = Some(walk);
+        }
+        *self = next;
+        Ok(())
+    }
+    /// Stationary V1 talk push: direction constants select the current scale's
+    /// talk bank without changing the actor's standing direction.
+    pub fn push_talk(
+        &mut self,
+        resources: &crate::graphics::Resources<'_>,
+        declarations: &Declarations,
+        film: Handle,
+    ) -> Result<Handle, Error> {
+        if self.walk_target.is_some() {
+            return Err(Error("unsupported talking while walking"));
+        }
+        let selected = if film.0 <= 4 {
+            let direction = Direction::from_talk_constant(film.0, self.placement.direction)?;
+            declarations
+                .movers
+                .get(&self.placement.actor)
+                .ok_or(Error("missing talk mover declaration"))?[self.placement.scale - 1]
+                [8 + direction.index()]
+        } else {
+            film
+        };
+        if selected.0 == 0 {
+            return Err(Error("missing mover talk reel"));
+        }
+        let mut next = self.clone();
+        let saved = next.placement.standing;
+        next.placement.standing = selected;
+        next.apply_standing(resources)?;
+        next.placement.standing = saved;
+        *self = next;
+        Ok(saved)
+    }
+    pub fn pop_talk(
+        &mut self,
+        resources: &crate::graphics::Resources<'_>,
+        declarations: &Declarations,
+        saved: Handle,
+    ) -> Result<(), Error> {
+        let mut next = self.clone();
+        next.finish_walk(resources, declarations)?;
+        next.placement.standing = saved;
+        next.apply_standing(resources)?;
+        *self = next;
+        Ok(())
+    }
+    pub fn new(
+        resources: &crate::graphics::Resources<'_>,
+        placement: Placement,
+    ) -> Result<Self, Error> {
+        let base = crate::film::Film::read(resources, placement.base_walk)?;
+        let reel = base.reels.first().ok_or(Error("empty mover base film"))?;
+        let animation = crate::animation::Animation::new(resources, reel, 24 / base.rate as u32)?;
+        let no_path = placement.path.is_none();
+        let mut mover = Self {
+            last_film: Handle(0),
+            node_travel: placement.node.map(|line| crate::nodepath::Travel {
+                line,
+                status: crate::nodepath::TravelStatus::GoingUp,
+                overshoot: false,
+            }),
+            node_walk: None,
+            direct_leg: None,
+            target_node_line: 0,
+            placement,
+            animation,
+            step_phase: 0,
+            walk_serial: 0,
+            stop_requested: false,
+            walk_target: None,
+            no_path,
+            constrained_walk: false,
+        };
+        mover.apply_standing(resources)?;
+        Ok(mover)
+    }
+    pub fn footprint(
+        &self,
+        resources: &crate::graphics::Resources<'_>,
+    ) -> Result<crate::walk::Footprint, Error> {
+        let [left, _, right, _] = self
+            .animation
+            .bounds(resources)?
+            .ok_or(Error("mover collision shape is empty"))?;
+        Ok(crate::walk::Footprint {
+            actor: self.placement.actor,
+            position: self.placement.position,
+            left,
+            right,
+            node_path: self.placement.node.is_some(),
+        })
+    }
+    fn finish_walk(
+        &mut self,
+        resources: &crate::graphics::Resources<'_>,
+        declarations: &Declarations,
+    ) -> Result<(), Error> {
+        self.placement.standing = declarations
+            .movers
+            .get(&self.placement.actor)
+            .ok_or(Error("actor is not a declared mover"))?[self.placement.scale - 1]
+            [4 + self.placement.direction.index()];
+        self.apply_standing(resources)?;
+        self.direct_leg = None;
+        self.walk_target = None;
+        self.node_walk = None;
+        Ok(())
+    }
+    /// Begin the normal-reel, ignore-static-path walking mode used by SWALK.
+    pub fn begin_direct_walk(
+        &mut self,
+        resources: &crate::graphics::Resources<'_>,
+        declarations: &Declarations,
+        polygons: &Polygons,
+        target: [i32; 2],
+    ) -> Result<u64, Error> {
+        let mut next = self.clone();
+        let path = next
+            .placement
+            .path
+            .ok_or(Error("walking mover has no current path"))?;
+        let p = &polygons.active[path];
+        if target.contains(&-1) {
+            return Err(Error("unsupported direct walk disabled axis"));
+        }
+        next.stop_requested = false;
+        next.walk_serial = next
+            .walk_serial
+            .checked_add(1)
+            .ok_or(Error("walk serial overflow"))?;
+        next.walk_target = Some(target);
+        next.constrained_walk = false;
+        next.direct_leg = None;
+        next.node_walk = None;
+        let from = next.placement.position;
+        let facing =
+            crate::walk::direction(from, target, next.placement.direction, p.definition.reel)?;
+        next.select_walk_reel(resources, declarations, facing, p.scale_at(from[1])?, true)?;
+        if (i64::from(from[0]) - i64::from(target[0])).abs() < 4
+            && (i64::from(from[1]) - i64::from(target[1])).abs() < 2
+        {
+            // The no-movement cursor-facing rule still needs the caller's cursor.
+            return Err(Error("unsupported direct walk without displacement"));
+        }
+        *self = next;
+        Ok(self.walk_serial)
+    }
+    /// Normal path-bound walking, currently for unobstructed same/adjacent
+    /// ordinary paths. Rejects routes requiring waypoint or corner selection.
+    pub fn begin_path_walk(
+        &mut self,
+        resources: &crate::graphics::Resources<'_>,
+        declarations: &Declarations,
+        polygons: &Polygons,
+        target: [i32; 2],
+    ) -> Result<u64, Error> {
+        let current = self
+            .placement
+            .path
+            .ok_or(Error("walking mover has no path"))?;
+        if polygons.at(target, Kind::Path).is_none()
+            && polygons.at(target, Kind::NodePath).is_some()
+        {
+            return Err(Error("unsupported walking node path destination"));
+        }
+        let destination = polygons.at(target, Kind::Path).ok_or(Error(
+            "unsupported walking destination outside ordinary path",
+        ))?;
+        if self.no_path || polygons.at(target, Kind::Block).is_some() {
+            return Err(Error("unsupported walking destination adjustment"));
+        }
+        if current != destination && !polygons.active[current].adjacent.contains(&destination) {
+            return Err(Error("unsupported walking route waypoints"));
+        }
+        let mut position = self.placement.position;
+        let mut arrived = false;
+        for _ in 0..65536 {
+            let step = crate::walk::retry_step(position, target, polygons, None, &[]);
+            if step.stuck || (step.position == position && position != target) {
+                return Err(Error("unsupported walking route detour"));
+            }
+            if step.reached == [true; 2] {
+                arrived = true;
+                break;
+            }
+            position = step.position;
+        }
+        if !arrived {
+            return Err(Error("walking route probe budget exhausted"));
+        }
+        let serial = self.begin_direct_walk(resources, declarations, polygons, target)?;
+        self.constrained_walk = true;
+        Ok(serial)
+    }
+    /// Normal WALK's short-distance completion keeps position and faces the
+    /// cursor. Callers supply world coordinates, not screen coordinates.
+    pub fn begin_walk(
+        &mut self,
+        resources: &crate::graphics::Resources<'_>,
+        declarations: &Declarations,
+        polygons: &Polygons,
+        target: [i32; 2],
+        cursor: [i32; 2],
+    ) -> Result<u64, Error> {
+        if self
+            .placement
+            .path
+            .is_some_and(|i| polygons.active[i].definition.kind == Kind::NodePath)
+        {
+            return self.begin_node_walk(resources, declarations, polygons, target, cursor);
+        }
+        if crate::routing::path_at(polygons, target).is_some_and(|destination| {
+            polygons.active[destination].definition.kind == Kind::NodePath
+                || self.placement.path.is_some_and(|current| {
+                    current != destination
+                        && !polygons.active[current].adjacent.contains(&destination)
+                })
+        }) {
+            return self.begin_node_walk(resources, declarations, polygons, target, cursor);
+        }
+        let from = self.placement.position;
+        if (i64::from(from[0]) - i64::from(target[0])).abs() >= 4
+            || (i64::from(from[1]) - i64::from(target[1])).abs() >= 2
+        {
+            return self.begin_path_walk(resources, declarations, polygons, target);
+        }
+        let path = self
+            .placement
+            .path
+            .ok_or(Error("walking mover has no path"))?;
+        if self.no_path
+            || polygons.at(target, Kind::Path).is_none()
+            || polygons.at(target, Kind::Block).is_some()
+        {
+            return Err(Error("unsupported walking destination adjustment"));
+        }
+        let p = polygons
+            .active
+            .get(path)
+            .ok_or(Error("invalid mover path"))?;
+        if p.definition.kind == Kind::NodePath {
+            return Err(Error("unsupported walking node path"));
+        }
+        let mut next = self.clone();
+        let direction =
+            crate::walk::direction(from, cursor, next.placement.direction, p.definition.reel)?;
+        next.stop_requested = false;
+        next.walk_serial = next
+            .walk_serial
+            .checked_add(1)
+            .ok_or(Error("walk serial overflow"))?;
+        next.select_walk_reel(
+            resources,
+            declarations,
+            direction,
+            next.placement.scale,
+            true,
+        )?;
+        next.finish_walk(resources, declarations)?;
+        next.constrained_walk = true;
+        *self = next;
+        Ok(self.walk_serial)
+    }
+
+    pub fn adopt_tag_pose(
+        &mut self,
+        resources: &crate::graphics::Resources<'_>,
+        declarations: &Declarations,
+        film: Handle,
+    ) -> Result<(), Error> {
+        if film.0 == 0 {
+            return Ok(());
+        }
+        let mut next = self.clone();
+        if film.0 <= 4 {
+            next.placement.direction =
+                Direction::from_talk_constant(film.0, next.placement.direction)?;
+            next.finish_walk(resources, declarations)?;
+        } else if declarations
+            .lead
+            .as_ref()
+            .is_some_and(|lead| lead.id == next.placement.actor)
+        {
+            next.placement.standing = film;
+            next.apply_standing(resources)?;
+        } else {
+            next.finish_walk(resources, declarations)?;
+        }
+        *self = next;
+        Ok(())
+    }
+    pub fn advance_direct_walk(
+        &mut self,
+        resources: &crate::graphics::Resources<'_>,
+        declarations: &Declarations,
+        polygons: &Polygons,
+        others: &[crate::walk::Footprint],
+    ) -> Result<(), Error> {
+        if self.walk_target.is_some() && self.stop_requested {
+            let mut next = self.clone();
+            next.finish_walk(resources, declarations)?;
+            next.stop_requested = false;
+            next.walk_serial = next
+                .walk_serial
+                .checked_add(1)
+                .ok_or(Error("walk serial overflow"))?;
+            *self = next;
+            return Ok(());
+        }
+        if self.node_walk.is_some() {
+            return self.advance_node_walk(resources, declarations, polygons, others);
+        }
+        let Some(target) = self.walk_target else {
+            return Ok(());
+        };
+        let mut next = self.clone();
+        let from = next.placement.position;
+        if from == target {
+            next.finish_walk(resources, declarations)?;
+        } else {
+            let position = if next.constrained_walk {
+                let footprint = next.footprint(resources)?;
+                let leg_target = next.direct_leg.map_or(target, |leg| leg.target);
+                if from == leg_target && leg_target != target {
+                    next.direct_leg = None;
+                    let path = next
+                        .placement
+                        .path
+                        .ok_or(Error("walking mover has no path"))?;
+                    let direction = crate::walk::direction(
+                        from,
+                        target,
+                        next.placement.direction,
+                        polygons.active[path].definition.reel,
+                    )?;
+                    next.select_walk_reel(
+                        resources,
+                        declarations,
+                        direction,
+                        next.placement.scale,
+                        false,
+                    )?;
+                    *self = next;
+                    return Ok(());
+                }
+                let step =
+                    crate::walk::retry_step(from, leg_target, polygons, Some(&footprint), others);
+                if step.stuck {
+                    let corners = match step.reason {
+                        Some(crate::walk::Restriction::EnteringMover(actor)) => {
+                            let other = others
+                                .iter()
+                                .find(|m| m.actor == actor)
+                                .ok_or(Error("missing blocking mover"))?;
+                            footprint.obstacle(other)
+                        }
+                        Some(crate::walk::Restriction::EnteringBlock(index)) => {
+                            polygons.active[index].definition.corners
+                        }
+                        _ => return Err(Error("unsupported path-walk collision response")),
+                    };
+                    let corner = crate::routing::blocking_corner(polygons, corners, from, target)?;
+                    if corner == from {
+                        return Err(Error("no reachable obstacle corner"));
+                    }
+                    next.direct_leg = Some(crate::walk::Leg {
+                        target: corner,
+                        ultimate: target,
+                        overshoot: false,
+                        force_minor: false,
+                    });
+                    let path = next
+                        .placement
+                        .path
+                        .ok_or(Error("walking mover has no path"))?;
+                    let direction = crate::walk::direction(
+                        from,
+                        corner,
+                        next.placement.direction,
+                        polygons.active[path].definition.reel,
+                    )?;
+                    next.select_walk_reel(
+                        resources,
+                        declarations,
+                        direction,
+                        next.placement.scale,
+                        false,
+                    )?;
+                    *self = next;
+                    return Ok(());
+                }
+                step.position
+            } else {
+                let leg = next.direct_leg.unwrap_or(crate::walk::Leg {
+                    target,
+                    ultimate: target,
+                    overshoot: false,
+                    force_minor: false,
+                });
+                let mut step = leg.attempt(from)?;
+                if step.position == from {
+                    step = crate::walk::Leg {
+                        force_minor: true,
+                        ..leg
+                    }
+                    .attempt(from)?;
+                }
+                if step.position == from {
+                    // NotMoving -> SetNextDest: ignore-path movement resumes
+                    // the ultimate target before consulting node traversal.
+                    next.direct_leg = None;
+                    let path = next
+                        .placement
+                        .path
+                        .ok_or(Error("direct mover has no path"))?;
+                    if (i64::from(from[0]) - i64::from(target[0])).abs() < 4
+                        && (i64::from(from[1]) - i64::from(target[1])).abs() < 2
+                    {
+                        next.finish_walk(resources, declarations)?;
+                    } else {
+                        let direction = crate::walk::direction(
+                            from,
+                            target,
+                            next.placement.direction,
+                            polygons.active[path].definition.reel,
+                        )?;
+                        next.select_walk_reel(
+                            resources,
+                            declarations,
+                            direction,
+                            next.placement.scale,
+                            false,
+                        )?;
+                    }
+                    *self = next;
+                    return Ok(());
+                }
+                next.direct_leg = Some(crate::walk::Leg {
+                    target: step.target,
+                    ..leg
+                });
+                step.position
+            };
+            let current = next
+                .placement
+                .path
+                .ok_or(Error("walking mover has no current path"))?;
+            let path = if polygons.active[current].contains(position) {
+                current
+            } else {
+                polygons
+                    .active
+                    .iter()
+                    .position(|p| {
+                        p.enabled
+                            && matches!(p.definition.kind, Kind::Path | Kind::NodePath)
+                            && p.contains(position)
+                    })
+                    .unwrap_or(current)
+            };
+            let p = &polygons.active[path];
+            if next.no_path && !p.contains(position) {
+                next.animate_move(resources, declarations, position, p.definition.z_factor)?;
+                *self = next;
+                return Ok(());
+            }
+            next.no_path = false;
+            if p.definition.kind == Kind::NodePath && next.constrained_walk {
+                return Err(Error("unsupported path walk entering node path"));
+            }
+            if path != current && p.definition.kind == Kind::Path {
+                next.node_travel = None;
+                next.placement.node = None;
+            }
+            next.select_walk_reel(
+                resources,
+                declarations,
+                next.placement.direction,
+                p.scale_at(position[1])?,
+                false,
+            )?;
+            let footprint = next.footprint(resources)?;
+            if let Some(other) = footprint.blocker(position, others, false) {
+                if footprint.blocker(target, others, false).is_some() {
+                    next.finish_walk(resources, declarations)?;
+                    *self = next;
+                    return Ok(());
+                }
+                if footprint.blocker(from, others, false).is_none() {
+                    let corner = crate::routing::blocking_corner(
+                        polygons,
+                        footprint.obstacle(other),
+                        from,
+                        target,
+                    )?;
+                    next.direct_leg = Some(crate::walk::Leg {
+                        target: corner,
+                        ultimate: target,
+                        overshoot: next.direct_leg.is_some_and(|leg| leg.overshoot),
+                        force_minor: false,
+                    });
+                    let current_path = &polygons.active[current];
+                    let direction = crate::walk::direction(
+                        from,
+                        corner,
+                        next.placement.direction,
+                        current_path.definition.reel,
+                    )?;
+                    next.select_walk_reel(
+                        resources,
+                        declarations,
+                        direction,
+                        current_path.scale_at(from[1])?,
+                        false,
+                    )?;
+                    *self = next;
+                    return Ok(());
+                }
+            }
+            next.animate_move(resources, declarations, position, p.definition.z_factor)?;
+            next.placement.path = Some(path);
+            if path != current && p.definition.kind == Kind::NodePath {
+                let entry = crate::routing::enter_node_direct(
+                    polygons,
+                    path,
+                    position,
+                    crate::routing::path_at(polygons, target),
+                    crate::nodepath::Projection {
+                        position: target,
+                        line: next.target_node_line,
+                    },
+                )?;
+                next.node_travel = entry.travel;
+                next.placement.node = entry.travel.map(|travel| travel.line);
+                let (leg_target, overshoot) = match entry.action {
+                    crate::routing::EntryAction::Move(point) => (point, true),
+                    crate::routing::EntryAction::Bypass | crate::routing::EntryAction::Next => {
+                        (target, false)
+                    }
+                };
+                next.direct_leg = Some(crate::walk::Leg {
+                    target: leg_target,
+                    ultimate: target,
+                    overshoot,
+                    force_minor: false,
+                });
+                let direction = crate::walk::direction(
+                    position,
+                    leg_target,
+                    next.placement.direction,
+                    p.definition.reel,
+                )?;
+                next.select_walk_reel(
+                    resources,
+                    declarations,
+                    direction,
+                    next.placement.scale,
+                    false,
+                )?;
+            }
+        }
+        *self = next;
+        Ok(())
+    }
+    /// Select a normal walking reel (including an available scale transition).
+    /// Actor PLAY ownership and explicit special walking reels are handled by
+    /// the caller. This changes the script, not the persistent mover object.
+    pub fn select_walk_reel(
+        &mut self,
+        resources: &crate::graphics::Resources<'_>,
+        declarations: &Declarations,
+        direction: Direction,
+        scale: usize,
+        force: bool,
+    ) -> Result<(), Error> {
+        if !(1..=10).contains(&scale) || self.step_phase >= 6 {
+            return Err(Error("invalid mover walking scale or phase"));
+        }
+        if !force && self.placement.scale == scale && self.placement.direction == direction {
+            return Ok(());
+        }
+        let old_scale = self.placement.scale;
+        let transition = if old_scale != scale && old_scale <= 5 && scale <= 5 {
+            declarations
+                .scaling
+                .iter()
+                .find(|entry| {
+                    entry.actor == self.placement.actor
+                        && entry.scale == old_scale as i32
+                        && entry.direction == i32::from(old_scale > scale)
+                })
+                .map(|entry| entry.reels[direction.index()])
+                .filter(|h| h.0 != 0)
+        } else {
+            None
+        };
+        let handle = match transition {
+            Some(handle) => handle,
+            None => declarations
+                .movers
+                .get(&self.placement.actor)
+                .ok_or(Error("actor is not a declared mover"))?[scale - 1][direction.index()],
+        };
+        if handle.0 == 0 {
+            return Err(Error("missing walking reel"));
+        }
+        let film = crate::film::Film::read(resources, handle)?;
+        let reel = film.reels.first().ok_or(Error("empty walking film"))?;
+        let mut next = self.clone();
+        next.animation.set_script(reel.script, 1)?;
+        next.animation
+            .skip_frames(resources, i32::from(next.step_phase))?;
+        next.placement.scale = scale;
+        next.placement.direction = direction;
+        next.last_film = handle;
+        *self = next;
+        Ok(())
+    }
+
+    /// Animate one accepted displacement. Collision/path decisions precede this
+    /// operation; an ended scale-transition reel reverts to normal walking.
+    pub fn animate_move(
+        &mut self,
+        resources: &crate::graphics::Resources<'_>,
+        declarations: &Declarations,
+        position: [i32; 2],
+        z_factor: i32,
+    ) -> Result<(), Error> {
+        let mut next = self.clone();
+        next.placement.position = position;
+        next.placement.z_factor = z_factor;
+        next.animation.object.x = position[0];
+        next.animation.object.y = position[1];
+        let factor = i64::from(z_factor) - i64::from(z_factor != 0);
+        next.animation.object.z = i32::try_from(i64::from(position[1]) + (factor << 10))
+            .map_err(|_| Error("mover depth overflow"))?;
+        if next.animation.tick(resources)? == crate::animation::Tick::Finished {
+            next.step_phase = 0;
+            next.select_walk_reel(
+                resources,
+                declarations,
+                next.placement.direction,
+                next.placement.scale,
+                true,
+            )?;
+        }
+        next.step_phase = (next.step_phase + 1) % 6;
+        *self = next;
+        Ok(())
+    }
+    fn apply_standing(&mut self, resources: &crate::graphics::Resources<'_>) -> Result<(), Error> {
+        let film = crate::film::Film::read(resources, self.placement.standing)?;
+        let reel = film.reels.first().ok_or(Error("empty standing film"))?;
+        self.animation.object.x = self.placement.position[0];
+        self.animation.object.y = self.placement.position[1];
+        let factor = i64::from(self.placement.z_factor) - i64::from(self.placement.z_factor != 0);
+        self.animation.object.z =
+            i32::try_from(i64::from(self.placement.position[1]) + (factor << 10))
+                .map_err(|_| Error("mover depth overflow"))?;
+        self.animation
+            .set_script(reel.script, 24 / film.rate as u32)?;
+        self.step_phase = 0;
+        self.animation.tick(resources)?;
+        self.last_film = self.placement.standing;
+        Ok(())
+    }
+    pub fn stand(
+        &mut self,
+        resources: &crate::graphics::Resources<'_>,
+        declarations: &Declarations,
+        polygons: &Polygons,
+        position: [i32; 2],
+        film: Handle,
+    ) -> Result<(), Error> {
+        if film.0 == 0 && (position[0] == -1 || position[1] == -1) {
+            return Ok(());
+        }
+        let mut next = self.clone();
+        let position = if position[0] == -1 || position[1] == -1 {
+            self.placement.position
+        } else {
+            position
+        };
+        let direction_constant = match self.placement.direction {
+            Direction::Left => 3,
+            Direction::Right => 4,
+            Direction::Forward => 2,
+            Direction::Away => 1,
+        };
+        let effective_film = if film.0 == 0 {
+            Handle(direction_constant)
+        } else {
+            film
+        };
+        next.placement = Placement::initial(
+            declarations,
+            polygons,
+            self.placement.actor,
+            position,
+            effective_film,
+        )?;
+        if film.0 > 4 {
+            next.placement.direction = self.placement.direction;
+        }
+        if next.placement.path.is_none() {
+            next.no_path = true;
+            next.placement.path = self.placement.path;
+            next.placement.z_factor = self.placement.z_factor;
+            next.placement.scale = self.placement.scale;
+            if film.0 <= 4 {
+                next.placement.standing = declarations.movers[&self.placement.actor]
+                    [next.placement.scale - 1][4 + next.placement.direction.index()];
+            }
+        }
+        next.node_travel = next.placement.node.map(|line| crate::nodepath::Travel {
+            line,
+            status: crate::nodepath::TravelStatus::GoingUp,
+            overshoot: false,
+        });
+        next.node_walk = None;
+        next.walk_target = None;
+        next.apply_standing(resources)?;
+        *self = next;
+        Ok(())
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use crate::startup::Lead;
+    #[test]
+    fn routed_leg_handles_minor_axis_retry_and_restriction_release() {
+        let polygons = Polygons::new(
+            vec![crate::polygon::Polygon {
+                kind: Kind::Path,
+                corners: [[60, 194], [60, 177], [196, 177], [300, 194]],
+                tag_position: [0; 2],
+                tag_text: Handle(0),
+                node_position: [0; 2],
+                film: Handle(0),
+                refer_type: 0,
+                id: 0,
+                scales: [1, 0],
+                reel: 0,
+                z_factor: 0,
+                nodes: vec![],
+                lines: vec![],
+                script: Handle(0),
+            }],
+            0,
+        );
+        let target = [260, 188];
+        let mut walk = NodeWalk {
+            difficulty: 0,
+            intermediate: target,
+            destination_path: 0,
+            start: [200, 178],
+            cursor: target,
+            destination: crate::nodepath::Projection {
+                position: target,
+                line: 0,
+            },
+            leg: crate::walk::Leg {
+                target,
+                ultimate: target,
+                overshoot: false,
+                force_minor: false,
+            },
+        };
+        let mut position = walk.start;
+        for _ in 0..100 {
+            if position == target {
+                break;
+            }
+            let steering =
+                Mover::route_node_leg(&polygons, 0, position, &mut walk, false, None, &[]).unwrap();
+            let crate::nodepath::Steering::Move {
+                position: next,
+                overshoot,
+            } = steering
+            else {
+                panic!("unexpected routing request")
+            };
+            assert!(!overshoot);
+            assert_ne!(next, position);
+            assert!(polygons.active[0].contains(next));
+            position = next;
+        }
+        assert_eq!(position, target);
+
+        // Probe ahead into an obstacle. Corner selection must use the actual
+        // starting point; the corner must not be selected from the probe endpoint.
+        let mut floor = polygons.active[0].definition.clone();
+        floor.corners = [[0, 0], [300, 0], [300, 200], [0, 200]];
+        let mut block = floor.clone();
+        block.kind = Kind::Block;
+        block.corners = [[128, 97], [172, 97], [172, 103], [128, 103]];
+        let blocked = Polygons::new(vec![floor.clone(), block], 0);
+        walk.destination.position = [250, 100];
+        walk.start = [50, 100];
+        assert_eq!(
+            Mover::route_node_leg(&blocked, 0, walk.start, &mut walk, false, None, &[]).unwrap(),
+            crate::nodepath::Steering::Move {
+                position: [124, 93],
+                overshoot: false
+            }
+        );
+        let footprint = crate::walk::Footprint {
+            actor: 8,
+            position: walk.start,
+            left: 40,
+            right: 60,
+            node_path: false,
+        };
+        let other = crate::walk::Footprint {
+            actor: 7,
+            position: [150, 100],
+            left: 140,
+            right: 160,
+            node_path: false,
+        };
+        let open = Polygons::new(vec![floor], 0);
+        assert_eq!(
+            Mover::route_node_leg(
+                &open,
+                0,
+                walk.start,
+                &mut walk,
+                false,
+                Some(&footprint),
+                &[other]
+            )
+            .unwrap(),
+            crate::nodepath::Steering::Move {
+                position: [124, 93],
+                overshoot: false
+            }
+        );
+    }
+
+    #[test]
+    fn walk_reels_keep_object_phase_and_finish_scale_transitions() {
+        let mut data = vec![0; 400];
+        for (at, value) in [
+            (0, 24u32),
+            (4, 1),
+            (8, 32),
+            (12, 256),
+            (32, 200),
+            (40, 7),
+            (64, 12),
+            (68, 1),
+            (72, 32),
+            (76, 256),
+            (128, 12),
+            (132, 1),
+            (136, 32),
+            (140, 320),
+            (200, 220),
+            (220, 8 | (16 << 16)),
+            (256, 200),
+            (260, 1),
+            (264, (-2i32) as u32),
+            (320, 200),
+        ] {
+            data[at..at + 4].copy_from_slice(&value.to_le_bytes());
+        }
+        let resources = crate::graphics::Resources(vec![&data]);
+        let mut declarations = Declarations::default();
+        declarations.movers.insert(7, [[Handle(64); 12]; 10]);
+        declarations.scaling.push(crate::startup::ScalingReels {
+            actor: 7,
+            scale: 1,
+            direction: 0,
+            reels: [Handle(128); 4],
+        });
+        let mut mover = Mover::new(
+            &resources,
+            Placement {
+                actor: 7,
+                position: [248, 178],
+                direction: Direction::Left,
+                path: None,
+                node: None,
+                scale: 1,
+                standing: Handle(64),
+                base_walk: Handle(0),
+                z_factor: 2,
+            },
+        )
+        .unwrap();
+        mover
+            .select_walk_reel(&resources, &declarations, Direction::Left, 1, true)
+            .unwrap();
+        for step in 1..=12 {
+            mover
+                .animate_move(&resources, &declarations, [248 - step * 4, 178], 2)
+                .unwrap();
+            assert_eq!(mover.step_phase, (step % 6) as u8);
+            assert_eq!(mover.animation.steps, step as u32);
+        }
+        assert_eq!(mover.placement.position, [200, 178]);
+        assert_eq!(mover.animation.object.id, 7);
+        assert_eq!(mover.animation.object.z, 1202);
+        mover
+            .select_walk_reel(&resources, &declarations, Direction::Right, 2, false)
+            .unwrap();
+        assert_eq!(mover.last_film, Handle(128));
+        mover
+            .animate_move(&resources, &declarations, [204, 178], 2)
+            .unwrap();
+        mover
+            .animate_move(&resources, &declarations, [208, 178], 2)
+            .unwrap();
+        assert_eq!(
+            mover.step_phase, 1,
+            "ended transition resets phase before increment"
+        );
+        assert_eq!(
+            mover.animation.steps, 0,
+            "normal reel is initialized but not stepped"
+        );
+        mover
+            .animate_move(&resources, &declarations, [212, 178], 2)
+            .unwrap();
+        assert_eq!(mover.step_phase, 2);
+        assert_eq!(mover.animation.steps, 1);
+        let before = mover.clone();
+        mover
+            .select_walk_reel(&resources, &declarations, Direction::Right, 2, false)
+            .unwrap();
+        assert_eq!(
+            mover, before,
+            "unchanged direction/scale leaves animation alone"
+        );
+        assert!(
+            mover
+                .select_walk_reel(&resources, &declarations, Direction::Left, 11, true)
+                .is_err()
+        );
+        assert_eq!(mover, before);
+        assert!(
+            mover
+                .animate_move(&resources, &declarations, [0, i32::MAX], i32::MAX)
+                .is_err()
+        );
+        assert_eq!(mover, before);
+        let polygons = Polygons::new(
+            vec![crate::polygon::Polygon {
+                kind: Kind::Path,
+                corners: [[0, 0], [220, 0], [220, 200], [0, 200]],
+                tag_position: [0; 2],
+                tag_text: Handle(0),
+                node_position: [0; 2],
+                film: Handle(0),
+                refer_type: 0,
+                id: 1,
+                scales: [2, 0],
+                reel: 0,
+                z_factor: 2,
+                nodes: vec![],
+                lines: vec![],
+                script: Handle(0),
+            }],
+            0,
+        );
+        mover
+            .stand(&resources, &declarations, &polygons, [200, 178], Handle(0))
+            .unwrap();
+        mover
+            .stand(&resources, &declarations, &polygons, [248, 178], Handle(0))
+            .unwrap();
+        assert_eq!(mover.placement.path, Some(0));
+        assert!(mover.no_path);
+        let serial = mover
+            .begin_direct_walk(&resources, &declarations, &polygons, [200, 178])
+            .unwrap();
+        let mut restored = mover.clone();
+        for step in 1..=12 {
+            for m in [&mut mover, &mut restored] {
+                m.advance_direct_walk(&resources, &declarations, &polygons, &[])
+                    .unwrap();
+                assert_eq!(m.placement.position, [248 - 4 * step, 178]);
+                assert_eq!(m.walk_target, Some([200, 178]));
+            }
+        }
+        assert!(!mover.no_path);
+        mover
+            .advance_direct_walk(&resources, &declarations, &polygons, &[])
+            .unwrap();
+        restored
+            .advance_direct_walk(&resources, &declarations, &polygons, &[])
+            .unwrap();
+        assert_eq!(mover, restored);
+        assert_eq!(mover.walk_target, None);
+        let mut detour = mover.clone();
+        detour
+            .stand(&resources, &declarations, &polygons, [50, 100], Handle(0))
+            .unwrap();
+        detour
+            .begin_direct_walk(&resources, &declarations, &polygons, [180, 100])
+            .unwrap();
+        let other = crate::walk::Footprint {
+            actor: 8,
+            position: [110, 100],
+            left: 100,
+            right: 120,
+            node_path: false,
+        };
+        let mut detour_replay = detour.clone();
+        let mut routed = false;
+        for _ in 0..200 {
+            if detour.walk_target.is_none() {
+                break;
+            }
+            let before_position = detour.placement.position;
+            detour
+                .advance_direct_walk(&resources, &declarations, &polygons, &[other])
+                .unwrap();
+            detour_replay
+                .advance_direct_walk(&resources, &declarations, &polygons, &[other])
+                .unwrap();
+            assert_eq!(detour, detour_replay);
+            if detour
+                .direct_leg
+                .is_some_and(|leg| leg.target[1] != 100 && leg.target[1] != -1)
+            {
+                if !routed {
+                    assert_eq!(detour.placement.position, before_position);
+                }
+                routed = true;
+            }
+        }
+        assert!(routed);
+        assert_eq!(detour.placement.position, [180, 100]);
+        assert_eq!(detour.walk_target, None);
+        assert_eq!(mover.walk_serial, serial);
+        assert_eq!(mover.placement.standing, Handle(64));
+        assert_eq!(
+            mover
+                .begin_direct_walk(&resources, &declarations, &polygons, [208, 178])
+                .unwrap(),
+            serial + 1
+        );
+        let before = mover.clone();
+        assert!(
+            mover
+                .begin_direct_walk(&resources, &declarations, &polygons, [201, 178])
+                .is_err()
+        );
+        assert_eq!(mover, before);
+        let serial = mover
+            .begin_path_walk(&resources, &declarations, &polygons, [148, 178])
+            .unwrap();
+        assert!(mover.constrained_walk);
+        let mut restored = mover.clone();
+        for _ in 0..14 {
+            mover
+                .advance_direct_walk(&resources, &declarations, &polygons, &[])
+                .unwrap();
+            restored
+                .advance_direct_walk(&resources, &declarations, &polygons, &[])
+                .unwrap();
+        }
+        assert_eq!(mover, restored);
+        assert_eq!(mover.walk_target, None);
+        assert_eq!(mover.walk_serial, serial);
+        assert_eq!(mover.placement.position, [148, 178]);
+        mover
+            .adopt_tag_pose(&resources, &declarations, Handle(1))
+            .unwrap();
+        assert_eq!(mover.placement.direction, Direction::Away);
+        assert_eq!(mover.animation.object.id, 7);
+        let before = mover.clone();
+        assert!(
+            mover
+                .begin_path_walk(&resources, &declarations, &polygons, [300, 178])
+                .is_err()
+        );
+        assert_eq!(mover, before);
+        mover
+            .adopt_tag_pose(&resources, &declarations, Handle(0))
+            .unwrap();
+        assert_eq!(mover, before);
+        let serial = mover.walk_serial;
+        mover
+            .begin_walk(&resources, &declarations, &polygons, [151, 179], [200, 178])
+            .unwrap();
+        assert_eq!(
+            mover.placement.position,
+            [148, 178],
+            "near destinations do not snap position"
+        );
+        assert_eq!(mover.placement.direction, Direction::Right);
+        assert_eq!(mover.walk_serial, serial + 1);
+        assert_eq!(mover.walk_target, None);
+        mover
+            .begin_walk(&resources, &declarations, &polygons, [148, 178], [148, 100])
+            .unwrap();
+        assert_eq!(mover.placement.direction, Direction::Away);
+        let mut boundary = mover.clone();
+        boundary
+            .begin_walk(&resources, &declarations, &polygons, [152, 178], [148, 100])
+            .unwrap();
+        assert_eq!(
+            boundary.walk_target,
+            Some([152, 178]),
+            "four pixels starts movement"
+        );
+        declarations.movers.get_mut(&7).unwrap()[1][8 + Direction::Away.index()] = Handle(128);
+        let saved = mover
+            .push_talk(&resources, &declarations, Handle(0))
+            .unwrap();
+        assert_eq!(saved, Handle(64));
+        assert_eq!(mover.step_phase, 0);
+        assert_eq!(mover.animation.object.id, 7);
+        assert_eq!(mover.animation.capacity, before.animation.capacity);
+        assert_eq!(mover.placement.direction, Direction::Away);
+        assert_eq!(
+            mover.animation.tick(&resources).unwrap(),
+            crate::animation::Tick::Waiting
+        );
+        assert_eq!(
+            mover.animation.tick(&resources).unwrap(),
+            crate::animation::Tick::Finished
+        );
+        mover.pop_talk(&resources, &declarations, saved).unwrap();
+        assert_eq!(mover.placement.standing, Handle(64));
+        assert_eq!(
+            mover.animation.tick(&resources).unwrap(),
+            crate::animation::Tick::Waiting
+        );
+        assert_eq!(
+            mover.animation.tick(&resources).unwrap(),
+            crate::animation::Tick::Frame
+        );
+        declarations.movers.get_mut(&7).unwrap()[1][8 + Direction::Right.index()] = Handle(0);
+        let before = mover.clone();
+        assert!(
+            mover
+                .push_talk(&resources, &declarations, Handle(4))
+                .is_err()
+        );
+        assert_eq!(mover, before);
+        mover.walk_target = Some([160, 178]);
+        let before = mover.clone();
+        assert!(
+            mover
+                .push_talk(&resources, &declarations, Handle(0))
+                .is_err()
+        );
+        assert_eq!(mover, before);
+        let mut nodes = polygons.clone();
+        let p = &mut nodes.active[0].definition;
+        p.kind = Kind::NodePath;
+        p.nodes = vec![[20, 20], [60, 20], [60, 60], [100, 60]];
+        p.lines = vec![
+            [0, 40, -800, 0, 0, 0, 0, 0, 0, 0],
+            [-40, 0, 2400, 0, 0, 0, 0, 0, 0, 0],
+            [0, 40, -2400, 0, 0, 0, 0, 0, 0, 0],
+        ];
+        mover
+            .stand(&resources, &declarations, &nodes, [20, 20], Handle(0))
+            .unwrap();
+        assert_eq!(mover.walk_target, None);
+        mover.no_path = false;
+        mover
+            .begin_walk(&resources, &declarations, &nodes, [90, 62], [90, 62])
+            .unwrap();
+        assert_eq!(mover.walk_target, Some([90, 60]));
+        let mut snapshot = mover.clone();
+        let mut visited = Vec::new();
+        for _ in 0..100 {
+            if mover.walk_target.is_none() {
+                break;
+            }
+            mover
+                .advance_direct_walk(&resources, &declarations, &nodes, &[])
+                .unwrap();
+            snapshot
+                .advance_direct_walk(&resources, &declarations, &nodes, &[])
+                .unwrap();
+            assert_eq!(mover, snapshot);
+            visited.push(mover.placement.position);
+        }
+        assert_eq!(mover.walk_target, None);
+        assert_eq!(mover.placement.position, [90, 60]);
+        assert!(visited.contains(&[60, 20]));
+        assert!(visited.contains(&[60, 60]));
+        assert_eq!(mover.node_travel.unwrap().line, 2);
+        mover
+            .begin_walk(&resources, &declarations, &nodes, [30, 20], [30, 20])
+            .unwrap();
+        for _ in 0..100 {
+            if mover.walk_target.is_none() {
+                break;
+            }
+            mover
+                .advance_direct_walk(&resources, &declarations, &nodes, &[])
+                .unwrap();
+        }
+        assert_eq!(mover.walk_target, None);
+        assert_eq!(mover.placement.position, [30, 20]);
+        assert_eq!(mover.node_travel.unwrap().line, 0);
+        mover
+            .begin_walk(&resources, &declarations, &nodes, [30, 30], [30, 0])
+            .unwrap();
+        mover
+            .advance_direct_walk(&resources, &declarations, &nodes, &[])
+            .unwrap();
+        assert_eq!(mover.walk_target, None);
+        assert_eq!(mover.placement.position, [30, 20]);
+        assert_eq!(mover.placement.direction, Direction::Away);
+        let before = mover.clone();
+        assert!(
+            mover
+                .begin_walk(&resources, &declarations, &nodes, [300, 300], [300, 300])
+                .is_err()
+        );
+        assert_eq!(mover, before);
+        let mut source = nodes.active[0].definition.clone();
+        source.corners = [[0, 0], [60, 0], [60, 40], [0, 40]];
+        source.nodes = vec![[20, 20], [50, 20]];
+        source.lines = vec![[0, 30, -600, 0, 0, 0, 0, 0, 0, 0]];
+        let mut destination = source.clone();
+        destination.corners = [[58, 0], [120, 0], [120, 80], [58, 80]];
+        destination.nodes = vec![[70, 20], [100, 20], [100, 60]];
+        destination.lines = vec![
+            [0, 30, -600, 0, 0, 0, 0, 0, 0, 0],
+            [-40, 0, 4000, 0, 0, 0, 0, 0, 0, 0],
+        ];
+        let connected = Polygons::new(vec![source, destination], 0);
+        // SWALK retains Tline but ignores path constraints. A fresh node entry
+        // may steer to its endpoint; SetNextDest then resumes the ultimate
+        // target without following the remaining node bends.
+        let mut direct = mover.clone();
+        direct
+            .stand(&resources, &declarations, &connected, [20, 20], Handle(0))
+            .unwrap();
+        direct.target_node_line = 1;
+        direct
+            .begin_direct_walk(&resources, &declarations, &connected, [110, 60])
+            .unwrap();
+        let serial = direct.walk_serial;
+        let mut replay = direct.clone();
+        let mut entry_endpoint = false;
+        let mut resumed = false;
+        for _ in 0..150 {
+            if direct.walk_target.is_none() {
+                break;
+            }
+            direct
+                .advance_direct_walk(&resources, &declarations, &connected, &[])
+                .unwrap();
+            replay
+                .advance_direct_walk(&resources, &declarations, &connected, &[])
+                .unwrap();
+            assert_eq!(direct, replay);
+            assert_eq!(direct.walk_serial, serial);
+            entry_endpoint |= direct
+                .direct_leg
+                .is_some_and(|leg| leg.target == [70, 20] && leg.overshoot);
+            resumed |= entry_endpoint
+                && direct
+                    .direct_leg
+                    .is_some_and(|leg| leg.target == [110, 60] && !leg.overshoot);
+        }
+        assert!(entry_endpoint);
+        assert!(resumed);
+        assert_eq!(direct.walk_target, None);
+        assert_eq!(direct.direct_leg, None);
+        assert_eq!(direct.placement.position, [110, 60]);
+        direct
+            .begin_direct_walk(&resources, &declarations, &connected, [20, 20])
+            .unwrap();
+        assert_eq!(direct.direct_leg, None);
+
+        mover
+            .stand(&resources, &declarations, &connected, [20, 20], Handle(0))
+            .unwrap();
+        mover
+            .begin_walk(&resources, &declarations, &connected, [100, 50], [100, 50])
+            .unwrap();
+        let mut restored = mover.clone();
+        let mut crossed = false;
+        for _ in 0..200 {
+            if mover.walk_target.is_none() {
+                break;
+            }
+            mover
+                .advance_direct_walk(&resources, &declarations, &connected, &[])
+                .unwrap();
+            restored
+                .advance_direct_walk(&resources, &declarations, &connected, &[])
+                .unwrap();
+            assert_eq!(mover, restored);
+            crossed |= mover.placement.path == Some(1);
+        }
+        assert!(crossed);
+        assert_eq!(mover.walk_target, None);
+        assert_eq!(mover.placement.position, [100, 50]);
+        let source = connected.active[0].definition.clone();
+        let mut middle = source.clone();
+        middle.corners = [[58, 0], [82, 0], [82, 40], [58, 40]];
+        middle.nodes = vec![[70, 20], [70, 20]];
+        middle.lines = vec![[0; 10]];
+        let mut destination = connected.active[1].definition.clone();
+        destination.corners = [[80, 0], [120, 0], [120, 80], [80, 80]];
+        destination.nodes = vec![[90, 20], [110, 20], [110, 60]];
+        destination.lines = vec![
+            [0, 20, -400, 0, 0, 0, 0, 0, 0, 0],
+            [-40, 0, 4400, 0, 0, 0, 0, 0, 0, 0],
+        ];
+        let bypass = Polygons::new(vec![source, middle, destination], 0);
+        mover
+            .stand(&resources, &declarations, &bypass, [20, 20], Handle(0))
+            .unwrap();
+        mover
+            .begin_walk(&resources, &declarations, &bypass, [110, 50], [110, 50])
+            .unwrap();
+        let mut restored = mover.clone();
+        let mut bypassed = false;
+        for _ in 0..200 {
+            if mover.walk_target.is_none() {
+                break;
+            }
+            mover
+                .advance_direct_walk(&resources, &declarations, &bypass, &[])
+                .unwrap();
+            restored
+                .advance_direct_walk(&resources, &declarations, &bypass, &[])
+                .unwrap();
+            assert_eq!(mover, restored);
+            if mover.placement.path == Some(1) {
+                assert_eq!(mover.node_travel, None);
+                assert!(!mover.footprint(&resources).unwrap().node_path);
+                if !bypassed {
+                    mover
+                        .begin_walk(&resources, &declarations, &bypass, [110, 50], [110, 50])
+                        .unwrap();
+                    restored = mover.clone();
+                }
+                bypassed = true;
+            }
+        }
+        assert!(bypassed);
+        assert_eq!(mover.walk_target, None);
+        assert_eq!(mover.placement.position, [110, 50]);
+        mover
+            .stand(&resources, &declarations, &bypass, [20, 20], Handle(0))
+            .unwrap();
+        let travel = mover.node_travel;
+        mover
+            .begin_direct_walk(&resources, &declarations, &bypass, [-20, 20])
+            .unwrap();
+        let mut restored = mover.clone();
+        for tick in 1..=10 {
+            mover
+                .advance_direct_walk(&resources, &declarations, &bypass, &[])
+                .unwrap();
+            restored
+                .advance_direct_walk(&resources, &declarations, &bypass, &[])
+                .unwrap();
+            assert_eq!(mover, restored);
+            assert_eq!(mover.placement.position, [20 - 4 * tick, 20]);
+            assert_eq!(mover.placement.path, Some(0));
+            assert_eq!(mover.node_travel, travel);
+        }
+        mover
+            .advance_direct_walk(&resources, &declarations, &bypass, &[])
+            .unwrap();
+        assert_eq!(mover.walk_target, None);
+        assert_eq!(mover.placement.position, [-20, 20]);
+        let mut ordinary = bypass.clone();
+        ordinary.active[1].definition.kind = Kind::Path;
+        ordinary.active[1].definition.nodes.clear();
+        ordinary.active[1].definition.lines.clear();
+        mover
+            .stand(&resources, &declarations, &ordinary, [20, 20], Handle(0))
+            .unwrap();
+        mover
+            .begin_walk(&resources, &declarations, &ordinary, [110, 50], [110, 50])
+            .unwrap();
+        let mut restored = mover.clone();
+        let mut crossed_ordinary = false;
+        for _ in 0..200 {
+            if mover.walk_target.is_none() {
+                break;
+            }
+            mover
+                .advance_direct_walk(&resources, &declarations, &ordinary, &[])
+                .unwrap();
+            restored
+                .advance_direct_walk(&resources, &declarations, &ordinary, &[])
+                .unwrap();
+            assert_eq!(mover, restored);
+            if mover.placement.path == Some(1) {
+                crossed_ordinary = true;
+                assert!(mover.node_travel.is_none());
+                assert!(!mover.footprint(&resources).unwrap().node_path);
+            }
+        }
+        assert!(crossed_ordinary);
+        assert_eq!(mover.walk_target, None);
+        assert_eq!(mover.placement.position, [110, 50]);
+        mover
+            .stand(&resources, &declarations, &ordinary, [20, 20], Handle(0))
+            .unwrap();
+        mover
+            .begin_walk(&resources, &declarations, &ordinary, [72, 30], [72, 30])
+            .unwrap();
+        let mut restored = mover.clone();
+        for _ in 0..100 {
+            if mover.walk_target.is_none() {
+                break;
+            }
+            mover
+                .advance_direct_walk(&resources, &declarations, &ordinary, &[])
+                .unwrap();
+            restored
+                .advance_direct_walk(&resources, &declarations, &ordinary, &[])
+                .unwrap();
+            assert_eq!(mover, restored);
+        }
+        assert_eq!(mover.walk_target, None);
+        assert_eq!(mover.placement.position, [72, 30]);
+        assert_eq!(mover.placement.path, Some(1));
+        assert!(mover.node_travel.is_none());
+        assert_eq!(mover.node_walk, None);
+        mover
+            .begin_walk(&resources, &declarations, &ordinary, [110, 50], [110, 50])
+            .unwrap();
+        assert!(mover.node_travel.is_none());
+        assert!(mover.node_walk.is_some());
+        let mut restored = mover.clone();
+        let mut entered_node = false;
+        for _ in 0..100 {
+            if mover.walk_target.is_none() {
+                break;
+            }
+            mover
+                .advance_direct_walk(&resources, &declarations, &ordinary, &[])
+                .unwrap();
+            restored
+                .advance_direct_walk(&resources, &declarations, &ordinary, &[])
+                .unwrap();
+            assert_eq!(mover, restored);
+            entered_node |= mover.placement.path == Some(2) && mover.node_travel.is_some();
+        }
+        assert!(entered_node);
+        assert_eq!(mover.walk_target, None);
+        assert_eq!(mover.placement.position, [110, 50]);
+    }
+    #[test]
+    fn standing_changes_script_but_preserves_base_object_and_capacity() {
+        let mut data = vec![0; 180];
+        for (at, value) in [
+            (0, 24u32),
+            (4, 1),
+            (8, 32),
+            (12, 56),
+            (32, 96),
+            (40, 7),
+            (64, 12),
+            (68, 1),
+            (72, 128),
+            (76, 160),
+            (96, 112),
+            (136, 99),
+            (160, 168),
+            (168, 112),
+            (172, 112),
+        ] {
+            data[at..at + 4].copy_from_slice(&value.to_le_bytes());
+        }
+        let resources = crate::graphics::Resources(vec![&data]);
+        let placement = Placement {
+            actor: 7,
+            position: [200, 178],
+            direction: Direction::Left,
+            path: None,
+            node: None,
+            scale: 1,
+            standing: Handle(64),
+            base_walk: Handle(0),
+            z_factor: 2,
+        };
+        let mover = Mover::new(&resources, placement).unwrap();
+        assert_eq!(
+            mover.animation.object.id, 7,
+            "standing film's object must not replace base object"
+        );
+        assert_eq!(mover.animation.capacity, 1);
+        assert_eq!(mover.animation.images(&resources).unwrap(), [Handle(112)]);
+        assert_eq!(mover.animation.object.z, 1202);
+        assert_eq!(
+            (mover.animation.object.x, mover.animation.object.y),
+            (200, 178)
+        );
+        assert_eq!(
+            mover.animation.steps, 1,
+            "standing immediately steps its script"
+        );
+        let mut resumed = mover.clone();
+        assert_eq!(
+            resumed.animation.tick(&resources).unwrap(),
+            crate::animation::Tick::Waiting
+        );
+        let before = resumed.clone();
+        resumed
+            .stand(
+                &resources,
+                &Declarations::default(),
+                &Polygons::default(),
+                [-1, -1],
+                Handle(0),
+            )
+            .unwrap();
+        assert_eq!(
+            resumed, before,
+            "STAND with no position/direction leaves the current animation alone"
+        );
+    }
+    #[test]
+    fn lead_alias_direction_and_standing_bank_selection() {
+        let mut declarations = Declarations {
+            lead: Some(Lead {
+                id: 7,
+                text: Handle(0),
+                tagged: false,
+            }),
+            ..Declarations::default()
+        };
+        declarations.movers.insert(
+            7,
+            std::array::from_fn(|scale| {
+                std::array::from_fn(|i| Handle(100 + scale as u32 * 12 + i as u32))
+            }),
+        );
+        let p = Placement::initial(
+            &declarations,
+            &Polygons::default(),
+            -2,
+            [200, 178],
+            Handle(3),
+        )
+        .unwrap();
+        assert_eq!(
+            (p.actor, p.direction, p.standing, p.base_walk),
+            (7, Direction::Left, Handle(104), Handle(102))
+        );
+        assert_eq!(p.position, [200, 178]);
+        assert_eq!(p.path, None);
+        assert_eq!(
+            Placement::initial(&declarations, &Polygons::default(), 7, [0, 0], Handle(900))
+                .unwrap()
+                .standing,
+            Handle(900)
+        );
+        assert!(
+            Placement::initial(&declarations, &Polygons::default(), 8, [0, 0], Handle(3)).is_err()
+        );
+        assert_eq!(
+            Direction::from_talk_constant(0, Direction::Right).unwrap(),
+            Direction::Right
+        );
+        assert_eq!(
+            Direction::from_talk_constant(1, Direction::Left).unwrap(),
+            Direction::Away
+        );
+    }
+}
