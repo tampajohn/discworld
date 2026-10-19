@@ -150,7 +150,7 @@ fn run() -> Result<(), Box<dyn std::error::Error>> {
     let sink = rodio::Sink::connect_new(stream.mixer());
     sink.set_volume(if muted { 0.0 } else { 1.0 });
     let mut speed = 1u32;
-    let replay_end = replay
+    let mut replay_end = replay
         .as_ref()
         .and_then(|v| v.last())
         .map(|i| u64::from(i.tick) + 2400);
@@ -330,6 +330,10 @@ fn run() -> Result<(), Box<dyn std::error::Error>> {
                             sink.append(rodio::buffer::SamplesBuffer::new(2, 22050, audio));
                         }
                         if replay_end.is_some_and(|end| engine.ticks >= end) {
+                            replay_end = None;
+                            eprintln!(
+                                "Recorded route finished. P resumes simulation beyond the recorded inputs."
+                            );
                             paused = true;
                             sink.pause();
                             elapsed = Duration::ZERO;
@@ -362,7 +366,9 @@ fn run() -> Result<(), Box<dyn std::error::Error>> {
             window.set_title(&format!(
                 "Discworld Rust — {} — {} — {} — M sound",
                 index[engine.scene.resource()].name,
-                if paused {
+                if paused && replay.is_some() && replay_end.is_none() {
+                    "recorded route finished (P continues)"
+                } else if paused {
                     "paused (P resumes)"
                 } else {
                     "P pause"
