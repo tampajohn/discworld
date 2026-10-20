@@ -2439,6 +2439,19 @@ impl Engine {
                     crate::inventory::set_limit(window, a[1])?;
                     process.vm.complete_library(call, 2, None)?;
                 }
+                36 => {
+                    let a = args(&process.vm, 2)?;
+                    let film = Handle(a[1] as u32);
+                    if !self.inventory_objects.contains_key(&a[0]) {
+                        return Err(Error("undefined inventory depiction object"));
+                    }
+                    crate::film::Film::read(resources, film)?;
+                    // V1 Dialogs::setObjectFilm changes the persistent definition.
+                    // A held item keeps its current cursor until it is held again.
+                    self.inventory_objects.get_mut(&a[0]).unwrap().film = film;
+                    self.inventory_dirty |= self.held_object != a[0];
+                    process.vm.complete_library(call, 2, None)?;
+                }
                 35 => {
                     let item = args(&process.vm, 1)?[0];
                     let present = crate::inventory::contains(
@@ -3751,6 +3764,138 @@ mod tests {
             assert_eq!(engine.timers.get(1), 11);
         }
     }
+    #[test]
+    fn inventory_depiction_persists_and_preserves_held_cursor() {
+        let (master, mut scene) = fixtures();
+        scene[8] = 0;
+        let base = 3 << 23;
+        let mut art = vec![0u8; 256];
+        for (at, value) in [
+            (0, 12u32),
+            (4, 1),
+            (8, base + 32),
+            (12, base + 80),
+            (16, 12),
+            (20, 1),
+            (24, base + 56),
+            (28, base + 88),
+            (32, base + 96),
+            (56, base + 104),
+            (80, base + 96),
+            (88, base + 104),
+            (96, base + 128),
+            (104, base + 160),
+        ] {
+            art[at..at + 4].copy_from_slice(&value.to_le_bytes());
+        }
+        art[128..132].copy_from_slice(&[4, 0, 4, 0]);
+        art[160..164].copy_from_slice(&[8, 0, 8, 0]);
+        let code_for = |item: i32, film: u32| {
+            let mut code = vec![0x0a, 0x00, 0x34, 0x33, 0, 0, 0, 0, 0x41, 77, 1];
+            code.extend(item.to_le_bytes());
+            code.push(1);
+            code.extend(film.to_le_bytes());
+            code.extend([0x4e, 36, 0x4c, 0, 0]);
+            code
+        };
+        let code = code_for(287, base + 16);
+        let resources = Resources(vec![&master, &scene, &code, &art]);
+        let mut engine = Engine::bootstrap(&resources).unwrap();
+        engine.inventory_objects.insert(
+            287,
+            crate::inventory::Object {
+                id: 287,
+                film: Handle(base),
+                script: Handle((2 << 23) | 8),
+                attributes: 4,
+            },
+        );
+        engine.declarations.windows[1] = Some(crate::startup::Window {
+            title: Handle(0),
+            capacity: 6,
+            min: [1, 1],
+            size: [1, 1],
+            max: [10, 6],
+            position: [0; 2],
+            first_display: 0,
+            contents: vec![287],
+        });
+        let initial = engine.clone();
+        let mut process = ScriptProcess::new(Handle((2 << 23) | 8));
+        assert_eq!(
+            engine
+                .run_process(&resources, None, None, None, &mut process)
+                .unwrap(),
+            Status::Halted
+        );
+        assert_eq!(engine.globals, [77]); // Exactly two operands consumed.
+        assert!(engine.inventory_dirty);
+        assert_eq!(engine.declarations.windows, initial.declarations.windows);
+        let object = &engine.inventory_objects[&287];
+        assert_eq!(object.film, Handle(base + 16));
+        assert_eq!(object.script, initial.inventory_objects[&287].script);
+        assert_eq!(object.attributes, 4);
+
+        // Rebuilding visible inventory content uses the replacement animation.
+        let window = engine.declarations.windows[1].as_ref().unwrap();
+        let layout = crate::conversation_window::Layout::new(window, [8, 16], 12, 8).unwrap();
+        let strings = crate::text::Strings::new(&[1, 0, 52, 51, 0, 0, 0, 0, 0]).unwrap();
+        let font = crate::text::Font {
+            x_spacing: 0,
+            y_spacing: 0,
+            space: 2,
+            flags: 0,
+            glyphs: [Handle(base + 128); 256],
+        };
+        let content = crate::conversation_window::Content::new(
+            &resources,
+            window,
+            &layout,
+            &font,
+            &strings,
+            &engine.inventory_objects,
+            -1,
+        )
+        .unwrap();
+        assert_eq!(content.icons[0].animation.object.frame, Handle(base + 104));
+        engine
+            .enter_scene(&resources, Handle(1 << 23), Some(1), 1)
+            .unwrap();
+        assert_eq!(engine.inventory_objects[&287].film, Handle(base + 16));
+        assert_eq!(engine.clone().inventory_objects, engine.inventory_objects);
+
+        let mut held = initial.clone();
+        held.hold_object(&resources, 287).unwrap();
+        held.inventory_dirty = false;
+        let cursor = held.held_cursor.clone();
+        let mut process = ScriptProcess::new(Handle((2 << 23) | 8));
+        held.run_process(&resources, None, None, None, &mut process)
+            .unwrap();
+        assert_eq!(held.held_cursor, cursor);
+        assert!(!held.inventory_dirty);
+        assert_eq!(held.inventory_objects[&287].film, Handle(base + 16));
+        held.hold_object(&resources, -1).unwrap();
+        held.hold_object(&resources, 287).unwrap();
+        assert_eq!(
+            held.held_cursor.as_ref().unwrap().animation.object.frame,
+            Handle(base + 104)
+        );
+
+        for (item, film) in [(999, base + 16), (287, base + 252)] {
+            let bad_code = code_for(item, film);
+            let bad_resources = Resources(vec![&master, &scene, &bad_code, &art]);
+            let mut invalid = initial.clone();
+            let before = invalid.clone();
+            let mut process = ScriptProcess::new(Handle((2 << 23) | 8));
+            assert!(
+                invalid
+                    .run_process(&bad_resources, None, None, None, &mut process)
+                    .is_err()
+            );
+            assert_eq!(invalid, before);
+        }
+    }
+
     #[test]
     fn inventory_gestures_dispatch_scripted_drop_and_reject_invalid_input() {
         let (master, mut scene) = fixtures();
