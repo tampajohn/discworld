@@ -965,10 +965,10 @@ impl Mover {
             .placement
             .path
             .ok_or(Error("walking mover has no path"))?;
-        if self.no_path
-            || polygons.at(target, Kind::Path).is_none()
-            || polygons.at(target, Kind::Block).is_some()
-        {
+        // PositionMover can retain bNoPath after a scripted STAND returns
+        // to a path. SetActorDest's short-distance GotThere does not reject
+        // that flag when the resolved destination itself is valid.
+        if polygons.at(target, Kind::Path).is_none() || polygons.at(target, Kind::Block).is_some() {
             return Err(Error("unsupported walking destination adjustment"));
         }
         let p = polygons
@@ -1876,6 +1876,56 @@ mod tests {
             .unwrap();
         assert_eq!(mover.placement.path, Some(0));
         assert!(mover.no_path);
+        // Holretro places the actor just outside a path, then stands him
+        // inside it and issues WALK to that same position. PositionMover
+        // retains bNoPath; SetActorDest must still take its GotThere branch.
+        let psychiatrist = Polygons::new(
+            [
+                [[0, 163], [0, 150], [95, 150], [95, 163]],
+                [[95, 199], [95, 150], [319, 150], [319, 199]],
+            ]
+            .into_iter()
+            .map(|corners| crate::polygon::Polygon {
+                corners,
+                ..polygons.active[0].definition.clone()
+            })
+            .collect(),
+            0,
+        );
+        let mut seated = mover.clone();
+        seated
+            .stand(
+                &resources,
+                &declarations,
+                &psychiatrist,
+                [90, 164],
+                Handle(4),
+            )
+            .unwrap();
+        seated
+            .stand(
+                &resources,
+                &declarations,
+                &psychiatrist,
+                [109, 164],
+                Handle(4),
+            )
+            .unwrap();
+        assert!(seated.no_path);
+        let mut resumed = seated.clone();
+        for m in [&mut seated, &mut resumed] {
+            m.begin_walk(
+                &resources,
+                &declarations,
+                &psychiatrist,
+                [109, 164],
+                [120, 164],
+            )
+            .unwrap();
+            assert_eq!(m.placement.position, [109, 164]);
+            assert_eq!(m.walk_target, None);
+        }
+        assert_eq!(seated, resumed);
         let mut direct = mover.clone();
         direct
             .begin_direct_walk(&resources, &declarations, &polygons, [200, 178], [200, 178])
