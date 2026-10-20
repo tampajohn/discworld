@@ -829,6 +829,7 @@ impl Mover {
         declarations: &Declarations,
         polygons: &Polygons,
         target: [i32; 2],
+        cursor: [i32; 2],
     ) -> Result<u64, Error> {
         let mut next = self.clone();
         let path = next
@@ -849,14 +850,19 @@ impl Mover {
         next.direct_leg = None;
         next.node_walk = None;
         let from = next.placement.position;
-        let facing =
-            crate::walk::direction(from, target, next.placement.direction, p.definition.reel)?;
-        next.select_walk_reel(resources, declarations, facing, p.scale_at(from[1])?, true)?;
         if (i64::from(from[0]) - i64::from(target[0])).abs() < 4
             && (i64::from(from[1]) - i64::from(target[1])).abs() < 2
         {
-            // The no-movement cursor-facing rule still needs the caller's cursor.
-            return Err(Error("unsupported direct walk without displacement"));
+            // V1 SetActorDest calls GotThere before setting off, even when
+            // ignoring paths. GotThereWithoutMoving faces the world cursor.
+            let facing =
+                crate::walk::direction(from, cursor, next.placement.direction, p.definition.reel)?;
+            next.select_walk_reel(resources, declarations, facing, next.placement.scale, true)?;
+            next.finish_walk(resources, declarations)?;
+        } else {
+            let facing =
+                crate::walk::direction(from, target, next.placement.direction, p.definition.reel)?;
+            next.select_walk_reel(resources, declarations, facing, p.scale_at(from[1])?, true)?;
         }
         *self = next;
         Ok(self.walk_serial)
@@ -869,6 +875,7 @@ impl Mover {
         declarations: &Declarations,
         polygons: &Polygons,
         target: [i32; 2],
+        cursor: [i32; 2],
     ) -> Result<u64, Error> {
         let current = self
             .placement
@@ -904,7 +911,7 @@ impl Mover {
         if !arrived {
             return Err(Error("walking route probe budget exhausted"));
         }
-        let serial = self.begin_direct_walk(resources, declarations, polygons, target)?;
+        let serial = self.begin_direct_walk(resources, declarations, polygons, target, cursor)?;
         self.constrained_walk = true;
         Ok(serial)
     }
@@ -925,7 +932,8 @@ impl Mover {
             && ((i64::from(self.placement.position[0]) - i64::from(target[0])).abs() >= 4
                 || (i64::from(self.placement.position[1]) - i64::from(target[1])).abs() >= 2)
         {
-            let serial = self.begin_direct_walk(resources, declarations, polygons, target)?;
+            let serial =
+                self.begin_direct_walk(resources, declarations, polygons, target, cursor)?;
             self.constrained_walk = true;
             return Ok(serial);
         }
@@ -949,7 +957,7 @@ impl Mover {
         if (i64::from(from[0]) - i64::from(target[0])).abs() >= 4
             || (i64::from(from[1]) - i64::from(target[1])).abs() >= 2
         {
-            return self.begin_path_walk(resources, declarations, polygons, target);
+            return self.begin_path_walk(resources, declarations, polygons, target, cursor);
         }
         let path = self
             .placement
@@ -1868,7 +1876,7 @@ mod tests {
         assert!(mover.no_path);
         let mut direct = mover.clone();
         direct
-            .begin_direct_walk(&resources, &declarations, &polygons, [200, 178])
+            .begin_direct_walk(&resources, &declarations, &polygons, [200, 178], [200, 178])
             .unwrap();
         let serial = mover
             .begin_walk(&resources, &declarations, &polygons, [200, 178], [200, 178])
@@ -1950,7 +1958,7 @@ mod tests {
             .stand(&resources, &declarations, &polygons, [50, 100], Handle(0))
             .unwrap();
         detour
-            .begin_direct_walk(&resources, &declarations, &polygons, [180, 100])
+            .begin_direct_walk(&resources, &declarations, &polygons, [180, 100], [180, 100])
             .unwrap();
         let other = crate::walk::Footprint {
             actor: 8,
@@ -1991,7 +1999,7 @@ mod tests {
             .stand(&resources, &declarations, &polygons, [50, 100], Handle(0))
             .unwrap();
         let occupied_serial = occupied
-            .begin_path_walk(&resources, &declarations, &polygons, [110, 100])
+            .begin_path_walk(&resources, &declarations, &polygons, [110, 100], [110, 100])
             .unwrap();
         let mut occupied_replay = occupied.clone();
         for _ in 0..30 {
@@ -2034,7 +2042,7 @@ mod tests {
             .stand(&resources, &declarations, &narrow, [240, 177], Handle(0))
             .unwrap();
         let around_serial = around
-            .begin_path_walk(&resources, &declarations, &narrow, [302, 167])
+            .begin_path_walk(&resources, &declarations, &narrow, [302, 167], [302, 167])
             .unwrap();
         let mut resumed = around.clone();
         let mut passed_above = false;
@@ -2064,19 +2072,22 @@ mod tests {
         assert_eq!(mover.placement.standing, Handle(64));
         assert_eq!(
             mover
-                .begin_direct_walk(&resources, &declarations, &polygons, [208, 178])
+                .begin_direct_walk(&resources, &declarations, &polygons, [208, 178], [208, 178])
                 .unwrap(),
             serial + 1
         );
-        let before = mover.clone();
-        assert!(
-            mover
-                .begin_direct_walk(&resources, &declarations, &polygons, [201, 178])
-                .is_err()
-        );
-        assert_eq!(mover, before);
+        let position = mover.placement.position;
+        let short_serial = mover
+            .begin_direct_walk(&resources, &declarations, &polygons, [201, 178], [0, 178])
+            .unwrap();
+        assert_eq!(short_serial, serial + 2);
+        assert_eq!(mover.placement.direction, Direction::Left);
+        assert_eq!(mover.placement.position, position);
+        assert_eq!(mover.walk_target, None);
+        assert_eq!(mover.direct_leg, None);
+        assert_eq!(mover.node_walk, None);
         let serial = mover
-            .begin_path_walk(&resources, &declarations, &polygons, [148, 178])
+            .begin_path_walk(&resources, &declarations, &polygons, [148, 178], [148, 178])
             .unwrap();
         assert!(mover.constrained_walk);
         let mut restored = mover.clone();
@@ -2100,7 +2111,7 @@ mod tests {
         let before = mover.clone();
         assert!(
             mover
-                .begin_path_walk(&resources, &declarations, &polygons, [300, 178])
+                .begin_path_walk(&resources, &declarations, &polygons, [300, 178], [300, 178])
                 .is_err()
         );
         assert_eq!(mover, before);
@@ -2297,7 +2308,7 @@ mod tests {
             .unwrap();
         direct.target_node_line = 1;
         direct
-            .begin_direct_walk(&resources, &declarations, &connected, [110, 60])
+            .begin_direct_walk(&resources, &declarations, &connected, [110, 60], [110, 60])
             .unwrap();
         let serial = direct.walk_serial;
         let mut replay = direct.clone();
@@ -2329,7 +2340,7 @@ mod tests {
         assert_eq!(direct.direct_leg, None);
         assert_eq!(direct.placement.position, [110, 60]);
         direct
-            .begin_direct_walk(&resources, &declarations, &connected, [20, 20])
+            .begin_direct_walk(&resources, &declarations, &connected, [20, 20], [20, 20])
             .unwrap();
         assert_eq!(direct.direct_leg, None);
 
@@ -2409,7 +2420,7 @@ mod tests {
             .unwrap();
         let travel = mover.node_travel;
         mover
-            .begin_direct_walk(&resources, &declarations, &bypass, [-20, 20])
+            .begin_direct_walk(&resources, &declarations, &bypass, [-20, 20], [-20, 20])
             .unwrap();
         let mut restored = mover.clone();
         for tick in 1..=10 {

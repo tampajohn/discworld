@@ -2863,11 +2863,7 @@ impl Engine {
                     } else {
                         start
                     };
-                    if placement.path.is_none()
-                        || target.contains(&-1)
-                        || ((i64::from(start[0]) - i64::from(target[0])).abs() < 4
-                            && (i64::from(start[1]) - i64::from(target[1])).abs() < 2)
-                    {
+                    if placement.path.is_none() || target.contains(&-1) {
                         return Ok(Status::Unsupported(call));
                     }
                     self.actors.get(actor as u32)?;
@@ -2894,15 +2890,26 @@ impl Engine {
                             Handle(0),
                         )?;
                     }
+                    let cursor = [
+                        self.control.cursor[0]
+                            .checked_add(self.world_origin[0])
+                            .ok_or(Error("world cursor overflow"))?,
+                        self.control.cursor[1]
+                            .checked_add(self.world_origin[1])
+                            .ok_or(Error("world cursor overflow"))?,
+                    ];
                     let serial = mover.begin_direct_walk(
                         resources,
                         &self.declarations,
                         &self.polygons,
                         target,
+                        cursor,
                     )?;
+                    let moving = mover.walk_target.is_some();
+                    let position = mover.placement.position;
                     self.movers.insert(actor, mover);
                     self.scroll.follow_cursor = false;
-                    self.actors.get_mut(actor as u32)?.position = start;
+                    self.actors.get_mut(actor as u32)?.position = position;
                     self.reel_owners.remove(&actor);
                     self.films.retain(|film| film.object.id != actor);
                     let restore_control = self.control.enabled
@@ -2914,8 +2921,14 @@ impl Engine {
                     if restore_control {
                         self.control.apply_at(3, false, self.world_origin)?;
                     }
-                    process.walk_wait = Some((call, actor, serial, restore_control));
-                    return Ok(Status::Running);
+                    if moving {
+                        process.walk_wait = Some((call, actor, serial, restore_control));
+                        return Ok(Status::Running);
+                    }
+                    if restore_control {
+                        self.control.apply_at(1, false, self.world_origin)?;
+                    }
+                    process.vm.complete_library(call, 6, None)?;
                 }
                 74 => {
                     let requested = args(&process.vm, 1)?[0];
@@ -4436,6 +4449,95 @@ mod tests {
                         .unwrap();
                     assert_eq!(engine.globals[0], expected);
                 }
+            }
+        }
+    }
+
+    #[test]
+    fn short_swalk_completes_after_node_snap_and_faces_world_cursor() {
+        for node_path in [false, true] {
+            let (master, mut scene) = fixtures();
+            scene[8] = 0;
+            let start = if node_path { [55, 74] } else { [50, 70] };
+            let code = [
+                0x41, 77, 3, 0x41, start[0], 0x41, start[1], 0x41, 50, 0x41, 70, 2, 0x4e, 75, 0x4c,
+                0, 0,
+            ];
+            scene[32..32 + code.len()].copy_from_slice(&code);
+            let base = 2u32 << 23;
+            let mut film = vec![0; 64];
+            for (at, value) in [
+                (0, 24u32),
+                (4, 1),
+                (8, base + 24),
+                (12, base + 48),
+                (32, 1),
+                (48, 10),
+            ] {
+                film[at..at + 4].copy_from_slice(&value.to_le_bytes());
+            }
+            let resources = Resources(vec![&master, &scene, &film]);
+            for enabled in [false, true] {
+                let mut engine = Engine::bootstrap(&resources).unwrap();
+                engine.actors = crate::actor::Actors::new(1).unwrap();
+                engine.declarations.lead = Some(crate::startup::Lead {
+                    id: 1,
+                    text: Handle(0),
+                    tagged: false,
+                });
+                engine
+                    .declarations
+                    .movers
+                    .insert(1, [[Handle(base); 12]; 10]);
+                engine.polygons = crate::polygon::Polygons::new(
+                    vec![crate::polygon::Polygon {
+                        kind: if node_path {
+                            crate::polygon::Kind::NodePath
+                        } else {
+                            crate::polygon::Kind::Path
+                        },
+                        corners: [[0, 0], [100, 0], [100, 100], [0, 100]],
+                        tag_position: [0; 2],
+                        tag_text: Handle(0),
+                        node_position: [0; 2],
+                        film: Handle(0),
+                        refer_type: 0,
+                        id: 1,
+                        scales: [1, 0],
+                        reel: 0,
+                        z_factor: 0,
+                        nodes: if node_path {
+                            vec![[50, 70], [80, 70]]
+                        } else {
+                            vec![]
+                        },
+                        lines: vec![],
+                        script: Handle(0),
+                    }],
+                    0,
+                );
+                engine.world_origin = [100, 0];
+                engine.control.cursor = [0, 70];
+                engine.control.enabled = enabled;
+                let mut process = ScriptProcess::new(Handle((1 << 23) | 32));
+                assert_eq!(
+                    engine
+                        .run_process(&resources, None, None, None, &mut process)
+                        .unwrap(),
+                    Status::Halted
+                );
+                assert!(process.walk_wait.is_none());
+                assert_eq!(
+                    engine.globals[0], 77,
+                    "SWALK consumes only its six arguments"
+                );
+                assert_eq!(engine.control.enabled, enabled);
+                let mover = &engine.movers[&1];
+                assert_eq!(mover.placement.position, [50, 70]);
+                assert_eq!(engine.actors.get(1).unwrap().position, [50, 70]);
+                assert_eq!(mover.placement.direction, crate::mover::Direction::Right);
+                assert_eq!(mover.walk_target, None);
+                assert_eq!(mover.walk_serial, 1);
             }
         }
     }
