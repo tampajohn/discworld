@@ -8409,78 +8409,108 @@
     "tick": 2346000,
     "scene": "ankhmap.scn",
     "event": "walkto",
-    "polygon": 82
+    "polygon": 78
   },
   {
     "tick": 2348000,
+    "scene": "livery.scn",
+    "event": "look",
+    "polygon": 12
+  },
+  {
+    "tick": 2350000,
+    "scene": "donkcart.scn",
+    "event": "look",
+    "polygon": 2
+  },
+  {
+    "tick": 2353000,
+    "scene": "donkcart.scn",
+    "event": "walkto",
+    "polygon": 1
+  },
+  {
+    "tick": 2355000,
+    "scene": "livery.scn",
+    "event": "walkto",
+    "polygon": 8
+  },
+  {
+    "tick": 2357000,
+    "scene": "ankhmap.scn",
+    "event": "walkto",
+    "polygon": 82
+  },
+  {
+    "tick": 2359000,
     "scene": "ramkin.scn",
     "event": "action",
     "polygon": 42
   },
   {
-    "tick": 2350500,
+    "tick": 2361500,
     "scene": "ramkin.scn",
     "event": "walkto",
     "polygon": 39
   },
   {
-    "tick": 2353000,
+    "tick": 2364000,
     "scene": "dragcage.scn",
     "event": "action",
     "polygon": 26
   },
   {
-    "tick": 2355500,
+    "tick": 2366500,
     "scene": "dragcage.scn",
     "event": "walkto",
     "actor": 8
   },
   {
-    "tick": 2355600,
+    "tick": 2366600,
     "scene": "dragcage.scn",
     "event": "inventory_home"
   },
   {
-    "tick": 2355700,
+    "tick": 2366700,
     "scene": "dragcage.scn",
     "event": "walkto",
     "inventory_slot": 0
   },
   {
-    "tick": 2355800,
+    "tick": 2366800,
     "scene": "dragcage.scn",
     "event": "close_inventory"
   },
   {
-    "tick": 2356500,
+    "tick": 2367500,
     "scene": "dragcage.scn",
     "event": "action",
     "polygon": 27
   },
   {
-    "tick": 2359000,
+    "tick": 2370000,
     "scene": "dragcage.scn",
     "event": "walkto",
     "actor": 8
   },
   {
-    "tick": 2359100,
+    "tick": 2370100,
     "scene": "dragcage.scn",
     "event": "inventory_home"
   },
   {
-    "tick": 2359200,
+    "tick": 2370200,
     "scene": "dragcage.scn",
     "event": "walkto",
     "inventory_slot": 0
   },
   {
-    "tick": 2359300,
+    "tick": 2370300,
     "scene": "dragcage.scn",
     "event": "close_inventory"
   },
   {
-    "tick": 2360000,
+    "tick": 2371000,
     "scene": "dragcage.scn",
     "event": "action",
     "polygon": 28
