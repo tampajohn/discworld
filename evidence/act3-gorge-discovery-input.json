@@ -8534,481 +8534,481 @@
     "polygon": 28
   },
   {
-    "tick": 2381500,
+    "tick": 2380000,
     "scene": "dragcage.scn",
     "event": "walkto",
     "actor": 8
   },
   {
-    "tick": 2381600,
+    "tick": 2380100,
     "scene": "dragcage.scn",
     "event": "inventory_home"
   },
   {
-    "tick": 2381700,
+    "tick": 2380200,
     "scene": "dragcage.scn",
     "event": "walkto",
     "inventory_slot": 0
   },
   {
-    "tick": 2381800,
+    "tick": 2380300,
     "scene": "dragcage.scn",
     "event": "close_inventory"
   },
   {
-    "tick": 2382500,
+    "tick": 2381000,
     "scene": "dragcage.scn",
     "event": "walkto",
     "polygon": 10
   },
   {
-    "tick": 2384500,
+    "tick": 2383000,
     "scene": "ramkin.scn",
     "event": "walkto",
     "polygon": 38
   },
   {
-    "tick": 2386500,
+    "tick": 2385000,
     "scene": "ankhmap.scn",
     "event": "walkto",
     "polygon": 83
   },
   {
-    "tick": 2388500,
+    "tick": 2387000,
     "scene": "street.scn",
     "event": "walkto",
     "polygon": 28
   },
   {
-    "tick": 2390500,
+    "tick": 2389000,
     "scene": "fishmong.scn",
     "event": "action",
     "polygon": 18
   },
   {
-    "tick": 2393500,
+    "tick": 2392000,
     "scene": "fishmong.scn",
     "event": "walkto",
     "actor": 8
   },
   {
-    "tick": 2393600,
+    "tick": 2392100,
     "scene": "fishmong.scn",
     "event": "inventory_home"
   },
   {
-    "tick": 2393700,
+    "tick": 2392200,
     "scene": "fishmong.scn",
     "event": "walkto",
     "inventory_slot": 0
   },
   {
-    "tick": 2393800,
+    "tick": 2392300,
     "scene": "fishmong.scn",
     "event": "close_inventory"
   },
   {
-    "tick": 2394500,
+    "tick": 2393000,
     "scene": "fishmong.scn",
     "event": "walkto",
     "polygon": 8
   },
   {
-    "tick": 2396500,
+    "tick": 2395000,
     "scene": "street.scn",
     "event": "walkto",
     "polygon": 23
   },
   {
-    "tick": 2398500,
+    "tick": 2397000,
     "scene": "ankhmap.scn",
     "event": "walkto",
     "polygon": 88
   },
   {
-    "tick": 2400500,
+    "tick": 2399000,
     "scene": "hideout.scn",
     "event": "action",
     "polygon": 10
   },
   {
-    "tick": 2406500,
+    "tick": 2405000,
     "scene": "hideout.scn",
     "event": "walkto",
     "actor": 8
   },
   {
-    "tick": 2406600,
+    "tick": 2405100,
     "scene": "hideout.scn",
     "event": "inventory_home"
   },
   {
-    "tick": 2406700,
+    "tick": 2405200,
     "scene": "hideout.scn",
     "event": "walkto",
     "inventory_slot": 0
   },
   {
-    "tick": 2406800,
+    "tick": 2405300,
     "scene": "hideout.scn",
     "event": "close_inventory"
   },
   {
-    "tick": 2407500,
+    "tick": 2406000,
     "scene": "hideout.scn",
     "event": "walkto",
     "polygon": 8
   },
   {
-    "tick": 2409500,
+    "tick": 2408000,
     "scene": "ankhmap.scn",
     "event": "walkto",
     "polygon": 76
   },
   {
-    "tick": 2411500,
+    "tick": 2410000,
     "scene": "citygate.scn",
     "event": "walkto",
     "polygon": 28
   },
   {
-    "tick": 2413500,
+    "tick": 2412000,
     "scene": "discmap.scn",
     "event": "walkto",
     "polygon": 35
   },
   {
-    "tick": 2417500,
+    "tick": 2416000,
     "scene": "mystwood.scn",
     "event": "action",
     "polygon": 17
   },
   {
-    "tick": 2419500,
+    "tick": 2418000,
     "scene": "mystwood.scn",
     "event": "action",
     "polygon": 17
   },
   {
-    "tick": 2421500,
+    "tick": 2420000,
     "scene": "witch.scn",
     "event": "look",
     "polygon": 12
   },
   {
-    "tick": 2424500,
+    "tick": 2423000,
     "scene": "witch.scn",
     "event": "action",
     "polygon": 10
   },
   {
-    "tick": 2427500,
+    "tick": 2426000,
     "scene": "witch.scn",
     "event": "topic",
     "topic": 4
   },
   {
-    "tick": 2431500,
+    "tick": 2430000,
     "scene": "witch.scn",
     "event": "walkto",
     "actor": 8
   },
   {
-    "tick": 2431600,
+    "tick": 2430100,
     "scene": "witch.scn",
     "event": "inventory_home"
   },
   {
-    "tick": 2431700,
+    "tick": 2430200,
     "scene": "witch.scn",
     "event": "walkto",
     "inventory_slot": 0
   },
   {
-    "tick": 2431800,
+    "tick": 2430300,
     "scene": "witch.scn",
     "event": "close_inventory"
   },
   {
-    "tick": 2432500,
+    "tick": 2431000,
     "scene": "witch.scn",
     "event": "action",
     "actor": 7
   },
   {
-    "tick": 2436500,
+    "tick": 2435000,
     "scene": "witch.scn",
     "event": "action",
     "polygon": 12
   },
   {
-    "tick": 2439500,
+    "tick": 2438000,
     "scene": "witch.scn",
     "event": "walkto",
     "actor": 8
   },
   {
-    "tick": 2439600,
+    "tick": 2438100,
     "scene": "witch.scn",
     "event": "inventory_home"
   },
   {
-    "tick": 2439700,
+    "tick": 2438200,
     "scene": "witch.scn",
     "event": "walkto",
     "inventory_slot": 0
   },
   {
-    "tick": 2439800,
+    "tick": 2438300,
     "scene": "witch.scn",
     "event": "close_inventory"
   },
   {
-    "tick": 2440500,
+    "tick": 2439000,
     "scene": "witch.scn",
     "event": "action",
     "polygon": 17
   },
   {
-    "tick": 2443000,
+    "tick": 2441500,
     "scene": "sheep.scn",
     "event": "action",
     "polygon": 8
   },
   {
-    "tick": 2445500,
+    "tick": 2444000,
     "scene": "sheep.scn",
     "event": "walkto",
     "actor": 8
   },
   {
-    "tick": 2445600,
+    "tick": 2444100,
     "scene": "sheep.scn",
     "event": "inventory_home"
   },
   {
-    "tick": 2445700,
+    "tick": 2444200,
     "scene": "sheep.scn",
     "event": "walkto",
     "inventory_slot": 0
   },
   {
-    "tick": 2445800,
+    "tick": 2444300,
     "scene": "sheep.scn",
     "event": "scroll_down"
   },
   {
-    "tick": 2445900,
+    "tick": 2444400,
     "scene": "sheep.scn",
     "event": "walkto",
     "inventory_slot": 3
+  },
+  {
+    "tick": 2444500,
+    "scene": "sheep.scn",
+    "event": "close_inventory"
   },
   {
     "tick": 2446000,
     "scene": "sheep.scn",
-    "event": "close_inventory"
-  },
-  {
-    "tick": 2447500,
-    "scene": "sheep.scn",
     "event": "action",
     "polygon": 10
   },
   {
-    "tick": 2450500,
+    "tick": 2449000,
     "scene": "sheep.scn",
     "event": "walkto",
     "actor": 8
   },
   {
-    "tick": 2450600,
+    "tick": 2449100,
     "scene": "sheep.scn",
     "event": "inventory_home"
   },
   {
-    "tick": 2450700,
+    "tick": 2449200,
     "scene": "sheep.scn",
     "event": "scroll_down"
   },
   {
-    "tick": 2450800,
+    "tick": 2449300,
     "scene": "sheep.scn",
     "event": "walkto",
     "inventory_slot": 3
   },
   {
-    "tick": 2450900,
+    "tick": 2449400,
     "scene": "sheep.scn",
     "event": "close_inventory"
   },
   {
-    "tick": 2451500,
+    "tick": 2450000,
     "scene": "sheep.scn",
     "event": "action",
     "polygon": 10
   },
   {
-    "tick": 2454000,
+    "tick": 2452500,
     "scene": "sheep.scn",
     "event": "walkto",
     "actor": 8
   },
   {
-    "tick": 2454100,
+    "tick": 2452600,
     "scene": "sheep.scn",
     "event": "inventory_home"
   },
   {
-    "tick": 2454200,
+    "tick": 2452700,
     "scene": "sheep.scn",
     "event": "action",
     "inventory_slot": 3
   },
   {
-    "tick": 2455000,
+    "tick": 2453500,
     "scene": "sheep.scn",
     "event": "close_inventory"
   },
   {
-    "tick": 2458000,
+    "tick": 2456500,
     "scene": "sheep.scn",
     "event": "walkto",
     "actor": 8
   },
   {
-    "tick": 2458100,
+    "tick": 2456600,
     "scene": "sheep.scn",
     "event": "inventory_home"
   },
   {
-    "tick": 2458200,
+    "tick": 2456700,
     "scene": "sheep.scn",
     "event": "walkto",
     "inventory_slot": 3
   },
   {
-    "tick": 2458300,
+    "tick": 2456800,
     "scene": "sheep.scn",
     "event": "walkto",
     "inventory_slot": 0
   },
   {
-    "tick": 2458400,
+    "tick": 2456900,
     "scene": "sheep.scn",
     "event": "close_inventory"
   },
   {
-    "tick": 2459000,
+    "tick": 2457500,
     "scene": "sheep.scn",
     "event": "walkto",
     "polygon": 7
   },
   {
-    "tick": 2461000,
+    "tick": 2459500,
     "scene": "witch.scn",
     "event": "walkto",
     "polygon": 8
   },
   {
-    "tick": 2463000,
+    "tick": 2461500,
     "scene": "mystwood.scn",
     "event": "walkto",
     "polygon": 16
   },
   {
-    "tick": 2465000,
+    "tick": 2463500,
     "scene": "discmap.scn",
     "event": "walkto",
     "polygon": 33
   },
   {
-    "tick": 2467000,
+    "tick": 2465500,
     "scene": "citygate.scn",
     "event": "walkto",
     "polygon": 27
   },
   {
-    "tick": 2469000,
+    "tick": 2467500,
     "scene": "ankhmap.scn",
     "event": "walkto",
     "polygon": 75
   },
   {
-    "tick": 2471000,
+    "tick": 2469500,
     "scene": "pub.scn",
     "event": "walkto",
     "polygon": 15
   },
   {
-    "tick": 2473000,
+    "tick": 2471500,
     "scene": "bar.scn",
     "event": "action",
     "polygon": 27
   },
   {
-    "tick": 2476000,
+    "tick": 2474500,
     "scene": "bar.scn",
     "event": "walkto",
     "actor": 8
   },
   {
-    "tick": 2476100,
+    "tick": 2474600,
     "scene": "bar.scn",
     "event": "inventory_home"
   },
   {
-    "tick": 2476200,
+    "tick": 2474700,
     "scene": "bar.scn",
     "event": "walkto",
     "inventory_slot": 0
   },
   {
-    "tick": 2476300,
+    "tick": 2474800,
     "scene": "bar.scn",
     "event": "walkto",
     "inventory_slot": 3
   },
   {
-    "tick": 2476400,
+    "tick": 2474900,
     "scene": "bar.scn",
     "event": "close_inventory"
   },
   {
-    "tick": 2477000,
+    "tick": 2475500,
     "scene": "bar.scn",
     "event": "action",
     "polygon": 27
   },
   {
-    "tick": 2480000,
+    "tick": 2478500,
     "scene": "bar.scn",
     "event": "action",
     "polygon": 38
   },
   {
-    "tick": 2485000,
+    "tick": 2483500,
     "scene": "bar.scn",
     "event": "walkto",
     "actor": 8
   },
   {
-    "tick": 2485100,
+    "tick": 2483600,
     "scene": "bar.scn",
     "event": "inventory_home"
   },
   {
-    "tick": 2485200,
+    "tick": 2483700,
     "scene": "bar.scn",
     "event": "action",
     "inventory_slot": 1
   },
   {
-    "tick": 2485300,
+    "tick": 2483800,
     "scene": "bar.scn",
     "event": "close_inventory"
   },
   {
-    "tick": 2486000,
+    "tick": 2484500,
     "scene": "bar.scn",
     "event": "action",
     "polygon": 38

@@ -8534,99 +8534,99 @@
     "polygon": 28
   },
   {
-    "tick": 2381500,
+    "tick": 2380000,
     "scene": "dragcage.scn",
     "event": "walkto",
     "actor": 8
   },
   {
-    "tick": 2381600,
+    "tick": 2380100,
     "scene": "dragcage.scn",
     "event": "inventory_home"
   },
   {
-    "tick": 2381700,
+    "tick": 2380200,
     "scene": "dragcage.scn",
     "event": "walkto",
     "inventory_slot": 0
   },
   {
-    "tick": 2381800,
+    "tick": 2380300,
     "scene": "dragcage.scn",
     "event": "close_inventory"
   },
   {
-    "tick": 2382500,
+    "tick": 2381000,
     "scene": "dragcage.scn",
     "event": "walkto",
     "polygon": 10
   },
   {
-    "tick": 2384500,
+    "tick": 2383000,
     "scene": "ramkin.scn",
     "event": "walkto",
     "polygon": 38
   },
   {
-    "tick": 2386500,
+    "tick": 2385000,
     "scene": "ankhmap.scn",
     "event": "walkto",
     "polygon": 83
   },
   {
-    "tick": 2388500,
+    "tick": 2387000,
     "scene": "street.scn",
     "event": "walkto",
     "polygon": 28
   },
   {
-    "tick": 2390500,
+    "tick": 2389000,
     "scene": "fishmong.scn",
     "event": "action",
     "polygon": 18
   },
   {
-    "tick": 2393500,
+    "tick": 2392000,
     "scene": "fishmong.scn",
     "event": "walkto",
     "actor": 8
   },
   {
-    "tick": 2393600,
+    "tick": 2392100,
     "scene": "fishmong.scn",
     "event": "inventory_home"
   },
   {
-    "tick": 2393700,
+    "tick": 2392200,
     "scene": "fishmong.scn",
     "event": "walkto",
     "inventory_slot": 0
   },
   {
-    "tick": 2393800,
+    "tick": 2392300,
     "scene": "fishmong.scn",
     "event": "close_inventory"
   },
   {
-    "tick": 2394500,
+    "tick": 2393000,
     "scene": "fishmong.scn",
     "event": "walkto",
     "polygon": 8
   },
   {
-    "tick": 2396500,
+    "tick": 2395000,
     "scene": "street.scn",
     "event": "walkto",
     "polygon": 23
   },
   {
-    "tick": 2398500,
+    "tick": 2397000,
     "scene": "ankhmap.scn",
     "event": "walkto",
     "polygon": 88
   },
   {
-    "tick": 2400500,
+    "tick": 2399000,
     "scene": "hideout.scn",
     "event": "action",
     "polygon": 10
