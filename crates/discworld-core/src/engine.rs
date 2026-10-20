@@ -1343,10 +1343,9 @@ impl Engine {
         } else {
             Handle(0)
         };
-        let mut actor_scripts = self.actors.enter(&scene.actors)?;
-        if entry.is_none() {
-            actor_scripts.clear();
-        }
+        let actor_scripts = self
+            .actors
+            .enter_with_startup(&scene.actors, entry.is_some())?;
         let scene_script = if entry.is_some() {
             scene.script
         } else {
@@ -3043,6 +3042,10 @@ impl Engine {
                         u32::try_from(actor).map_err(|_| Error("invalid actor ID"))?,
                     )?;
                     process.vm.complete_library(call, 1, None)?;
+                }
+                93 => {
+                    self.actors.set_actors_on();
+                    process.vm.complete_library(call, 0, None)?;
                 }
                 62 => {
                     let id = u32::try_from(args(&process.vm, 1)?[0])
@@ -6093,6 +6096,56 @@ mod tests {
         assert_eq!(engine.globals, [3]);
         assert!(engine.actors.get_mut(1).unwrap().completed);
         restored.tick(&resources).unwrap();
+        assert_eq!(engine, restored);
+    }
+    #[test]
+    fn actorson_revives_scene_actors_on_future_entries_only() {
+        let (master, mut scene) = fixtures();
+        // ACTORSON takes no arguments and must preserve the lower stack.
+        scene[8..16].copy_from_slice(&[0x41, 42, 0x4e, 93, 0x4c, 0, 0, 0]);
+        let resources = Resources(vec![&master, &scene]);
+        let mut engine = Engine::bootstrap(&resources).unwrap();
+        engine.actors = crate::actor::Actors::new(2).unwrap();
+        engine.actors.disable(1).unwrap();
+        engine.actors.disable(2).unwrap();
+        let definition = scene::Actor {
+            id: 1,
+            masking: 0,
+            script: Handle((1 << 23) | 32),
+        };
+        assert!(
+            engine
+                .actors
+                .enter(std::slice::from_ref(&definition))
+                .unwrap()
+                .is_empty()
+        );
+        assert_eq!(engine.tick(&resources).unwrap(), Status::Halted);
+        assert_eq!(engine.globals, [42]);
+        assert!(!engine.actors.get(1).unwrap().alive);
+        let mut restored = engine.clone();
+        for state in [&mut engine, &mut restored] {
+            assert!(
+                state
+                    .actors
+                    .enter_with_startup(std::slice::from_ref(&definition), false)
+                    .unwrap()
+                    .is_empty()
+            );
+            assert!(!state.actors.get(1).unwrap().alive);
+            for _ in 0..2 {
+                assert_eq!(
+                    state
+                        .actors
+                        .enter(std::slice::from_ref(&definition))
+                        .unwrap(),
+                    [(1, definition.script)]
+                );
+                assert!(state.actors.get(1).unwrap().alive);
+                assert!(!state.actors.get(2).unwrap().alive);
+                state.actors.disable(1).unwrap();
+            }
+        }
         assert_eq!(engine, restored);
     }
     #[test]

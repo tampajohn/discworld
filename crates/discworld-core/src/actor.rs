@@ -37,33 +37,39 @@ pub struct Actor {
 }
 
 #[derive(Debug, Clone, PartialEq, Eq)]
-pub struct Actors(Vec<Actor>);
+pub struct Actors {
+    entries: Vec<Actor>,
+    revive_on_entry: bool,
+}
 impl Actors {
     pub fn new(count: usize) -> Result<Self, Error> {
         if count > 512 {
             return Err(Error("actor count limit"));
         }
-        Ok(Self(vec![
-            Actor {
-                alive: true,
-                hidden: false,
-                completed: false,
-                position: [0; 2],
-                masking: 0,
-                script: Handle(0)
-            };
-            count
-        ]))
+        Ok(Self {
+            entries: vec![
+                Actor {
+                    alive: true,
+                    hidden: false,
+                    completed: false,
+                    position: [0; 2],
+                    masking: 0,
+                    script: Handle(0)
+                };
+                count
+            ],
+            revive_on_entry: false,
+        })
     }
     pub fn get_mut(&mut self, id: u32) -> Result<&mut Actor, Error> {
         let index = id.checked_sub(1).ok_or(Error("invalid actor ID"))? as usize;
-        self.0
+        self.entries
             .get_mut(index)
             .ok_or(Error("actor ID outside declared count"))
     }
     pub fn get(&self, id: u32) -> Result<&Actor, Error> {
         let index = id.checked_sub(1).ok_or(Error("invalid actor ID"))? as usize;
-        self.0
+        self.entries
             .get(index)
             .ok_or(Error("actor ID outside declared count"))
     }
@@ -84,10 +90,22 @@ impl Actors {
         actor.completed = false;
         Ok((actor.script.0 != 0).then_some(actor.script))
     }
+    /// V1 ACTORSON persists and affects subsequent StartActor calls only.
+    pub fn set_actors_on(&mut self) {
+        self.revive_on_entry = true;
+    }
     /// Returns live actor scripts in creation order. Changes are atomic.
     pub fn enter(&mut self, definitions: &[Definition]) -> Result<Vec<(u32, Handle)>, Error> {
+        self.enter_with_startup(definitions, true)
+    }
+    /// Restored scenes install definitions without reviving or starting actors.
+    pub fn enter_with_startup(
+        &mut self,
+        definitions: &[Definition],
+        run_startup: bool,
+    ) -> Result<Vec<(u32, Handle)>, Error> {
         let mut next = self.clone();
-        for actor in &mut next.0 {
+        for actor in &mut next.entries {
             actor.script = Handle(0);
             actor.position = [0; 2];
             actor.masking = 0;
@@ -96,12 +114,16 @@ impl Actors {
         for definition in definitions {
             // V1 StartTaggedActors processes every record in order. Repeated
             // IDs are valid (ALSHOP actor 56 starts with a null-code record).
+            let revive = next.revive_on_entry;
             let actor = next.get_mut(definition.id)?;
             actor.hidden = false;
             actor.completed = false;
             actor.masking = definition.masking;
             actor.script = definition.script;
-            if actor.alive && actor.script.0 != 0 {
+            if run_startup && revive {
+                actor.alive = true;
+            }
+            if run_startup && actor.alive && actor.script.0 != 0 {
                 scripts.push((definition.id, actor.script));
             }
         }
