@@ -8120,42 +8120,133 @@
     "polygon": 74
   },
   {
+    "tick": 2302500,
+    "scene": "palent.scn",
+    "event": "walkto",
+    "actor": 8
+  },
+  {
+    "tick": 2302600,
+    "scene": "palent.scn",
+    "event": "inventory_home"
+  },
+  {
+    "tick": 2302700,
+    "scene": "palent.scn",
+    "event": "walkto",
+    "inventory_slot": 0
+  },
+  {
+    "tick": 2302800,
+    "scene": "palent.scn",
+    "event": "scroll_down"
+  },
+  {
+    "tick": 2302900,
+    "scene": "palent.scn",
+    "event": "scroll_down"
+  },
+  {
+    "tick": 2303000,
+    "scene": "palent.scn",
+    "event": "scroll_down"
+  },
+  {
+    "tick": 2303100,
+    "scene": "palent.scn",
+    "event": "scroll_down"
+  },
+  {
+    "tick": 2303200,
+    "scene": "palent.scn",
+    "event": "scroll_down"
+  },
+  {
+    "tick": 2303300,
+    "scene": "palent.scn",
+    "event": "scroll_down"
+  },
+  {
+    "tick": 2303400,
+    "scene": "palent.scn",
+    "event": "scroll_down"
+  },
+  {
     "tick": 2303500,
+    "scene": "palent.scn",
+    "event": "walkto",
+    "inventory_slot": 4
+  },
+  {
+    "tick": 2303600,
+    "scene": "palent.scn",
+    "event": "close_inventory"
+  },
+  {
+    "tick": 2304500,
+    "scene": "palent.scn",
+    "event": "action",
+    "polygon": 9
+  },
+  {
+    "tick": 2310000,
+    "scene": "palent.scn",
+    "event": "walkto",
+    "actor": 8
+  },
+  {
+    "tick": 2310100,
+    "scene": "palent.scn",
+    "event": "inventory_home"
+  },
+  {
+    "tick": 2310200,
+    "scene": "palent.scn",
+    "event": "walkto",
+    "inventory_slot": 0
+  },
+  {
+    "tick": 2310300,
+    "scene": "palent.scn",
+    "event": "close_inventory"
+  },
+  {
+    "tick": 2311500,
     "scene": "palent.scn",
     "event": "walkto",
     "polygon": 10
   },
   {
-    "tick": 2305500,
+    "tick": 2313500,
     "scene": "throne.scn",
     "event": "walkto",
     "polygon": 27
   },
   {
-    "tick": 2307500,
+    "tick": 2315500,
     "scene": "dungeon.scn",
     "event": "action",
     "polygon": 14
   },
   {
-    "tick": 2311500,
+    "tick": 2319500,
     "scene": "dungeon.scn",
     "event": "walkto",
     "actor": 8
   },
   {
-    "tick": 2311600,
+    "tick": 2319600,
     "scene": "dungeon.scn",
     "event": "inventory_home"
   },
   {
-    "tick": 2311700,
+    "tick": 2319700,
     "scene": "dungeon.scn",
     "event": "walkto",
     "inventory_slot": 0
   },
   {
-    "tick": 2311800,
+    "tick": 2319800,
     "scene": "dungeon.scn",
     "event": "action",
     "inventory_slot": 0
