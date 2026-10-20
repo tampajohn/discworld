@@ -2648,6 +2648,13 @@ impl Engine {
                         .vm
                         .complete_library(call, 1, Some(position[(call.id - 4) as usize]))?;
                 }
+                17 | 18 => {
+                    // DW1 CursorPos queries absolute world coordinates, even
+                    // while CONTROL has hidden or frozen the cursor.
+                    let axis = (call.id - 17) as usize;
+                    let position = self.control.cursor[axis].wrapping_add(self.world_origin[axis]);
+                    process.vm.complete_library(call, 1, Some(position))?;
+                }
                 42 | 80 => {
                     let axis = usize::from(call.id == 80);
                     process
@@ -6085,6 +6092,34 @@ mod tests {
         assert_eq!(engine.tick(&resources).unwrap(), Status::Halted);
         assert_eq!(engine.globals, [3]);
         assert!(engine.actors.get_mut(1).unwrap().completed);
+        restored.tick(&resources).unwrap();
+        assert_eq!(engine, restored);
+    }
+    #[test]
+    fn cursor_queries_restore_world_position_while_control_is_frozen() {
+        let (master, mut scene) = fixtures();
+        let code = [
+            0x50, 1, 0x4e, 17, 0x4c, 0, // reserve return slot, CURSORXPOS, store
+            0x50, 1, 0x4e, 18, 0x4c, 1, // CURSORYPOS
+            2, 2, 0x4e, 43, // temporarily move to world [0, 0]
+            0x4a, 0, 0x4a, 1, 0x4e, 43, // restore the queried position
+            3, 0x4e, 14, 0, // CONTROL_ON
+        ];
+        scene[8..8 + code.len()].copy_from_slice(&code);
+        let resources = Resources(vec![&master, &scene]);
+        let mut engine = Engine::bootstrap(&resources).unwrap();
+        engine.globals.resize(2, 0);
+        engine.world_origin = [320, -10];
+        engine.control.cursor = [23, 34];
+        engine
+            .control
+            .apply_at(2, false, engine.world_origin)
+            .unwrap();
+        let mut restored = engine.clone();
+        assert_eq!(engine.tick(&resources).unwrap(), Status::Halted);
+        assert_eq!(engine.globals, [343, 24]);
+        assert_eq!(engine.control.cursor, [23, 34]);
+        assert!(engine.control.enabled);
         restored.tick(&resources).unwrap();
         assert_eq!(engine, restored);
     }
