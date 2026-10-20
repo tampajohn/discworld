@@ -378,10 +378,24 @@ fn run() -> Result<(), Box<dyn std::error::Error>> {
                 } else {
                     "P pause"
                 },
-                if replay.is_some() {
+                if let Some(inputs) = &replay {
+                    let next = inputs.partition_point(|input| u64::from(input.tick) < engine.ticks);
+                    let countdown = inputs.get(next).map_or_else(
+                        || " · no recorded inputs remaining".to_string(),
+                        |input| {
+                            let seconds = (u64::from(input.tick) - engine.ticks) as f64
+                                / 24.0
+                                / f64::from(speed);
+                            format!(
+                                " · next input in {seconds:.1}s{}",
+                                if paused { " after resume" } else { "" }
+                            )
+                        },
+                    );
                     format!(
-                        "Replay {speed}x · F speed · tick {}{}",
+                        "Replay {speed}x · F speed · tick {}{}{}",
                         engine.ticks,
+                        countdown,
                         if muted || speed > 1 { " · silent" } else { "" }
                     )
                 } else {
