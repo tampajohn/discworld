@@ -6366,286 +6366,292 @@
     "polygon": 36
   },
   {
-    "tick": 1880500,
+    "tick": 1886500,
+    "scene": "discmap.scn",
+    "event": "walkto",
+    "polygon": 36
+  },
+  {
+    "tick": 1888500,
     "scene": "worldedg.scn",
     "event": "action",
     "polygon": 12
   },
   {
-    "tick": 1883500,
+    "tick": 1891500,
     "scene": "worldedg.scn",
     "event": "walkto",
     "polygon": 3
   },
   {
-    "tick": 1885500,
+    "tick": 1893500,
     "scene": "discmap.scn",
     "event": "walkto",
     "polygon": 33
   },
   {
-    "tick": 1887500,
+    "tick": 1895500,
     "scene": "citygate.scn",
     "event": "walkto",
     "polygon": 27
   },
   {
-    "tick": 1889500,
+    "tick": 1897500,
     "scene": "ankhmap.scn",
     "event": "walkto",
     "polygon": 81
   },
   {
-    "tick": 1891500,
+    "tick": 1899500,
     "scene": "inn.scn",
     "event": "action",
     "polygon": 23
   },
   {
-    "tick": 1896500,
+    "tick": 1904500,
     "scene": "inn.scn",
     "event": "walkto",
     "actor": 8
   },
   {
-    "tick": 1896600,
+    "tick": 1904600,
     "scene": "inn.scn",
     "event": "inventory_home"
   },
   {
-    "tick": 1896700,
+    "tick": 1904700,
     "scene": "inn.scn",
     "event": "walkto",
     "inventory_slot": 2
   },
   {
-    "tick": 1896800,
+    "tick": 1904800,
     "scene": "inn.scn",
     "event": "close_inventory"
   },
   {
-    "tick": 1897500,
+    "tick": 1905500,
     "scene": "inn.scn",
     "event": "action",
     "polygon": 21
   },
   {
-    "tick": 1899500,
+    "tick": 1907500,
     "scene": "inn.scn",
     "event": "look",
     "polygon": 22
   },
   {
-    "tick": 1901000,
+    "tick": 1909000,
     "scene": "inn.scn",
     "event": "action",
     "polygon": 23
   },
   {
-    "tick": 1906500,
+    "tick": 1914500,
     "scene": "inn.scn",
     "event": "action",
     "polygon": 18
   },
   {
-    "tick": 1909500,
+    "tick": 1917500,
     "scene": "inn.scn",
     "event": "action",
     "polygon": 23
   },
   {
-    "tick": 1919500,
+    "tick": 1927500,
     "scene": "inn.scn",
     "event": "walkto",
     "actor": 7
   },
   {
-    "tick": 1919600,
+    "tick": 1927600,
     "scene": "inn.scn",
     "event": "inventory_home"
   },
   {
-    "tick": 1919700,
+    "tick": 1927700,
     "scene": "inn.scn",
     "event": "walkto",
     "inventory_slot": 4
   },
   {
-    "tick": 1919800,
+    "tick": 1927800,
     "scene": "inn.scn",
     "event": "close_inventory"
   },
   {
-    "tick": 1920500,
+    "tick": 1928500,
     "scene": "inn.scn",
     "event": "action",
     "polygon": 23
   },
   {
-    "tick": 1923500,
+    "tick": 1931500,
     "scene": "inn.scn",
     "event": "walkto",
     "actor": 8
   },
   {
-    "tick": 1923600,
+    "tick": 1931600,
     "scene": "inn.scn",
     "event": "inventory_home"
   },
   {
-    "tick": 1923700,
+    "tick": 1931700,
     "scene": "inn.scn",
     "event": "scroll_down"
   },
   {
-    "tick": 1923800,
+    "tick": 1931800,
     "scene": "inn.scn",
     "event": "walkto",
     "inventory_slot": 3
   },
   {
-    "tick": 1923900,
+    "tick": 1931900,
     "scene": "inn.scn",
     "event": "close_inventory"
   },
   {
-    "tick": 1924500,
+    "tick": 1932500,
     "scene": "inn.scn",
     "event": "walkto",
     "polygon": 15
   },
   {
-    "tick": 1926500,
+    "tick": 1934500,
     "scene": "ankhmap.scn",
     "event": "walkto",
     "polygon": 76
   },
   {
-    "tick": 1928500,
+    "tick": 1936500,
     "scene": "citygate.scn",
     "event": "walkto",
     "polygon": 28
   },
   {
-    "tick": 1930500,
+    "tick": 1938500,
     "scene": "discmap.scn",
     "event": "walkto",
     "polygon": 34
   },
   {
-    "tick": 1932500,
+    "tick": 1940500,
     "scene": "lwood.scn",
     "event": "action",
     "polygon": 12
   },
   {
-    "tick": 1936500,
+    "tick": 1944500,
     "scene": "lwood.scn",
     "event": "walkto",
     "polygon": 8
   },
   {
-    "tick": 1938500,
+    "tick": 1946500,
     "scene": "discmap.scn",
     "event": "walkto",
     "polygon": 33
   },
   {
-    "tick": 1940500,
+    "tick": 1948500,
     "scene": "citygate.scn",
     "event": "walkto",
     "polygon": 27
   },
   {
-    "tick": 1942500,
+    "tick": 1950500,
     "scene": "ankhmap.scn",
     "event": "walkto",
     "polygon": 83
   },
   {
-    "tick": 1944500,
+    "tick": 1952500,
     "scene": "street.scn",
     "event": "walkto",
     "polygon": 29
   },
   {
-    "tick": 1946500,
+    "tick": 1954500,
     "scene": "barber.scn",
     "event": "action",
     "polygon": 13
   },
   {
-    "tick": 1954500,
+    "tick": 1962500,
     "scene": "barber.scn",
     "event": "walkto",
     "polygon": 10
   },
   {
-    "tick": 1956500,
+    "tick": 1964500,
     "scene": "street.scn",
     "event": "walkto",
     "polygon": 24
   },
   {
-    "tick": 1958500,
+    "tick": 1966500,
     "scene": "ankhmap.scn",
     "event": "walkto",
     "polygon": 86
   },
   {
-    "tick": 1960500,
+    "tick": 1968500,
     "scene": "square3.scn",
     "event": "action",
     "polygon": 8
   },
   {
-    "tick": 1964500,
+    "tick": 1972500,
     "scene": "square3.scn",
     "event": "walkto",
     "actor": 8
   },
   {
-    "tick": 1964600,
+    "tick": 1972600,
     "scene": "square3.scn",
     "event": "inventory_end"
   },
   {
-    "tick": 1964700,
+    "tick": 1972700,
     "scene": "square3.scn",
     "event": "walkto",
     "inventory_slot": 4
   },
   {
-    "tick": 1964800,
+    "tick": 1972800,
     "scene": "square3.scn",
     "event": "close_inventory"
   },
   {
-    "tick": 1965500,
+    "tick": 1973500,
     "scene": "square3.scn",
     "event": "walkto",
     "polygon": 5
   },
   {
-    "tick": 1967500,
+    "tick": 1975500,
     "scene": "ankhmap.scn",
     "event": "walkto",
     "polygon": 79
   },
   {
-    "tick": 1969500,
+    "tick": 1977500,
     "scene": "alley.scn",
     "event": "walkto",
     "polygon": 16
   },
   {
-    "tick": 1971500,
+    "tick": 1979500,
     "scene": "rooftops.scn",
     "event": "walkto",
     "polygon": 8
   },
   {
-    "tick": 1973500,
+    "tick": 1981500,
     "scene": "spire.scn",
     "event": "action",
     "polygon": 1
