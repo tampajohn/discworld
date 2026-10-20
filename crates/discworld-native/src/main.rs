@@ -168,7 +168,7 @@ fn run() -> Result<(), Box<dyn std::error::Error>> {
     window.set_cursor_visibility(false);
     if replay.is_some() {
         eprintln!(
-            "Watching recorded inputs. P: pause/resume. F: 1x/4x/16x speed (accelerated playback is silent). M: mute/unmute. Esc: exit. Manual game inputs are disabled during replay."
+            "Watching recorded inputs. P: pause/resume. F: 1x/4x/16x speed (accelerated playback is silent). M: mute/unmute. Esc: exit. Manual game inputs are enabled after the recorded route finishes."
         );
     } else {
         eprintln!(
@@ -221,7 +221,7 @@ fn run() -> Result<(), Box<dyn std::error::Error>> {
             }
         }
         if !paused && !stopped {
-            if replay.is_none() {
+            if replay.is_none() || replay_end.is_none() {
                 if let Some((x, y)) = window.get_mouse_pos(MouseMode::Discard) {
                     engine.move_cursor([x as i32, y as i32]);
                 }
@@ -337,7 +337,7 @@ fn run() -> Result<(), Box<dyn std::error::Error>> {
                         if replay_end.is_some_and(|end| engine.ticks >= end) {
                             replay_end = None;
                             eprintln!(
-                                "Recorded route finished. P resumes simulation beyond the recorded inputs."
+                                "Recorded route finished. P resumes with manual game controls enabled."
                             );
                             paused = true;
                             sink.pause();
