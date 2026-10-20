@@ -45,8 +45,13 @@ pub fn headless(
         })
         .transpose()?;
     let interaction_trace = args.next();
-    if args.next().is_some() || ticks > 1_000_000 || (wave_output.is_some() && ticks > 100_000) {
-        return Err("invalid arguments or tick limit".into());
+    if args.next().is_some() {
+        return Err("unexpected headless argument".into());
+    }
+    // The caller supplies the simulation budget. Only WAV capture needs an
+    // upper bound on duration because its PCM buffer accumulates in memory.
+    if wave_output.is_some() && ticks > 100_000 {
+        return Err("WAV capture is limited to 100000 ticks".into());
     }
     let interactions = interaction_trace
         .map(|path| interactions(&std::fs::read(path)?, ticks))

@@ -128,7 +128,7 @@ cargo run --release -p discworld-tools -- run-headless \
   - "/path/to/gm.sf2" 500 evidence/wardrobe-look-input.json
 ```
 
-Use a **fresh output filename**: existing PNG/WAV outputs are not overwritten. `-` discards PCM while still synthesizing audio and checking clocks. Headless runs support up to 1,000,000 ticks without WAV capture; WAV capture is capped at 100,000 ticks. Reports go to stdout as JSON and include scene/state/interaction diagnostics. Original game data is needed for these integration runs; unit tests do not require the ISO.
+Use a **fresh output filename**: existing PNG/WAV outputs are not overwritten. `-` discards PCM while still synthesizing audio and checking clocks. The caller supplies the total simulation tick budget (a 32-bit unsigned integer). WAV capture is capped at 100,000 ticks because its PCM buffer accumulates in memory. Reports go to stdout as JSON and include scene/state/interaction diagnostics. Original game data is needed for these integration runs; unit tests do not require the ISO.
 
 Input traces use strictly increasing, zero-based ticks and expected scene names. For example:
 
