@@ -102,6 +102,12 @@ pub fn headless(
     let mut previous_globals = engine.globals.clone();
     let mut previous_control = engine.control.enabled;
     for tick in 0..ticks {
+        if tick % 100_000 == 0 {
+            eprintln!(
+                "Headless replay {tick}/{ticks}: {}",
+                index[engine.scene.resource()].name
+            );
+        }
         if press_tick == Some(tick) {
             engine.user_event()?;
         }
@@ -203,6 +209,12 @@ pub fn headless(
             }
         }
     }
+    eprintln!(
+        "Headless replay stopped at {}/{}: {} ({status})",
+        engine.ticks,
+        ticks,
+        index[engine.scene.resource()].name
+    );
     let surface = engine.render(&resources)?;
     if let Some(path) = wave_output {
         crate::audio::write_wav(std::path::Path::new(&path), &pcm)?;
