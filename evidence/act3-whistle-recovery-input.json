@@ -6436,13 +6436,13 @@
   {
     "tick": 1901100,
     "scene": "inn.scn",
-    "event": "inventory_home"
+    "event": "inventory_end"
   },
   {
     "tick": 1901200,
     "scene": "inn.scn",
     "event": "walkto",
-    "inventory_slot": 4
+    "inventory_slot": 3
   },
   {
     "tick": 1901300,
@@ -6494,13 +6494,13 @@
   {
     "tick": 1920100,
     "scene": "worldedg.scn",
-    "event": "inventory_home"
+    "event": "inventory_end"
   },
   {
     "tick": 1920200,
     "scene": "worldedg.scn",
     "event": "walkto",
-    "inventory_slot": 4
+    "inventory_slot": 3
   },
   {
     "tick": 1920300,
