@@ -81,7 +81,7 @@ Point at the Luggage and use Action to open its inventory. Inventory actions exe
 | Graphics | Indexed image decoding, animation films, CPU composition, original fonts, scenes, movement, inventory UI and indexed overlay backing; full palette lifecycle and all depth/timing cases remain unverified |
 | Scripts | Original bytecode, library calls, cooperative scheduling, dialogue, inventory and scene transitions exercised by recorded Act I and Act II routes; unsupported behavior stops explicitly |
 | Audio | Original samples and XMIDI music through a local software synth; original hardware and native/browser fidelity are not established |
-| Gameplay | Act I completed in replay; Act II includes the brotherhood meeting, gold tooth/cap/belt, mountain pickups and coconut milk; no start-to-credits completion yet |
+| Gameplay | Act I completed in replay; Act II includes all six gold-item deliveries, their prerequisite puzzles, the first timed owner cutscene and Nanny’s carpet; no start-to-credits completion yet |
 | State | In-memory scene save/restore for exercised cutaways; durable player save/load is not implemented |
 | macOS | Runnable native window/audio host with interactive and replay modes |
 | Browser/iPad | Portable core compiles for `wasm32-unknown-unknown`; browser presentation, audio, storage, touch input and device testing remain to be built |
