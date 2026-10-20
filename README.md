@@ -2,7 +2,7 @@
 
 A work-in-progress replacement for the **Tinsel 1** engine that runs the original **Discworld English DOS CD v2** assets and scripts. The goal is the complete game, from opening to credits, on native macOS and a shared browser/WebAssembly engine, ultimately playable on an iPad in landscape with touch controls.
 
-**Currently:** a runnable macOS development host and a reproducible, expanding Act I playthrough. **Not yet:** a complete game, browser player, iPad release, or persistent save/load. This is an independent compatibility project, informed by a pinned ScummVM reference, not an official release or a clean-room implementation.
+**Currently:** a runnable macOS development host and a reproducible playthrough that completes Act I and continues through several Act II puzzles. **Not yet:** a complete game, browser player, iPad release, or persistent save/load. This is an independent compatibility project, informed by a pinned ScummVM reference, not an official release or a clean-room implementation.
 
 ![Scenes rendered by the Rust runtime](docs/media/runtime-montage.gif)
 
@@ -79,9 +79,9 @@ Point at the Luggage and use Action to open its inventory. Inventory actions exe
 | --- | --- |
 | Game resources | ISO reading, release identification, checked resource/chunk decoding; supplied release has 149 index entries and 1,732 chunk headers |
 | Graphics | Indexed image decoding, animation films, CPU composition, original fonts, scenes, movement, inventory UI and indexed overlay backing; full palette lifecycle and all depth/timing cases remain unverified |
-| Scripts | Original bytecode, library calls, cooperative scheduling, dialogue, inventory and scene transitions exercised by the recorded Act I route; unsupported behavior stops explicitly |
+| Scripts | Original bytecode, library calls, cooperative scheduling, dialogue, inventory and scene transitions exercised by recorded Act I and Act II routes; unsupported behavior stops explicitly |
 | Audio | Original samples and XMIDI music through a local software synth; original hardware and native/browser fidelity are not established |
-| Gameplay | Opening, university and city routes, dialogue and several Act I puzzles; no start-to-credits completion yet |
+| Gameplay | Act I completed in replay; Act II includes the brotherhood meeting, gold tooth/cap/belt, mountain pickups and coconut milk; no start-to-credits completion yet |
 | State | In-memory scene save/restore for exercised cutaways; durable player save/load is not implemented |
 | macOS | Runnable native window/audio host with interactive and replay modes |
 | Browser/iPad | Portable core compiles for `wasm32-unknown-unknown`; browser presentation, audio, storage, touch input and device testing remain to be built |
@@ -151,7 +151,7 @@ These are actual 320×200 runtime captures from the supplied release, included t
 
 ## Roadmap and reference material
 
-The full objective remains start-to-credits gameplay, complete interaction and save/load behavior, tested native and browser hosts, and landscape iPad touch play. Upcoming work includes completing the Act I route, implementing missing behavior as later scripts exercise it, reference comparisons, persistent saves, and browser integration. No release date is promised.
+The full objective remains start-to-credits gameplay, complete interaction and save/load behavior, tested native and browser hosts, and landscape iPad touch play. Upcoming work includes finishing Act II and subsequent acts, implementing missing behavior as later scripts exercise it, reference comparisons, persistent saves, and browser integration. No release date is promised.
 
 - [Goal and milestones](docs/goal.md)
 - [Resource formats](docs/resource-format.md), [script runtime](docs/script-runtime.md), [scheduling](docs/scheduling.md)
