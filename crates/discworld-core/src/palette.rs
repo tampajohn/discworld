@@ -5,6 +5,39 @@ use crate::{
     graphics::{Handle, Resources, read_palette},
     iso::Error,
 };
+/// Scene palette replacement for the direct-color compositor. Retain unwritten
+/// DAC entries when a replacement is shorter, as V1 SwapPalette does.
+#[derive(Debug, Clone, PartialEq, Eq)]
+pub struct BackgroundPalette {
+    pub handles: Vec<Handle>,
+    pub colors: Vec<[u8; 3]>,
+}
+impl BackgroundPalette {
+    pub fn new(resources: &Resources<'_>, handle: Handle) -> Result<Self, Error> {
+        let colors = read_palette(resources, handle)?;
+        if colors.len() > 255 {
+            return Err(Error("background palette exceeds screen capacity"));
+        }
+        Ok(Self {
+            handles: vec![handle],
+            colors,
+        })
+    }
+    pub fn replace(&mut self, resources: &Resources<'_>, handle: Handle) -> Result<(), Error> {
+        let colors = read_palette(resources, handle)?;
+        if colors.len() > 255 {
+            return Err(Error("background palette exceeds screen capacity"));
+        }
+        self.colors
+            .resize(self.colors.len().max(colors.len()), [0; 3]);
+        self.colors[..colors.len()].copy_from_slice(&colors);
+        if !self.handles.contains(&handle) {
+            self.handles.push(handle);
+        }
+        Ok(())
+    }
+}
+
 const MOVED: usize = 0x8000;
 
 #[derive(Debug, Clone, PartialEq, Eq)]

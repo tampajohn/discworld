@@ -238,6 +238,7 @@ pub struct Engine {
     talk_color: Option<[u8; 3]>,
     pub background: Option<Animation>,
     background_film: Option<Handle>,
+    background_palette: Option<crate::palette::BackgroundPalette>,
     cursor_animation: Option<Animation>,
     pub films: Vec<Animation>,
     master: Machine,
@@ -1169,6 +1170,7 @@ impl Engine {
             random: crate::random::Random::default(),
             background: None,
             background_film: None,
+            background_palette: None,
             cursor_animation: None,
             films: Vec::new(),
             master: Machine::default(),
@@ -1387,6 +1389,7 @@ impl Engine {
         }
         self.background = None;
         self.background_film = None;
+        self.background_palette = None;
         self.cursor_animation = if let Some((handle, _)) = &self.declarations.cursor {
             Self::start_film(resources, *handle, true)?.pop()
         } else {
@@ -1412,6 +1415,7 @@ impl Engine {
     fn start_background(&mut self, resources: &Resources<'_>, film: Handle) -> Result<(), Error> {
         let mut animations = Self::start_film(resources, film, true)?;
         self.background = animations.pop();
+        self.background_palette = None;
         if self.scroll.focus == 0 {
             if let Some(lead) = &self.declarations.lead {
                 self.scroll.set_focus(lead.id);
@@ -1433,6 +1437,27 @@ impl Engine {
             self.fade_in_step = Some(1);
         }
         self.background_film = Some(film);
+        Ok(())
+    }
+    fn change_palette(&mut self, resources: &Resources<'_>, handle: Handle) -> Result<(), Error> {
+        let mut palette = if let Some(palette) = &self.background_palette {
+            palette.clone()
+        } else {
+            let image = self
+                .background
+                .as_ref()
+                .ok_or(Error("SETPALETTE without background"))?
+                .images(resources)?
+                .first()
+                .copied()
+                .ok_or(Error("SETPALETTE without background image"))?;
+            crate::palette::BackgroundPalette::new(
+                resources,
+                crate::graphics::Image::read(resources, image)?.palette,
+            )?
+        };
+        palette.replace(resources, handle)?;
+        self.background_palette = Some(palette);
         Ok(())
     }
     fn start_film(
@@ -3293,6 +3318,11 @@ impl Engine {
                 31 => {
                     process.vm.complete_library(call, 1, Some(process.event))?;
                 }
+                66 => {
+                    let handle = args(&process.vm, 1)?[0];
+                    self.change_palette(resources, Handle(handle as u32))?;
+                    process.vm.complete_library(call, 1, None)?;
+                }
                 82 => {
                     let mode = args(&process.vm, 1)?[0];
                     let frame = if mode == 1 {
@@ -3455,6 +3485,9 @@ impl Engine {
                 let palette = crate::graphics::Image::read(resources, *image)?.palette;
                 result.enable_backdrop(&crate::graphics::read_palette(resources, palette)?)?;
             }
+            if let Some(palette) = &self.background_palette {
+                result.set_scene_palette(palette)?;
+            }
             result.draw_animation_offset(resources, background, self.world_origin)?;
         }
         let mut films = self.films.iter().collect::<Vec<_>>();
@@ -3557,6 +3590,99 @@ mod tests {
         put(&mut scene, 112, 1);
         (master, scene)
     }
+    #[test]
+    fn setpalette_recolors_live_background_preserves_stack_and_retains_unwritten_colors() {
+        let (master, scene) = fixtures();
+        let base = 2u32 << 23;
+        let mut art = vec![0; 200];
+        for (at, value) in [
+            (16, 116),
+            (32, base + 64),
+            (44, 640),
+            (64, base + 80),
+            (80, 0x00040004),
+            (88, base + 96),
+            (92, base + 100),
+            (100, 2),
+            (140, 1),
+            (170, 1),
+        ] {
+            art[at..at + 4].copy_from_slice(&value.to_le_bytes());
+        }
+        art[104..107].copy_from_slice(&[90, 80, 70]);
+        art[108..111].copy_from_slice(&[20, 30, 40]);
+        art[116..132].fill(1);
+        art[144..147].copy_from_slice(&[5, 6, 7]);
+        art[174..177].copy_from_slice(&[60, 70, 80]);
+        let mut code = vec![0x0a, 0x00, 0x34, 0x33, 0, 0, 0, 0, 0x41, 77, 1];
+        code.extend((base + 140).to_le_bytes());
+        code.extend([0x4e, 66, 0x4c, 0, 0]);
+        let resources = Resources(vec![&master, &scene, &art, &code]);
+        let mut engine = Engine::bootstrap(&resources).unwrap();
+        engine.background = Some(
+            Animation::new(
+                &resources,
+                &crate::film::Reel {
+                    object: Handle(base + 32),
+                    script: Handle(base + 136),
+                },
+                1,
+            )
+            .unwrap(),
+        );
+        engine.world_origin = [640, 0];
+        let before_animation = engine.background.clone();
+        assert_eq!(
+            &engine.render(&resources).unwrap().rgba[..4],
+            &[90, 80, 70, 255]
+        );
+        let mut process = ScriptProcess::new(Handle((3 << 23) | 8));
+        assert_eq!(
+            engine
+                .run_process(&resources, None, None, None, &mut process)
+                .unwrap(),
+            Status::Halted
+        );
+        assert_eq!(engine.globals, [77]);
+        assert_eq!(engine.background, before_animation);
+        let rendered = engine.render(&resources).unwrap();
+        assert_eq!(&rendered.rgba[..4], &[5, 6, 7, 255]);
+        assert_eq!(
+            rendered
+                .image_palette(&resources, Handle(base + 100))
+                .unwrap(),
+            [[5, 6, 7], [20, 30, 40]]
+        );
+        assert_eq!(
+            rendered
+                .image_palette(&resources, Handle(base + 170))
+                .unwrap(),
+            [[60, 70, 80]]
+        );
+        assert_eq!(
+            rendered
+                .font_palette(&resources, Handle(base + 170))
+                .unwrap(),
+            [[5, 6, 7], [20, 30, 40]]
+        );
+        assert_eq!(engine.clone().render(&resources).unwrap(), rendered);
+        let before = engine.clone();
+        assert!(
+            engine
+                .change_palette(&resources, Handle(base + 199))
+                .is_err()
+        );
+        assert_eq!(engine, before);
+        assert_eq!(
+            crate::graphics::read_palette(&resources, Handle(base + 100)).unwrap()[0],
+            [90, 80, 70]
+        );
+        engine
+            .enter_scene(&resources, Handle(1 << 23), Some(1), 1)
+            .unwrap();
+        assert!(engine.background_palette.is_none());
+    }
+
     #[test]
     fn scene_walking_actor_consumes_reels_and_preserves_lower_stack() {
         let (master, mut scene) = fixtures();

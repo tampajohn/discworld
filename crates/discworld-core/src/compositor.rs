@@ -13,6 +13,7 @@ pub struct Surface {
     pub height: usize,
     pub rgba: Vec<u8>,
     backdrop: Option<Backdrop>,
+    scene_palette: Option<crate::palette::BackgroundPalette>,
 }
 
 #[derive(Debug, Clone, PartialEq, Eq)]
@@ -36,6 +37,7 @@ impl Surface {
             height,
             rgba,
             backdrop: None,
+            scene_palette: None,
         })
     }
     /// DOS V1 WrtNonZero copies raw tile indices. Keep those indices alongside
@@ -53,6 +55,37 @@ impl Surface {
             palette,
         });
         Ok(())
+    }
+    pub fn set_scene_palette(
+        &mut self,
+        palette: &crate::palette::BackgroundPalette,
+    ) -> Result<(), Error> {
+        self.enable_backdrop(&palette.colors)?;
+        self.scene_palette = Some(palette.clone());
+        Ok(())
+    }
+    pub fn image_palette(
+        &self,
+        resources: &Resources<'_>,
+        handle: crate::graphics::Handle,
+    ) -> Result<Vec<[u8; 3]>, Error> {
+        if let Some(palette) = &self.scene_palette {
+            if palette.handles.contains(&handle) {
+                return Ok(palette.colors.clone());
+            }
+        }
+        read_palette(resources, handle)
+    }
+    /// V1 FettleFontPal points both game fonts at the background palette.
+    pub fn font_palette(
+        &self,
+        resources: &Resources<'_>,
+        handle: crate::graphics::Handle,
+    ) -> Result<Vec<[u8; 3]>, Error> {
+        if let Some(palette) = &self.scene_palette {
+            return Ok(palette.colors.clone());
+        }
+        read_palette(resources, handle)
     }
     pub fn blit_indexed(
         &mut self,
@@ -203,7 +236,12 @@ impl Surface {
         parts.sort_by_key(|part| (part.0, part.1[1]));
         for (_, position, image, palette, flip) in parts {
             let decoded = decode_tiles(resources, &image)?;
-            self.blit_indexed(&decoded, &read_palette(resources, palette)?, position, flip)?;
+            self.blit_indexed(
+                &decoded,
+                &self.image_palette(resources, palette)?,
+                position,
+                flip,
+            )?;
         }
         Ok(())
     }
@@ -247,6 +285,42 @@ mod tests {
                 .is_err()
         );
     }
+    #[test]
+    fn swapped_scene_palette_rebuilds_translucent_overlay_mapping() {
+        use crate::{graphics::Handle, palette::BackgroundPalette};
+        let mut data = vec![0; 2048];
+        for offset in [0, 1024] {
+            data[offset..offset + 4].copy_from_slice(&255u32.to_le_bytes());
+        }
+        data[4..7].copy_from_slice(&[63, 0, 0]);
+        data[4 + 227 * 4..7 + 227 * 4].copy_from_slice(&[10, 20, 30]);
+        data[1028..1031].copy_from_slice(&[255, 0, 0]);
+        data[1028 + 230 * 4..1031 + 230 * 4].copy_from_slice(&[40, 50, 60]);
+        let resources = Resources(vec![&data]);
+        let mut palette = BackgroundPalette::new(&resources, Handle(0)).unwrap();
+        let image = IndexedImage {
+            width: 1,
+            height: 1,
+            pixels: vec![1],
+            coverage: vec![true],
+        };
+        let mut before = Surface::new(1, 1).unwrap();
+        before.set_scene_palette(&palette).unwrap();
+        before
+            .blit_indexed(&image, &palette.colors, [0, 0], [false; 2])
+            .unwrap();
+        before.draw_backdrop([0, 0, 1, 1]).unwrap();
+        assert_eq!(before.rgba, [10, 20, 30, 255]);
+        palette.replace(&resources, Handle(1024)).unwrap();
+        let mut after = Surface::new(1, 1).unwrap();
+        after.set_scene_palette(&palette).unwrap();
+        after
+            .blit_indexed(&image, &palette.colors, [0, 0], [false; 2])
+            .unwrap();
+        after.draw_backdrop([0, 0, 1, 1]).unwrap();
+        assert_eq!(after.rgba, [40, 50, 60, 255]);
+    }
+
     #[test]
     fn multipart_pieces_interleave_using_top_y_and_z_takes_priority() {
         use crate::{film::Reel, graphics::Handle};

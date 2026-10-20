@@ -3,7 +3,7 @@
 use crate::{
     compositor::Surface,
     film::word,
-    graphics::{Handle, Image, Resources, decode_tiles, read_palette},
+    graphics::{Handle, Image, Resources, decode_tiles},
     iso::Error,
     resource::chunks,
 };
@@ -229,7 +229,7 @@ impl Layout {
     ) -> Result<(), Error> {
         for glyph in &self.glyphs {
             let image = Image::read(resources, glyph.image)?;
-            let mut palette = read_palette(resources, image.palette)?;
+            let mut palette = surface.font_palette(resources, image.palette)?;
             if let Some(color) = talk_color {
                 *palette
                     .get_mut(232)
