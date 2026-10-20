@@ -155,6 +155,25 @@ pub struct NodeWalk {
     pub leg: crate::walk::Leg,
 }
 impl Mover {
+    fn accept_routed_steering(
+        &mut self,
+        walk: &mut NodeWalk,
+        steering: crate::nodepath::Steering,
+    ) -> crate::nodepath::Steering {
+        if let crate::nodepath::Steering::Shorten { position } = steering {
+            // V1 SetNextDest uses the probe's reachable position as both the
+            // ultimate and immediate destination when another mover blocks it.
+            walk.destination.position = position;
+            walk.leg.ultimate = position;
+            self.walk_target = Some(position);
+            crate::nodepath::Steering::Move {
+                position,
+                overshoot: false,
+            }
+        } else {
+            steering
+        }
+    }
     fn route_node_leg(
         polygons: &Polygons,
         current: usize,
@@ -250,7 +269,7 @@ impl Mover {
                         Some(crate::walk::Restriction::EnteringMover(actor)) => {
                             let footprint = footprint.ok_or(Error("missing moving footprint"))?;
                             if footprint.blocker(request.ultimate, others, false).is_some() {
-                                return Err(Error("unsupported node destination inside mover"));
+                                return Ok(crate::nodepath::Steering::Shorten { position: from });
                             }
                             let other = others
                                 .iter()
@@ -423,6 +442,7 @@ impl Mover {
                     &[],
                 )?
             };
+            let steering = next.accept_routed_steering(&mut walk, steering);
             let crate::nodepath::Steering::Move {
                 position,
                 overshoot,
@@ -444,7 +464,7 @@ impl Mover {
                 true,
             )?;
             next.node_travel = travel;
-            next.walk_target = Some(destination.position);
+            next.walk_target = Some(walk.destination.position);
             walk.leg.target = position;
             walk.leg.overshoot = overshoot;
             next.node_walk = Some(walk);
@@ -528,6 +548,7 @@ impl Mover {
                 } else {
                     steering
                 };
+                let steering = next.accept_routed_steering(&mut walk, steering);
                 let crate::nodepath::Steering::Move {
                     position,
                     overshoot,
@@ -593,6 +614,7 @@ impl Mover {
                         Some(&footprint),
                         others,
                     )?;
+                    let steering = next.accept_routed_steering(&mut walk, steering);
                     let crate::nodepath::Steering::Move {
                         position,
                         overshoot,
@@ -661,6 +683,7 @@ impl Mover {
                             (entered == walk.destination_path).then_some(walk.destination.line),
                         )?,
                 };
+                let steering = next.accept_routed_steering(&mut walk, steering);
                 let crate::nodepath::Steering::Move {
                     position,
                     overshoot,
@@ -1038,23 +1061,28 @@ impl Mover {
                     };
                     let intermediate =
                         crate::routing::intermediate(polygons, request, Some(&footprint), others)?;
-                    let crate::nodepath::Steering::Move {
-                        position: destination,
-                        overshoot,
-                    } = Self::probe_route_leg(
+                    let steering = Self::probe_route_leg(
                         polygons,
                         request,
                         intermediate,
                         None,
                         Some(&footprint),
                         others,
-                    )?
-                    else {
-                        return Err(Error("unexpected ordinary detour steering"));
+                    )?;
+                    let (destination, overshoot, ultimate) = match steering {
+                        crate::nodepath::Steering::Move {
+                            position,
+                            overshoot,
+                        } => (position, overshoot, target),
+                        crate::nodepath::Steering::Shorten { position } => {
+                            next.walk_target = Some(position);
+                            (position, false, position)
+                        }
+                        _ => return Err(Error("unexpected ordinary detour steering")),
                     };
                     next.direct_leg = Some(crate::walk::Leg {
                         target: destination,
-                        ultimate: target,
+                        ultimate,
                         overshoot,
                         force_minor: false,
                     });
@@ -1204,6 +1232,7 @@ impl Mover {
                 *self = next;
                 return Ok(());
             }
+            let entered_path = next.no_path || path != current;
             next.no_path = false;
             if path != current && p.definition.kind == Kind::Path {
                 next.node_travel = None;
@@ -1256,11 +1285,14 @@ impl Mover {
             }
             next.animate_move(resources, declarations, position, p.definition.z_factor)?;
             next.placement.path = Some(path);
-            if next.constrained_walk && p.definition.kind == Kind::NodePath {
+            if next.constrained_walk
+                && (p.definition.kind == Kind::NodePath
+                    || (entered_path && !p.definition.corners.contains(&target)))
+            {
                 // MoveActor treats bNoPath re-entry as EnteringNewPath even
-                // when hCpath still names this polygon. Switch to the normal
-                // node walker after the first unconstrained step, without
-                // starting a new walk or resetting its serial/animation phase.
+                // when hCpath still names this polygon. Resume graph routing
+                // for ordinary paths too, rather than walking straight into
+                // a dead end. Keep the walk serial and animation phase.
                 let destination_path = crate::routing::path_at(polygons, target)
                     .ok_or(Error("node re-entry destination has no path"))?;
                 let destination_definition = &polygons.active[destination_path].definition;
@@ -1286,13 +1318,20 @@ impl Mover {
                         force_minor: false,
                     },
                 };
-                let entry = crate::routing::enter_node(
-                    polygons,
-                    path,
-                    position,
-                    destination_path,
-                    destination,
-                )?;
+                let entry = if p.definition.kind == Kind::NodePath {
+                    crate::routing::enter_node(
+                        polygons,
+                        path,
+                        position,
+                        destination_path,
+                        destination,
+                    )?
+                } else {
+                    crate::routing::NodeEntry {
+                        travel: None,
+                        action: crate::routing::EntryAction::Bypass,
+                    }
+                };
                 let mut travel = entry.travel;
                 next.node_travel = travel;
                 next.placement.node = travel.map(|t| t.line);
@@ -1325,6 +1364,7 @@ impl Mover {
                             (path == destination_path).then_some(destination.line),
                         )?,
                 };
+                let steering = next.accept_routed_steering(&mut walk, steering);
                 let crate::nodepath::Steering::Move {
                     position: leg_target,
                     overshoot,
@@ -1350,7 +1390,7 @@ impl Mover {
                 next.node_travel = travel;
                 next.placement.node = travel.map(|t| t.line);
                 next.target_node_line = destination.line;
-                next.walk_target = Some(destination.position);
+                next.walk_target = Some(walk.destination.position);
                 next.node_walk = Some(walk);
                 next.direct_leg = None;
                 *self = next;
@@ -1674,6 +1714,22 @@ mod tests {
                 overshoot: false
             }
         );
+        walk.destination.position = other.position;
+        assert_eq!(
+            Mover::route_node_leg(
+                &open,
+                0,
+                walk.start,
+                &mut walk,
+                false,
+                Some(&footprint),
+                &[other]
+            )
+            .unwrap(),
+            crate::nodepath::Steering::Shorten {
+                position: [130, 100]
+            }
+        );
     }
 
     #[test]
@@ -1842,6 +1898,53 @@ mod tests {
             .unwrap();
         assert_eq!(mover, restored);
         assert_eq!(mover.walk_target, None);
+        // Off-path entry must resume graph routing, not continue directly
+        // toward a destination around the bend in another ordinary polygon.
+        let bent = Polygons::new(
+            [
+                [[0, 0], [40, 0], [40, 40], [0, 40]],
+                [[0, 38], [40, 38], [40, 80], [0, 80]],
+                [[38, 60], [120, 60], [120, 80], [38, 80]],
+                [[38, 0], [80, 0], [80, 40], [38, 40]],
+            ]
+            .into_iter()
+            .map(|corners| crate::polygon::Polygon {
+                corners,
+                ..polygons.active[0].definition.clone()
+            })
+            .collect(),
+            0,
+        );
+        let mut reentry = mover.clone();
+        reentry
+            .stand(&resources, &declarations, &bent, [10, 20], Handle(0))
+            .unwrap();
+        reentry
+            .stand(&resources, &declarations, &bent, [-20, 0], Handle(0))
+            .unwrap();
+        let reentry_serial = reentry
+            .begin_walk(&resources, &declarations, &bent, [100, 70], [100, 70])
+            .unwrap();
+        let mut restored = reentry.clone();
+        let mut crossed_middle = false;
+        for _ in 0..200 {
+            if reentry.walk_target.is_none() {
+                break;
+            }
+            for m in [&mut reentry, &mut restored] {
+                m.advance_direct_walk(&resources, &declarations, &bent, &[])
+                    .unwrap();
+                assert_eq!(m.walk_serial, reentry_serial);
+                if !m.no_path {
+                    assert!(crate::routing::path_at(&bent, m.placement.position).is_some());
+                }
+            }
+            assert_eq!(reentry, restored);
+            crossed_middle |= reentry.placement.path == Some(1);
+        }
+        assert!(crossed_middle);
+        assert_eq!(reentry.walk_target, None);
+        assert_eq!(reentry.placement.position, [100, 70]);
         let mut detour = mover.clone();
         detour
             .stand(&resources, &declarations, &polygons, [50, 100], Handle(0))

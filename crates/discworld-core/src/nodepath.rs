@@ -406,6 +406,10 @@ pub enum Steering {
         position: [i32; 2],
         overshoot: bool,
     },
+    /// A moving actor occupies the ultimate target; approach the reachable point.
+    Shorten {
+        position: [i32; 2],
+    },
     /// Recompute the intermediate destination in the connected path system.
     Route,
 }
