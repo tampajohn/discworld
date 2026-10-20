@@ -1205,9 +1205,6 @@ impl Mover {
                 return Ok(());
             }
             next.no_path = false;
-            if p.definition.kind == Kind::NodePath && next.constrained_walk {
-                return Err(Error("unsupported path walk entering node path"));
-            }
             if path != current && p.definition.kind == Kind::Path {
                 next.node_travel = None;
                 next.placement.node = None;
@@ -1259,6 +1256,106 @@ impl Mover {
             }
             next.animate_move(resources, declarations, position, p.definition.z_factor)?;
             next.placement.path = Some(path);
+            if next.constrained_walk && p.definition.kind == Kind::NodePath {
+                // MoveActor treats bNoPath re-entry as EnteringNewPath even
+                // when hCpath still names this polygon. Switch to the normal
+                // node walker after the first unconstrained step, without
+                // starting a new walk or resetting its serial/animation phase.
+                let destination_path = crate::routing::path_at(polygons, target)
+                    .ok_or(Error("node re-entry destination has no path"))?;
+                let destination_definition = &polygons.active[destination_path].definition;
+                let destination = if destination_definition.kind == Kind::NodePath {
+                    crate::nodepath::project(destination_definition, target)?
+                } else {
+                    crate::nodepath::Projection {
+                        position: target,
+                        line: 0,
+                    }
+                };
+                let mut walk = NodeWalk {
+                    difficulty: 0,
+                    intermediate: destination.position,
+                    destination_path,
+                    start: from,
+                    cursor: target,
+                    destination,
+                    leg: crate::walk::Leg {
+                        target: destination.position,
+                        ultimate: destination.position,
+                        overshoot: false,
+                        force_minor: false,
+                    },
+                };
+                let entry = crate::routing::enter_node(
+                    polygons,
+                    path,
+                    position,
+                    destination_path,
+                    destination,
+                )?;
+                let mut travel = entry.travel;
+                next.node_travel = travel;
+                next.placement.node = travel.map(|t| t.line);
+                let steering = match entry.action {
+                    crate::routing::EntryAction::Bypass => {
+                        let footprint = next.footprint(resources)?;
+                        Self::route_node_leg(
+                            polygons,
+                            path,
+                            position,
+                            &mut walk,
+                            false,
+                            Some(&footprint),
+                            others,
+                        )?
+                    }
+                    crate::routing::EntryAction::Move(position) => {
+                        crate::nodepath::Steering::Move {
+                            position,
+                            overshoot: true,
+                        }
+                    }
+                    crate::routing::EntryAction::Next => travel
+                        .as_mut()
+                        .ok_or(Error("missing re-entering node state"))?
+                        .advance(
+                            &p.definition,
+                            position,
+                            destination.position,
+                            (path == destination_path).then_some(destination.line),
+                        )?,
+                };
+                let crate::nodepath::Steering::Move {
+                    position: leg_target,
+                    overshoot,
+                } = steering
+                else {
+                    return Err(Error("unsupported immediate node re-entry exit"));
+                };
+                walk.leg.target = leg_target;
+                walk.leg.overshoot = overshoot;
+                let direction = crate::walk::direction(
+                    position,
+                    leg_target,
+                    next.placement.direction,
+                    p.definition.reel,
+                )?;
+                next.select_walk_reel(
+                    resources,
+                    declarations,
+                    direction,
+                    p.scale_at(position[1])?,
+                    false,
+                )?;
+                next.node_travel = travel;
+                next.placement.node = travel.map(|t| t.line);
+                next.target_node_line = destination.line;
+                next.walk_target = Some(destination.position);
+                next.node_walk = Some(walk);
+                next.direct_leg = None;
+                *self = next;
+                return Ok(());
+            }
             if path != current && p.definition.kind == Kind::NodePath {
                 let entry = crate::routing::enter_node_direct(
                     polygons,
@@ -1985,6 +2082,38 @@ mod tests {
             [-40, 0, 2400, 0, 0, 0, 0, 0, 0, 0],
             [0, 40, -2400, 0, 0, 0, 0, 0, 0, 0],
         ];
+        // PositionMover preserves bNoPath after a scripted off-path pose,
+        // even when a later STAND places the actor on a node polygon.
+        let mut reentry = mover.clone();
+        reentry
+            .stand(&resources, &declarations, &nodes, [248, 178], Handle(0))
+            .unwrap();
+        reentry
+            .stand(&resources, &declarations, &nodes, [100, 60], Handle(0))
+            .unwrap();
+        assert!(reentry.no_path);
+        let serial = reentry
+            .begin_walk(&resources, &declarations, &nodes, [30, 20], [30, 20])
+            .unwrap();
+        let mut restored = reentry.clone();
+        let mut visited_reentry = Vec::new();
+        for _ in 0..100 {
+            if reentry.walk_target.is_none() {
+                break;
+            }
+            for m in [&mut reentry, &mut restored] {
+                m.advance_direct_walk(&resources, &declarations, &nodes, &[])
+                    .unwrap();
+                assert_eq!(m.walk_serial, serial);
+            }
+            assert_eq!(reentry, restored);
+            visited_reentry.push(reentry.placement.position);
+        }
+        assert!(!reentry.no_path);
+        assert_eq!(reentry.walk_target, None);
+        assert_eq!(reentry.placement.position, [30, 20]);
+        assert!(visited_reentry.contains(&[60, 60]));
+        assert!(visited_reentry.contains(&[60, 20]));
         mover
             .stand(&resources, &declarations, &nodes, [20, 20], Handle(0))
             .unwrap();
