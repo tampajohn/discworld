@@ -2,7 +2,7 @@
 
 A work-in-progress replacement for the **Tinsel 1** engine that runs the original **Discworld English DOS CD v2** assets and scripts. The goal is the complete game, from opening to credits, on native macOS and a shared browser/WebAssembly engine, ultimately playable on an iPad in landscape with touch controls.
 
-**Currently:** a runnable macOS development host and a reproducible playthrough that completes Acts I and II and reaches Act III at the city gate. **Not yet:** a complete game, browser player, iPad release, or persistent save/load. This is an independent compatibility project, informed by a pinned ScummVM reference, not an official release or a clean-room implementation.
+**Currently:** a runnable macOS development host and a reproducible playthrough that completes Acts I and II and collects two of Act III's six hero items. **Not yet:** a complete game, browser player, iPad release, or persistent save/load. This is an independent compatibility project, informed by a pinned ScummVM reference, not an official release or a clean-room implementation.
 
 ![Scenes rendered by the Rust runtime](docs/media/runtime-montage.gif)
 
@@ -35,7 +35,7 @@ cargo run --release -p discworld-native -- \
 
 Pass `--paused` to start a native session paused (including after `--from-tick` replay reconstruction); press **P** to resume. Replay reconstruction is not a persistent engine save.
 
-Double-click **Watch Discworld.command** to replay the recorded route from Rincewind's room, initially muted. It covers Act I's five ingredient deliveries, the detector map and barn cutscene, then the Act II treasure exchange and L-space trip into the past library. It pauses once after the recorded route; P continues simulation beyond that point, without further recorded inputs. Reaching that point is not evidence that the rest of the game works.
+Double-click **Watch Discworld.command** to replay the recorded route from Rincewind's room, initially muted. It covers Acts I and II and the verified Act III route through the palace, toyshop, university closet and kitchen, ending after the second hero-item pickup in the Shades. It pauses once after the recorded route; P continues simulation beyond that point, without further recorded inputs. Reaching that point is not evidence that the rest of the game works.
 
 | Replay control | Action |
 | --- | --- |
@@ -79,9 +79,9 @@ Point at the Luggage and use Action to open its inventory. Inventory actions exe
 | --- | --- |
 | Game resources | ISO reading, release identification, checked resource/chunk decoding; supplied release has 149 index entries and 1,732 chunk headers |
 | Graphics | Indexed image decoding, animation films, CPU composition, original fonts, scenes, movement, inventory UI and indexed overlay backing; full palette lifecycle and all depth/timing cases remain unverified |
-| Scripts | Original bytecode, library calls, cooperative scheduling, dialogue, inventory and scene transitions exercised by recorded Act I and Act II routes; unsupported behavior stops explicitly |
+| Scripts | Original bytecode, library calls, cooperative scheduling, dialogue, inventory and scene transitions exercised by recorded Act I, Act II and partial Act III routes; unsupported behavior stops explicitly |
 | Audio | Original samples and XMIDI music through a local software synth; original hardware and native/browser fidelity are not established |
-| Gameplay | Acts I and II completed in replay, including the altered-book theft and ending cutscenes; Act III city-gate dialogue and hero panel verified; no start-to-credits completion yet |
+| Gameplay | Acts I and II completed in replay, including the altered-book theft and ending cutscenes; Act III spell and Shades hero-item pickups verified (2 of 6), alongside palace/closet/kitchen supplies; no start-to-credits completion yet |
 | State | In-memory scene save/restore for exercised cutaways; durable player save/load is not implemented |
 | macOS | Runnable native window/audio host with interactive and replay modes |
 | Browser/iPad | Portable core compiles for `wasm32-unknown-unknown`; browser presentation, audio, storage, touch input and device testing remain to be built |
