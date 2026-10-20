@@ -867,8 +867,8 @@ impl Mover {
         *self = next;
         Ok(self.walk_serial)
     }
-    /// Normal path-bound walking, currently for unobstructed same/adjacent
-    /// ordinary paths. Rejects routes requiring waypoint or corner selection.
+    /// Use a direct leg for clear same/adjacent ordinary paths, otherwise
+    /// use the shared waypoint router and its SetNextDest recovery.
     pub fn begin_path_walk(
         &mut self,
         resources: &crate::graphics::Resources<'_>,
@@ -900,7 +900,9 @@ impl Mover {
         for _ in 0..65536 {
             let step = crate::walk::retry_step(position, target, polygons, None, &[]);
             if step.stuck || (step.position == position && position != target) {
-                return Err(Error("unsupported walking route detour"));
+                // Even adjacent ordinary paths can need center/corner recovery,
+                // including when the direct probe crosses a nearby node path.
+                return self.begin_node_walk(resources, declarations, polygons, target, cursor);
             }
             if step.reached == [true; 2] {
                 arrived = true;
@@ -1953,6 +1955,67 @@ mod tests {
         assert!(crossed_middle);
         assert_eq!(reentry.walk_target, None);
         assert_eq!(reentry.placement.position, [100, 70]);
+        // Adjacent ordinary paths can require a center waypoint before the
+        // final destination: the direct diagonal exits the narrow upper path.
+        // Geometry and endpoints reproduce the toy-shop display approach.
+        let display_paths = Polygons::new(
+            [
+                [[96, 162], [96, 160], [98, 160], [98, 162]],
+                [[98, 162], [98, 160], [122, 163], [122, 167]],
+                [[122, 168], [122, 163], [202, 163], [210, 168]],
+                [[91, 192], [122, 168], [210, 168], [248, 192]],
+            ]
+            .into_iter()
+            .enumerate()
+            .map(|(index, corners)| {
+                let mut p = crate::polygon::Polygon {
+                    corners,
+                    ..polygons.active[0].definition.clone()
+                };
+                if index == 1 {
+                    p.kind = Kind::NodePath;
+                    p.nodes = vec![[99, 161], [121, 165]];
+                    p.lines = vec![[-4, 22, -3146, 16, 484, 500, 22, -88, 12584, -69212]];
+                    p.reel = 2;
+                }
+                p
+            })
+            .collect(),
+            0,
+        );
+        let mut display = mover.clone();
+        display
+            .stand(
+                &resources,
+                &declarations,
+                &display_paths,
+                [124, 165],
+                Handle(0),
+            )
+            .unwrap();
+        display
+            .begin_walk(
+                &resources,
+                &declarations,
+                &display_paths,
+                [95, 191],
+                [95, 191],
+            )
+            .unwrap();
+        let mut display_copy = display.clone();
+        for _ in 0..200 {
+            if display.walk_target.is_none() {
+                break;
+            }
+            for m in [&mut display, &mut display_copy] {
+                m.advance_direct_walk(&resources, &declarations, &display_paths, &[])
+                    .unwrap();
+                assert!(crate::routing::path_at(&display_paths, m.placement.position).is_some());
+            }
+            assert_eq!(display, display_copy);
+        }
+        assert_eq!(display.walk_target, None);
+        assert_eq!(display.placement.position, [95, 191]);
         let mut detour = mover.clone();
         detour
             .stand(&resources, &declarations, &polygons, [50, 100], Handle(0))
