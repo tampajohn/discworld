@@ -6729,7 +6729,7 @@
   {
     "tick": 1967000,
     "scene": "atuin.scn",
-    "event": "walkto",
+    "event": "action",
     "polygon": 3
   },
   {
