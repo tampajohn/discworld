@@ -7169,6 +7169,15 @@
     "scene": "alley.scn",
     "event": "walkto",
     "point": [
+      50,
+      195
+    ]
+  },
+  {
+    "tick": 2087500,
+    "scene": "alley.scn",
+    "event": "walkto",
+    "point": [
       300,
       195
     ]
