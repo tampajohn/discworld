@@ -40,7 +40,7 @@ Initial scope is this exact ISO and Apple Silicon. Other releases, Intel Macs, a
 
 ## Current progress
 
-Latest engine validation: completing an ordinary-path obstacle detour now uses the shared SetNextDest-style probe to choose the next leg. This fixes the reproducible Edge of World exit loop around Luggage. The cumulative replay reaches pastpark.scn at tick 966000 with control enabled. The regression fails before the fix and passes afterward; all 206 workspace tests, Clippy, core WASM check and release builds pass.
+Latest engine validation: completing an ordinary-path obstacle detour now uses the shared SetNextDest-style probe to choose the next leg. This fixes the reproducible Edge of World exit loop around Luggage. The cumulative replay reaches pastpark.scn at tick 966000 with control enabled; the extended frog/net route then holds butterfly 207 at tick 975000 with control restored. The regression fails before the fix and passes afterward; all 206 workspace tests, Clippy, core WASM check and release builds pass.
 
 Latest verified extension: the witch cottage and Edge of World routes run successfully. At tick 930000, worldedg.scn is Running with control enabled and lamp 255 held; the original pickup enables the fork interaction. The next replay reaches 940000 with coconut 212 held, lamp stored and net retained after shaking the tree and collecting the fallen coconut. No additional engine fix was needed for these routes. Native replay titles now show time until the next recorded input and explicitly identify the recorded endpoint.
 
