@@ -7232,298 +7232,325 @@
     "tick": 2101000,
     "scene": "alley.scn",
     "event": "walkto",
+    "point": [
+      0,
+      195
+    ]
+  },
+  {
+    "tick": 2101500,
+    "scene": "alley.scn",
+    "event": "walkto",
+    "point": [
+      0,
+      195
+    ]
+  },
+  {
+    "tick": 2102000,
+    "scene": "alley.scn",
+    "event": "walkto",
+    "point": [
+      0,
+      195
+    ]
+  },
+  {
+    "tick": 2102500,
+    "scene": "alley.scn",
+    "event": "walkto",
     "polygon": 15
   },
   {
-    "tick": 2103000,
+    "tick": 2104500,
     "scene": "ankhmap.scn",
     "event": "walkto",
     "polygon": 78
   },
   {
-    "tick": 2105000,
+    "tick": 2106500,
     "scene": "livery.scn",
     "event": "action",
     "polygon": 12
   },
   {
-    "tick": 2108000,
+    "tick": 2109500,
     "scene": "livery.scn",
     "event": "look",
     "polygon": 12
   },
   {
-    "tick": 2110000,
+    "tick": 2111500,
     "scene": "donkcart.scn",
     "event": "look",
     "polygon": 3
   },
   {
-    "tick": 2112000,
+    "tick": 2113500,
     "scene": "donkcart.scn",
     "event": "walkto",
     "polygon": 1
   },
   {
-    "tick": 2114000,
+    "tick": 2115500,
     "scene": "livery.scn",
     "event": "walkto",
     "polygon": 8
   },
   {
-    "tick": 2116000,
+    "tick": 2117500,
     "scene": "ankhmap.scn",
     "event": "walkto",
     "polygon": 79
   },
   {
-    "tick": 2118000,
+    "tick": 2119500,
     "scene": "alley.scn",
     "event": "action",
     "polygon": 23
   },
   {
-    "tick": 2121000,
+    "tick": 2122500,
     "scene": "alley.scn",
     "event": "walkto",
     "actor": 8
   },
   {
-    "tick": 2121100,
+    "tick": 2122600,
     "scene": "alley.scn",
     "event": "inventory_home"
   },
   {
-    "tick": 2121200,
+    "tick": 2122700,
     "scene": "alley.scn",
     "event": "walkto",
     "inventory_slot": 0
   },
   {
-    "tick": 2121300,
+    "tick": 2122800,
     "scene": "alley.scn",
     "event": "scroll_down"
   },
   {
-    "tick": 2121400,
+    "tick": 2122900,
     "scene": "alley.scn",
     "event": "scroll_down"
   },
   {
-    "tick": 2121500,
+    "tick": 2123000,
     "scene": "alley.scn",
     "event": "scroll_down"
   },
   {
-    "tick": 2121600,
+    "tick": 2123100,
     "scene": "alley.scn",
     "event": "walkto",
     "inventory_slot": 0
   },
   {
-    "tick": 2121700,
+    "tick": 2123200,
     "scene": "alley.scn",
     "event": "close_inventory"
   },
   {
-    "tick": 2122000,
+    "tick": 2123500,
     "scene": "alley.scn",
     "event": "walkto",
     "polygon": 15
   },
   {
-    "tick": 2124000,
+    "tick": 2125500,
     "scene": "ankhmap.scn",
     "event": "walkto",
     "polygon": 86
   },
   {
-    "tick": 2126000,
+    "tick": 2127500,
     "scene": "square3.scn",
     "event": "action",
     "polygon": 32
   },
   {
-    "tick": 2129000,
+    "tick": 2130500,
     "scene": "square3.scn",
     "event": "walkto",
     "actor": 8
   },
   {
-    "tick": 2129100,
+    "tick": 2130600,
     "scene": "square3.scn",
     "event": "inventory_home"
   },
   {
-    "tick": 2129200,
+    "tick": 2130700,
     "scene": "square3.scn",
     "event": "walkto",
     "inventory_slot": 0
   },
   {
-    "tick": 2129300,
+    "tick": 2130800,
     "scene": "square3.scn",
     "event": "scroll_down"
   },
   {
-    "tick": 2129400,
+    "tick": 2130900,
     "scene": "square3.scn",
     "event": "scroll_down"
   },
   {
-    "tick": 2129500,
+    "tick": 2131000,
     "scene": "square3.scn",
     "event": "scroll_down"
   },
   {
-    "tick": 2129600,
+    "tick": 2131100,
     "scene": "square3.scn",
     "event": "scroll_down"
   },
   {
-    "tick": 2129700,
+    "tick": 2131200,
     "scene": "square3.scn",
     "event": "scroll_down"
   },
   {
-    "tick": 2129800,
+    "tick": 2131300,
     "scene": "square3.scn",
     "event": "scroll_down"
   },
   {
-    "tick": 2129900,
+    "tick": 2131400,
     "scene": "square3.scn",
     "event": "scroll_down"
   },
   {
-    "tick": 2130000,
+    "tick": 2131500,
     "scene": "square3.scn",
     "event": "walkto",
     "inventory_slot": 2
   },
   {
-    "tick": 2130100,
+    "tick": 2131600,
     "scene": "square3.scn",
     "event": "close_inventory"
   },
   {
-    "tick": 2131000,
+    "tick": 2132500,
     "scene": "square3.scn",
     "event": "walkto",
     "polygon": 5
   },
   {
-    "tick": 2133000,
+    "tick": 2134500,
     "scene": "ankhmap.scn",
     "event": "walkto",
     "polygon": 75
   },
   {
-    "tick": 2135000,
+    "tick": 2136500,
     "scene": "pub.scn",
     "event": "walkto",
     "polygon": 15
   },
   {
-    "tick": 2137000,
+    "tick": 2138500,
     "scene": "bar.scn",
     "event": "walkto",
     "polygon": 24
   },
   {
-    "tick": 2139000,
+    "tick": 2140500,
     "scene": "cellar.scn",
     "event": "action",
     "polygon": 21
   },
   {
-    "tick": 2141000,
+    "tick": 2142500,
     "scene": "cellar.scn",
     "event": "walkto",
     "polygon": 9
   },
   {
-    "tick": 2143000,
+    "tick": 2144500,
     "scene": "bar.scn",
     "event": "walkto",
     "polygon": 23
   },
   {
-    "tick": 2145000,
+    "tick": 2146500,
     "scene": "pub.scn",
     "event": "walkto",
     "polygon": 14
   },
   {
-    "tick": 2147000,
+    "tick": 2148500,
     "scene": "ankhmap.scn",
     "event": "walkto",
     "polygon": 76
   },
   {
-    "tick": 2149000,
+    "tick": 2150500,
     "scene": "citygate.scn",
     "event": "walkto",
     "polygon": 28
   },
   {
-    "tick": 2151000,
+    "tick": 2152500,
     "scene": "discmap.scn",
     "event": "walkto",
     "polygon": 38
   },
   {
-    "tick": 2153000,
+    "tick": 2154500,
     "scene": "mineent.scn",
     "event": "walkto",
     "polygon": 13
   },
   {
-    "tick": 2155000,
+    "tick": 2156500,
     "scene": "mine.scn",
     "event": "action",
     "polygon": 23
   },
   {
-    "tick": 2158000,
+    "tick": 2159500,
     "scene": "mine.scn",
     "event": "walkto",
     "actor": 8
   },
   {
-    "tick": 2158100,
+    "tick": 2159600,
     "scene": "mine.scn",
     "event": "inventory_end"
   },
   {
-    "tick": 2158200,
+    "tick": 2159700,
     "scene": "mine.scn",
     "event": "walkto",
     "inventory_slot": 5
   },
   {
-    "tick": 2158300,
+    "tick": 2159800,
     "scene": "mine.scn",
     "event": "inventory_home"
   },
   {
-    "tick": 2158400,
+    "tick": 2159900,
     "scene": "mine.scn",
     "event": "scroll_down"
   },
   {
-    "tick": 2158500,
+    "tick": 2160000,
     "scene": "mine.scn",
     "event": "walkto",
     "inventory_slot": 3
   },
   {
-    "tick": 2158600,
+    "tick": 2160100,
     "scene": "mine.scn",
     "event": "close_inventory"
   },
   {
-    "tick": 2159000,
+    "tick": 2160500,
     "scene": "mine.scn",
     "event": "action",
     "polygon": 23
