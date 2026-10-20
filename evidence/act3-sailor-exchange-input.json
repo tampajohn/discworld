@@ -6721,71 +6721,71 @@
     "polygon": 6
   },
   {
-    "tick": 1973000,
+    "tick": 1964000,
     "scene": "atuin.scn",
     "event": "action",
     "polygon": 5
   },
   {
-    "tick": 1976000,
+    "tick": 1967000,
     "scene": "atuin.scn",
     "event": "walkto",
     "polygon": 3
   },
   {
-    "tick": 1980000,
+    "tick": 1971000,
     "scene": "worldedg.scn",
     "event": "walkto",
     "polygon": 3
   },
   {
-    "tick": 1982000,
+    "tick": 1973000,
     "scene": "discmap.scn",
     "event": "walkto",
     "polygon": 33
   },
   {
-    "tick": 1984000,
+    "tick": 1975000,
     "scene": "citygate.scn",
     "event": "walkto",
     "polygon": 27
   },
   {
-    "tick": 1986000,
+    "tick": 1977000,
     "scene": "ankhmap.scn",
     "event": "walkto",
     "polygon": 81
   },
   {
-    "tick": 1988000,
+    "tick": 1979000,
     "scene": "inn.scn",
     "event": "action",
     "polygon": 23
   },
   {
-    "tick": 1991000,
+    "tick": 1982000,
     "scene": "inn.scn",
     "event": "walkto",
     "actor": 8
   },
   {
-    "tick": 1991100,
+    "tick": 1982100,
     "scene": "inn.scn",
     "event": "inventory_home"
   },
   {
-    "tick": 1991200,
+    "tick": 1982200,
     "scene": "inn.scn",
     "event": "walkto",
     "inventory_slot": 0
   },
   {
-    "tick": 1991300,
+    "tick": 1982300,
     "scene": "inn.scn",
     "event": "close_inventory"
   },
   {
-    "tick": 1992000,
+    "tick": 1983000,
     "scene": "inn.scn",
     "event": "action",
     "polygon": 23
