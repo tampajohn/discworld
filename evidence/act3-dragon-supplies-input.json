@@ -8445,72 +8445,90 @@
     "tick": 2359000,
     "scene": "ramkin.scn",
     "event": "action",
+    "polygon": 46
+  },
+  {
+    "tick": 2361000,
+    "scene": "ramkin.scn",
+    "event": "action",
     "polygon": 42
   },
   {
-    "tick": 2361500,
+    "tick": 2364000,
+    "scene": "ramkin.scn",
+    "event": "action",
+    "polygon": 41
+  },
+  {
+    "tick": 2366500,
+    "scene": "ramkin.scn",
+    "event": "action",
+    "polygon": 42
+  },
+  {
+    "tick": 2369500,
     "scene": "ramkin.scn",
     "event": "walkto",
     "polygon": 39
   },
   {
-    "tick": 2364000,
+    "tick": 2372000,
     "scene": "dragcage.scn",
     "event": "action",
     "polygon": 26
   },
   {
-    "tick": 2366500,
+    "tick": 2374500,
     "scene": "dragcage.scn",
     "event": "walkto",
     "actor": 8
   },
   {
-    "tick": 2366600,
+    "tick": 2374600,
     "scene": "dragcage.scn",
     "event": "inventory_home"
   },
   {
-    "tick": 2366700,
+    "tick": 2374700,
     "scene": "dragcage.scn",
     "event": "walkto",
     "inventory_slot": 0
   },
   {
-    "tick": 2366800,
+    "tick": 2374800,
     "scene": "dragcage.scn",
     "event": "close_inventory"
   },
   {
-    "tick": 2367500,
+    "tick": 2375500,
     "scene": "dragcage.scn",
     "event": "action",
     "polygon": 27
   },
   {
-    "tick": 2370000,
+    "tick": 2378000,
     "scene": "dragcage.scn",
     "event": "walkto",
     "actor": 8
   },
   {
-    "tick": 2370100,
+    "tick": 2378100,
     "scene": "dragcage.scn",
     "event": "inventory_home"
   },
   {
-    "tick": 2370200,
+    "tick": 2378200,
     "scene": "dragcage.scn",
     "event": "walkto",
     "inventory_slot": 0
   },
   {
-    "tick": 2370300,
+    "tick": 2378300,
     "scene": "dragcage.scn",
     "event": "close_inventory"
   },
   {
-    "tick": 2371000,
+    "tick": 2379000,
     "scene": "dragcage.scn",
     "event": "action",
     "polygon": 28
