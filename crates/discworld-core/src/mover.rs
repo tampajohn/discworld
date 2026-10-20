@@ -176,13 +176,37 @@ impl Mover {
             others,
         )?;
         walk.intermediate = intermediate.position;
+        Self::probe_route_leg(
+            polygons,
+            crate::routing::Request {
+                current,
+                position,
+                ultimate: walk.destination.position,
+                overshoot,
+            },
+            intermediate,
+            Some(&mut walk.difficulty),
+            footprint,
+            others,
+        )
+    }
+    /// SetNextDest probes ahead from the actual position before choosing a
+    /// waypoint. This is shared by node routes and ordinary obstacle detours.
+    fn probe_route_leg(
+        polygons: &Polygons,
+        request: crate::routing::Request,
+        intermediate: crate::routing::Intermediate,
+        mut difficulty: Option<&mut u8>,
+        footprint: Option<&crate::walk::Footprint>,
+        others: &[crate::walk::Footprint],
+    ) -> Result<crate::nodepath::Steering, Error> {
         let mut leg = crate::walk::Leg {
             target: intermediate.position,
-            ultimate: walk.destination.position,
-            overshoot,
+            ultimate: request.ultimate,
+            overshoot: request.overshoot,
             force_minor: false,
         };
-        let mut from = position;
+        let mut from = request.position;
         let mut previous_restricted = [false; 2];
         for _ in 0..65536 {
             let mut step = crate::walk::constrained_leg(from, leg, polygons, footprint, others)?;
@@ -225,10 +249,7 @@ impl Mover {
                         }
                         Some(crate::walk::Restriction::EnteringMover(actor)) => {
                             let footprint = footprint.ok_or(Error("missing moving footprint"))?;
-                            if footprint
-                                .blocker(walk.destination.position, others, false)
-                                .is_some()
-                            {
+                            if footprint.blocker(request.ultimate, others, false).is_some() {
                                 return Err(Error("unsupported node destination inside mover"));
                             }
                             let other = others
@@ -245,19 +266,22 @@ impl Mover {
                         position: crate::routing::blocking_corner(
                             polygons,
                             corners,
-                            position,
-                            walk.intermediate,
+                            request.position,
+                            intermediate.position,
                         )?,
                         overshoot: false,
                     });
                 }
-                let target = if walk.difficulty == 0 {
-                    walk.difficulty = 1;
+                let difficulty = difficulty
+                    .as_deref_mut()
+                    .ok_or(Error("unsupported direct path-edge recovery"))?;
+                let target = if *difficulty == 0 {
+                    *difficulty = 1;
                     crate::routing::center(&polygons.active[intermediate.path])
                 } else {
-                    walk.difficulty = walk.difficulty.saturating_add(1);
+                    *difficulty = difficulty.saturating_add(1);
                     crate::routing::corner(
-                        &polygons.active[current],
+                        &polygons.active[request.current],
                         &polygons.active[intermediate.path],
                         from,
                     )?
@@ -1002,14 +1026,41 @@ impl Mover {
                 let footprint = next.footprint(resources)?;
                 let leg_target = next.direct_leg.map_or(target, |leg| leg.target);
                 if from == leg_target && leg_target != target {
-                    next.direct_leg = None;
                     let path = next
                         .placement
                         .path
                         .ok_or(Error("walking mover has no path"))?;
+                    let request = crate::routing::Request {
+                        current: path,
+                        position: from,
+                        ultimate: target,
+                        overshoot: false,
+                    };
+                    let intermediate =
+                        crate::routing::intermediate(polygons, request, Some(&footprint), others)?;
+                    let crate::nodepath::Steering::Move {
+                        position: destination,
+                        overshoot,
+                    } = Self::probe_route_leg(
+                        polygons,
+                        request,
+                        intermediate,
+                        None,
+                        Some(&footprint),
+                        others,
+                    )?
+                    else {
+                        return Err(Error("unexpected ordinary detour steering"));
+                    };
+                    next.direct_leg = Some(crate::walk::Leg {
+                        target: destination,
+                        ultimate: target,
+                        overshoot,
+                        force_minor: false,
+                    });
                     let direction = crate::walk::direction(
                         from,
-                        target,
+                        destination,
                         next.placement.direction,
                         polygons.active[path].definition.reel,
                     )?;
@@ -1765,6 +1816,50 @@ mod tests {
         assert!(occupied.placement.position[0] > 50);
         assert!(occupied.placement.position[0] < 100);
         assert_eq!(occupied.placement.standing, Handle(64));
+        // An obstacle reaches the right path edge. The only usable detour
+        // goes around its left side, then above it. Resuming the ultimate
+        // destination at the lower-left corner used to loop back indefinitely.
+        let mut narrow_path = polygons.active[0].definition.clone();
+        narrow_path.corners = [[140, 140], [303, 140], [303, 178], [140, 178]];
+        let narrow = Polygons::new(vec![narrow_path], 0);
+        let blocker = crate::walk::Footprint {
+            actor: 8,
+            position: [279, 170],
+            left: 264,
+            right: 310,
+            node_path: false,
+        };
+        let mut around = occupied.clone();
+        around
+            .stand(&resources, &declarations, &narrow, [240, 177], Handle(0))
+            .unwrap();
+        let around_serial = around
+            .begin_path_walk(&resources, &declarations, &narrow, [302, 167])
+            .unwrap();
+        let mut resumed = around.clone();
+        let mut passed_above = false;
+        for _ in 0..200 {
+            if around.walk_target.is_none() {
+                break;
+            }
+            for actor in [&mut around, &mut resumed] {
+                actor
+                    .advance_direct_walk(&resources, &declarations, &narrow, &[blocker])
+                    .unwrap();
+                assert!(narrow.active[0].contains(actor.placement.position));
+            }
+            assert_eq!(around, resumed);
+            passed_above |= around.placement.position[1] < 167;
+        }
+        assert!(
+            passed_above,
+            "must take the second corner, not repeat the first approach"
+        );
+        assert_eq!(around.walk_target, None);
+        assert_eq!(around.placement.position, [302, 167]);
+        assert_eq!(around.walk_serial, around_serial);
+        assert_eq!(around.placement.standing, Handle(64));
+
         assert_eq!(mover.walk_serial, serial);
         assert_eq!(mover.placement.standing, Handle(64));
         assert_eq!(
