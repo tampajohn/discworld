@@ -9,7 +9,7 @@ license.workspace = true
 discworld-tools = { path = "../discworld-tools" }
 discworld-core = { path = "../discworld-core" }
 discworld-audio = { path = "../discworld-audio" }
-minifb = "=0.28.0"
+sdl2 = { version = "=0.38.0", features = ["bundled", "static-link"] }
 rodio = { version = "=0.21.1", default-features = false, features = ["playback"] }
 
 [lints]

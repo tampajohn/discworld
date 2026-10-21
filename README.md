@@ -13,6 +13,7 @@ A work-in-progress replacement for the **Tinsel 1** engine that runs the origina
 You need:
 
 - Rust/Cargo with edition 2024 support. Development checks currently use Rust 1.95; the workspace declares Rust 1.85 as its minimum, but that minimum has not been independently verified.
+- Xcode command-line tools and CMake (`brew install cmake`). The native host builds and statically links bundled SDL2; no separate SDL installation is required.
 - Your own **English DOS CD v2 Discworld ISO**. Other releases have not been validated.
 - A General MIDI `.sf2` SoundFont for software music synthesis. Development uses TimGM6mb; provide it separately and retain its license. Neither the ISO nor SoundFont is included.
 
@@ -131,7 +132,7 @@ The project favors compatibility over skipping unsupported script behavior. A pa
 | --- | --- |
 | `crates/discworld-core` | Portable resource readers, VM, scheduler, engine state, movement, rendering and UI behavior; portable snapshot serialization |
 | `crates/discworld-audio` | Sample/music rendering and SoundFont synthesis |
-| `crates/discworld-native` | macOS development host using minifb and Rodio; keyboard/mouse input and visible replay |
+| `crates/discworld-native` | macOS development host using SDL2 and Rodio; queued keyboard/mouse input and visible replay |
 | `crates/discworld-replay` | Shared strict recorded-input decoder and application for native/WASM validation |
 | `crates/discworld-web` | WASM exports for engine advancement, original RGBA frames, stereo PCM, input and save/load |
 | `crates/discworld-tools` | ISO/resource audits, diagnostics, frame export and headless interaction replay |

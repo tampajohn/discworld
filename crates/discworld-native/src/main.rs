@@ -9,7 +9,12 @@ use discworld_core::{
     resource::parse_index,
     text::Strings,
 };
-use minifb::{Key, KeyRepeat, MouseButton, MouseMode, Scale, Window, WindowOptions};
+use sdl2::{
+    event::{Event, WindowEvent},
+    keyboard::Keycode as Key,
+    pixels::PixelFormatEnum,
+};
+mod input;
 use std::time::{Duration, Instant};
 
 fn replace_audio_sink(sink: &mut rodio::Sink, mixer: &rodio::mixer::Mixer, paused: bool) {
@@ -204,21 +209,21 @@ fn run() -> Result<(), Box<dyn std::error::Error>> {
         .as_ref()
         .and_then(|v| v.last())
         .map(|i| u64::from(i.tick) + 2400);
-    // macOS minifb retains the submitted pointer for its MTKView callback.
-    // Keep the allocation stable until after the window has been destroyed.
-    let mut pixels = vec![0u32; 320 * 200];
-    let mut window = Window::new(
-        "Discworld Rust — development host",
-        320,
-        200,
-        WindowOptions {
-            scale: Scale::X2,
-            resize: false,
-            ..WindowOptions::default()
-        },
-    )?;
-    window.set_target_fps(60);
-    window.set_cursor_visibility(false);
+    let sdl = sdl2::init()?;
+    let video = sdl.video()?;
+    sdl2::hint::set("SDL_RENDER_SCALE_QUALITY", "0");
+    let window = video
+        .window("Discworld Rust — development host", 640, 400)
+        .position_centered()
+        .allow_highdpi()
+        .build()?;
+    let mut canvas = window.into_canvas().present_vsync().build()?;
+    canvas.set_logical_size(320, 200)?;
+    let creator = canvas.texture_creator();
+    let mut texture = creator.create_texture_streaming(PixelFormatEnum::RGBA32, 320, 200)?;
+    let mut events = sdl.event_pump()?;
+    let mut buttons = input::Buttons::default();
+    sdl.mouse().show_cursor(false);
     if replay.is_some() {
         eprintln!(
             "Watching recorded inputs. P: pause/resume. F: 1x/4x/16x speed (accelerated playback is silent). M: mute/unmute. Esc: exit. Manual game inputs are enabled after the recorded route finishes."
@@ -239,165 +244,212 @@ fn run() -> Result<(), Box<dyn std::error::Error>> {
         sink.pause();
     }
     let mut stopped = false;
-    let mut left_down = false;
-    let mut right_down = false;
     let mut frames = 0u64;
     let mut save_notice = String::new();
     eprintln!("F5: save. F9: load. Save file: {}", save_path.display());
-    while window.is_open()
-        && !window.is_key_down(Key::Escape)
-        && frame_limit.is_none_or(|limit| frames < limit)
-    {
+    'running: while frame_limit.is_none_or(|limit| frames < limit) {
+        let frame_started = Instant::now();
         let now = Instant::now();
         elapsed = (elapsed + now.duration_since(previous)).min(interval * 4);
         previous = now;
-        if window.is_key_pressed(Key::F5, KeyRepeat::No) {
-            let result =
-                discworld_audio::session::encode(&engine, &synth, asset_id).and_then(|bytes| {
-                    discworld_tools::save_file::write_atomic(&save_path, &bytes).map_err(Into::into)
-                });
-            save_notice = match result {
-                Ok(()) => format!("saved tick {}", engine.ticks),
-                Err(error) => format!("save failed: {error}"),
-            };
-            eprintln!("{save_notice}: {}", save_path.display());
-            elapsed = Duration::ZERO;
-            previous = Instant::now();
-        }
-        if window.is_key_pressed(Key::F9, KeyRepeat::No) {
-            let result = discworld_tools::save_file::read(&save_path)
-                .map_err(Box::<dyn std::error::Error>::from)
-                .and_then(|bytes| {
-                    discworld_audio::session::decode(
-                        &bytes,
-                        asset_id,
-                        &resources,
-                        &bank,
-                        &tracks,
-                        &soundfont_bytes,
-                    )
-                });
-            match result {
-                Ok(restored) => {
-                    replace_audio_sink(&mut sink, stream.mixer(), paused);
-                    engine = restored.engine;
-                    synth = restored.audio;
-                    stopped = false;
-                    left_down = window.get_mouse_down(MouseButton::Left);
-                    right_down = window.get_mouse_down(MouseButton::Right);
-                    replay_position = replay.as_ref().map_or(0, |inputs| {
-                        inputs.partition_point(|i| u64::from(i.tick) < engine.ticks)
-                    });
-                    replay_end = replay
-                        .as_ref()
-                        .and_then(|v| v.last())
-                        .map(|i| u64::from(i.tick) + 2400);
-                    save_notice = format!("loaded tick {}", engine.ticks);
+        for event in events.poll_iter() {
+            let manual = (replay.is_none() || replay_end.is_none()) && !stopped;
+            match event {
+                Event::Quit { .. }
+                | Event::KeyDown {
+                    keycode: Some(Key::Escape),
+                    ..
+                } => break 'running,
+                Event::KeyDown {
+                    keycode: Some(Key::F5),
+                    repeat: false,
+                    ..
+                } => {
+                    let result = discworld_audio::session::encode(&engine, &synth, asset_id)
+                        .and_then(|bytes| {
+                            discworld_tools::save_file::write_atomic(&save_path, &bytes)
+                                .map_err(Into::into)
+                        });
+                    save_notice = match result {
+                        Ok(()) => format!("saved tick {}", engine.ticks),
+                        Err(error) => format!("save failed: {error}"),
+                    };
+                    eprintln!("{save_notice}: {}", save_path.display());
+                    elapsed = Duration::ZERO;
+                    previous = Instant::now();
                 }
-                Err(error) => save_notice = format!("load failed: {error}"),
-            }
-            eprintln!("{save_notice}: {}", save_path.display());
-            elapsed = Duration::ZERO;
-            previous = Instant::now();
-        }
-        if window.is_key_pressed(Key::M, KeyRepeat::No) {
-            muted = !muted;
-            sink.set_volume(if muted { 0.0 } else { 1.0 });
-        }
-        if replay.is_some() && window.is_key_pressed(Key::F, KeyRepeat::No) {
-            speed = match speed {
-                1 => 4,
-                4 => 16,
-                _ => 1,
-            };
-            replace_audio_sink(&mut sink, stream.mixer(), paused || stopped);
-        }
-        if window.is_key_pressed(Key::P, KeyRepeat::No) {
-            paused = !paused;
-            if paused {
-                sink.pause();
-            } else {
-                sink.play();
+                Event::KeyDown {
+                    keycode: Some(Key::F9),
+                    repeat: false,
+                    ..
+                } => {
+                    let result = discworld_tools::save_file::read(&save_path)
+                        .map_err(Box::<dyn std::error::Error>::from)
+                        .and_then(|bytes| {
+                            discworld_audio::session::decode(
+                                &bytes,
+                                asset_id,
+                                &resources,
+                                &bank,
+                                &tracks,
+                                &soundfont_bytes,
+                            )
+                        });
+                    match result {
+                        Ok(restored) => {
+                            replace_audio_sink(&mut sink, stream.mixer(), paused);
+                            engine = restored.engine;
+                            synth = restored.audio;
+                            stopped = false;
+                            buttons = input::Buttons::default();
+                            sdl.mouse().capture(false);
+                            replay_position = replay.as_ref().map_or(0, |inputs| {
+                                inputs.partition_point(|i| u64::from(i.tick) < engine.ticks)
+                            });
+                            replay_end = replay
+                                .as_ref()
+                                .and_then(|v| v.last())
+                                .map(|i| u64::from(i.tick) + 2400);
+                            save_notice = format!("loaded tick {}", engine.ticks);
+                        }
+                        Err(error) => save_notice = format!("load failed: {error}"),
+                    }
+                    eprintln!("{save_notice}: {}", save_path.display());
+                    elapsed = Duration::ZERO;
+                    previous = Instant::now();
+                }
+                Event::KeyDown {
+                    keycode: Some(Key::M),
+                    repeat: false,
+                    ..
+                } => {
+                    muted = !muted;
+                    sink.set_volume(if muted { 0.0 } else { 1.0 });
+                }
+                Event::KeyDown {
+                    keycode: Some(Key::F),
+                    repeat: false,
+                    ..
+                } if replay.is_some() => {
+                    speed = match speed {
+                        1 => 4,
+                        4 => 16,
+                        _ => 1,
+                    };
+                    replace_audio_sink(&mut sink, stream.mixer(), paused || stopped);
+                }
+                Event::KeyDown {
+                    keycode: Some(Key::P),
+                    repeat: false,
+                    ..
+                } => {
+                    paused = !paused;
+                    if paused {
+                        sink.pause();
+                    } else {
+                        sink.play();
+                    }
+                }
+                Event::MouseMotion { x, y, .. } if manual && !paused => engine.move_cursor([x, y]),
+                Event::MouseButtonDown {
+                    mouse_btn, x, y, ..
+                } if manual && !paused => {
+                    if let Some(button) = buttons.press(mouse_btn) {
+                        engine.move_cursor([x, y]);
+                        engine.mouse_button(&resources, button, true)?;
+                        sdl.mouse().capture(true);
+                    }
+                }
+                Event::MouseButtonUp {
+                    mouse_btn, x, y, ..
+                } if manual => {
+                    if let Some(button) = buttons.release(mouse_btn) {
+                        if !paused {
+                            engine.move_cursor([x, y]);
+                        }
+                        engine.mouse_button(&resources, button, false)?;
+                        sdl.mouse().capture(buttons.any());
+                    }
+                }
+                Event::Window {
+                    win_event: WindowEvent::FocusLost,
+                    ..
+                } => {
+                    for button in buttons.release_all() {
+                        if manual {
+                            engine.mouse_button(&resources, button, false)?;
+                        }
+                    }
+                    sdl.mouse().capture(false);
+                }
+                Event::MouseWheel { y, direction, .. } if manual && !paused => {
+                    use discworld_core::inventory::Scroll;
+                    use sdl2::mouse::MouseWheelDirection;
+                    let up = (y > 0) != (direction == MouseWheelDirection::Flipped);
+                    if y != 0 {
+                        engine.scroll_inventory(if up { Scroll::Up } else { Scroll::Down });
+                    }
+                }
+                Event::KeyDown {
+                    keycode: Some(key),
+                    repeat,
+                    ..
+                } if manual && !paused => {
+                    use discworld_core::inventory::Scroll;
+                    let scroll = match key {
+                        Key::Up => Some(Scroll::Up),
+                        Key::Down => Some(Scroll::Down),
+                        Key::PageUp => Some(Scroll::PageUp),
+                        Key::PageDown => Some(Scroll::PageDown),
+                        Key::Home => Some(Scroll::Home),
+                        Key::End => Some(Scroll::End),
+                        _ => None,
+                    };
+                    if let Some(action) = scroll {
+                        engine.scroll_inventory(action);
+                    }
+                    if repeat {
+                        continue;
+                    }
+                    match key {
+                        Key::I => {
+                            if matches!(engine.active_inventory(), Some(1 | 2)) {
+                                engine.close_inventory();
+                            } else if let Some(lead) = &engine.declarations.lead {
+                                engine.interact_actor(
+                                    &resources,
+                                    lead.id as u32,
+                                    PolygonInteraction::WalkTo,
+                                )?;
+                            }
+                        }
+                        Key::Space => engine.left_event()?,
+                        Key::Backspace => {
+                            if matches!(engine.active_inventory(), Some(1 | 2)) {
+                                engine.close_inventory();
+                            } else {
+                                engine.interact_conversation(&resources, None)?;
+                            }
+                        }
+                        Key::A | Key::W | Key::L => {
+                            let event = match key {
+                                Key::A => PolygonInteraction::Action,
+                                Key::L => PolygonInteraction::Look,
+                                _ => PolygonInteraction::WalkTo,
+                            };
+                            if let Some(slot) = engine.inventory_slot_at(engine.control.cursor) {
+                                engine.interact_inventory(&resources, slot, event)?;
+                            } else {
+                                engine.interact_world(&resources, engine.control.cursor, event)?;
+                            }
+                        }
+                        _ => {}
+                    }
+                }
+                _ => {}
             }
         }
         if !paused && !stopped {
-            if replay.is_none() || replay_end.is_none() {
-                if let Some((x, y)) = window.get_mouse_pos(MouseMode::Discard) {
-                    engine.move_cursor([x as i32, y as i32]);
-                }
-                use discworld_core::inventory::Scroll;
-                for (key, action) in [
-                    (Key::Up, Scroll::Up),
-                    (Key::Down, Scroll::Down),
-                    (Key::PageUp, Scroll::PageUp),
-                    (Key::PageDown, Scroll::PageDown),
-                    (Key::Home, Scroll::Home),
-                    (Key::End, Scroll::End),
-                ] {
-                    if window.is_key_pressed(key, KeyRepeat::Yes) {
-                        engine.scroll_inventory(action);
-                    }
-                }
-                if let Some((_, wheel)) = window.get_scroll_wheel() {
-                    if wheel != 0.0 {
-                        engine.scroll_inventory(if wheel > 0.0 {
-                            Scroll::Up
-                        } else {
-                            Scroll::Down
-                        });
-                    }
-                }
-                if window.is_key_pressed(Key::I, KeyRepeat::No) {
-                    if matches!(engine.active_inventory(), Some(1 | 2)) {
-                        engine.close_inventory();
-                    } else if let Some(lead) = &engine.declarations.lead {
-                        engine.interact_actor(
-                            &resources,
-                            lead.id as u32,
-                            PolygonInteraction::WalkTo,
-                        )?;
-                    }
-                }
-                let left = window.get_mouse_down(MouseButton::Left);
-                let right = window.get_mouse_down(MouseButton::Right);
-                if left != left_down {
-                    engine.mouse_button(&resources, discworld_core::mouse::Button::Left, left)?;
-                }
-                if right != right_down {
-                    engine.mouse_button(&resources, discworld_core::mouse::Button::Right, right)?;
-                }
-                right_down = right;
-                if window.is_key_pressed(Key::Space, KeyRepeat::No) {
-                    engine.left_event()?;
-                }
-                if window.is_key_pressed(Key::Backspace, KeyRepeat::No) {
-                    if matches!(engine.active_inventory(), Some(1 | 2)) {
-                        engine.close_inventory();
-                    } else {
-                        engine.interact_conversation(&resources, None)?;
-                    }
-                }
-                left_down = left;
-                for (key, event) in [
-                    (Key::A, PolygonInteraction::Action),
-                    (Key::W, PolygonInteraction::WalkTo),
-                    (Key::L, PolygonInteraction::Look),
-                ] {
-                    if window.is_key_pressed(key, KeyRepeat::No) {
-                        if let Some(slot) = engine.inventory_slot_at(engine.control.cursor) {
-                            engine.interact_inventory(&resources, slot, event)?;
-                            continue;
-                        }
-                        eprintln!(
-                            "input tick={} scene={} point={:?} event={event:?}",
-                            engine.ticks,
-                            index[engine.scene.resource()].name,
-                            engine.control.cursor
-                        );
-                        engine.interact_world(&resources, engine.control.cursor, event)?;
-                    }
-                }
-            }
             let playback_interval = interval / speed;
             while elapsed >= playback_interval && (speed > 1 || sink.len() < 6) {
                 elapsed -= playback_interval;
@@ -432,9 +484,9 @@ fn run() -> Result<(), Box<dyn std::error::Error>> {
                             engine.ticks,
                             index[engine.scene.resource()].name
                         );
-                        window.set_title(&format!(
+                        canvas.window_mut().set_title(&format!(
                             "Discworld Rust — stopped: {reason} — Esc to exit"
-                        ));
+                        ))?;
                         sink.stop();
                         stopped = true;
                         break;
@@ -445,7 +497,7 @@ fn run() -> Result<(), Box<dyn std::error::Error>> {
             elapsed = Duration::ZERO;
         }
         if !stopped {
-            window.set_title(&format!(
+            canvas.window_mut().set_title(&format!(
                 "Discworld Rust — {} — {} — {} — M sound — F5 save/F9 load {}",
                 index[engine.scene.resource()].name,
                 if paused && replay.is_some() && replay_end.is_none() {
@@ -482,13 +534,19 @@ fn run() -> Result<(), Box<dyn std::error::Error>> {
                     )
                 },
                 save_notice
-            ));
+            ))?;
         }
         let surface = engine.render(&resources)?;
-        for (pixel, rgba) in pixels.iter_mut().zip(surface.rgba.chunks_exact(4)) {
-            *pixel = (u32::from(rgba[0]) << 16) | (u32::from(rgba[1]) << 8) | u32::from(rgba[2]);
+        texture.update(None, &surface.rgba, 320 * 4)?;
+        canvas.clear();
+        canvas.copy(&texture, None, None)?;
+        canvas.present();
+        // Also bound CPU use when the selected renderer does not honor vsync.
+        if let Some(rest) =
+            Duration::from_nanos(1_000_000_000 / 60).checked_sub(frame_started.elapsed())
+        {
+            std::thread::sleep(rest);
         }
-        window.update_with_buffer(&pixels, 320, 200)?;
         frames += 1;
     }
     eprintln!(

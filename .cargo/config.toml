@@ -1,0 +1,4 @@
+[env]
+# SDL2's bundled CMake project predates CMake 4's minimum policy floor.
+# Honored by CMake 4; older CMake versions ignore this environment variable.
+CMAKE_POLICY_VERSION_MINIMUM = "3.5"

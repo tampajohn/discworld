@@ -116,7 +116,7 @@ Pending ordinary drops require core save version 3. Inventory dragging still nee
 
 ## Physical input delivery and persistence
 
-Native polls left/right button edges and browser sends pointer down/up/cancel
+Native drains SDL2 left/right button events in order and browser sends pointer down/up/cancel
 through its serialized worker. The default canvas action uses physical left
 clicks (single selects/walks, double acts); right click looks. Explicit action
 and look controls remain available for touch. Browser pointer capture ensures
@@ -129,5 +129,35 @@ The regression saves after a first click, restores, then applies the second
 click: it produces the same action and cancels the single in both engines.
 Legacy saves remain loadable and do not acquire mouse history until a physical
 edge arrives. Restart initializes physical timing at the restart tick.
-Native polling can miss a press/release that happens entirely between polls;
-raw event-queue capture and more physical-device testing remain follow-up work.
+The native host previously sampled minifb's current button state, which could
+lose a complete press/release between polls. SDL2's event queue preserves both
+edges and their cursor positions even when they arrive before one host frame.
+The host uses each event's position rather than the final pointer position.
+SDL's logical 320×200 viewport maps window coordinates to original pixels;
+the display uploads the same RGBA frame with nearest-neighbor scaling.
+See the [SDL2 event API](https://docs.rs/sdl2/0.38.0/sdl2/event/enum.Event.html).
+
+Only buttons pressed during active manual play are owned by the host. Their
+releases still reach the engine while paused, and focus loss releases owned
+buttons once. Pointer capture retains releases outside the window. Loading a
+save resets host ownership; physical timing remains part of the restored core.
+SDL's OS double-click count is ignored: the original engine classifier still
+decides singles/doubles. A queued-event regression injects down/up before
+polling, checks order and distinct coordinates, and verifies both edges survive.
+Full original interaction and physical-device acceptance remain incomplete.
+
+Native SDL acceptance used the original inventory checkpoint at tick 33,200.
+A macOS HID-stream click picked up banana object 190; an independent headless
+load of the native F5 save confirmed `held_object=190` at tick 33,254. A second
+HID click with a measured 2.300 ms press/release interval put it down; the native
+save at tick 33,286 restored with `held_object=-1` and luggage contents
+`[190,200]`. The first attempt used PID-targeted synthetic mouse events, which
+did not reach SDL's button handler (save remained core version 1); only the
+subsequent HID-stream results count as interaction evidence. Evidence remains
+local in `assets/logs/sdl-{pickup,putdown}-hid-state.json` and the corresponding
+scratch saves and screenshots. The four native tests and all 247 enabled
+workspace tests pass; two asset-dependent tests are opt-in. Native Clippy and
+release build pass. SDL is statically linked; `otool -L` shows only macOS system
+libraries/frameworks, without a Homebrew SDL dependency. The bundled SDL CMake
+project needs CMake 4's policy-floor compatibility setting, supplied in
+`.cargo/config.toml`.
