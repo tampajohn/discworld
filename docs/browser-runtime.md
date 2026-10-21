@@ -114,7 +114,7 @@ Both browser tests and both clock tests pass. No game scripts changed.
 
 
 Remaining gates include real Safari/iPad memory/performance, audio interruption
-and long-run scheduling, full-route WASM/browser verification, broader touch
+and long-run scheduling, full-route interactive browser playback, broader touch
 interactions, offline packaging, and deeper decoder robustness. Node and desktop
 Chrome results do not establish iPad acceptance.
 
@@ -226,6 +226,18 @@ bindings live in ignored `web/replay-pkg/`. It advances faster than real time;
 PCM is generated and checked for finite values but is not sent through Web Audio.
 A successful route therefore proves browser-worker runtime execution, not
 manual touch operation, continuous audio output, or physical iPad acceptance.
+
+The first Playwright WebKit 27.2 run completed successfully: all 1,652 original
+inputs were accepted, credits completed and the game restarted to `title.scn`
+at tick 2,630,000. Complete serialized engine state and final RGBA match the
+fresh native baseline exactly. All 4,832,625,000 returned samples were finite;
+combined saves differ in DSP state, so audio equality is not established.
+Elapsed simulation time was 537.094 seconds on this Mac. Evidence:
+`evidence/webkit-full-ending/report.json` and `native-comparison.json`;
+`browser-final.png` was inspected and shows the original title. This used the
+validation harness committed as `3704361`, with unchanged original scripts and
+route. Chrome's corresponding full run is still pending; neither result is
+physical Safari/iPad acceptance.
 
 ## Upload memory evidence
 
