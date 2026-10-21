@@ -138,6 +138,13 @@ with bit-exact synthesized output through the current and trial next tick
 was 317,055 bytes. The headless audit now reports `audio_snapshot_checks` and
 `audio_snapshot_max_bytes` and restores DSP state when a SoundFont is supplied.
 
+The full combined engine/DSP audit at `8f53854` passed all 5,048 replacements
+and continuation checks through tick 2,630,000, restart true, exit 0. Maximum
+core size was 47,409 bytes and maximum audio size was 317,221 bytes. Evidence:
+`evidence/headless-ending-snapshot-dsp-audit.json`. The final PNG matches the
+previously inspected title frame byte-for-byte. This establishes restoration
+along the recorded route, not general save compatibility or native UI acceptance.
+
 ## Combined player save version 1
 
 `discworld_audio::session` prepares engine and synthesizer together and rejects
