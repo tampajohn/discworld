@@ -21,14 +21,14 @@ The host now supports durable player saves. `Snapshot::restore` returns an
 engine after script, audio, polygon, animation and preview checks; the caller
 commits that replacement only after preparing host state. Native F5/F9 and startup `--load` use a combined file; browser persistence remains unfinished. Decoding a snapshot never replaces a running engine.
 
-## Envelope version 1
+## Core envelope versions 1 and 2
 
 All envelope integers are little endian. The maximum complete file is 16 MiB.
 
 | Offset | Bytes | Meaning |
 | --- | --- | --- |
 | 0 | 8 | `DWRSAVE` followed by a zero byte |
-| 8 | 4 | Format version, currently 1 |
+| 8 | 4 | Format version: 1, or 2 for pending click state |
 | 12 | 32 | Host-supplied SHA-256 identity of the original game assets |
 | 44 | 4 | Payload byte length |
 | 48 | 32 | SHA-256 checksum of the payload |
@@ -203,3 +203,21 @@ was independently inspected. `assets/logs/credits-load-validation-visible.log`
 records the startup load, F5 save and F9 reload at the same tick. The visible
 session remains paused and muted. This does not yet verify failed native loads
 or every interactive save location.
+
+## Pending world-click extension
+
+Core version 2 retains the 80-byte envelope and asset/checksum validation. Its
+Postcard payload is `(EngineV1Fields, ClickState)`: pending process IDs/phases
+and the left-click token owner. The extension is explicitly skipped in the
+legacy Engine serialization and encoded only through this versioned envelope.
+No fields were inserted into existing positional script-process payloads.
+Version 1 remains readable and is still emitted when there are no pending clicks,
+so existing checkpoints preserve their encoded bytes. The outer combined-player
+and DSP envelopes are unchanged.
+
+The decoder checks that pending IDs exist and are unique, that exactly the
+waiting phase owns the token, and that sleep values and script targets/events
+are appropriate. A pending single click survives decoding and can be cancelled
+by a double click before executing its original script. This extension currently
+covers the resolved world-click path; physical mouse classifier state and
+inventory click integration remain unfinished.

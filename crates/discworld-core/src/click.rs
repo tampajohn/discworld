@@ -74,6 +74,100 @@ impl ClickToken {
     }
 }
 
+#[derive(Clone, Copy, Debug, PartialEq, Eq, Serialize, Deserialize)]
+pub(crate) enum Phase {
+    Single,
+    Double,
+    Waiting,
+}
+#[derive(Clone, Debug, Default, PartialEq, Eq, Serialize, Deserialize)]
+pub(crate) struct State {
+    token: ClickToken,
+    pending: Vec<(ProcessId, Phase)>,
+}
+pub(crate) enum Dispatch {
+    Ready,
+    Sleep(u32),
+    Resumed,
+}
+impl State {
+    pub(crate) fn entries(&self) -> impl Iterator<Item = (ProcessId, Phase)> + '_ {
+        self.pending.iter().copied()
+    }
+    pub(crate) fn schedule(&mut self, id: ProcessId, phase: Phase) {
+        self.pending.push((id, phase));
+    }
+    pub(crate) fn prepare<T>(
+        &mut self,
+        queue: &mut Scheduler<T>,
+        id: ProcessId,
+    ) -> Result<Dispatch, Error> {
+        let Some(index) = self.pending.iter().position(|(p, _)| *p == id) else {
+            return Ok(Dispatch::Ready);
+        };
+        match self.pending[index].1 {
+            Phase::Single => {
+                let sleep = self
+                    .token
+                    .single(queue, crate::mouse::DEFAULT_DOUBLE_CLICK_TICKS)?;
+                self.pending[index].1 = Phase::Waiting;
+                self.cleanup(queue);
+                Ok(Dispatch::Sleep(sleep))
+            }
+            Phase::Double => {
+                self.token.double(queue)?;
+                self.pending.remove(index);
+                self.cleanup(queue);
+                Ok(Dispatch::Ready)
+            }
+            Phase::Waiting => {
+                self.token.release(queue)?;
+                self.pending.remove(index);
+                Ok(Dispatch::Resumed)
+            }
+        }
+    }
+    pub(crate) fn cleanup<T>(&mut self, queue: &Scheduler<T>) {
+        self.pending
+            .retain(|(p, _)| queue.entries().any(|(id, _)| id == *p));
+        if let Some(owner) = self.token.owner {
+            if !queue.entries().any(|(id, _)| id == owner) {
+                self.token.terminated(owner);
+            }
+        }
+    }
+    pub(crate) fn validate<T>(&self, queue: &Scheduler<T>) -> Result<(), Error> {
+        self.token.validate(queue)?;
+        if self.pending.len() > 1024 {
+            return Err(Error("too many pending clicks"));
+        }
+        for (index, (id, phase)) in self.pending.iter().enumerate() {
+            let sleep_valid = match phase {
+                Phase::Single | Phase::Double => queue.sleep_for(*id) == Some(1),
+                Phase::Waiting => queue.sleep_for(*id).is_some_and(|sleep| {
+                    (1..=crate::mouse::DEFAULT_DOUBLE_CLICK_TICKS + 1).contains(&sleep)
+                }),
+            };
+            if !sleep_valid
+                || !queue.entries().any(|(p, _)| p == *id)
+                || self.pending[..index].iter().any(|(p, _)| p == id)
+                || (*phase == Phase::Waiting) != (self.token.owner == Some(*id))
+            {
+                return Err(Error("invalid pending click process"));
+            }
+        }
+        if self.token.owner.is_some_and(|owner| {
+            !self
+                .pending
+                .iter()
+                .any(|(id, phase)| *id == owner && *phase == Phase::Waiting)
+        }) {
+            return Err(Error("missing pending click wait"));
+        }
+        Ok(())
+    }
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;

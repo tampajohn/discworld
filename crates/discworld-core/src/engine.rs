@@ -231,6 +231,8 @@ pub struct Engine {
     pub held_object: i32,
     held_cursor: Option<crate::inventory::HeldCursor>,
     last_interaction_tick: Option<u64>,
+    #[serde(skip)]
+    pub(crate) clicks: crate::click::State,
     pub movers: std::collections::BTreeMap<i32, crate::mover::Mover>,
     polygon_memory: crate::polygon::EnabledMemory,
     polygon_table: Handle,
@@ -314,6 +316,26 @@ impl Engine {
     }
 
     pub(crate) fn validate_snapshot_structure(&self) -> Result<(), Error> {
+        self.clicks.validate(&self.processes)?;
+        for (id, phase) in self.clicks.entries() {
+            let process = self
+                .processes
+                .entries()
+                .find(|(p, _)| *p == id)
+                .map(|(_, p)| p)
+                .ok_or(Error("missing click process"))?;
+            let expected = if phase == crate::click::Phase::Double {
+                2
+            } else {
+                1
+            };
+            if process.player_walk.is_some()
+                || (process.polygon.is_none() && process.actor.is_none())
+                || process.event != expected
+            {
+                return Err(Error("invalid click script target"));
+            }
+        }
         if self
             .active_inventory
             .is_some_and(|slot| !(0..=2).contains(&slot))
@@ -1002,6 +1024,40 @@ impl Engine {
         Ok(true)
     }
 
+    /// Timed world click: actor/polygon scripts participate in V1 double-click
+    /// cancellation, while bare-ground movement remains immediate. Inventory
+    /// routing and raw physical button delivery are separate integration work.
+    pub fn world_click(
+        &mut self,
+        resources: &Resources<'_>,
+        point: [i32; 2],
+        event: PolygonInteraction,
+    ) -> Result<bool, Error> {
+        let mut next = self.clone();
+        next.left_event()?;
+        let before: Vec<_> = next.processes.entries().map(|(id, _)| id).collect();
+        let accepted = next.interact_world(resources, point, event)?;
+        if accepted && event != PolygonInteraction::Look {
+            let scripted = next
+                .processes
+                .entries()
+                .find(|(id, p)| !before.contains(id) && p.player_walk.is_none())
+                .map(|(id, _)| id);
+            if let Some(id) = scripted {
+                next.clicks.schedule(
+                    id,
+                    if event == PolygonInteraction::WalkTo {
+                        crate::click::Phase::Single
+                    } else {
+                        crate::click::Phase::Double
+                    },
+                );
+            }
+        }
+        *self = next;
+        Ok(accepted)
+    }
+
     /// V1 actor tags are searched in ascending actor ID, before polygon tags.
     /// The point is in screen coordinates; animation bounds are world coordinates.
     pub fn actor_at(
@@ -1385,6 +1441,7 @@ impl Engine {
             held_object: -1,
             held_cursor: None,
             last_interaction_tick: None,
+            clicks: crate::click::State::default(),
             user_events: 0,
             left_events: 0,
             subtitles: true,
@@ -1612,6 +1669,7 @@ impl Engine {
             }
         }
         self.processes.cancel_scene(self.generation);
+        self.clicks.cleanup(&self.processes);
         self.generation = self
             .generation
             .checked_add(1)
@@ -2219,6 +2277,20 @@ impl Engine {
         self.processes.begin()?;
         let mut blocked = None;
         while let Some(id) = self.processes.ready()? {
+            match self.clicks.prepare(&mut self.processes, id)? {
+                crate::click::Dispatch::Sleep(delay) => {
+                    self.processes.finish(Some(delay))?;
+                    continue;
+                }
+                crate::click::Dispatch::Resumed => {
+                    if self.last_interaction_tick == Some(self.ticks) {
+                        self.processes.finish(None)?;
+                        continue;
+                    }
+                    self.last_interaction_tick = Some(self.ticks);
+                }
+                crate::click::Dispatch::Ready => {}
+            }
             let mut process = self
                 .processes
                 .state_mut(id)
@@ -2234,6 +2306,7 @@ impl Engine {
             } else {
                 Some(1)
             })?;
+            self.clicks.cleanup(&self.processes);
             if let Status::Unsupported(call) = result {
                 blocked = Some(call);
                 break;
@@ -3285,6 +3358,7 @@ impl Engine {
                         .collect();
                     for id in owners {
                         self.processes.cancel(id)?;
+                        self.clicks.cleanup(&self.processes);
                     }
                     process.vm.complete_library(call, 1, None)?;
                 }
@@ -4687,6 +4761,81 @@ mod tests {
         assert_eq!(engine.globals, [-1]);
         assert!(engine.control.enabled);
         assert!(engine.control.tags_enabled);
+    }
+    #[test]
+    fn timed_world_click_delays_cancels_and_roundtrips_pending_save() {
+        let (master, mut scene) = fixtures();
+        scene[8] = 0;
+        scene[32..38].copy_from_slice(&[2, 0x4e, 31, 0x4c, 0, 0]);
+        let resources = Resources(vec![&master, &scene]);
+        let mut engine = Engine::bootstrap(&resources).unwrap();
+        engine.polygons = crate::polygon::Polygons::new(
+            vec![crate::polygon::Polygon {
+                kind: crate::polygon::Kind::Tag,
+                corners: [[0, 0], [20, 0], [20, 20], [0, 20]],
+                tag_position: [0; 2],
+                tag_text: Handle(0),
+                node_position: [0; 2],
+                film: Handle(0),
+                refer_type: 0,
+                id: 1,
+                scales: [1, 0],
+                reel: 0,
+                z_factor: 0,
+                nodes: vec![],
+                lines: vec![],
+                script: Handle((1 << 23) | 32),
+            }],
+            0,
+        );
+        engine.control.apply(1, false).unwrap();
+        let legacy = crate::save::Snapshot::capture(&engine, [9; 32])
+            .to_bytes()
+            .unwrap();
+        assert_eq!(u32::from_le_bytes(legacy[8..12].try_into().unwrap()), 1);
+        assert!(
+            engine
+                .world_click(&resources, [10, 10], PolygonInteraction::WalkTo)
+                .unwrap()
+        );
+        engine.tick(&resources).unwrap();
+        assert_eq!(engine.globals, [0]);
+        let bytes = crate::save::Snapshot::capture(&engine, [9; 32])
+            .to_bytes()
+            .unwrap();
+        assert_eq!(u32::from_le_bytes(bytes[8..12].try_into().unwrap()), 2);
+        let mut restored = crate::save::Snapshot::from_bytes(&bytes, [9; 32])
+            .unwrap()
+            .state()
+            .clone();
+        assert_eq!(engine, restored);
+        let mut double = restored.clone();
+        assert!(
+            double
+                .world_click(&resources, [10, 10], PolygonInteraction::Action)
+                .unwrap()
+        );
+        double.tick(&resources).unwrap();
+        assert_eq!(double.globals, [2]);
+        assert_eq!(double.clicks, crate::click::State::default());
+        let mut disabled = restored.clone();
+        disabled.control.apply(0, false).unwrap();
+        for _ in 0..10 {
+            engine.tick(&resources).unwrap();
+            restored.tick(&resources).unwrap();
+            disabled.tick(&resources).unwrap();
+            assert_eq!(engine.globals, [0]);
+            assert_eq!(engine, restored);
+        }
+        engine.tick(&resources).unwrap();
+        restored.tick(&resources).unwrap();
+        disabled.tick(&resources).unwrap();
+        assert_eq!(engine.globals, [1]);
+        assert_eq!(disabled.globals, [0]);
+        assert_eq!(engine, restored);
+        assert_eq!(engine.clicks, crate::click::State::default());
+        let legacy_restored = crate::save::Snapshot::from_bytes(&legacy, [9; 32]).unwrap();
+        assert_eq!(legacy_restored.to_bytes().unwrap(), legacy);
     }
     #[test]
     fn polygon_interactions_dispatch_event_and_recheck_control() {

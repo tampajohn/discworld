@@ -56,9 +56,8 @@ the current time. Physical timers are updated before button swapping. Right
 double-click maps to `PLR_NOEVENT`, not a second look action. Each press emits
 drag-start before its click classification; release emits drag-end.
 
-Integration still requires script-token ownership/cancellation in the scheduler,
-capturing the correct target at dispatch time, original inventory drag behavior,
-and including pending input in save/load. `AllowDclick` is called by polygon,
+Remaining integration includes original inventory drag and object-script click behavior,
+raw host button delivery, and persisting the physical button classifier. `AllowDclick` is called by polygon,
 actor and inventory-object processes (`dialogs.cpp::ObjectProcess`). Bare-ground
 `WalkProcess` does not call it, so delaying every single-click globally would
 change the original movement behavior. A browser `dblclick` callback alone
@@ -73,15 +72,21 @@ owner and invalid release fail explicitly, and process teardown must release
 ownership. Tests exercise the real scheduler, including cancellation of an
 earlier queue entry without losing a neighboring dispatch, exact delay,
 serialization/restoration of a pending wait, and stale ownership rejection.
-This helper is not yet installed in `Engine` or either host.
+`Engine::world_click` now attaches this delay/cancellation to newly queued actor
+and polygon scripts; ground walks and look events remain immediate. The existing
+semantic interaction methods retain their timing for recorded routes. Native and
+browser still use development controls; raw button classification is not wired
+in yet, so this is not a claim of completed original mouse support.
 
-The existing version-1 save payload serializes `Engine` and each script process
-positionally with Postcard. Adding pending mouse/token fields directly would
-invalidate existing saves. Integration must version or explicitly extend that
-payload, retain loading of current user checkpoints, validate pending owner IDs
-against the restored scheduler, and test a saved single click followed by a
-double after reload. None of the classifier/token additions changes the current
-engine payload or the semantic replay path.
+Pending click ownership and dispatch phases are persisted in the core save's
+version-2 extension. States without pending clicks retain byte-compatible
+version-1 encoding. Validation rejects missing/duplicate owners, inappropriate
+script targets/events and invalid pending sleep values. The engine regression
+covers single-click delay, complete-state equality after snapshot decoding,
+double-click cancellation after reload, polygon control loss during the wait,
+and version-1 round-trip compatibility. Actor control semantics and bare-ground
+walking are retained by using the existing distinct dispatch paths; broader
+reference comparisons remain needed.
 
 ## Initial implementation evidence
 

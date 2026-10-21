@@ -145,6 +145,10 @@ impl<T> Scheduler<T> {
         Ok(None)
     }
 
+    pub(crate) fn sleep_for(&self, id: ProcessId) -> Option<u32> {
+        self.processes.iter().find(|p| p.id == id).map(|p| p.sleep)
+    }
+
     pub fn state_mut(&mut self, id: ProcessId) -> Option<&mut T> {
         self.processes
             .iter_mut()
