@@ -61,15 +61,46 @@ pub fn preview(
             }
         }
         use discworld_core::configuration_menu::{
-            ButtonImage, Choice, Confirmation, ConfirmationMenu, MainMenu,
+            ButtonImage, Choice, Confirmation, ConfirmationMenu, MainMenu, SoundMenu,
         };
         let mut surface = engine.render(&resources)?;
+        let mut sound_audit = None;
         match kind {
             "preview-menu" => MainMenu::new(&resources, &strings, &engine.declarations)?.draw(
                 &resources,
                 &mut surface,
                 Some([100, 43]),
             )?,
+            "preview-sound-menu" => {
+                let mut menu =
+                    SoundMenu::new(&resources, &strings, &engine.declarations, [255, 128, 0])?;
+                let initial = menu.clone();
+                if !menu.begin_drag(&resources, [218, 93])? {
+                    return Err("original effects slider thumb did not accept drag".into());
+                }
+                for (dx, expected) in [
+                    (0, None),
+                    (1, Some((1, 129))),
+                    (100, Some((1, 255))),
+                    (-60, None),
+                    (-1, Some((1, 251))),
+                ] {
+                    if menu.drag(dx)? != expected {
+                        return Err("original slider drag audit mismatch".into());
+                    }
+                }
+                menu.end_drag()?;
+                if menu.values() != [255, 251, 0] || menu.drag(1)?.is_some() {
+                    return Err("original slider release audit mismatch".into());
+                }
+                sound_audit = Some(
+                    serde_json::json!({"before": initial.values(), "after": menu.values(), "drag_origin": [218,93], "deltas": [0,1,100,-60,-1], "released": true}),
+                );
+                if slot == 0 {
+                    menu = initial;
+                }
+                menu.draw(&resources, &mut surface)?;
+            }
             "preview-restart-menu" | "preview-quit-menu" => {
                 let confirmation = if kind == "preview-restart-menu" {
                     Confirmation::Restart
@@ -101,7 +132,7 @@ pub fn preview(
         println!(
             "{}",
             serde_json::to_string_pretty(&serde_json::json!({
-                "tick": engine.ticks, "menu": kind, "button_state": slot, "highlight": if kind == "preview-menu" { "Load" } else { "Accept" },
+                "tick": engine.ticks, "menu": kind, "preview_state": slot, "sound_drag_audit": sound_audit,
                 "strings": engine.declarations.config_strings.unwrap()[..8].iter()
                     .map(|h| strings.get(h.0).map(String::from_utf8_lossy)).collect::<Result<Vec<_>, _>>()?,
                 "scope": "Original menu assets and palette rendering over startup; menu activation and actions not connected"

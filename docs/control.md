@@ -739,3 +739,33 @@ assets/logs/menu-navigation-{workspace,clippy}-final.log. Early tests caught a
 missing queued-origin assignment; the final tests require a Restart request
 after returning to Main and pass. No live engine, save-format or host behavior
 changed in this increment.
+
+
+SoundMenu now constructs the English V1 10x5 configuration frame at20,16,
+with groove reel30 and thumb reel34, three rows at162,41/81/121, and original
+config strings11..13 right-aligned at158,rowY+6 using the tag font. Font now
+supports reference TXT_RIGHT justification; centered text retains its existing
+calculation. Thumb hit testing uses actual multipart bounds and strict edges.
+Slider values are0..255, travel81pixels with minimum offset8. Drag arithmetic
+retains raw overshoot, changes values only when the visible thumb moves, and
+reconstructs thumb position on release (floor conversion can shift it back a
+pixel). Checked overflow fails without changing the drag. The shared slider
+model also accepts the other nonzero setting ranges used by later menus.
+
+Pinned dialogs.cpp::whichMenuBox has V1 MD_YBUTTOP=9 and MD_YBUTBOT=0, making
+its arrow hit interval empty; no invented arrow-click behavior was added.
+SoundMenu emits changed channel/value pairs; live MIDI volume, effects/voice
+gain, settings persistence and engine menu attachment are still required.
+The source keeps MUSICVOL immediate and other channels as mixer settings.
+
+Asset-backed drag audit: preview-sound-menu ISO FRESH_PNG [STATE] constructs
+values[255,128,0], grabs effects thumb at218,93, applies deltas0,1,100,-60,-1,
+checks changes129/255/(no change)/251, releases, and rejects movement afterward.
+STATE0 draws the initial preview; STATE1 draws the audited released state.
+Inspected assets/previews/original-sound-menu.png and
+original-sound-menu-drag.png; detailed audit is
+assets/logs/original-sound-menu-drag.json. These are component previews, not a
+live host input/audio test or independent reference screenshot comparison.
+275 enabled workspace tests and final Clippy pass, recorded in
+assets/logs/sound-menu-workspace.log and sound-menu-clippy-final.log.
+Controls/subtitles widgets and save/load slots remain alongside host integration.

@@ -93,6 +93,25 @@ impl Font {
         bytes: &[u8],
         position: [i32; 2],
     ) -> Result<Layout, Error> {
+        self.justified(resources, bytes, position, false)
+    }
+    /// V1 TXT_RIGHT subtracts the complete line width, including spaces but
+    /// excluding the final inter-character spacing, separately for each line.
+    pub fn right_aligned(
+        &self,
+        resources: &Resources<'_>,
+        bytes: &[u8],
+        position: [i32; 2],
+    ) -> Result<Layout, Error> {
+        self.justified(resources, bytes, position, true)
+    }
+    fn justified(
+        &self,
+        resources: &Resources<'_>,
+        bytes: &[u8],
+        position: [i32; 2],
+        right: bool,
+    ) -> Result<Layout, Error> {
         if bytes.len() > 4096 {
             return Err(Error("text layout length limit"));
         }
@@ -111,7 +130,7 @@ impl Font {
                 } + i64::from(self.x_spacing);
             }
             width = (width - i64::from(self.x_spacing)).max(0);
-            let mut x = i64::from(position[0]) - width / 2;
+            let mut x = i64::from(position[0]) - if right { width } else { width / 2 };
             for c in line {
                 let handle = self.glyphs[*c as usize];
                 if handle.0 != 0 {
@@ -263,6 +282,13 @@ mod tests {
         assert_eq!(
             layout.glyphs.iter().map(|g| (g.x, g.y)).collect::<Vec<_>>(),
             [(155, 8), (161, 8), (158, 14)]
+        );
+        let right = font
+            .right_aligned(&resources, b"W W\nW", [160, 10])
+            .unwrap();
+        assert_eq!(
+            right.glyphs.iter().map(|g| (g.x, g.y)).collect::<Vec<_>>(),
+            [(150, 8), (156, 8), (156, 14)]
         );
         let mut speech = layout.clone();
         speech.above_speaker(&resources, 40).unwrap();

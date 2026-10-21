@@ -21,6 +21,7 @@ mod inventory_slider;
 pub mod iso;
 pub mod library;
 pub mod menu_navigation;
+pub mod menu_slider;
 pub mod mouse;
 pub mod mover;
 pub mod music;

@@ -200,6 +200,145 @@ pub enum Action {
     Resume,
 }
 
+/// DOS sound settings: music, effects, voice, in that order. Host mixer updates
+/// are emitted by drag(), not performed by the presentation component.
+#[derive(Debug, Clone, PartialEq, Eq)]
+pub struct SoundMenu {
+    frame: Frame,
+    labels: Vec<Layout>,
+    grooves: Vec<Animation>,
+    thumbs: Vec<Animation>,
+    values: [u16; 3],
+    drag: Option<(usize, crate::menu_slider::Drag)>,
+}
+impl SoundMenu {
+    pub fn new(
+        resources: &Resources<'_>,
+        strings: &Strings<'_>,
+        declarations: &Declarations,
+        values: [u16; 3],
+    ) -> Result<Self, Error> {
+        for value in values {
+            crate::menu_slider::offset(value, 255)?;
+        }
+        let window = Window {
+            title: crate::graphics::Handle(0),
+            capacity: 0,
+            min: [10, 5],
+            size: [10, 5],
+            max: [10, 5],
+            position: [20, 16],
+            first_display: 0,
+            contents: vec![],
+        };
+        let handle = declarations
+            .window_parts
+            .ok_or(Error("missing window parts"))?;
+        let frame = Frame::configuration(resources, handle, &window)?;
+        let font = Font::read(
+            resources,
+            declarations.tag_font.ok_or(Error("missing tag font"))?,
+        )?;
+        let handles = declarations
+            .config_strings
+            .ok_or(Error("missing configuration strings"))?;
+        let film = Film::read(resources, handle)?;
+        let mut labels = Vec::new();
+        let mut grooves = Vec::new();
+        let mut thumbs = Vec::new();
+        for (row, value) in values.iter().enumerate() {
+            let y = 16 + 25 + row as i32 * 40;
+            labels.push(font.right_aligned(
+                resources,
+                strings.get(handles[11 + row].0)?,
+                [158, y + 6],
+            )?);
+            for (reel, x, out) in [
+                (30, 162, &mut grooves),
+                (
+                    34,
+                    170 + crate::menu_slider::offset(*value, 255)?,
+                    &mut thumbs,
+                ),
+            ] {
+                let mut image = Animation::new(
+                    resources,
+                    film.reels
+                        .get(reel)
+                        .ok_or(Error("missing mixing desk reel"))?,
+                    1,
+                )?;
+                image.object.x = x;
+                image.object.y = y;
+                out.push(image);
+            }
+        }
+        Ok(Self {
+            frame,
+            labels,
+            grooves,
+            thumbs,
+            values,
+            drag: None,
+        })
+    }
+    pub fn values(&self) -> [u16; 3] {
+        self.values
+    }
+
+    /// whichMenuBox tests the actual multipart thumb bounds with strict edges.
+    /// English V1's arrow Y interval is empty (9..0); do not invent arrow hits.
+    pub fn begin_drag(
+        &mut self,
+        resources: &Resources<'_>,
+        point: [i32; 2],
+    ) -> Result<bool, Error> {
+        if self.drag.is_some() {
+            return Ok(false);
+        }
+        let [x, y] = point.map(i64::from);
+        for (row, thumb) in self.thumbs.iter().enumerate() {
+            if let Some([left, top, right, bottom]) = thumb.bounds(resources)? {
+                if x > left && x < right && y > top && y < bottom {
+                    self.drag = Some((row, crate::menu_slider::Drag::new(self.values[row], 255)?));
+                    return Ok(true);
+                }
+            }
+        }
+        Ok(false)
+    }
+    /// Returns the changed channel and value. The caller applies MUSICVOL
+    /// immediately; effects/voice settings are read by their respective mixers.
+    pub fn drag(&mut self, dx: i32) -> Result<Option<(usize, u16)>, Error> {
+        let Some((row, drag)) = &mut self.drag else {
+            return Ok(None);
+        };
+        let value = drag.move_by(dx)?;
+        self.thumbs[*row].object.x = 170 + drag.position();
+        if let Some(value) = value {
+            self.values[*row] = value;
+        }
+        Ok(value.map(|value| (*row, value)))
+    }
+    pub fn end_drag(&mut self) -> Result<(), Error> {
+        for (thumb, value) in self.thumbs.iter_mut().zip(self.values) {
+            thumb.object.x = 170 + crate::menu_slider::offset(value, 255)?;
+        }
+        self.drag = None;
+        Ok(())
+    }
+    pub fn draw(&self, resources: &Resources<'_>, surface: &mut Surface) -> Result<(), Error> {
+        self.frame.draw(resources, surface)?;
+        for image in self.grooves.iter().chain(&self.thumbs) {
+            surface.draw_animation(resources, image)?;
+        }
+        for label in &self.labels {
+            label.draw(resources, surface)?;
+        }
+        Ok(())
+    }
+}
+
 const ACTIONS: [Action; 8] = [
     Action::Load,
     Action::Save,
