@@ -12,6 +12,18 @@ use discworld_core::{
 use minifb::{Key, KeyRepeat, MouseButton, MouseMode, Scale, Window, WindowOptions};
 use std::time::{Duration, Instant};
 
+fn replace_audio_sink(sink: &mut rodio::Sink, mixer: &rodio::mixer::Mixer, paused: bool) {
+    // clear() waits for the audio callback, which may be suspended after sleep
+    // or a device interruption. Dropping a sink only signals its source to stop.
+    // Use a fresh sink: appending to a stopped sink can also wait for that callback.
+    let replacement = rodio::Sink::connect_new(mixer);
+    replacement.set_volume(sink.volume());
+    if paused {
+        replacement.pause();
+    }
+    *sink = replacement;
+}
+
 fn main() {
     if let Err(error) = run() {
         eprintln!("discworld-native: {error}");
@@ -147,7 +159,7 @@ fn run() -> Result<(), Box<dyn std::error::Error>> {
     }
     let mut stream = rodio::OutputStreamBuilder::open_default_stream()?;
     stream.log_on_drop(false);
-    let sink = rodio::Sink::connect_new(stream.mixer());
+    let mut sink = rodio::Sink::connect_new(stream.mixer());
     sink.set_volume(if muted { 0.0 } else { 1.0 });
     let mut speed = 1u32;
     let mut replay_end = replay
@@ -205,12 +217,7 @@ fn run() -> Result<(), Box<dyn std::error::Error>> {
                 4 => 16,
                 _ => 1,
             };
-            sink.clear();
-            // Rodio clear() also pauses the sink. Restore playback state so
-            // returning to 1x cannot fill a paused queue and stall simulation.
-            if !paused && !stopped {
-                sink.play();
-            }
+            replace_audio_sink(&mut sink, stream.mixer(), paused || stopped);
         }
         if window.is_key_pressed(Key::P, KeyRepeat::No) {
             paused = !paused;
@@ -424,4 +431,35 @@ fn run() -> Result<(), Box<dyn std::error::Error>> {
         return Err("runtime reached an unsupported operation".into());
     }
     Ok(())
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn replacing_audio_without_a_device_callback_does_not_wait() {
+        let (done, result) = std::sync::mpsc::channel();
+        let worker = std::thread::spawn(move || {
+            let (mixer, _undrained_output) = rodio::mixer::mixer(2, 22050);
+            let mut sink = rodio::Sink::connect_new(&mixer);
+            for paused in [false, true, false] {
+                sink.set_volume(0.0);
+                sink.append(rodio::buffer::SamplesBuffer::new(2, 22050, vec![0.5; 100]));
+                assert_eq!(sink.len(), 1);
+                replace_audio_sink(&mut sink, &mixer, paused);
+                assert!(sink.empty());
+                assert_eq!(sink.volume(), 0.0);
+                assert_eq!(sink.is_paused(), paused);
+                // A new queue accepts samples without draining the abandoned one.
+                sink.append(rodio::buffer::SamplesBuffer::new(2, 22050, vec![0.0; 100]));
+                replace_audio_sink(&mut sink, &mixer, paused);
+            }
+            done.send(()).unwrap();
+        });
+        result
+            .recv_timeout(Duration::from_secs(2))
+            .expect("audio replacement waited for the absent device callback");
+        worker.join().unwrap();
+    }
 }
