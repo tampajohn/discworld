@@ -239,6 +239,8 @@ pub struct Engine {
     pub(crate) inventory_drag: Option<i32>,
     #[serde(skip)]
     pub(crate) inventory_slider: Option<crate::inventory_slider::Drag>,
+    #[serde(skip)]
+    pub(crate) inventory_geometry: crate::inventory_geometry::State,
     pub movers: std::collections::BTreeMap<i32, crate::mover::Mover>,
     polygon_memory: crate::polygon::EnabledMemory,
     polygon_table: Handle,
@@ -344,6 +346,8 @@ impl Engine {
                 .ok_or(Error("missing saved slider"))?;
             slider.validate(bar)?;
         }
+        self.inventory_geometry
+            .validate(&self.declarations.windows, self.active_inventory)?;
         self.clicks.validate(&self.processes)?;
         for (id, phase) in self.clicks.entries() {
             let process = self
@@ -1043,7 +1047,15 @@ impl Engine {
                     next.interact_conversation(resources, None)?;
                 }
             } else if matches!(next.active_inventory, Some(1 | 2)) {
-                if let Some(slot) = next.inventory_click_slot_at(point, action) {
+                if action == PolygonInteraction::Action
+                    && next.inventory_display.as_ref().is_some_and(|(frame, _)| {
+                        frame.layout.inventory_area_at(point)
+                            == crate::conversation_window::Area::Header
+                    })
+                {
+                    next.left_event()?;
+                    next.toggle_inventory_maximized(resources)?;
+                } else if let Some(slot) = next.inventory_click_slot_at(point, action) {
                     next.inventory_click(resources, slot, action)?;
                 } else {
                     next.left_event()?;
@@ -1158,6 +1170,60 @@ impl Engine {
 
     pub fn inventory_dragging(&self) -> bool {
         self.inventory_drag.is_some()
+    }
+
+    fn toggle_inventory_maximized(&mut self, resources: &Resources<'_>) -> Result<(), Error> {
+        let Some(slot @ (1 | 2)) = self.active_inventory else {
+            return Ok(());
+        };
+        let window = self.declarations.windows[slot as usize]
+            .as_mut()
+            .ok_or(Error("missing inventory declaration"))?;
+        if !self.inventory_geometry.toggle(slot as usize, window)? {
+            return Ok(());
+        }
+        crate::inventory::adjust_top(window);
+        let handle = self
+            .declarations
+            .window_parts
+            .ok_or(Error("missing window parts"))?;
+        let mut frame = crate::conversation_window::Frame::inventory(resources, handle, window)?;
+        let delta = frame.layout.reposition_delta()?;
+        if delta != [0, 0] {
+            window.position = [
+                window.position[0]
+                    .checked_add(delta[0])
+                    .ok_or(Error("inventory reposition overflow"))?,
+                window.position[1]
+                    .checked_add(delta[1])
+                    .ok_or(Error("inventory reposition overflow"))?,
+            ];
+            frame = crate::conversation_window::Frame::inventory(resources, handle, window)?;
+        }
+        let (old_frame, old_content) = self
+            .inventory_display
+            .as_ref()
+            .ok_or(Error("missing inventory display"))?;
+        let mut title = old_content.title.clone();
+        let dx = i64::from(frame.layout.title[0]) - i64::from(old_frame.layout.title[0]);
+        let dy = i64::from(frame.layout.title[1]) - i64::from(old_frame.layout.title[1]);
+        for glyph in &mut title.glyphs {
+            glyph.x = i32::try_from(i64::from(glyph.x) + dx)
+                .map_err(|_| Error("inventory title overflow"))?;
+            glyph.y = i32::try_from(i64::from(glyph.y) + dy)
+                .map_err(|_| Error("inventory title overflow"))?;
+        }
+        let content = crate::conversation_window::Content::with_title(
+            resources,
+            window,
+            &frame.layout,
+            title,
+            &self.inventory_objects,
+            self.held_object,
+        )?;
+        self.inventory_display = Some((frame, content));
+        self.inventory_dirty = false;
+        Ok(())
     }
 
     fn finish_inventory_drag(&mut self) {
@@ -1639,7 +1705,8 @@ impl Engine {
     /// Close the active window without a conversation postamble (scripted CLOSEINVENTORY).
     pub fn close_inventory(&mut self) {
         self.top_window = None;
-        if self.active_inventory.take().is_some() {
+        if let Some(slot) = self.active_inventory.take() {
+            self.inventory_geometry.close(slot as usize);
             self.control.tags_enabled = true;
         }
         self.conversation.end();
@@ -1664,14 +1731,14 @@ impl Engine {
             }
         }
         let window = self.declarations.windows[slot]
-            .as_ref()
+            .as_mut()
             .ok_or(Error("missing conversation declaration"))?;
         let constructor = if slot == 0 {
             crate::conversation_window::Frame::new
         } else {
             crate::conversation_window::Frame::inventory
         };
-        let frame = if self.inventory_slider.is_some() {
+        let mut frame = if self.inventory_slider.is_some() {
             self.inventory_display
                 .as_ref()
                 .ok_or(Error("missing slider display"))?
@@ -1686,6 +1753,26 @@ impl Engine {
                 window,
             )?
         };
+        if self.inventory_display.is_none() {
+            let delta = frame.layout.reposition_delta()?;
+            if delta != [0, 0] {
+                window.position = [
+                    window.position[0]
+                        .checked_add(delta[0])
+                        .ok_or(Error("inventory reposition overflow"))?,
+                    window.position[1]
+                        .checked_add(delta[1])
+                        .ok_or(Error("inventory reposition overflow"))?,
+                ];
+                frame = constructor(
+                    resources,
+                    self.declarations
+                        .window_parts
+                        .ok_or(Error("missing window parts"))?,
+                    window,
+                )?;
+            }
+        }
         let font = crate::text::Font::read(
             resources,
             self.declarations
@@ -1855,6 +1942,7 @@ impl Engine {
             mouse: None,
             inventory_drag: None,
             inventory_slider: None,
+            inventory_geometry: crate::inventory_geometry::State::default(),
             user_events: 0,
             left_events: 0,
             subtitles: true,
@@ -2124,6 +2212,9 @@ impl Engine {
         self.no_blocking = false;
         self.control.apply_at(4, false, self.world_origin)?;
         self.menu_enabled = false;
+        if let Some(slot) = self.active_inventory {
+            self.inventory_geometry.close(slot as usize);
+        }
         self.active_inventory = None;
         self.top_window = None;
         self.conversation.end();
@@ -3121,6 +3212,7 @@ impl Engine {
                     }
                     if self.active_inventory.is_none() && self.top_window.is_none() {
                         self.active_inventory = Some(slot);
+                        self.inventory_geometry.open(slot as usize);
                         self.inventory_drag = None;
                         self.inventory_slider = None;
                         self.conversation.hidden = false;
@@ -3151,6 +3243,7 @@ impl Engine {
                             &self.declarations.permanent_topics,
                         )? {
                             self.active_inventory = Some(0);
+                            self.inventory_geometry.open(0);
                             self.inventory_drag = None;
                             self.inventory_slider = None;
                             self.control.tags_enabled = false;
@@ -3307,6 +3400,7 @@ impl Engine {
                         .as_mut()
                         .ok_or(Error("missing SETINVSIZE inventory"))?;
                     crate::inventory::set_size(window, [a[1], a[2]], [a[3], a[4]], [a[5], a[6]]);
+                    self.inventory_geometry.windows[a[0] as usize].maximized = false;
                     process.vm.complete_library(call, 7, None)?;
                 }
                 52 => {

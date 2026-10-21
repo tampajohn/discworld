@@ -369,4 +369,134 @@ fn inventory_slider_preserves_continuous_motion_and_active_save() {
     game.input("close").unwrap();
     assert!(!game.inventory_dragging());
     game.save().unwrap();
+    // Once geometry has been recorded, an active scrollbar uses the combined
+    // version-7 payload instead of version 6, retaining both kinds of state.
+    game.load(&read("DISCWORLD_TEST_SLIDER_SAVE")).unwrap();
+    for _ in 0..2 {
+        let [wx, wy] = game.engine.declarations.windows[1]
+            .as_ref()
+            .unwrap()
+            .position;
+        game.move_pointer(wx + 20, wy + 10);
+        for _ in 0..2 {
+            game.input("left-down").unwrap();
+            game.input("left-up").unwrap();
+        }
+        game.advance(24).unwrap();
+    }
+    game.move_pointer(x, min + 2);
+    game.input("left-down").unwrap();
+    game.move_pointer(x, middle + 2);
+    assert!(game.inventory_dragging());
+    assert_eq!(
+        u32::from_le_bytes(game.save().unwrap()[60..64].try_into().unwrap()),
+        7
+    );
+    roundtrip_pending(&mut game, 3);
+    assert!(game.inventory_dragging());
+    game.input("left-up").unwrap();
+    assert!(!game.inventory_dragging());
+    game.save().unwrap();
+}
+
+#[test]
+#[ignore = "requires DISCWORLD_TEST_ISO, DISCWORLD_TEST_SOUNDFONT and DISCWORLD_TEST_SAVE (tick 33200 inventory checkpoint)"]
+fn inventory_header_double_click_preserves_both_geometries_and_saves() {
+    fn double_header(game: &mut BrowserGame) {
+        let slot = game.engine.active_inventory().unwrap() as usize;
+        let [x, y] = game.engine.declarations.windows[slot]
+            .as_ref()
+            .unwrap()
+            .position;
+        game.move_pointer(x + 20, y + 10);
+        for _ in 0..2 {
+            game.input("left-down").unwrap();
+            game.input("left-up").unwrap();
+        }
+        assert!(!game.inventory_dragging());
+    }
+    let read = |name| std::fs::read(std::env::var_os(name).expect(name)).unwrap();
+    let mut game =
+        BrowserGame::new(read("DISCWORLD_TEST_ISO"), read("DISCWORLD_TEST_SOUNDFONT")).unwrap();
+    game.load(&read("DISCWORLD_TEST_SAVE")).unwrap();
+    let contents = game.engine.declarations.windows[1]
+        .as_ref()
+        .unwrap()
+        .contents
+        .clone();
+    double_header(&mut game);
+    let window = game.engine.declarations.windows[1].as_ref().unwrap();
+    assert_eq!((window.size, window.position), ([10, 6], [21, 15]));
+    let pixels = game.frame().unwrap();
+    let maximized = game.save().unwrap();
+    assert_eq!(u32::from_le_bytes(maximized[60..64].try_into().unwrap()), 7);
+    game.load(&maximized).unwrap();
+    assert_eq!(game.save().unwrap(), maximized);
+    assert_eq!(game.frame().unwrap(), pixels);
+    roundtrip_pending(&mut game, 24);
+
+    // Move the maximized window and save the ongoing header drag with geometry.
+    game.move_pointer(41, 25);
+    game.input("left-down").unwrap();
+    assert!(game.inventory_dragging());
+    game.move_pointer(51, 35);
+    let dragging = game.save().unwrap();
+    assert_eq!(u32::from_le_bytes(dragging[60..64].try_into().unwrap()), 7);
+    game.load(&dragging).unwrap();
+    assert!(game.inventory_dragging());
+    game.input("left-up").unwrap();
+    game.advance(24).unwrap();
+    double_header(&mut game);
+    let window = game.engine.declarations.windows[1].as_ref().unwrap();
+    assert_eq!((window.size, window.position), ([3, 2], [100, 100]));
+    game.advance(24).unwrap();
+    double_header(&mut game);
+    let window = game.engine.declarations.windows[1].as_ref().unwrap();
+    assert_eq!((window.size, window.position), ([10, 6], [31, 25]));
+    game.input("close").unwrap();
+    let closed = game.save().unwrap();
+    game.load(&closed).unwrap();
+    game.engine
+        .interact_actor(
+            &game.assets.resources(),
+            8,
+            discworld_core::engine::PolygonInteraction::WalkTo,
+        )
+        .unwrap();
+    game.advance(24).unwrap();
+    assert_eq!(game.engine.active_inventory(), Some(1));
+    let window = game.engine.declarations.windows[1].as_ref().unwrap();
+    assert_eq!((window.size, window.position), ([10, 6], [31, 25]));
+    double_header(&mut game);
+    let window = game.engine.declarations.windows[1].as_ref().unwrap();
+    assert_eq!((window.size, window.position), ([3, 2], [100, 100]));
+    assert_eq!(window.contents, contents);
+    assert_eq!(game.engine.held_object, -1);
+    // Geometry remains version 7 after unmaximizing to retain the other position.
+    assert_eq!(
+        u32::from_le_bytes(game.save().unwrap()[60..64].try_into().unwrap()),
+        7
+    );
+    // FULL construction on reopen restores the original reachable-header limit.
+    game.advance(24).unwrap();
+    game.move_pointer(120, 110);
+    game.input("left-down").unwrap();
+    game.engine.move_cursor([500, 500]);
+    game.input("left-up").unwrap();
+    game.input("close").unwrap();
+    game.engine
+        .interact_actor(
+            &game.assets.resources(),
+            8,
+            discworld_core::engine::PolygonInteraction::WalkTo,
+        )
+        .unwrap();
+    game.advance(24).unwrap();
+    assert_eq!(
+        game.engine.declarations.windows[1]
+            .as_ref()
+            .unwrap()
+            .position,
+        [314, 194]
+    );
 }

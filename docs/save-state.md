@@ -19,16 +19,16 @@ checksum. Its encoded checkpoint is 315,019 bytes.
 
 The host now supports durable player saves. `Snapshot::restore` returns an
 engine after script, audio, polygon, animation and preview checks; the caller
-commits that replacement only after preparing host state. Native F5/F9 and startup `--load` use a combined file; browser persistence remains unfinished. Decoding a snapshot never replaces a running engine.
+commits that replacement only after preparing host state. Native F5/F9 and startup `--load` use a combined file; browser manual import/export and IndexedDB saves use the same format. Decoding a snapshot never replaces a running engine.
 
-## Core envelope versions 1–6
+## Core envelope versions 1–7
 
 All envelope integers are little endian. The maximum complete file is 16 MiB.
 
 | Offset | Bytes | Meaning |
 | --- | --- | --- |
 | 0 | 8 | `DWRSAVE` followed by a zero byte |
-| 8 | 4 | Format version: 1; 2 for pending scripted clicks; 3 for pending ordinary drops; 4 for physical mouse history; 5 for active header dragging; 6 for active inventory scrollbar dragging |
+| 8 | 4 | Format version: 1; 2 for pending scripted clicks; 3 for pending ordinary drops; 4 for physical mouse history; 5 for active header dragging; 6 for active inventory scrollbar dragging; 7 for stored inventory geometry |
 | 12 | 32 | Host-supplied SHA-256 identity of the original game assets |
 | 44 | 4 | Payload byte length |
 | 48 | 32 | SHA-256 checksum of the payload |
@@ -305,3 +305,19 @@ and positions, matching endpoints, a valid selected entry and a thumb matching
 the clamped accumulator. Close, scene teardown and hidden/replaced inventory
 windows discard the active gesture. Native and browser hosts retain left-button
 ownership for either drag type when loading a save.
+
+### Maximization geometry
+
+Core version 7 stores `(EngineV1Fields, ClickState, Option<MouseInput>,
+Option<owner>, Option<SliderDrag>, InventoryGeometry)`. Geometry contains the
+active maximized flag and, for each of the three window slots, the saved normal
+dimensions, alternate position and stored maximized flag. Closed windows retain
+this state; restoring the normal size does not discard the expanded position.
+Normal dimensions must be within supported bounds when needed, and a changed
+window state requires a declared window. Active drag ownership and slider
+validation remain mandatory.
+
+Version 7 is emitted only when geometry differs from its initial state. Otherwise
+the previous version-selection rules apply, retaining byte-compatible encodings
+for versions 1–6. Legacy saves start with the original default alternate position
+[21,15] and no maximized flags.

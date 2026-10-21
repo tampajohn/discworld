@@ -36,7 +36,7 @@ cargo run --release -p discworld-native -- \
 
 Press **F5** to save and **F9** to load `discworld-save.dws` in the working directory. Choose a destination with `--save-file PATH`; its parent directory must exist. Relaunch with `--load PATH` to restore the engine and synthesizer together. Use the same ISO and SoundFont. These development saves are not compatible with ScummVM.
 
-Separate-process tests reproduce engine/DSP state, frames, and mixed speech/music PCM exactly, including an open Luggage inventory with its background. Native startup load, F5 save, and F9 reload are visually verified at the ending credits; broader in-game and failure-recovery checks remain. Browser persistence remains unfinished.
+Separate-process tests reproduce engine/DSP state, frames, and mixed speech/music PCM exactly, including an open Luggage inventory with its background. Native startup load, F5 save, and F9 reload are visually verified at the ending credits; broader in-game and failure-recovery checks remain. Browser manual saves support import/export and IndexedDB; automatic asset persistence and autosave remain unfinished.
 
 ## Run in a browser
 
@@ -109,7 +109,7 @@ Physical mouse input uses shared single/double-click timing; explicit developmen
 | Scrollbar arrows/track | Scroll using the original inventory graphics |
 | **M**, **P**, **Esc** | Mute, pause, exit |
 
-Point at the Luggage and use Action to open its inventory. Drag an inventory title bar to move its window, or drag its scrollbar thumb to browse items. Inventory actions execute the original item scripts; storage restrictions are game behavior. The renderer uses the game's fonts and graphics. Inventory resizing, hover-label arbitration, complete click/touch parity and physical iPad controls remain unfinished.
+Point at the Luggage and use Action to open its inventory. Drag an inventory title bar to move its window, or drag its scrollbar thumb to browse items. Double-click a resizable inventory title bar to maximize it or restore its previous size. Inventory actions execute the original item scripts; storage restrictions are game behavior. The renderer uses the game's fonts and graphics. Inventory resizing, hover-label arbitration, complete click/touch parity and physical iPad controls remain unfinished.
 
 ## What works, and what remains
 

@@ -167,8 +167,7 @@ project needs CMake 4's policy-floor compatibility setting, supplied in
 The shared window layout now classifies the English DOS V1 regions from pinned
 `dialogs.cpp::invArea`: outside, eight border/corner regions, title header,
 scroll arrows, page regions, slider thumb, and body. This is the geometry needed
-by `invDragStart`; header movement is implemented, while resizing and thumb
-dragging are still unfinished.
+by `invDragStart`; header movement and thumb dragging are implemented; border resizing remains unfinished.
 The declarations `idec_convw`, `idec_inv1`, and `idec_inv2` make these windows
 movable. The reference starts movement only on a left drag in the header,
 translates frame/background/title/icons by cursor deltas, and ends it on left
@@ -201,11 +200,11 @@ owner. Each cursor delta translates the existing frame sprites, backdrop, title
 glyphs, icon animations, and all hit regions, without rebuilding their animation
 state. Left release or a double-click action ends the drag. Closing, hiding,
 replacing a window or changing scenes clears its ownership. This applies to
-ordinary and conversation windows; original resizing,
-maximize/unmaximize and hover-cursor changes still remain.
+ordinary and conversation windows; original resizing and hover-cursor changes still remain.
 
-Active header drags use core save version 5. Versions 1–4 retain their existing layouts,
-and a completed drag returns to version 4. Invalid owners, absent mouse history,
+Active header drags use core save version 5 unless stored maximization geometry
+requires version 7. Versions 1–4 retain their existing layouts, and a completed
+drag without stored geometry returns to version 4. Invalid owners, absent mouse history,
 hidden/missing windows and mismatched active slots are rejected before loading.
 Coordinate translation checks every addition and commits only after all succeed;
 unrepresentable input cancels the drag without partially moving the window.
@@ -234,8 +233,7 @@ also uses CDP touch start/move/end; its exported save loaded in the native engin
 with luggage position [130,120] and no held item. This is browser touch coverage,
 not physical iPad acceptance. The core tests, three opt-in real-asset checks,
 Clippy, native/WASM builds and the eight browser-player checks pass. Resizing,
-window maximization and broader conversation-drag acceptance
-are still required.
+and broader conversation-drag acceptance are still required.
 
 ### Inventory cell gaps
 
@@ -268,7 +266,7 @@ icons on the next engine tick. The frame and continuous thumb position survive
 that refresh; `adjustTop` is deferred until release, as in `fillInInventory`.
 Release schedules the normal refresh and snaps the thumb to the selected row.
 The state is shared by native mouse and browser mouse/touch input; active slider
-saves use core version 6. Configuration-menu sliders and border resizing are
+saves use core version 6, or version 7 when maximization geometry is present. Configuration-menu sliders and border resizing are
 still separate unfinished controls.
 
 The real-asset slider fixture is the existing recorded inventory route stopped
@@ -306,3 +304,51 @@ the drag), and a lone synthetic up after OS button-state loss was not delivered.
 Those attempts are not counted as active-drag acceptance; no engine change was
 needed for them. Visible gameplay was refreshed separately with its room save
 and mute state preserved.
+
+### Title-bar maximization and restored positions
+
+Pinned `dialogs.cpp::invAction` expands an inventory on a title-bar double click
+only when both dimensions are resizable. It saves the normal dimensions, uses
+the declared maximum, and swaps current/alternate positions. The alternate
+position starts at [21,15]. Restoring swaps positions back; dragging the expanded
+window therefore preserves its location for the next maximization. Fixed-size
+pockets do not maximize. Original frame reels, fonts, title centering and icon
+scripts are reconstructed immediately, without waiting for a simulation tick.
+
+The current maximized flag is copied into the per-window flag on close and
+restored on open, matching `killInventory` and inventory creation. Scene teardown
+also retains it. `SETINVSIZE` clears the stored flag as in the reference, without
+altering the active flag until the normal lifecycle does so. Full construction
+on opening or toggling applies `rePosition`: background left <=315, right >=3,
+and top between -13 and 195, retaining a reachable part of the header. Ordinary
+icon refreshes and header movement do not clamp the window.
+
+Core save version 7 persists both positions, normal dimensions, per-window flags
+and the active flag, together with any current header/scrollbar drag. Restoring
+the normal size still uses version 7 because the alternate expanded position
+remains meaningful. Versions 1–6 retain their previous encodings when no such
+geometry has been recorded.
+
+The real-asset regression exercises 3×2 to 10×6 expansion, exact save/pixel
+roundtrip, a saved active drag of the maximized window, independent normal and
+expanded positions, close/save/load/reopen, and restoration. It also drags a
+window off-screen and checks that reopening restores the original reachable
+header limits. Item membership and held state remain unchanged. Unit tests
+cover dimension eligibility, position swapping, malformed saved dimensions,
+and exact reposition boundary pixels. Border resizing, configuration menus
+and hover-cursor fidelity still need work.
+
+Native HID double-click acceptance saved an expanded window at tick 33,222 in
+`assets/saves/native-maximized-preserved.dws`; F9 and another double click saved
+the restored window at 33,248 in `native-maximized-restored.dws`. Both are version
+7. Chrome and WebKit independently exercised actual double-click input, exact
+maximized import/export and identical pixels after loading. Native headless
+loads of all six saves confirmed 10×6 at [21,15] and 3×2 at [100,100], with no
+held item. Screenshots include `assets/previews/native-inventory-maximized.png`
+and `browser-{chrome,webkit}-maximized.png` (plus restored variants).
+
+All 256 enabled workspace tests, six opt-in original-asset inventory checks,
+Clippy, native/WASM builds, twelve browser-player checks and two clock checks
+pass. The slider regression additionally saves and resumes a scrollbar drag
+after maximization history exists, verifying the combined version-7 payload.
+Physical iPad input and full original menu/resize behavior remain unverified.

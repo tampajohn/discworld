@@ -90,6 +90,29 @@ impl Scrollbar {
     }
 }
 impl Layout {
+    /// FULL rePosition keeps two pixels of the original header reachable.
+    pub(crate) fn reposition_delta(&self) -> Result<[i32; 2], Error> {
+        let [x, y, width, _] = self.background.map(i64::from);
+        let right = x + width - 1;
+        let dx = if x > 315 {
+            315 - x
+        } else if right < 3 {
+            3 - right
+        } else {
+            0
+        };
+        let dy = if y < -13 {
+            -13 - y
+        } else if y > 195 {
+            195 - y
+        } else {
+            0
+        };
+        Ok([
+            i32::try_from(dx).map_err(|_| Error("inventory reposition overflow"))?,
+            i32::try_from(dy).map_err(|_| Error("inventory reposition overflow"))?,
+        ])
+    }
     pub fn inventory_area_at(&self, point: [i32; 2]) -> Area {
         let [x, y] = point.map(i64::from);
         let [bx, by, width, height] = self.background.map(i64::from);
@@ -475,6 +498,16 @@ impl Content {
         held: i32,
     ) -> Result<Self, Error> {
         let title = font.centered(resources, strings.get(window.title.0)?, layout.title)?;
+        Self::with_title(resources, window, layout, title, objects, held)
+    }
+    pub(crate) fn with_title(
+        resources: &Resources<'_>,
+        window: &Window,
+        layout: &Layout,
+        title: crate::text::Layout,
+        objects: &std::collections::BTreeMap<i32, crate::inventory::Object>,
+        held: i32,
+    ) -> Result<Self, Error> {
         let mut icons = Vec::new();
         for (slot, (&id, position)) in window
             .contents
@@ -526,6 +559,21 @@ impl Content {
 #[cfg(test)]
 mod tests {
     use super::*;
+    #[test]
+    fn full_reposition_preserves_reachable_header_edges() {
+        let mut layout = Layout::inventory(&window([3, 2]), [8, 26], 35, 8).unwrap();
+        for (origin, expected) in [
+            ([316, 0], [-1, 0]),
+            ([-100, 0], [11, 0]),
+            ([0, -14], [0, 1]),
+            ([0, 196], [0, -1]),
+            ([315, -13], [0, 0]),
+            ([-89, 195], [0, 0]),
+        ] {
+            layout.background = [origin[0], origin[1], 93, 72];
+            assert_eq!(layout.reposition_delta().unwrap(), expected, "{origin:?}");
+        }
+    }
     fn window(size: [i32; 2]) -> Window {
         Window {
             title: Handle(0),

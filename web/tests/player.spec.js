@@ -269,3 +269,40 @@ test('inventory scrollbar drag preserves active save and releases after reload',
   await page.waitForTimeout(150);
   await fs.writeFile(path.join(root, `assets/saves/browser-${testInfo.project.name}-slider-released.dws`), await exportHeld());
 });
+
+test('inventory title double click maximizes and restores across a save', async ({ page }, testInfo) => {
+  await page.goto('/');
+  await open(page);
+  const canvas = page.locator('#game');
+  const bounds = await canvas.boundingBox();
+  const double = (x,y) => page.mouse.dblclick(bounds.x + bounds.width*x/320, bounds.y + bounds.height*y/200, { delay: 60 });
+  const exportPaused = async () => {
+    const download = page.waitForEvent('download');
+    await page.evaluate(() => document.querySelector('#export').click());
+    return fs.readFile(await (await download).path());
+  };
+  await page.locator('#pause').click();
+  await double(140,110);
+  await expect(canvas).toHaveAttribute('data-dragging','false');
+  await page.keyboard.press('p');
+  await expect(page.locator('#pause')).toHaveText('Play');
+  await page.waitForTimeout(150);
+  const maximized = await exportPaused();
+  expect(maximized.readUInt32LE(60)).toBe(7);
+  const pixels = await canvas.evaluate(c => c.toDataURL());
+  await fs.writeFile(path.join(root, `assets/saves/browser-${testInfo.project.name}-maximized.dws`),maximized);
+  await page.screenshot({ path: path.join(root, `assets/previews/browser-${testInfo.project.name}-maximized.png`) });
+  await page.locator('#import').setInputFiles({ name:'maximized.dws', mimeType:'application/octet-stream', buffer:maximized });
+  await expect(page.locator('#status')).toContainText('Saved game loaded.');
+  expect(await exportPaused()).toEqual(maximized);
+  expect(await canvas.evaluate(c => c.toDataURL())).toBe(pixels);
+  await page.locator('#pause').click();
+  await double(41,25);
+  await page.keyboard.press('p');
+  await expect(page.locator('#pause')).toHaveText('Play');
+  await page.waitForTimeout(150);
+  const restored = await exportPaused();
+  expect(restored.readUInt32LE(60)).toBe(7);
+  await fs.writeFile(path.join(root, `assets/saves/browser-${testInfo.project.name}-maximized-restored.dws`),restored);
+  await page.screenshot({ path: path.join(root, `assets/previews/browser-${testInfo.project.name}-maximized-restored.png`) });
+});
