@@ -35,7 +35,7 @@ cargo run --release -p discworld-native -- \
 
 Pass `--paused` to start a native session paused (including after `--from-tick` replay reconstruction); press **P** to resume. Replay reconstruction is not a persistent engine save.
 
-Double-click **Watch Discworld.command** to replay the recorded route from Rincewind's room, initially muted. It covers Acts I and II and the verified Act III route through the palace, toyshop, university closet and kitchen, continuing through the sailor exchange, birthmark, cart clue, moustache, bogeyman, sword upgrade, imp recovery, camera loading, Ramkin supplies and truth-potion sequences. It pauses once after the recorded route; P continues simulation beyond that point, without further recorded inputs. Reaching that point is not evidence that the rest of the game works.
+Double-click **Watch Discworld.command** to replay the recorded route from Rincewind's room, initially muted. It covers Acts I and II and the verified Act III route through the palace, toyshop, university closet and kitchen, continuing through the sailor exchange, birthmark, cart clue, moustache, bogeyman, sword upgrade, imp recovery, camera loading, Ramkin supplies, truth potion and sheep-photo sequences. It pauses once after the recorded route; P continues simulation beyond that point, without further recorded inputs. Reaching that point is not evidence that the rest of the game works.
 
 | Replay control | Action |
 | --- | --- |
