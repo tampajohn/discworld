@@ -2,7 +2,7 @@
 
 A work-in-progress replacement for the **Tinsel 1** engine that runs the original **Discworld English DOS CD v2** assets and scripts. The goal is the complete game, from opening to credits, on native macOS and a shared browser/WebAssembly engine, ultimately playable on an iPad in landscape with touch controls.
 
-**Currently:** a runnable macOS development host and a reproducible playthrough that completes Acts I–III and reaches Act IV and acquires the dragon-cage key. **Not yet:** a complete game, browser player, iPad release, or persistent save/load. This is an independent compatibility project, informed by a pinned ScummVM reference, not an official release or a clean-room implementation.
+**Currently:** a runnable macOS development host and a reproducible playthrough that completes Acts I–III and reaches Act IV and acquires the caged dragon. **Not yet:** a complete game, browser player, iPad release, or persistent save/load. This is an independent compatibility project, informed by a pinned ScummVM reference, not an official release or a clean-room implementation.
 
 ![Scenes rendered by the Rust runtime](docs/media/runtime-montage.gif)
 
@@ -79,10 +79,10 @@ Point at the Luggage and use Action to open its inventory. Inventory actions exe
 | --- | --- |
 | Game resources | ISO reading, release identification, checked resource/chunk decoding; supplied release has 149 index entries and 1,732 chunk headers |
 | Graphics | Indexed image decoding, animation films, CPU composition, original fonts, scenes, movement, inventory UI and indexed overlay backing; full palette lifecycle and all depth/timing cases remain unverified |
-| Scripts | Original bytecode, library calls, cooperative scheduling, dialogue, inventory and scene transitions exercised by recorded Act I, Act II and partial Act III routes; unsupported behavior stops explicitly |
+| Scripts | Original bytecode, library calls, cooperative scheduling, dialogue, inventory and scene transitions exercised by recorded Acts I–III and early Act IV routes; unsupported behavior stops explicitly |
 | Audio | Original samples and XMIDI music through a local software synth; original hardware and native/browser fidelity are not established |
 | Gameplay | Acts I–III completed in replay, including the altered-book theft, temple escape and Act III climax; Act III spell, Shades item, birthmark, moustache, upgraded sword and eye verified (6 of 6), including the sailor exchange, palette-changing birthmark animation and cart/beggar sequence; no start-to-credits completion yet |
-| State | In-memory scene save/restore for exercised cutaways; durable player save/load is not implemented |
+| State | In-memory scene save/restore for exercised cutaways; script-driven restart has regression coverage but awaits the full ending replay; durable player save/load is not implemented |
 | macOS | Runnable native window/audio host with interactive and replay modes |
 | Browser/iPad | Portable core compiles for `wasm32-unknown-unknown`; browser presentation, audio, storage, touch input and device testing remain to be built |
 

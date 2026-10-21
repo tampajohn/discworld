@@ -9381,6 +9381,12 @@
     "polygon": 22
   },
   {
+    "tick": 2555000,
+    "scene": "dragcage.scn",
+    "event": "action",
+    "polygon": 22
+  },
+  {
     "tick": 2560000,
     "scene": "dragcage.scn",
     "event": "walkto",
