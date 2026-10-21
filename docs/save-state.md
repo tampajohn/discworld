@@ -249,3 +249,32 @@ between original and restored continuation.
 actual Node/WASM, using chunked ISO upload. It also passes. These comparisons
 are exact within each runtime; they do not assert native/WASM DSP equality.
 The workspace tests and Clippy pass, including malformed walk-owner rejection.
+
+## Save during inventory pickup and putdown
+
+The opt-in `discworld-web` test
+`inventory_pickup_and_drop_resume_pending_physical_clicks` loads the original
+tick-33,200 inventory checkpoint and clicks the banana (object 190) in luggage
+inventory 1 at (118,132), using physical down/up events. It verifies the held
+object changes only after the pending click completes, then puts it back and
+checks membership and an empty hand. Both operations save/reload before their
+first tick and again during the double-click wait. Each continuation compares
+the complete combined engine/DSP save, RGBA pixels, and stereo PCM exactly.
+
+Run with absolute paths in `DISCWORLD_TEST_ISO`, `DISCWORLD_TEST_SOUNDFONT`, and
+`DISCWORLD_TEST_SAVE` (the latter is
+`evidence/save-relaunch-inventory/checkpoint.dws`):
+
+```sh
+cargo test --release -p discworld-web inventory_pickup_and_drop_resume_pending_physical_clicks -- --ignored --nocapture
+node scripts/check-pending-inventory.cjs MODULE ISO SF2 SAVE
+```
+
+Both checks pass at tick 33,250 in `rinceroo.scn`. The Node script runs the same
+physical input and save/continuation comparisons in actual WASM; held-object
+and membership assertions run in the Rust test. The reference's
+`dialogs.cpp::InvPdProcess` delays ordinary putdown by `_dclickSpeed + 1`
+scheduler ticks before calling `invPutDown`; these checks cover restoration
+across that suspended native task as well as the scripted pickup. They do not
+establish all inventory interactions, cross-platform PCM equality, or physical
+iPad input compatibility. No engine change was required for these checks.

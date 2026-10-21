@@ -345,6 +345,9 @@ impl BrowserGame {
 }
 
 #[cfg(test)]
+mod real_assets;
+
+#[cfg(test)]
 mod upload_tests {
     use super::GameUpload;
     #[test]
