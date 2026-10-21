@@ -30,6 +30,10 @@ consistency, saved-scene nesting, and idle scheduler state with unique process
 identities and positive sleeps. These checks cover scripts in active processes,
 saved cutaways, and pending scene restoration. They do not yet constitute full
 state or resource validation.
+`Snapshot::verify_scripts` additionally resolves active and saved script handles
+inside original bytecode chunks, checks pending calls against their encoded
+opcode/operand/next address, and verifies halted positions. Host waits must
+correspond to the VM's pending call; multiple simultaneous waits are rejected.
 Changes to serialized field order/types require a format version change or an
 explicit migration. These files are not ScummVM saves.
 
@@ -49,6 +53,11 @@ to check exact snapshot round trips every 1000 ticks, at scene changes, after
 recorded inputs, and at the final tick. Reports include `snapshot_checks` and
 `snapshot_max_bytes`. The audit hashes the supplied ISO as the asset identity;
 it does not activate the decoded state or establish process-relaunch equivalence.
+The audit also invokes `verify_scripts`. The 10,000-tick opening prefix of
+`evidence/act4-ending-input.json` passed 40 checks with a maximum encoded snapshot
+of 36,973 bytes (`evidence/headless-snapshot-scripts-room.json`); its final
+`unseen.scn` frame was inspected. This is fixture and opening evidence, not full
+game save/load acceptance. Full-route audits are being run separately.
 
 Before exposing load, validate decoded invariants and resource references, with
 atomic failure preserving the current session. Bound decoder allocations as

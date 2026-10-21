@@ -30,6 +30,13 @@ impl Snapshot {
         self.state.ticks
     }
 
+    /// Check active and saved script references against the supplied bytecode.
+    /// This is one validation stage, not permission to activate the snapshot:
+    /// animation, graphics, audio and other resource/state checks remain separate.
+    pub fn verify_scripts(&self, resources: &crate::graphics::Resources<'_>) -> Result<(), Error> {
+        self.state.validate_snapshot_scripts(resources)
+    }
+
     pub fn to_bytes(&self) -> Result<Vec<u8>, Error> {
         self.state.validate_snapshot_structure()?;
         let payload =

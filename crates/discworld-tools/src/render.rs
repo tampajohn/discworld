@@ -156,6 +156,7 @@ pub fn headless(
                     let captured = discworld_core::save::Snapshot::capture(&engine, asset_id);
                     let bytes = captured.to_bytes()?;
                     let decoded = discworld_core::save::Snapshot::from_bytes(&bytes, asset_id)?;
+                    decoded.verify_scripts(&resources)?;
                     if decoded != captured || decoded.to_bytes()? != bytes {
                         return Err(
                             format!("snapshot round trip failed at {}", engine.ticks).into()

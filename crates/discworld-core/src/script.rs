@@ -102,6 +102,26 @@ impl Default for Machine {
     }
 }
 impl Machine {
+    pub(crate) fn validate_snapshot_code(&self, code: &[u8]) -> Result<(), Error> {
+        self.validate_snapshot_structure()?;
+        if self.halted {
+            if self.ip == 0 || self.ip > code.len() || code[self.ip - 1] & 0x3f != 0 {
+                return Err(Error("snapshot halted position does not match bytecode"));
+            }
+        } else {
+            let instruction = decode(code, self.ip)?;
+            if let Some(call) = self.pending {
+                if instruction.opcode != 14
+                    || instruction.operand != Some(call.id)
+                    || instruction.next != call.next
+                {
+                    return Err(Error("snapshot pending call does not match bytecode"));
+                }
+            }
+        }
+        Ok(())
+    }
+
     pub(crate) fn validate_snapshot_structure(&self) -> Result<(), Error> {
         if self.sp >= STACK_SIZE || self.bp == 0 || self.bp >= STACK_SIZE {
             return Err(Error("invalid snapshot script stack"));
@@ -355,6 +375,28 @@ impl Machine {
 #[cfg(test)]
 mod tests {
     use super::*;
+    #[test]
+    fn snapshot_pending_and_halted_positions_match_original_code() {
+        let code = [0x4e, 86, 0];
+        let mut vm = Machine::default();
+        vm.step(&code, &mut []).unwrap();
+        assert!(vm.validate_snapshot_code(&code).is_ok());
+        assert!(vm.validate_snapshot_code(&[0x4e, 85, 0]).is_err());
+        assert!(vm.validate_snapshot_code(&[0x41, 86, 0]).is_err());
+        assert!(vm.validate_snapshot_code(&[0x4e]).is_err());
+        let mut invalid = vm.clone();
+        invalid.pending.as_mut().unwrap().next = 3;
+        assert!(invalid.validate_snapshot_code(&code).is_err());
+        vm.complete_library(vm.pending_call().unwrap(), 0, None)
+            .unwrap();
+        assert!(vm.validate_snapshot_code(&code).is_ok());
+        vm.step(&code, &mut []).unwrap();
+        assert!(vm.validate_snapshot_code(&code).is_ok());
+        assert!(vm.validate_snapshot_code(&[0x4e, 86, 2]).is_err());
+        vm.ip = usize::MAX;
+        assert!(vm.validate_snapshot_code(&code).is_err());
+    }
+
     #[test]
     fn snapshot_rejects_invalid_stack_and_pending_state() {
         let valid = Machine::default();

@@ -91,6 +91,29 @@ struct ScriptProcess {
     sample_wait: Option<LibraryCall>,
 }
 impl ScriptProcess {
+    fn validate_snapshot_waits(&self) -> Result<(), Error> {
+        let pending = self.vm.pending_call();
+        let calls = [
+            self.walked_wait.as_ref().map(|w| w.call),
+            self.walk_wait.map(|w| w.0),
+            self.tag_walk_wait.map(|w| w.0),
+            self.talk_wait.as_ref().map(|w| w.call),
+            self.scroll_wait.map(|w| w.0),
+            self.play_wait.as_ref().map(|w| w.0),
+            self.print_wait.as_ref().map(|w| w.call),
+            self.key_wait.as_ref().map(|w| w.call),
+            self.music_wait,
+            self.wait.map(|w| w.0),
+            self.sample_wait,
+        ];
+        if calls.iter().flatten().any(|call| Some(*call) != pending)
+            || calls.iter().flatten().count() > 1
+        {
+            return Err(Error("snapshot host wait does not match pending call"));
+        }
+        Ok(())
+    }
+
     fn new(code: Handle) -> Self {
         Self {
             walked_wait: None,
@@ -274,6 +297,13 @@ impl Engine {
         self.processes.validate_snapshot_structure()?;
         for process in self.processes.states() {
             process.vm.validate_snapshot_structure()?;
+            process.validate_snapshot_waits()?;
+        }
+        if self
+            .master_wait
+            .is_some_and(|(call, _)| self.master.pending_call() != Some(call))
+        {
+            return Err(Error("snapshot master wait does not match pending call"));
         }
         if self.saved_scenes.len() > 4 {
             return Err(Error("snapshot saved scene nesting limit"));
@@ -285,6 +315,29 @@ impl Engine {
         {
             for context in &saved.scripts.contexts {
                 context.vm.validate_snapshot_structure()?;
+            }
+        }
+        Ok(())
+    }
+
+    pub(crate) fn validate_snapshot_scripts(&self, resources: &Resources<'_>) -> Result<(), Error> {
+        self.validate_snapshot_structure()?;
+        self.master
+            .validate_snapshot_code(scene::script_bytes(resources, self.master_code)?)?;
+        for process in self.processes.states() {
+            process
+                .vm
+                .validate_snapshot_code(scene::script_bytes(resources, process.code)?)?;
+        }
+        for saved in self
+            .saved_scenes
+            .iter()
+            .chain(self.scene_restore.iter().map(|r| &r.snapshot))
+        {
+            for context in &saved.scripts.contexts {
+                context
+                    .vm
+                    .validate_snapshot_code(scene::script_bytes(resources, context.code)?)?;
             }
         }
         Ok(())
@@ -6878,6 +6931,7 @@ mod tests {
         let snapshot = crate::save::Snapshot::capture(&engine, [7; 32]);
         let bytes = snapshot.to_bytes().unwrap();
         let decoded = crate::save::Snapshot::from_bytes(&bytes, [7; 32]).unwrap();
+        decoded.verify_scripts(&resources).unwrap();
         assert_eq!(decoded, snapshot);
         assert_eq!(decoded.tick(), engine.ticks);
         assert_eq!(decoded.to_bytes().unwrap(), bytes);
@@ -6887,6 +6941,52 @@ mod tests {
         engine.tick(&resources).unwrap();
         engine.tick(&resources).unwrap();
         assert_eq!(restored, engine);
+    }
+    #[test]
+    fn snapshot_script_validation_includes_saved_cutaways_and_host_waits() {
+        let (master, scene) = fixtures();
+        let resources = Resources(vec![&master, &scene]);
+        let mut engine = Engine::bootstrap(&resources).unwrap();
+        engine.tick(&resources).unwrap();
+        engine.validate_snapshot_scripts(&resources).unwrap();
+        let saved = engine.capture_scene().unwrap();
+        assert!(!saved.scripts.contexts.is_empty());
+        engine.saved_scenes.push(saved.clone());
+        engine.validate_snapshot_scripts(&resources).unwrap();
+        engine.saved_scenes[0].scripts.contexts[0].code = Handle(u32::MAX);
+        assert!(engine.validate_snapshot_scripts(&resources).is_err());
+        engine.saved_scenes.clear();
+        engine.scene_restore = Some(SceneRestore {
+            snapshot: saved,
+            remaining: 5,
+            fade: false,
+        });
+        engine.validate_snapshot_scripts(&resources).unwrap();
+        engine
+            .scene_restore
+            .as_mut()
+            .unwrap()
+            .snapshot
+            .scripts
+            .contexts[0]
+            .code = Handle(u32::MAX);
+        assert!(engine.validate_snapshot_scripts(&resources).is_err());
+        engine.scene_restore = None;
+        let id = engine.processes.entries().next().unwrap().0;
+        let process = engine.processes.state_mut(id).unwrap();
+        let call = process.vm.pending_call().unwrap();
+        process.wait = Some((
+            LibraryCall {
+                id: call.id + 1,
+                ..call
+            },
+            1,
+        ));
+        assert!(engine.validate_snapshot_structure().is_err());
+        let process = engine.processes.state_mut(id).unwrap();
+        process.wait = Some((call, 1));
+        process.sample_wait = Some(call);
+        assert!(engine.validate_snapshot_structure().is_err());
     }
     #[test]
     fn snapshot_envelope_rejects_corruption_truncation_wrong_assets_and_trailing_data() {
