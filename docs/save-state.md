@@ -21,14 +21,14 @@ The host now supports durable player saves. `Snapshot::restore` returns an
 engine after script, audio, polygon, animation and preview checks; the caller
 commits that replacement only after preparing host state. Native F5/F9 and startup `--load` use a combined file; browser persistence remains unfinished. Decoding a snapshot never replaces a running engine.
 
-## Core envelope versions 1–5
+## Core envelope versions 1–6
 
 All envelope integers are little endian. The maximum complete file is 16 MiB.
 
 | Offset | Bytes | Meaning |
 | --- | --- | --- |
 | 0 | 8 | `DWRSAVE` followed by a zero byte |
-| 8 | 4 | Format version: 1; 2 for pending scripted clicks; 3 for pending ordinary drops; 4 for physical mouse history; 5 for active inventory dragging |
+| 8 | 4 | Format version: 1; 2 for pending scripted clicks; 3 for pending ordinary drops; 4 for physical mouse history; 5 for active header dragging; 6 for active inventory scrollbar dragging |
 | 12 | 32 | Host-supplied SHA-256 identity of the original game assets |
 | 44 | 4 | Payload byte length |
 | 48 | 32 | SHA-256 checksum of the payload |
@@ -289,3 +289,19 @@ Versions 1–4 remain readable and keep their original encoding; after release,
 a mouse-driven session uses version 4 again. The real-asset regression
 `inventory_header_drag_moves_immediately_and_survives_save` validates an exact
 save/reload during movement and subsequent engine/DSP, frame and PCM continuity.
+
+### Active inventory scrollbar dragging
+
+Core version 6 stores `(EngineV1Fields, ClickState, Option<MouseInput>,
+Option<owner>, SliderDrag)`. The slider payload preserves its unclamped movement
+accumulator, absolute range, original row-position table and last selected row.
+The rendered thumb stays continuous during icon refreshes. Release selects the
+nearest row and schedules the usual inventory refresh, then saves use version 4.
+Header drags still use version 5; versions 1–5 keep their prior encodings.
+
+Validation requires an ordinary inventory owner, its visible scrollbar and
+mouse history. The table is bounded to 151 entries with ordered item indices
+and positions, matching endpoints, a valid selected entry and a thumb matching
+the clamped accumulator. Close, scene teardown and hidden/replaced inventory
+windows discard the active gesture. Native and browser hosts retain left-button
+ownership for either drag type when loading a save.

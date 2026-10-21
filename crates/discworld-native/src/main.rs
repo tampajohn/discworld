@@ -231,7 +231,7 @@ fn run() -> Result<(), Box<dyn std::error::Error>> {
         );
     } else {
         eprintln!(
-            "Mouse moves cursor. Single left click walks/selects, double left click acts, right click looks. Space or click during speech advances dialogue. I: pockets. Click inventory cells to pick up/put down. Point at an actor/tag and press A: action, W: walk to, L: look. P: pause. Esc: exit. Click conversation icons to select; Backspace closes the menu. Drag inventory title bars to move windows. Resizing, slider dragging and complete input compatibility remain unfinished."
+            "Mouse moves cursor. Single left click walks/selects, double left click acts, right click looks. Space or click during speech advances dialogue. I: pockets. Click inventory cells to pick up/put down. Point at an actor/tag and press A: action, W: walk to, L: look. P: pause. Esc: exit. Click conversation icons to select; Backspace closes the menu. Drag inventory title bars to move windows, or scrollbar thumbs to scroll. Resizing and complete input compatibility remain unfinished."
         );
         eprintln!(
             "M: mute/unmute sound. Inventory: wheel or Up/Down scrolls rows; Page Up/Page Down, Home/End navigate; click scrollbar arrows or track."

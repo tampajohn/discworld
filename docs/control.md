@@ -56,7 +56,7 @@ the current time. Physical timers are updated before button swapping. Right
 double-click maps to `PLR_NOEVENT`, not a second look action. Each press emits
 drag-start before its click classification; release emits drag-end.
 
-Remaining integration includes inventory resizing and slider dragging,
+Remaining integration includes inventory resizing,
 raw host button delivery, and persisting the physical button classifier. `AllowDclick` is called by polygon,
 actor and inventory-object processes (`dialogs.cpp::ObjectProcess`). Bare-ground
 `WalkProcess` does not call it, so delaying every single-click globally would
@@ -74,7 +74,7 @@ serialization/restoration of a pending wait, and stale ownership rejection.
 `Engine::world_click` attaches this delay/cancellation to newly queued actor
 and polygon scripts; ground walks and look events remain immediate. The existing
 semantic interaction methods retain their timing for recorded routes. Native and browser physical input now reaches these paths. This is not a claim
-of completed original mouse support: inventory resizing, slider dragging, menus,
+of completed original mouse support: inventory resizing, menus,
 configurable button swapping and timing, and broader gesture parity remain.
 
 Pending click ownership and dispatch phases are persisted in the core save's
@@ -112,7 +112,7 @@ unchanged throughout an ordinary wait, cancelling a saved pending drop with an
 action, exact snapshot continuation, and capacity becoming available during the
 wait. A synthetic hidden window avoids unrelated rendering resources in these
 state tests; browser UI tests separately exercise original inventory rendering.
-Pending ordinary drops require core save version 3. Inventory resizing and slider dragging still need integration before claiming original input parity.
+Pending ordinary drops require core save version 3. Inventory resizing still needs integration before claiming original input parity.
 
 ## Physical input delivery and persistence
 
@@ -122,7 +122,7 @@ clicks (single selects/walks, double acts); right click looks. Explicit action
 and look controls remain available for touch. Browser pointer capture ensures
 release outside the canvas reaches the worker. Releases can update button
 history while paused, without advancing simulation. Inventory title-bar dragging now moves the original frame, title and icons;
-resizing and slider dragging remain unfinished.
+resizing remains unfinished.
 
 Core save version 4 persists physical button timing with pending click state.
 The regression saves after a first click, restores, then applies the second
@@ -201,10 +201,10 @@ owner. Each cursor delta translates the existing frame sprites, backdrop, title
 glyphs, icon animations, and all hit regions, without rebuilding their animation
 state. Left release or a double-click action ends the drag. Closing, hiding,
 replacing a window or changing scenes clears its ownership. This applies to
-ordinary and conversation windows; original resizing, slider dragging,
+ordinary and conversation windows; original resizing,
 maximize/unmaximize and hover-cursor changes still remain.
 
-Active drags use core save version 5. Versions 1–4 retain their existing layouts,
+Active header drags use core save version 5. Versions 1–4 retain their existing layouts,
 and a completed drag returns to version 4. Invalid owners, absent mouse history,
 hidden/missing windows and mismatched active slots are rejected before loading.
 Coordinate translation checks every addition and commits only after all succeed;
@@ -234,7 +234,7 @@ also uses CDP touch start/move/end; its exported save loaded in the native engin
 with luggage position [130,120] and no held item. This is browser touch coverage,
 not physical iPad acceptance. The core tests, three opt-in real-asset checks,
 Clippy, native/WASM builds and the eight browser-player checks pass. Resizing,
-slider dragging, window maximization and broader conversation-drag acceptance
+window maximization and broader conversation-drag acceptance
 are still required.
 
 ### Inventory cell gaps
@@ -254,3 +254,55 @@ non-actions, the delayed held-item release, and the resulting item order. Both
 queued and suspended drop saves resume with identical engine/DSP bytes, RGBA
 and audio over the following ticks. A core regression also checks that window
 regions take priority even when icon coordinates overlap them.
+
+### Inventory scrollbar dragging
+
+Pinned `dialogs.cpp::adjustTop`, `nearestSlideY` and `slideSlider` define the
+ordinary inventory drag. The row-position table includes the original
+non-row-aligned first-display offset; nearest-position ties choose the first
+entry. Cursor movement accumulates before clamping, so overshoot must be undone
+before the thumb moves away from an endpoint. Horizontal motion has no effect.
+
+During a drag, crossing a row threshold changes `first_display` and refreshes
+icons on the next engine tick. The frame and continuous thumb position survive
+that refresh; `adjustTop` is deferred until release, as in `fillInInventory`.
+Release schedules the normal refresh and snaps the thumb to the selected row.
+The state is shared by native mouse and browser mouse/touch input; active slider
+saves use core version 6. Configuration-menu sliders and border resizing are
+still separate unfinished controls.
+
+The real-asset slider fixture is the existing recorded inventory route stopped
+at tick 434,050, immediately after opening luggage in `alley.scn`. It contains
+12 items in a 3×2 window at [100,100], with thumb [187,124] and range 124–162.
+To reproduce it, truncate `evidence/inventory-scroll-pickup-input.json` to events
+with `tick < 434050`, then run `discworld-tools run-headless` to tick 434050 using
+that trace and `--load evidence/save-relaunch-inventory/checkpoint.dws`, saving
+with `--save` to a fresh path. The startup press argument is irrelevant when
+resuming this tick-33200 save. Set `DISCWORLD_TEST_SLIDER_SAVE` to the result for
+the opt-in Rust check and browser tests (their local default is
+`assets/saves/slider-checkpoint.dws`). Asset bytes remain local.
+
+The Rust regression checks mid-drag row changes, unchanged window position,
+ignored horizontal motion, retained overshoot after loading, release/close,
+and exact engine/DSP/frame/audio continuations. Unit cases cover non-row-aligned
+pages, tied/duplicate row positions, extreme movement and malformed drag tables.
+
+Chrome and WebKit mouse acceptance saves an active drag as version 6, reloads
+it byte-for-byte with identical pixels, and releases it after reload to version
+4. Independent native loads of both browser saves confirmed first-display 3,
+unchanged item membership and no held item. Screenshots are
+`assets/previews/browser-{chrome,webkit}-slider-active.png`; the complete suite
+passes ten player checks plus two clock checks. This is desktop browser input
+evidence, not physical iPad acceptance. All 253 enabled workspace tests, five
+opt-in real-asset inventory tests, Clippy and native/WASM release builds pass.
+
+Native HID acceptance moved the original thumb and changed the visible row.
+At tick 434,103, `native-slider-active-retry.dws` is version 6 and independently
+loads/advances in the native headless host. F9 followed by a normal mouse
+press/release while paused produces version 4 at the same tick in
+`native-slider-completed-retry.dws`. The down is ignored while paused; the up
+ends the restored drag. Earlier synthetic attempts lost window focus (ending
+the drag), and a lone synthetic up after OS button-state loss was not delivered.
+Those attempts are not counted as active-drag acceptance; no engine change was
+needed for them. Visible gameplay was refreshed separately with its room save
+and mute state preserved.

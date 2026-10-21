@@ -6,10 +6,10 @@ const iso = process.env.DISCWORLD_TEST_ISO || path.join(root, "Terry Pratchett's
 const font = process.env.DISCWORLD_TEST_SOUNDFONT || path.join(root, 'assets/soundfonts/TimGM6mb.sf2');
 const save = process.env.DISCWORLD_TEST_SAVE || path.join(root, 'evidence/save-relaunch-inventory/checkpoint.dws');
 const frame = process.env.DISCWORLD_TEST_FRAME || path.join(root, 'evidence/save-relaunch-inventory/checkpoint.png');
-async function open(page, initial = true) {
+async function open(page, initial = true, checkpoint = save) {
   await page.locator('#iso').setInputFiles(iso);
   await page.locator('#font').setInputFiles(font);
-  if (initial) await page.locator('#initial-save').setInputFiles(save);
+  if (initial) await page.locator('#initial-save').setInputFiles(checkpoint);
   await page.locator('#open').click();
   await expect(page.locator('#player')).toBeVisible({ timeout: 60000 });
 }
@@ -221,4 +221,51 @@ test('audio interruption pauses simulation and Play resumes it', async ({ page }
   await expect.poll(async () => Number(await page.locator('#game').getAttribute('data-tick'))).toBeGreaterThan(Number(tick));
   expect(await page.evaluate(() => window.audioContextUnderTest.state)).toBe('running');
   await page.locator('#pause').click();
+});
+
+
+test('inventory scrollbar drag preserves active save and releases after reload', async ({ page }, testInfo) => {
+  const checkpoint = process.env.DISCWORLD_TEST_SLIDER_SAVE || path.join(root, 'assets/saves/slider-checkpoint.dws');
+  await page.goto('/');
+  await open(page, true, checkpoint);
+  const canvas = page.locator('#game');
+  const bounds = await canvas.boundingBox();
+  const move = (x, y) => page.mouse.move(bounds.x + bounds.width * x / 320, bounds.y + bounds.height * y / 200);
+  const exportHeld = async () => {
+    const download = page.waitForEvent('download');
+    await page.evaluate(() => document.querySelector('#export').click());
+    return fs.readFile(await (await download).path());
+  };
+  await page.locator('#pause').click();
+  await move(189, 126);
+  await page.mouse.down();
+  await expect(canvas).toHaveAttribute('data-dragging', 'true');
+  await move(189, 146);
+  const movedTick = Number(await canvas.getAttribute('data-tick'));
+  await expect.poll(async () => Number(await canvas.getAttribute('data-tick'))).toBeGreaterThan(movedTick + 1);
+  await page.keyboard.press('p');
+  await expect(page.locator('#pause')).toHaveText('Play');
+  await page.waitForTimeout(150);
+  const pending = await exportHeld();
+  expect(pending.readUInt32LE(60)).toBe(6);
+  const pixels = await canvas.evaluate(c => c.toDataURL());
+  await fs.writeFile(path.join(root, `assets/saves/browser-${testInfo.project.name}-slider-active.dws`), pending);
+  await page.screenshot({ path: path.join(root, `assets/previews/browser-${testInfo.project.name}-slider-active.png`) });
+  await page.mouse.up();
+  await expect(canvas).toHaveAttribute('data-dragging', 'false');
+  await page.locator('#import').setInputFiles({ name: 'slider.dws', mimeType: 'application/octet-stream', buffer: pending });
+  await expect(page.locator('#status')).toContainText('Saved game loaded.');
+  await expect(canvas).toHaveAttribute('data-dragging', 'true');
+  expect(await exportHeld()).toEqual(pending);
+  expect(await canvas.evaluate(c => c.toDataURL())).toBe(pixels);
+  await page.mouse.up();
+  await expect(canvas).toHaveAttribute('data-dragging', 'false');
+  expect((await exportHeld()).readUInt32LE(60)).toBe(4);
+  await page.locator('#pause').click();
+  const releasedTick = Number(await canvas.getAttribute('data-tick'));
+  await expect.poll(async () => Number(await canvas.getAttribute('data-tick'))).toBeGreaterThan(releasedTick + 1);
+  await page.keyboard.press('p');
+  await expect(page.locator('#pause')).toHaveText('Play');
+  await page.waitForTimeout(150);
+  await fs.writeFile(path.join(root, `assets/saves/browser-${testInfo.project.name}-slider-released.dws`), await exportHeld());
 });

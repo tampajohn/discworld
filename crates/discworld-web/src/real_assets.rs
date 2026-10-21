@@ -248,3 +248,125 @@ fn held_inventory_item_drops_through_one_pixel_cell_gaps() {
         );
     }
 }
+
+#[test]
+#[ignore = "requires DISCWORLD_TEST_ISO, DISCWORLD_TEST_SOUNDFONT and DISCWORLD_TEST_SLIDER_SAVE (tick 434050 scrollable inventory checkpoint)"]
+fn inventory_slider_preserves_continuous_motion_and_active_save() {
+    let read = |name| std::fs::read(std::env::var_os(name).expect(name)).unwrap();
+    let mut game =
+        BrowserGame::new(read("DISCWORLD_TEST_ISO"), read("DISCWORLD_TEST_SOUNDFONT")).unwrap();
+    game.load(&read("DISCWORLD_TEST_SLIDER_SAVE")).unwrap();
+    assert_eq!(game.tick(), 434050);
+    assert_eq!(game.engine.active_inventory(), Some(1));
+    let window = game.engine.declarations.windows[1].as_ref().unwrap();
+    assert_eq!(window.first_display, 0);
+    let contents = window.contents.clone();
+    let position = window.position;
+    let frame = discworld_core::conversation_window::Frame::inventory(
+        &game.assets.resources(),
+        game.engine.declarations.window_parts.unwrap(),
+        window,
+    )
+    .unwrap();
+    let bar = frame.layout.scrollbar.unwrap();
+    println!("Original slider: {bar:?}");
+    let [min, max] = bar.range;
+    let x = bar.thumb[0] + 2;
+    game.move_pointer(x, min + 2);
+    game.input("left-down").unwrap();
+    assert!(game.inventory_dragging());
+    let middle = min + (max - min) / 2 + 1;
+    game.move_pointer(x, middle + 2);
+    assert_eq!(
+        game.engine.declarations.windows[1]
+            .as_ref()
+            .unwrap()
+            .position,
+        position
+    );
+    assert!(
+        game.engine.declarations.windows[1]
+            .as_ref()
+            .unwrap()
+            .first_display
+            > 0
+    );
+    // A tick rebuilds icons, while retaining continuous thumb placement.
+    game.advance(1).unwrap();
+    assert_eq!(game.engine.inventory_scroll_at([x, middle]), None);
+    assert_eq!(
+        game.engine.inventory_scroll_at([x, middle - 1]),
+        Some(discworld_core::inventory::Scroll::PageUp)
+    );
+    let pending = game.save().unwrap();
+    assert_eq!(u32::from_le_bytes(pending[60..64].try_into().unwrap()), 6);
+    game.load(&pending).unwrap();
+    assert_eq!(game.save().unwrap(), pending);
+    assert!(game.inventory_dragging());
+    roundtrip_pending(&mut game, 3);
+
+    game.move_pointer(x, max + 42);
+    let bottom_first = game.engine.declarations.windows[1]
+        .as_ref()
+        .unwrap()
+        .first_display;
+    assert!(bottom_first > 0);
+    let overshoot = game.save().unwrap();
+    game.load(&overshoot).unwrap();
+    game.move_pointer(x, max + 32);
+    assert_eq!(
+        game.engine.declarations.windows[1]
+            .as_ref()
+            .unwrap()
+            .first_display,
+        bottom_first
+    );
+    game.move_pointer(x, min + 2);
+    assert_eq!(
+        game.engine.declarations.windows[1]
+            .as_ref()
+            .unwrap()
+            .first_display,
+        0
+    );
+    // Horizontal pointer motion neither moves the window nor changes the page.
+    game.move_pointer(x + 100, min + 2);
+    assert_eq!(
+        game.engine.declarations.windows[1]
+            .as_ref()
+            .unwrap()
+            .position,
+        position
+    );
+    assert_eq!(
+        game.engine.declarations.windows[1]
+            .as_ref()
+            .unwrap()
+            .first_display,
+        0
+    );
+    game.input("left-up").unwrap();
+    assert!(!game.inventory_dragging());
+    game.advance(1).unwrap();
+    assert_eq!(
+        u32::from_le_bytes(game.save().unwrap()[60..64].try_into().unwrap()),
+        4
+    );
+    assert_eq!(
+        game.engine.declarations.windows[1]
+            .as_ref()
+            .unwrap()
+            .contents,
+        contents
+    );
+    assert_eq!(game.engine.held_object, -1);
+    game.load(&pending).unwrap();
+    game.input("left-up").unwrap();
+    game.advance(1).unwrap();
+    // Middle row snaps from y144 to its table position y143 on release.
+    assert_eq!(game.engine.inventory_scroll_at([x, middle - 1]), None);
+    game.load(&pending).unwrap();
+    game.input("close").unwrap();
+    assert!(!game.inventory_dragging());
+    game.save().unwrap();
+}

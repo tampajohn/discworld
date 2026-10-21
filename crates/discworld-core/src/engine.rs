@@ -237,6 +237,8 @@ pub struct Engine {
     pub(crate) mouse: Option<crate::mouse::MouseInput>,
     #[serde(skip)]
     pub(crate) inventory_drag: Option<i32>,
+    #[serde(skip)]
+    pub(crate) inventory_slider: Option<crate::inventory_slider::Drag>,
     pub movers: std::collections::BTreeMap<i32, crate::mover::Mover>,
     polygon_memory: crate::polygon::EnabledMemory,
     polygon_table: Handle,
@@ -330,6 +332,17 @@ impl Engine {
             {
                 return Err(Error("invalid inventory drag owner"));
             }
+        }
+        if let Some(slider) = &self.inventory_slider {
+            if !matches!(self.inventory_drag, Some(1 | 2)) {
+                return Err(Error("invalid slider owner"));
+            }
+            let bar = self
+                .inventory_display
+                .as_ref()
+                .and_then(|(frame, _)| frame.layout.scrollbar.as_ref())
+                .ok_or(Error("missing saved slider"))?;
+            slider.validate(bar)?;
         }
         self.clicks.validate(&self.processes)?;
         for (id, phase) in self.clicks.entries() {
@@ -972,18 +985,37 @@ impl Engine {
         for event in events {
             use crate::mouse::Button;
             if event == PlayerEvent::DragEnd(Button::Left) || event == PlayerEvent::Action {
-                next.inventory_drag = None;
+                next.finish_inventory_drag();
             }
             if event == PlayerEvent::DragStart(Button::Left)
                 && next.control.enabled
                 && !next.conversation.hidden
                 && matches!(next.active_inventory, Some(0..=2))
-                && next.inventory_display.as_ref().is_some_and(|(frame, _)| {
-                    frame.layout.inventory_area_at(next.control.cursor)
-                        == crate::conversation_window::Area::Header
-                })
             {
-                next.inventory_drag = next.active_inventory;
+                if let Some((frame, _)) = &next.inventory_display {
+                    use crate::conversation_window::Area;
+                    match frame.layout.inventory_area_at(next.control.cursor) {
+                        Area::Header => {
+                            next.inventory_drag = next.active_inventory;
+                            next.inventory_slider = None;
+                        }
+                        Area::Thumb if matches!(next.active_inventory, Some(1 | 2)) => {
+                            let window = next.declarations.windows
+                                [next.active_inventory.unwrap() as usize]
+                                .as_ref()
+                                .ok_or(Error("missing slider window"))?;
+                            let bar = frame
+                                .layout
+                                .scrollbar
+                                .as_ref()
+                                .ok_or(Error("missing slider"))?;
+                            next.inventory_slider =
+                                Some(crate::inventory_slider::Drag::new(window, bar)?);
+                            next.inventory_drag = next.active_inventory;
+                        }
+                        _ => {}
+                    }
+                }
             }
             let action = match event {
                 PlayerEvent::WalkTo => PolygonInteraction::WalkTo,
@@ -1114,9 +1146,10 @@ impl Engine {
                 let delta = self.control.cursor[0]
                     .checked_sub(old[0])
                     .zip(self.control.cursor[1].checked_sub(old[1]));
-                if delta.is_none_or(|(x, y)| self.translate_inventory(slot, [x, y]).is_err()) {
+                if delta.is_none_or(|(x, y)| self.move_inventory_drag(slot, [x, y]).is_err()) {
                     // Malformed/extreme coordinates must never partly move a window.
                     self.inventory_drag = None;
+                    self.inventory_slider = None;
                 }
             }
             self.control.user_event(self.ticks);
@@ -1125,6 +1158,42 @@ impl Engine {
 
     pub fn inventory_dragging(&self) -> bool {
         self.inventory_drag.is_some()
+    }
+
+    fn finish_inventory_drag(&mut self) {
+        if let Some(slider) = self.inventory_slider.take() {
+            if let Some(slot @ (1 | 2)) = self.inventory_drag {
+                if let Some(window) = &mut self.declarations.windows[slot as usize] {
+                    window.first_display = slider.first_display();
+                    self.inventory_dirty = true;
+                }
+            }
+        }
+        self.inventory_drag = None;
+    }
+
+    fn move_inventory_drag(&mut self, slot: i32, delta: [i32; 2]) -> Result<(), Error> {
+        let Some(mut slider) = self.inventory_slider.clone() else {
+            return self.translate_inventory(slot, delta);
+        };
+        if delta[1] == 0 {
+            return Ok(());
+        }
+        let first = slider.move_by(delta[1])?;
+        let (frame, _) = self
+            .inventory_display
+            .as_mut()
+            .ok_or(Error("missing slider display"))?;
+        frame.move_slider(slider.y())?;
+        if let Some(first) = first {
+            self.declarations.windows[slot as usize]
+                .as_mut()
+                .ok_or(Error("missing slider window"))?
+                .first_display = first;
+            self.inventory_dirty = true;
+        }
+        self.inventory_slider = Some(slider);
+        Ok(())
     }
 
     fn translate_inventory(&mut self, slot: i32, delta: [i32; 2]) -> Result<(), Error> {
@@ -1576,6 +1645,7 @@ impl Engine {
         self.conversation.end();
         self.inventory_display = None;
         self.inventory_drag = None;
+        self.inventory_slider = None;
         self.inventory_dirty = false;
     }
 
@@ -1588,7 +1658,7 @@ impl Engine {
         strings: &crate::text::Strings<'_>,
     ) -> Result<(), Error> {
         let slot = self.active_inventory.unwrap_or(0) as usize;
-        if slot != 0 {
+        if slot != 0 && self.inventory_slider.is_none() {
             if let Some(window) = &mut self.declarations.windows[slot] {
                 crate::inventory::adjust_top(window);
             }
@@ -1601,13 +1671,21 @@ impl Engine {
         } else {
             crate::conversation_window::Frame::inventory
         };
-        let frame = constructor(
-            resources,
-            self.declarations
-                .window_parts
-                .ok_or(Error("missing window parts"))?,
-            window,
-        )?;
+        let frame = if self.inventory_slider.is_some() {
+            self.inventory_display
+                .as_ref()
+                .ok_or(Error("missing slider display"))?
+                .0
+                .clone()
+        } else {
+            constructor(
+                resources,
+                self.declarations
+                    .window_parts
+                    .ok_or(Error("missing window parts"))?,
+                window,
+            )?
+        };
         let font = crate::text::Font::read(
             resources,
             self.declarations
@@ -1776,6 +1854,7 @@ impl Engine {
             clicks: crate::click::State::default(),
             mouse: None,
             inventory_drag: None,
+            inventory_slider: None,
             user_events: 0,
             left_events: 0,
             subtitles: true,
@@ -2050,6 +2129,7 @@ impl Engine {
         self.conversation.end();
         self.inventory_display = None;
         self.inventory_drag = None;
+        self.inventory_slider = None;
         self.inventory_dirty = false;
         self.sample_player.stop();
         self.actor_steps.clear();
@@ -2770,6 +2850,7 @@ impl Engine {
             if self.conversation.polygon.is_some() {
                 self.conversation.hidden = true;
                 self.inventory_drag = None;
+                self.inventory_slider = None;
             }
         }
         if process.check_control_on_start {
@@ -3041,6 +3122,7 @@ impl Engine {
                     if self.active_inventory.is_none() && self.top_window.is_none() {
                         self.active_inventory = Some(slot);
                         self.inventory_drag = None;
+                        self.inventory_slider = None;
                         self.conversation.hidden = false;
                         self.control.tags_enabled = false;
                         self.rebuild_inventory(
@@ -3070,6 +3152,7 @@ impl Engine {
                         )? {
                             self.active_inventory = Some(0);
                             self.inventory_drag = None;
+                            self.inventory_slider = None;
                             self.control.tags_enabled = false;
                             self.rebuild_inventory(resources, strings)?;
                             self.queue_converse(resources, owner)?;

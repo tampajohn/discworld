@@ -365,6 +365,29 @@ impl Frame {
             .collect::<Result<Vec<_>, Error>>()?;
         Ok(Self { layout, parts })
     }
+    pub(crate) fn move_slider(&mut self, y: i32) -> Result<(), Error> {
+        let bar = self
+            .layout
+            .scrollbar
+            .as_mut()
+            .ok_or(Error("missing inventory slider"))?;
+        let (reel, origin) = self
+            .layout
+            .parts
+            .last_mut()
+            .ok_or(Error("missing slider part"))?;
+        let animation = self
+            .parts
+            .last_mut()
+            .ok_or(Error("missing slider animation"))?;
+        if *reel != 0 || !(bar.range[0]..=bar.range[1]).contains(&y) {
+            return Err(Error("invalid slider movement"));
+        }
+        bar.thumb[1] = y;
+        origin[1] = y;
+        animation.object.y = y;
+        Ok(())
+    }
     /// Original translucent backing precedes the frame sprites; title and icons
     /// are composed by the caller above the frame.
     pub fn draw(&self, resources: &Resources<'_>, surface: &mut Surface) -> Result<(), Error> {

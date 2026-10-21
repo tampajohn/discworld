@@ -10,6 +10,7 @@ const INPUT_VERSION: u32 = 2;
 const DROP_VERSION: u32 = 3;
 const MOUSE_VERSION: u32 = 4;
 const DRAG_VERSION: u32 = 5;
+const SLIDER_VERSION: u32 = 6;
 const HEADER: usize = 80;
 pub const MAX_SAVE_BYTES: usize = 16 * 1024 * 1024;
 
@@ -80,7 +81,15 @@ impl Snapshot {
     pub fn to_bytes(&self) -> Result<Vec<u8>, Error> {
         self.state.validate_snapshot_structure()?;
         let extended = self.state.clicks != crate::click::State::default();
-        let payload = if let Some(slot) = self.state.inventory_drag {
+        let payload = if let Some(slider) = &self.state.inventory_slider {
+            postcard::to_allocvec(&(
+                &self.state,
+                &self.state.clicks,
+                &self.state.mouse,
+                self.state.inventory_drag,
+                slider,
+            ))
+        } else if let Some(slot) = self.state.inventory_drag {
             postcard::to_allocvec(&(&self.state, &self.state.clicks, &self.state.mouse, slot))
         } else if let Some(mouse) = &self.state.mouse {
             postcard::to_allocvec(&(&self.state, &self.state.clicks, mouse))
@@ -96,7 +105,9 @@ impl Snapshot {
         let mut bytes = Vec::with_capacity(HEADER + payload.len());
         bytes.extend_from_slice(MAGIC);
         bytes.extend_from_slice(
-            &(if self.state.inventory_drag.is_some() {
+            &(if self.state.inventory_slider.is_some() {
+                SLIDER_VERSION
+            } else if self.state.inventory_drag.is_some() {
                 DRAG_VERSION
             } else if self.state.mouse.is_some() {
                 MOUSE_VERSION
@@ -132,6 +143,7 @@ impl Snapshot {
             DROP_VERSION,
             MOUSE_VERSION,
             DRAG_VERSION,
+            SLIDER_VERSION,
         ]
         .contains(&word(8))
         {
@@ -147,7 +159,22 @@ impl Snapshot {
         if Sha256::digest(payload)[..] != bytes[48..80] {
             return Err(Error("save checksum mismatch"));
         }
-        let (state, remaining) = if word(8) == DRAG_VERSION {
+        let (state, remaining) = if word(8) == SLIDER_VERSION {
+            let ((mut state, clicks, mouse, owner, slider), remaining) =
+                postcard::take_from_bytes::<(
+                    Engine,
+                    crate::click::State,
+                    Option<crate::mouse::MouseInput>,
+                    Option<i32>,
+                    crate::inventory_slider::Drag,
+                )>(payload)
+                .map_err(|_| Error("invalid snapshot slider payload"))?;
+            state.clicks = clicks;
+            state.mouse = mouse;
+            state.inventory_drag = owner;
+            state.inventory_slider = Some(slider);
+            (state, remaining)
+        } else if word(8) == DRAG_VERSION {
             let ((mut state, clicks, mouse, slot), remaining) = postcard::take_from_bytes::<(
                 Engine,
                 crate::click::State,

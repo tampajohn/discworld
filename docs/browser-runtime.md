@@ -77,7 +77,7 @@ The player supports explicit walk/select, action, look, pockets, conversation
 continuation, close and inventory scrolling through touch or keyboard. Default canvas input now delivers physical press/release edges to the shared
 V1 classifier and timed world/inventory dispatch; explicit action controls
 remain available. Title-bar dragging forwards held pointer/touch motion to the shared engine;
-resizing, slider dragging and complete original input parity remain unfinished. Pointer coordinates are mapped from the displayed canvas rectangle.
+resizing and complete original input parity remain unfinished. Pointer coordinates are mapped from the displayed canvas rectangle.
 Canvas scaling preserves 8:5 aspect and the original indexed image/font output.
 
 Manual saves use one IndexedDB slot per origin, committed as a transaction.
@@ -90,7 +90,8 @@ after a page reload; automatic asset persistence and autosave are not implemente
 Run `npm --prefix web ci` and
 `npm --prefix web exec -- playwright install webkit` first.
 Then `npm --prefix web test` runs Playwright projects against locally
-installed Chrome and the downloaded Playwright WebKit, using the real ISO, SoundFont and inventory checkpoint. The
+installed Chrome and the downloaded Playwright WebKit, using the real ISO, SoundFont, inventory checkpoint and scrollable-inventory
+checkpoint (see [Inventory scrollbar dragging](control.md#inventory-scrollbar-dragging)). The
 fixture defaults are documented in `web/tests/player.spec.js`; missing assets
 fail the test rather than silently skipping it. The server serves only `web/`.
 
