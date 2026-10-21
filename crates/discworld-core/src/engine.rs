@@ -1864,6 +1864,11 @@ impl Engine {
             next.music.stop();
             fresh.music = next.music;
             fresh.music_frame = next.music_frame;
+            // PCM and MIDI share the host clock. Keep this cycle's PCM and the
+            // fractional sample accumulator while stopping the old voice.
+            next.sample_player.stop();
+            fresh.sample_player = next.sample_player;
+            fresh.audio_frame = next.audio_frame;
             fresh.scene_calls = next.scene_calls;
             next = fresh;
             status = Status::Running;
@@ -3738,6 +3743,30 @@ mod tests {
                 .iter()
                 .any(|m| m.status == 0xb0 && m.data == [123, 0])
         );
+    }
+
+    #[test]
+    fn restart_preserves_pcm_blocks_and_fractional_audio_clock() {
+        let (master, scene) = fixtures();
+        let restart = [0x0a, 0x00, 0x34, 0x33, 0, 0, 0, 0, 0x4e, 114, 0];
+        let resources = Resources(vec![&master, &scene, &restart]);
+        let bank = SampleBank::new(&[0; 4], &[]).unwrap();
+        let mut engine = Engine::bootstrap(&resources).unwrap();
+        let mut samples = 0;
+        for tick in 1..=48 {
+            if tick % 3 == 1 {
+                engine
+                    .processes
+                    .spawn(None, ScriptProcess::new(Handle((2 << 23) | 8)))
+                    .unwrap();
+            }
+            engine.tick_audio(&resources, Some(&bank)).unwrap();
+            samples += engine.audio_frame.len() as u64;
+            assert_eq!(samples, tick * u64::from(crate::audio::SAMPLE_RATE) / 24);
+            assert_eq!(engine.music.clock, tick * 5);
+            assert_eq!(engine.sample_player.id, None);
+            assert!(engine.has_restarted());
+        }
     }
 
     #[test]
