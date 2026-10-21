@@ -119,6 +119,66 @@ async function exportedAfterOpeningDetails(page) {
   return exported(page);
 }
 
+test('inventory header drag renders immediately and roundtrips an active drag', async ({ page }, testInfo) => {
+  await page.goto('/');
+  await open(page);
+  const canvas = page.locator('#game');
+  const bounds = await canvas.boundingBox();
+  const move = (x, y) => page.mouse.move(bounds.x + bounds.width * x / 320, bounds.y + bounds.height * y / 200);
+  // Export without moving/releasing the held mouse button to click a toolbar.
+  const exportHeld = async () => {
+    const download = page.waitForEvent('download');
+    await page.evaluate(() => document.querySelector('#export').click());
+    return fs.readFile(await (await download).path());
+  };
+  await page.locator('#pause').click();
+  await expect(page.locator('#pause')).toHaveText('Pause');
+  await move(140, 110);
+  await page.mouse.down();
+  await expect(canvas).toHaveAttribute('data-dragging', 'true');
+  await move(170, 130);
+  await page.keyboard.press('p');
+  await expect(page.locator('#pause')).toHaveText('Play');
+  await page.waitForTimeout(150);
+  const pending = await exportHeld();
+  expect(pending.readUInt32LE(60)).toBe(5);
+  const pixels = await canvas.evaluate(c => c.toDataURL());
+  await page.screenshot({ path: path.join(root, `assets/previews/browser-${testInfo.project.name}-inventory-drag.png`) });
+  await move(250, 180);
+  await page.mouse.up();
+  await expect(canvas).toHaveAttribute('data-dragging', 'false');
+  expect(await canvas.evaluate(c => c.toDataURL())).toBe(pixels);
+  expect((await exportHeld()).readUInt32LE(60)).toBe(4);
+  await page.locator('#import').setInputFiles({ name: 'drag.dws', mimeType: 'application/octet-stream', buffer: pending });
+  await expect(page.locator('#status')).toContainText('Saved game loaded.');
+  await expect(canvas).toHaveAttribute('data-dragging', 'true');
+  expect(await exportHeld()).toEqual(pending);
+  expect(await canvas.evaluate(c => c.toDataURL())).toBe(pixels);
+  // A matching release ends a restored drag even without host pointer ownership.
+  await page.mouse.up();
+  await expect(canvas).toHaveAttribute('data-dragging', 'false');
+  if (testInfo.project.name === 'chrome') {
+    // Real browser touch dispatch (not DOM PointerEvent synthesis). WebKit's
+    // public Playwright touch API only supplies taps; mouse coverage runs there.
+    await page.locator('#import').setInputFiles(save);
+    await expect(page.locator('#status')).toContainText('Saved game loaded.');
+    await page.locator('#pause').click();
+    await expect(page.locator('#pause')).toHaveText('Pause');
+    const cdp = await page.context().newCDPSession(page);
+    const touch = (x, y) => [{ x: bounds.x + bounds.width * x / 320, y: bounds.y + bounds.height * y / 200, id: 1 }];
+    await cdp.send('Input.dispatchTouchEvent', { type: 'touchStart', touchPoints: touch(140, 110) });
+    await expect(canvas).toHaveAttribute('data-dragging', 'true');
+    await cdp.send('Input.dispatchTouchEvent', { type: 'touchMove', touchPoints: touch(170, 130) });
+    await cdp.send('Input.dispatchTouchEvent', { type: 'touchEnd', touchPoints: [] });
+    await expect(canvas).toHaveAttribute('data-dragging', 'false');
+    await page.locator('#pause').click();
+    await page.waitForTimeout(150);
+    await fs.writeFile(path.join(root, 'assets/saves/browser-chrome-touch-drag.dws'), await exportHeld());
+    await page.screenshot({ path: path.join(root, 'assets/previews/browser-chrome-touch-drag.png') });
+    await cdp.detach();
+  }
+});
+
 test('cold start reaches the original title and accepts Continue', async ({ page }, testInfo) => {
   await page.goto('/');
   await open(page, false);

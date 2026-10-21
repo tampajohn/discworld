@@ -6,6 +6,9 @@ use sdl2::mouse::MouseButton;
 pub struct Buttons([bool; 2]);
 
 impl Buttons {
+    pub fn restored_drag(dragging: bool) -> Self {
+        Self([dragging, false])
+    }
     fn mapped(button: MouseButton) -> Option<(usize, Button)> {
         match button {
             MouseButton::Left => Some((0, Button::Left)),

@@ -56,7 +56,7 @@ the current time. Physical timers are updated before button swapping. Right
 double-click maps to `PLR_NOEVENT`, not a second look action. Each press emits
 drag-start before its click classification; release emits drag-end.
 
-Remaining integration includes original inventory drag behavior,
+Remaining integration includes inventory resizing and slider dragging,
 raw host button delivery, and persisting the physical button classifier. `AllowDclick` is called by polygon,
 actor and inventory-object processes (`dialogs.cpp::ObjectProcess`). Bare-ground
 `WalkProcess` does not call it, so delaying every single-click globally would
@@ -74,7 +74,7 @@ serialization/restoration of a pending wait, and stale ownership rejection.
 `Engine::world_click` attaches this delay/cancellation to newly queued actor
 and polygon scripts; ground walks and look events remain immediate. The existing
 semantic interaction methods retain their timing for recorded routes. Native and browser physical input now reaches these paths. This is not a claim
-of completed original mouse support: inventory dragging, resizing, menus,
+of completed original mouse support: inventory resizing, slider dragging, menus,
 configurable button swapping and timing, and broader gesture parity remain.
 
 Pending click ownership and dispatch phases are persisted in the core save's
@@ -112,7 +112,7 @@ unchanged throughout an ordinary wait, cancelling a saved pending drop with an
 action, exact snapshot continuation, and capacity becoming available during the
 wait. A synthetic hidden window avoids unrelated rendering resources in these
 state tests; browser UI tests separately exercise original inventory rendering.
-Pending ordinary drops require core save version 3. Inventory dragging still needs integration before claiming original input parity.
+Pending ordinary drops require core save version 3. Inventory resizing and slider dragging still need integration before claiming original input parity.
 
 ## Physical input delivery and persistence
 
@@ -121,8 +121,8 @@ through its serialized worker. The default canvas action uses physical left
 clicks (single selects/walks, double acts); right click looks. Explicit action
 and look controls remain available for touch. Browser pointer capture ensures
 release outside the canvas reaches the worker. Releases can update button
-history while paused, without advancing simulation. Inventory window dragging
-is not implemented; drag edges currently only increment user-event counters.
+history while paused, without advancing simulation. Inventory title-bar dragging now moves the original frame, title and icons;
+resizing and slider dragging remain unfinished.
 
 Core save version 4 persists physical button timing with pending click state.
 The regression saves after a first click, restores, then applies the second
@@ -167,12 +167,13 @@ project needs CMake 4's policy-floor compatibility setting, supplied in
 The shared window layout now classifies the English DOS V1 regions from pinned
 `dialogs.cpp::invArea`: outside, eight border/corner regions, title header,
 scroll arrows, page regions, slider thumb, and body. This is the geometry needed
-by `invDragStart`; movement, resizing and thumb dragging are still unfinished.
+by `invDragStart`; header movement is implemented, while resizing and thumb
+dragging are still unfinished.
 The declarations `idec_convw`, `idec_inv1`, and `idec_inv2` make these windows
 movable. The reference starts movement only on a left drag in the header,
 translates frame/background/title/icons by cursor deltas, and ends it on left
-release or an action event. Movement must preserve animation progress, update
-hit regions immediately, and survive save/load before claiming compatibility.
+release or an action event. Header movement preserves animation progress, updates hit regions immediately,
+and persists through save/load as described below.
 
 The region audit found a concrete outside-click bug: V1 `EXTRA=1` includes one
 additional pixel at the right and bottom, beyond the background rectangle's
@@ -192,3 +193,46 @@ Validation passes: 248 enabled workspace tests, both opt-in real-asset inventory
 tests, all-workspace Clippy, native/WASM release builds, and all six Chrome/
 WebKit player tests plus two browser clock tests. The visible native credits
 session was refreshed with the same paused/muted checkpoint and unchanged save.
+
+## Header dragging and saves
+
+Left-button drag start in the original header area records the active inventory
+owner. Each cursor delta translates the existing frame sprites, backdrop, title
+glyphs, icon animations, and all hit regions, without rebuilding their animation
+state. Left release or a double-click action ends the drag. Closing, hiding,
+replacing a window or changing scenes clears its ownership. This applies to
+ordinary and conversation windows; original resizing, slider dragging,
+maximize/unmaximize and hover-cursor changes still remain.
+
+Active drags use core save version 5. Versions 1–4 retain their existing layouts,
+and a completed drag returns to version 4. Invalid owners, absent mouse history,
+hidden/missing windows and mismatched active slots are rejected before loading.
+Coordinate translation checks every addition and commits only after all succeed;
+unrepresentable input cancels the drag without partially moving the window.
+
+The real-asset regression drags the luggage header by (30,20), checks its window
+position and shifted icon cell, then moves back before a tick and compares every
+RGBA pixel. It saves an active drag, reloads it exactly, moves again and releases,
+then compares 24-tick continuations including complete engine/DSP state, pixels
+and audio. Closing a restored drag clears it. Native restores host button
+ownership for a saved drag so its release is retained. The browser forwards
+held touch motion and renders pointer updates immediately; releases can end
+a restored drag even without a preexisting browser pointer ID.
+
+Native acceptance dragged luggage from [100,100] to [130,120] using macOS HID
+motion/down/drag events. The active checkpoint at tick 33,503 is core version 5;
+F9 while paused followed by physical release produced version 4 at the same
+tick and position. Independent headless loads verified both files and the
+translated geometry. The first synthetic attempt omitted a preceding mouse
+motion event and closed the window; only the subsequent normal motion/down/drag
+sequence counts as native drag evidence. Scratch files are
+`assets/saves/sdl-header-drag-{active,retry}.dws`.
+
+Chrome and WebKit tests exercise actual mouse dragging, exact active-drag
+import/export, unchanged pixels on reload, and release while paused. Chrome
+also uses CDP touch start/move/end; its exported save loaded in the native engine
+with luggage position [130,120] and no held item. This is browser touch coverage,
+not physical iPad acceptance. The core tests, three opt-in real-asset checks,
+Clippy, native/WASM builds and the eight browser-player checks pass. Resizing,
+slider dragging, window maximization and broader conversation-drag acceptance
+are still required.

@@ -235,6 +235,8 @@ pub struct Engine {
     pub(crate) clicks: crate::click::State,
     #[serde(skip)]
     pub(crate) mouse: Option<crate::mouse::MouseInput>,
+    #[serde(skip)]
+    pub(crate) inventory_drag: Option<i32>,
     pub movers: std::collections::BTreeMap<i32, crate::mover::Mover>,
     polygon_memory: crate::polygon::EnabledMemory,
     polygon_table: Handle,
@@ -318,6 +320,17 @@ impl Engine {
     }
 
     pub(crate) fn validate_snapshot_structure(&self) -> Result<(), Error> {
+        if let Some(slot) = self.inventory_drag {
+            if !(0..=2).contains(&slot)
+                || self.active_inventory != Some(slot)
+                || self.declarations.windows[slot as usize].is_none()
+                || self.inventory_display.is_none()
+                || self.conversation.hidden
+                || self.mouse.is_none()
+            {
+                return Err(Error("invalid inventory drag owner"));
+            }
+        }
         self.clicks.validate(&self.processes)?;
         for (id, phase) in self.clicks.entries() {
             let process = self
@@ -939,8 +952,7 @@ impl Engine {
         self.left_events = next;
         Ok(())
     }
-    /// Deliver a physical edge at the deterministic engine tick. Window dragging
-    /// is not implemented yet; drag edges still advance the user-event counter.
+    /// Deliver a physical edge at the deterministic engine tick.
     pub fn mouse_button(
         &mut self,
         resources: &Resources<'_>,
@@ -958,6 +970,21 @@ impl Engine {
             vec![mouse.button_up(button, next.ticks as u32, false)]
         };
         for event in events {
+            use crate::mouse::Button;
+            if event == PlayerEvent::DragEnd(Button::Left) || event == PlayerEvent::Action {
+                next.inventory_drag = None;
+            }
+            if event == PlayerEvent::DragStart(Button::Left)
+                && next.control.enabled
+                && !next.conversation.hidden
+                && matches!(next.active_inventory, Some(0..=2))
+                && next.inventory_display.as_ref().is_some_and(|(frame, _)| {
+                    frame.layout.inventory_area_at(next.control.cursor)
+                        == crate::conversation_window::Area::Header
+                })
+            {
+                next.inventory_drag = next.active_inventory;
+            }
             let action = match event {
                 PlayerEvent::WalkTo => PolygonInteraction::WalkTo,
                 PlayerEvent::Action => PolygonInteraction::Action,
@@ -1083,8 +1110,52 @@ impl Engine {
         let old = self.control.cursor;
         self.control.move_cursor(position);
         if self.control.cursor != old {
+            if let Some(slot) = self.inventory_drag {
+                let delta = self.control.cursor[0]
+                    .checked_sub(old[0])
+                    .zip(self.control.cursor[1].checked_sub(old[1]));
+                if delta.is_none_or(|(x, y)| self.translate_inventory(slot, [x, y]).is_err()) {
+                    // Malformed/extreme coordinates must never partly move a window.
+                    self.inventory_drag = None;
+                }
+            }
             self.control.user_event(self.ticks);
         }
+    }
+
+    pub fn inventory_dragging(&self) -> bool {
+        self.inventory_drag.is_some()
+    }
+
+    fn translate_inventory(&mut self, slot: i32, delta: [i32; 2]) -> Result<(), Error> {
+        if self.active_inventory != Some(slot) || self.conversation.hidden {
+            return Err(Error("inactive inventory drag"));
+        }
+        let window = self
+            .declarations
+            .windows
+            .get(slot as usize)
+            .and_then(Option::as_ref)
+            .ok_or(Error("missing drag window"))?;
+        let position = [
+            window.position[0].checked_add(delta[0]),
+            window.position[1].checked_add(delta[1]),
+        ];
+        let position = [
+            position[0].ok_or(Error("inventory movement overflow"))?,
+            position[1].ok_or(Error("inventory movement overflow"))?,
+        ];
+        let (frame, content) = self
+            .inventory_display
+            .as_ref()
+            .ok_or(Error("missing drag display"))?;
+        let display = crate::conversation_window::translated(frame, content, delta)?;
+        self.declarations.windows[slot as usize]
+            .as_mut()
+            .unwrap()
+            .position = position;
+        self.inventory_display = Some(display);
+        Ok(())
     }
 
     /// Queue an already resolved V1 polygon interaction. The host/input layer
@@ -1504,6 +1575,7 @@ impl Engine {
         }
         self.conversation.end();
         self.inventory_display = None;
+        self.inventory_drag = None;
         self.inventory_dirty = false;
     }
 
@@ -1681,6 +1753,7 @@ impl Engine {
             last_interaction_tick: None,
             clicks: crate::click::State::default(),
             mouse: None,
+            inventory_drag: None,
             user_events: 0,
             left_events: 0,
             subtitles: true,
@@ -1954,6 +2027,7 @@ impl Engine {
         self.top_window = None;
         self.conversation.end();
         self.inventory_display = None;
+        self.inventory_drag = None;
         self.inventory_dirty = false;
         self.sample_player.stop();
         self.actor_steps.clear();
@@ -2673,6 +2747,7 @@ impl Engine {
             }
             if self.conversation.polygon.is_some() {
                 self.conversation.hidden = true;
+                self.inventory_drag = None;
             }
         }
         if process.check_control_on_start {
@@ -2943,6 +3018,7 @@ impl Engine {
                     }
                     if self.active_inventory.is_none() && self.top_window.is_none() {
                         self.active_inventory = Some(slot);
+                        self.inventory_drag = None;
                         self.conversation.hidden = false;
                         self.control.tags_enabled = false;
                         self.rebuild_inventory(
@@ -2971,6 +3047,7 @@ impl Engine {
                             &self.declarations.permanent_topics,
                         )? {
                             self.active_inventory = Some(0);
+                            self.inventory_drag = None;
                             self.control.tags_enabled = false;
                             self.rebuild_inventory(resources, strings)?;
                             self.queue_converse(resources, owner)?;
@@ -4184,6 +4261,84 @@ impl Engine {
 #[cfg(test)]
 mod tests {
     use super::*;
+    #[test]
+    fn drag_snapshot_rejects_invalid_owner_and_extreme_motion_is_atomic() {
+        let (master, scene) = fixtures();
+        let resources = Resources(vec![&master, &scene]);
+        let mut engine = Engine::bootstrap(&resources).unwrap();
+        for slot in [i32::MIN, -1, 0, 1, 2, 3, i32::MAX] {
+            engine.inventory_drag = Some(slot);
+            assert_eq!(
+                engine.validate_snapshot_structure(),
+                Err(Error("invalid inventory drag owner"))
+            );
+        }
+        engine.inventory_drag = None;
+        engine.declarations.windows[1] = Some(crate::startup::Window {
+            title: Handle(0),
+            capacity: 10,
+            min: [1, 1],
+            size: [2, 2],
+            max: [3, 3],
+            position: [100, 100],
+            first_display: 0,
+            contents: vec![],
+        });
+        let layout = crate::conversation_window::Layout::inventory(
+            engine.declarations.windows[1].as_ref().unwrap(),
+            [8, 24],
+            40,
+            8,
+        )
+        .unwrap();
+        engine.inventory_display = Some((
+            crate::conversation_window::Frame {
+                layout,
+                parts: vec![],
+            },
+            crate::conversation_window::Content {
+                title: crate::text::Layout { glyphs: vec![] },
+                icons: vec![],
+            },
+        ));
+        engine.active_inventory = Some(1);
+        engine.control.enabled = true;
+        engine.move_cursor([140, 110]);
+        engine.ticks = 10;
+        engine
+            .mouse_button(&resources, crate::mouse::Button::Left, true)
+            .unwrap();
+        assert!(engine.inventory_dragging());
+        let snapshot = crate::save::Snapshot::capture(&engine, [3; 32]);
+        let bytes = snapshot.to_bytes().unwrap();
+        assert_eq!(&bytes[8..12], &5u32.to_le_bytes());
+        assert_eq!(
+            crate::save::Snapshot::from_bytes(&bytes, [3; 32]).unwrap(),
+            snapshot
+        );
+        for hidden in [false, true] {
+            let mut invalid = engine.clone();
+            if hidden {
+                invalid.conversation.hidden = true;
+            } else {
+                invalid.active_inventory = Some(2);
+            }
+            assert!(
+                crate::save::Snapshot::capture(&invalid, [3; 32])
+                    .to_bytes()
+                    .is_err()
+            );
+        }
+        let display = engine.inventory_display.clone();
+        engine.move_cursor([i32::MIN, i32::MAX]);
+        assert!(!engine.inventory_dragging());
+        assert_eq!(engine.inventory_display, display);
+        assert_eq!(
+            engine.declarations.windows[1].as_ref().unwrap().position,
+            [100, 100]
+        );
+    }
+
     fn fixtures() -> (Vec<u8>, Vec<u8>) {
         fn put(b: &mut [u8], at: usize, value: u32) {
             b[at..at + 4].copy_from_slice(&value.to_le_bytes());

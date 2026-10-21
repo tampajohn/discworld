@@ -21,14 +21,14 @@ The host now supports durable player saves. `Snapshot::restore` returns an
 engine after script, audio, polygon, animation and preview checks; the caller
 commits that replacement only after preparing host state. Native F5/F9 and startup `--load` use a combined file; browser persistence remains unfinished. Decoding a snapshot never replaces a running engine.
 
-## Core envelope versions 1–4
+## Core envelope versions 1–5
 
 All envelope integers are little endian. The maximum complete file is 16 MiB.
 
 | Offset | Bytes | Meaning |
 | --- | --- | --- |
 | 0 | 8 | `DWRSAVE` followed by a zero byte |
-| 8 | 4 | Format version: 1; 2 for pending scripted clicks; 3 for pending ordinary drops; 4 for physical mouse history |
+| 8 | 4 | Format version: 1; 2 for pending scripted clicks; 3 for pending ordinary drops; 4 for physical mouse history; 5 for active inventory dragging |
 | 12 | 32 | Host-supplied SHA-256 identity of the original game assets |
 | 44 | 4 | Payload byte length |
 | 48 | 32 | SHA-256 checksum of the payload |
@@ -278,3 +278,14 @@ scheduler ticks before calling `invPutDown`; these checks cover restoration
 across that suspended native task as well as the scripted pickup. They do not
 establish all inventory interactions, cross-platform PCM equality, or physical
 iPad input compatibility. No engine change was required for these checks.
+
+## Active inventory drags
+
+Core version 5 stores `(EngineV1Fields, ClickState, Option<MouseInput>, slot)`
+while a title-bar drag owns an active inventory. Validation requires mouse
+history and a visible, declared window matching that slot. The existing engine
+payload already includes the translated geometry and live animation states.
+Versions 1–4 remain readable and keep their original encoding; after release,
+a mouse-driven session uses version 4 again. The real-asset regression
+`inventory_header_drag_moves_immediately_and_survives_save` validates an exact
+save/reload during movement and subsequent engine/DSP, frame and PCM continuity.

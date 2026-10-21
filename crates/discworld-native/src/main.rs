@@ -222,7 +222,8 @@ fn run() -> Result<(), Box<dyn std::error::Error>> {
     let creator = canvas.texture_creator();
     let mut texture = creator.create_texture_streaming(PixelFormatEnum::RGBA32, 320, 200)?;
     let mut events = sdl.event_pump()?;
-    let mut buttons = input::Buttons::default();
+    let mut buttons = input::Buttons::restored_drag(engine.inventory_dragging());
+    sdl.mouse().capture(buttons.any());
     sdl.mouse().show_cursor(false);
     if replay.is_some() {
         eprintln!(
@@ -230,7 +231,7 @@ fn run() -> Result<(), Box<dyn std::error::Error>> {
         );
     } else {
         eprintln!(
-            "Mouse moves cursor. Single left click walks/selects, double left click acts, right click looks. Space or click during speech advances dialogue. I: pockets. Click inventory cells to pick up/put down. Point at an actor/tag and press A: action, W: walk to, L: look. P: pause. Esc: exit. Click conversation icons to select; Backspace closes the menu. Inventory dragging and complete input compatibility remain unfinished."
+            "Mouse moves cursor. Single left click walks/selects, double left click acts, right click looks. Space or click during speech advances dialogue. I: pockets. Click inventory cells to pick up/put down. Point at an actor/tag and press A: action, W: walk to, L: look. P: pause. Esc: exit. Click conversation icons to select; Backspace closes the menu. Drag inventory title bars to move windows. Resizing, slider dragging and complete input compatibility remain unfinished."
         );
         eprintln!(
             "M: mute/unmute sound. Inventory: wheel or Up/Down scrolls rows; Page Up/Page Down, Home/End navigate; click scrollbar arrows or track."
@@ -301,8 +302,8 @@ fn run() -> Result<(), Box<dyn std::error::Error>> {
                             engine = restored.engine;
                             synth = restored.audio;
                             stopped = false;
-                            buttons = input::Buttons::default();
-                            sdl.mouse().capture(false);
+                            buttons = input::Buttons::restored_drag(engine.inventory_dragging());
+                            sdl.mouse().capture(buttons.any());
                             replay_position = replay.as_ref().map_or(0, |inputs| {
                                 inputs.partition_point(|i| u64::from(i.tick) < engine.ticks)
                             });

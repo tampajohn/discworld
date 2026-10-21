@@ -1,7 +1,7 @@
 import init, { GameUpload } from './pkg/discworld_web.js';
 let game;
 let queue = Promise.resolve();
-const snapshot = () => ({ frame: game.frame(), tick: game.tick().toString(), scene: game.scene() });
+const snapshot = () => ({ frame: game.frame(), tick: game.tick().toString(), scene: game.scene(), dragging: game.inventory_dragging() });
 async function handle({ id, type, ...data }) {
   try {
     let result;
@@ -36,7 +36,7 @@ async function handle({ id, type, ...data }) {
         game.input(data.command);
         result = snapshot();
         break;
-      case 'pointer': game.move_pointer(...data.point); result = {}; break;
+      case 'pointer': game.move_pointer(...data.point); result = snapshot(); break;
       case 'save': result = { bytes: game.save(), tick: game.tick().toString() }; break;
       case 'load': game.load(new Uint8Array(data.bytes)); result = snapshot(); break;
       default: throw new Error('Unknown worker request');

@@ -90,3 +90,81 @@ fn inventory_frame_edge_does_not_close_window() {
     game.input("left-down").unwrap();
     assert_eq!(game.engine.active_inventory(), None);
 }
+
+#[test]
+#[ignore = "requires DISCWORLD_TEST_ISO, DISCWORLD_TEST_SOUNDFONT and DISCWORLD_TEST_SAVE (tick 33200 inventory checkpoint)"]
+fn inventory_header_drag_moves_immediately_and_survives_save() {
+    let read = |name| std::fs::read(std::env::var_os(name).expect(name)).unwrap();
+    let mut game =
+        BrowserGame::new(read("DISCWORLD_TEST_ISO"), read("DISCWORLD_TEST_SOUNDFONT")).unwrap();
+    game.load(&read("DISCWORLD_TEST_SAVE")).unwrap();
+    game.move_pointer(140, 110);
+    let before = game.frame().unwrap();
+    let contents = game.engine.declarations.windows[1]
+        .as_ref()
+        .unwrap()
+        .contents
+        .clone();
+    game.input("left-down").unwrap();
+    assert!(game.inventory_dragging());
+    game.move_pointer(170, 130);
+    assert_eq!(
+        game.engine.declarations.windows[1]
+            .as_ref()
+            .unwrap()
+            .position,
+        [130, 120]
+    );
+    assert_eq!(game.engine.inventory_cell_position(0), Some([148, 152]));
+    // Moving back before a tick restores the complete frame, including all
+    // original text, icon frames and background. No reconstruction occurred.
+    game.move_pointer(140, 110);
+    assert_eq!(game.frame().unwrap(), before);
+    game.move_pointer(170, 130);
+    let pending = game.save().unwrap();
+    assert_eq!(u32::from_le_bytes(pending[60..64].try_into().unwrap()), 5);
+    game.load(&pending).unwrap();
+    assert_eq!(game.save().unwrap(), pending);
+    assert!(game.inventory_dragging());
+    game.move_pointer(180, 120);
+    game.input("left-up").unwrap();
+    assert!(!game.inventory_dragging());
+    assert_eq!(
+        game.engine.declarations.windows[1]
+            .as_ref()
+            .unwrap()
+            .position,
+        [140, 110]
+    );
+    let audio = game.advance(24).unwrap();
+    let frame = game.frame().unwrap();
+    let continued = game.save().unwrap();
+    assert_eq!(u32::from_le_bytes(continued[60..64].try_into().unwrap()), 4);
+    game.load(&pending).unwrap();
+    game.move_pointer(180, 120);
+    game.input("left-up").unwrap();
+    assert_eq!(game.advance(24).unwrap(), audio);
+    assert_eq!(game.frame().unwrap(), frame);
+    assert_eq!(game.save().unwrap(), continued);
+    game.move_pointer(20, 20);
+    assert_eq!(
+        game.engine.declarations.windows[1]
+            .as_ref()
+            .unwrap()
+            .position,
+        [140, 110]
+    );
+    assert_eq!(
+        game.engine.declarations.windows[1]
+            .as_ref()
+            .unwrap()
+            .contents,
+        contents
+    );
+    assert_eq!(game.engine.held_object, -1);
+
+    game.load(&pending).unwrap();
+    game.input("close").unwrap();
+    assert!(!game.inventory_dragging());
+    game.save().unwrap();
+}

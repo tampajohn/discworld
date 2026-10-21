@@ -207,6 +207,9 @@ impl BrowserGame {
     pub fn move_pointer(&mut self, x: i32, y: i32) {
         self.engine.move_cursor([x.clamp(0, 319), y.clamp(0, 199)]);
     }
+    pub fn inventory_dragging(&self) -> bool {
+        self.engine.inventory_dragging()
+    }
     /// Development input vocabulary shared with the native host. Touch UI maps
     /// explicit walk/action/look controls here; original double-click timing is
     /// not claimed by this interface.

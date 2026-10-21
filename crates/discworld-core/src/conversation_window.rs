@@ -389,6 +389,58 @@ pub struct Topic {
     pub id: i32,
     pub animation: Animation,
 }
+
+/// Move an existing window without reconstructing or restarting its icon films.
+/// The caller commits these clones only after every coordinate is checked.
+pub(crate) fn translated(
+    frame: &Frame,
+    content: &Content,
+    delta: [i32; 2],
+) -> Result<(Frame, Content), Error> {
+    let (mut frame, mut content) = (frame.clone(), content.clone());
+    let add = |value: &mut i32, axis: usize| -> Result<(), Error> {
+        *value = value
+            .checked_add(delta[axis])
+            .ok_or(Error("inventory movement overflow"))?;
+        Ok(())
+    };
+    let point = |p: &mut [i32; 2]| -> Result<(), Error> {
+        add(&mut p[0], 0)?;
+        add(&mut p[1], 1)
+    };
+    for (_, p) in &mut frame.layout.parts {
+        point(p)?;
+    }
+    point(&mut frame.layout.title)?;
+    for p in &mut frame.layout.icons {
+        point(p)?;
+    }
+    add(&mut frame.layout.background[0], 0)?;
+    add(&mut frame.layout.background[1], 1)?;
+    if let Some(bar) = &mut frame.layout.scrollbar {
+        add(&mut bar.top, 1)?;
+        add(&mut bar.right, 0)?;
+        add(&mut bar.bottom, 1)?;
+        point(&mut bar.thumb)?;
+        for y in &mut bar.range {
+            add(y, 1)?;
+        }
+    }
+    for animation in frame
+        .parts
+        .iter_mut()
+        .chain(content.icons.iter_mut().map(|i| &mut i.animation))
+    {
+        add(&mut animation.object.x, 0)?;
+        add(&mut animation.object.y, 1)?;
+    }
+    for glyph in &mut content.title.glyphs {
+        add(&mut glyph.x, 0)?;
+        add(&mut glyph.y, 1)?;
+    }
+    Ok((frame, content))
+}
+
 impl Content {
     pub fn new(
         resources: &Resources<'_>,

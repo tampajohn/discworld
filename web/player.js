@@ -3,6 +3,7 @@ const $ = id => document.getElementById(id);
 const canvas = $('game'), context = canvas.getContext('2d', { alpha: false });
 const worker = new Worker(new URL('./worker.js', import.meta.url), { type: 'module' });
 let serial = 0, ready = false, paused = true, muted = true, epoch = 0;
+let dragging = false;
 let busy = false, previous = performance.now(), elapsed = 0;
 let audioContext, gain, audioEnd = 0;
 const sources = new Set(), pending = new Map();
@@ -30,6 +31,7 @@ worker.onerror = event => {
   status(`Player stopped: ${event.message}`, true);
 };
 function draw(result) {
+  if (result.dragging !== undefined) { dragging = result.dragging; canvas.dataset.dragging = String(dragging); }
   if (result.frame) context.putImageData(new ImageData(new Uint8ClampedArray(result.frame), 320, 200), 0, 0);
   if (result.tick !== undefined) { canvas.dataset.tick = result.tick; canvas.dataset.scene = result.scene; }
 }
@@ -114,6 +116,9 @@ $('mute').onclick = async () => {
 };
 async function input(command, point) {
   if (!ready || (paused && !command.endsWith('-up'))) return;
+  // Release ownership while paused, without moving the cursor/window. Match
+  // the native host, which also ignores motion until simulation resumes.
+  if (paused) point = undefined;
   try { draw(await rpc('input', { command, point })); }
   catch (error) { pause(); status(error.message, true); }
 }
@@ -134,7 +139,7 @@ canvas.onpointerdown = event => {
   input(`${button}-down`, point(event));
 };
 function releasePointer(event) {
-  const button = pressedPointers.get(event.pointerId);
+  const button = pressedPointers.get(event.pointerId) || (dragging && event.button === 0 ? 'left' : null);
   if (!button) return;
   pressedPointers.delete(event.pointerId);
   input(`${button}-up`, point(event));
@@ -144,9 +149,9 @@ canvas.onpointercancel = releasePointer;
 canvas.onlostpointercapture = releasePointer;
 let pointerPending = false;
 canvas.onpointermove = async event => {
-  if (!ready || paused || pointerPending || event.pointerType === 'touch') return;
+  if (!ready || paused || pointerPending || (event.pointerType === 'touch' && !pressedPointers.has(event.pointerId))) return;
   pointerPending = true;
-  try { await rpc('pointer', { point: point(event) }); }
+  try { draw(await rpc('pointer', { point: point(event) })); }
   catch (error) { status(error.message, true); }
   finally { pointerPending = false; }
 };
