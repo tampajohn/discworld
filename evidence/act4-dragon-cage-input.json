@@ -9283,29 +9283,29 @@
     "tick": 2538000,
     "scene": "ankhmap.scn",
     "event": "walkto",
+    "polygon": 86
+  },
+  {
+    "tick": 2540000,
+    "scene": "finale.scn",
+    "event": "walkto",
     "actor": 8
   },
   {
-    "tick": 2538100,
-    "scene": "ankhmap.scn",
+    "tick": 2540100,
+    "scene": "finale.scn",
     "event": "inventory_home"
   },
   {
-    "tick": 2538200,
-    "scene": "ankhmap.scn",
+    "tick": 2540200,
+    "scene": "finale.scn",
     "event": "walkto",
     "inventory_slot": 0
   },
   {
-    "tick": 2538300,
-    "scene": "ankhmap.scn",
+    "tick": 2540300,
+    "scene": "finale.scn",
     "event": "close_inventory"
-  },
-  {
-    "tick": 2539000,
-    "scene": "ankhmap.scn",
-    "event": "walkto",
-    "polygon": 86
   },
   {
     "tick": 2541000,
