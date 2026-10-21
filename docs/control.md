@@ -676,3 +676,35 @@ Unsupported. This was a preview harness problem, not evidence for changing the
 reserved blue palette. No independently captured reference image comparison is
 claimed. All267 enabled workspace tests pass; final Clippy and tool tests pass.
 The live player's behavior is unchanged by this presentation-only increment.
+
+
+Confirmation presentation now supports the original Restart/Quit headings
+(config strings10/19), 4x2 configuration frame at98,53, and tick/cross reels
+46..48/40..42 at168,81/128,81. Graphic hit regions exclude all four edges;
+text-button regions remain half-open. ButtonPress models the inventory-process
+coroutine: install normal, sleep1, depressed for2, normal for1, then dispatch
+once; a second press is rejected and cancellation discards the pending action.
+The component is not yet attached to engine scheduling, so this verifies its
+relative steps, not exact physical-input scheduling or live restart behavior.
+
+Asset previews were inspected: assets/previews/original-{restart,quit}-menu.png
+(highlighted accept), original-restart-menu-normal-verified.png and
+original-restart-menu-down-verified.png. All three button images differ.
+Commands: discworld-tools preview-restart-menu ISO FRESH_PNG [STATE], and
+preview-quit-menu with the same arguments; STATE0(default)=highlight,
+1=normal,2=depressed. Initial normal/down preview attempts accidentally omitted
+the effect argument and produced identical images; corrected verified files
+exercise the real state selection. Original menu activation/actions remain
+unconnected. 269 enabled workspace tests pass, with final clean Clippy in
+assets/logs/confirmation-menu-clippy-corrected.log.
+
+Controller source findings for the next increment: dialogs.cpp::eventToInventory
+routes right-click through invWalkTo for menus, and handles provisional left
+click immediately. PLR_ESCAPE from a non-main submenu sets _reOpenMenu, so
+killInventory reopens Main and writes configuration. Clicking a cancel graphic
+instead calls CLOSEWIN/killInventory without setting _reOpenMenu, closing the
+menu entirely. Do not make these two cancellation paths equivalent. AATBUT
+text actions dispatch on the next InventoryProcess pass without ButtonPress;
+AAGBUT/ARSGBUT wait for ButtonPress first. Button effects must be canceled when
+the menu disappears. Host menu wiring and save-slot/settings integration remain
+required; current live player behavior and save format are unchanged.

@@ -25,8 +25,10 @@ fn run() -> Result<(), Box<dyn std::error::Error>> {
     if command == "preview-conversation"
         || command == "preview-inventory"
         || command == "preview-menu"
+        || command == "preview-restart-menu"
+        || command == "preview-quit-menu"
     {
-        return window::preview(path, args, command == "preview-menu");
+        return window::preview(path, args, command.to_str().filter(|c| c.ends_with("menu")));
     }
     if command == "audit-text" {
         if args.next().is_some() {

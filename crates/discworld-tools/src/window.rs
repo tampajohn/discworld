@@ -12,7 +12,7 @@ use discworld_core::{
 pub fn preview(
     path: std::ffi::OsString,
     mut args: impl Iterator<Item = std::ffi::OsString>,
-    menu: bool,
+    menu: Option<&str>,
 ) -> Result<(), Box<dyn std::error::Error>> {
     let output = args.next().ok_or("missing output PNG")?;
     let slot = args
@@ -41,9 +41,9 @@ pub fn preview(
             .collect::<Result<Vec<_>, _>>()?,
     );
     let mut engine = Engine::bootstrap(&resources)?;
-    if menu {
-        if slot != 0 {
-            return Err("menu preview takes no window slot".into());
+    if let Some(kind) = menu {
+        if kind == "preview-menu" && slot != 0 {
+            return Err("main-menu preview takes no image state".into());
         }
         let strings = Strings::new(iso.file("/DISCWLD/ENGLISH.TXT").ok_or("missing text")?)?;
         let bank = discworld_core::audio::SampleBank::new(
@@ -60,13 +60,36 @@ pub fn preview(
                 return Err(format!("menu preview stopped: {call:?}").into());
             }
         }
-        let menu = discworld_core::configuration_menu::MainMenu::new(
-            &resources,
-            &strings,
-            &engine.declarations,
-        )?;
+        use discworld_core::configuration_menu::{
+            ButtonImage, Choice, Confirmation, ConfirmationMenu, MainMenu,
+        };
         let mut surface = engine.render(&resources)?;
-        menu.draw(&resources, &mut surface, Some([100, 43]))?;
+        match kind {
+            "preview-menu" => MainMenu::new(&resources, &strings, &engine.declarations)?.draw(
+                &resources,
+                &mut surface,
+                Some([100, 43]),
+            )?,
+            "preview-restart-menu" | "preview-quit-menu" => {
+                let confirmation = if kind == "preview-restart-menu" {
+                    Confirmation::Restart
+                } else {
+                    Confirmation::Quit
+                };
+                ConfirmationMenu::new(&resources, &strings, &engine.declarations, confirmation)?
+                    .draw(
+                        &resources,
+                        &mut surface,
+                        Some([180, 90]),
+                        match slot {
+                            0 => None,
+                            1 => Some((Choice::Accept, ButtonImage::Normal)),
+                            _ => Some((Choice::Accept, ButtonImage::Down)),
+                        },
+                    )?;
+            }
+            _ => return Err("unknown menu preview".into()),
+        }
         let file = std::fs::OpenOptions::new()
             .write(true)
             .create_new(true)
@@ -78,7 +101,7 @@ pub fn preview(
         println!(
             "{}",
             serde_json::to_string_pretty(&serde_json::json!({
-                "tick": engine.ticks, "highlight": "Load",
+                "tick": engine.ticks, "menu": kind, "button_state": slot, "highlight": if kind == "preview-menu" { "Load" } else { "Accept" },
                 "strings": engine.declarations.config_strings.unwrap()[..8].iter()
                     .map(|h| strings.get(h.0).map(String::from_utf8_lossy)).collect::<Result<Vec<_>, _>>()?,
                 "scope": "Original menu assets and palette rendering over startup; menu activation and actions not connected"

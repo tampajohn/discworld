@@ -346,6 +346,13 @@ impl Frame {
     ) -> Result<Self, Error> {
         Self::build(resources, handle, window, false, false)
     }
+    pub fn configuration(
+        resources: &Resources<'_>,
+        handle: Handle,
+        window: &Window,
+    ) -> Result<Self, Error> {
+        Self::build(resources, handle, window, true, true)
+    }
     pub fn top_window(resources: &Resources<'_>, handle: Handle) -> Result<Self, Error> {
         let window = Window {
             title: Handle(0),
