@@ -500,3 +500,107 @@ fn inventory_header_double_click_preserves_both_geometries_and_saves() {
         [314, 194]
     );
 }
+
+#[test]
+#[ignore = "requires DISCWORLD_TEST_ISO, DISCWORLD_TEST_SOUNDFONT and DISCWORLD_TEST_SAVE"]
+fn inventory_resize_outline_rounding_and_active_save() {
+    let read = |name| std::fs::read(std::env::var_os(name).expect(name)).unwrap();
+    let mut game =
+        BrowserGame::new(read("DISCWORLD_TEST_ISO"), read("DISCWORLD_TEST_SOUNDFONT")).unwrap();
+    let initial = read("DISCWORLD_TEST_SAVE");
+    // Exercise every edge and corner, on both sides of the rounding threshold.
+    for (point, direction) in [
+        ([100, 135], [-1, 0]),
+        ([195, 135], [1, 0]),
+        ([145, 100], [0, -1]),
+        ([145, 173], [0, 1]),
+        ([100, 100], [-1, -1]),
+        ([195, 100], [1, -1]),
+        ([100, 173], [-1, 1]),
+        ([195, 173], [1, 1]),
+    ] {
+        for distance in [12, 13] {
+            game.load(&initial).unwrap();
+            let contents = game.engine.declarations.windows[1]
+                .as_ref()
+                .unwrap()
+                .contents
+                .clone();
+            game.move_pointer(point[0], point[1]);
+            game.input("left-down").unwrap();
+            assert!(game.inventory_dragging(), "{point:?}");
+            let before_outline = game.frame().unwrap();
+            game.move_pointer(
+                point[0] + direction[0] * distance,
+                point[1] + direction[1] * distance,
+            );
+            let frame = game.frame().unwrap();
+            // EMPTY draws only the outline: old contents and translucent
+            // backdrop remain pixel-identical before the next animation tick.
+            for y in 125..160 {
+                for x in 110..180 {
+                    let pixel = (y * 320 + x) * 4;
+                    assert_eq!(&frame[pixel..pixel + 4], &before_outline[pixel..pixel + 4]);
+                }
+            }
+            let active = game.save().unwrap();
+            assert_eq!(u32::from_le_bytes(active[60..64].try_into().unwrap()), 8);
+            game.load(&active).unwrap();
+            assert_eq!(game.frame().unwrap(), frame);
+            assert_eq!(game.save().unwrap(), active);
+            roundtrip_pending(&mut game, 3);
+            game.input("left-up").unwrap();
+            assert!(!game.inventory_dragging());
+            let window = game.engine.declarations.windows[1].as_ref().unwrap();
+            for axis in 0..2 {
+                assert_eq!(
+                    window.size[axis],
+                    [3, 2][axis] + i32::from(distance == 13 && direction[axis] != 0),
+                    "{point:?}, {distance}"
+                );
+                assert_eq!(
+                    window.position[axis],
+                    100 - if direction[axis] < 0 { distance } else { 0 }
+                );
+            }
+            assert_eq!(window.contents, contents);
+            assert_eq!(game.engine.held_object, -1);
+            roundtrip_pending(&mut game, 3);
+        }
+    }
+    // Resizing the maximized window makes the result the new normal size.
+    game.load(&initial).unwrap();
+    game.move_pointer(120, 110);
+    for _ in 0..2 {
+        game.input("left-down").unwrap();
+        game.input("left-up").unwrap();
+    }
+    game.advance(24).unwrap();
+    game.move_pointer(298, 192);
+    game.input("left-down").unwrap();
+    assert!(game.inventory_dragging());
+    game.move_pointer(272, 166);
+    roundtrip_pending(&mut game, 3);
+    game.input("left-up").unwrap();
+    assert_eq!(
+        game.engine.declarations.windows[1].as_ref().unwrap().size,
+        [9, 5]
+    );
+    game.advance(24).unwrap();
+    for expected in [[10, 6], [9, 5]] {
+        let [x, y] = game.engine.declarations.windows[1]
+            .as_ref()
+            .unwrap()
+            .position;
+        game.move_pointer(x + 20, y + 10);
+        for _ in 0..2 {
+            game.input("left-down").unwrap();
+            game.input("left-up").unwrap();
+        }
+        assert_eq!(
+            game.engine.declarations.windows[1].as_ref().unwrap().size,
+            expected
+        );
+        roundtrip_pending(&mut game, 24);
+    }
+}

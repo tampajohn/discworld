@@ -77,7 +77,7 @@ The player supports explicit walk/select, action, look, pockets, conversation
 continuation, close and inventory scrolling through touch or keyboard. Default canvas input now delivers physical press/release edges to the shared
 V1 classifier and timed world/inventory dispatch; explicit action controls
 remain available. Title-bar dragging forwards held pointer/touch motion to the shared engine;
-resizing and complete original input parity remain unfinished. Pointer coordinates are mapped from the displayed canvas rectangle.
+border/corner resizing is implemented; interrupted resize cases and complete original input parity remain unfinished. Pointer coordinates are mapped from the displayed canvas rectangle.
 Canvas scaling preserves 8:5 aspect and the original indexed image/font output.
 
 Manual saves use one IndexedDB slot per origin, committed as a transaction.

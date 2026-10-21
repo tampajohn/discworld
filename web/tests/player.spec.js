@@ -306,3 +306,50 @@ test('inventory title double click maximizes and restores across a save', async 
   await fs.writeFile(path.join(root, `assets/saves/browser-${testInfo.project.name}-maximized-restored.dws`),restored);
   await page.screenshot({ path: path.join(root, `assets/previews/browser-${testInfo.project.name}-maximized-restored.png`) });
 });
+
+test('inventory corner resize preserves outline and releases after reload', async ({ page }, testInfo) => {
+  await page.goto('/');
+  await open(page);
+  const canvas = page.locator('#game');
+  const bounds = await canvas.boundingBox();
+  const move = (x, y) => page.mouse.move(bounds.x + bounds.width * x / 320, bounds.y + bounds.height * y / 200);
+  const exportHeld = async () => {
+    const download = page.waitForEvent('download');
+    await page.evaluate(() => document.querySelector('#export').click());
+    return fs.readFile(await (await download).path());
+  };
+  await page.locator('#pause').click();
+  // Play awaits AudioContext.resume(); a completed DOM click is not readiness.
+  await expect(page.locator('#pause')).toHaveText('Pause');
+  await move(194, 172);
+  await page.mouse.down();
+  await expect(canvas).toHaveAttribute('data-dragging', 'true');
+  await move(207, 185);
+  const movedTick = Number(await canvas.getAttribute('data-tick'));
+  await expect.poll(async () => Number(await canvas.getAttribute('data-tick'))).toBeGreaterThan(movedTick + 1);
+  await page.keyboard.press('p');
+  await expect(page.locator('#pause')).toHaveText('Play');
+  await page.waitForTimeout(150);
+  const pending = await exportHeld();
+  expect(pending.readUInt32LE(60)).toBe(8);
+  const pixels = await canvas.evaluate(c => c.toDataURL());
+  await fs.writeFile(path.join(root, `assets/saves/browser-${testInfo.project.name}-resize-active.dws`), pending);
+  await page.screenshot({ path: path.join(root, `assets/previews/browser-${testInfo.project.name}-resize-active.png`) });
+  await page.mouse.up();
+  await expect(canvas).toHaveAttribute('data-dragging', 'false');
+  await page.locator('#import').setInputFiles({ name: 'resize.dws', mimeType: 'application/octet-stream', buffer: pending });
+  await expect(page.locator('#status')).toContainText('Saved game loaded.');
+  await expect(canvas).toHaveAttribute('data-dragging', 'true');
+  expect(await exportHeld()).toEqual(pending);
+  expect(await canvas.evaluate(c => c.toDataURL())).toBe(pixels);
+  await page.mouse.up();
+  await expect(canvas).toHaveAttribute('data-dragging', 'false');
+  expect((await exportHeld()).readUInt32LE(60)).toBe(4);
+  await page.locator('#pause').click();
+  const releasedTick = Number(await canvas.getAttribute('data-tick'));
+  await expect.poll(async () => Number(await canvas.getAttribute('data-tick'))).toBeGreaterThan(releasedTick + 1);
+  await page.keyboard.press('p');
+  await expect(page.locator('#pause')).toHaveText('Play');
+  await page.waitForTimeout(150);
+  await fs.writeFile(path.join(root, `assets/saves/browser-${testInfo.project.name}-resize-released.dws`), await exportHeld());
+});

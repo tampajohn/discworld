@@ -109,7 +109,7 @@ Physical mouse input uses shared single/double-click timing; explicit developmen
 | Scrollbar arrows/track | Scroll using the original inventory graphics |
 | **M**, **P**, **Esc** | Mute, pause, exit |
 
-Point at the Luggage and use Action to open its inventory. Drag an inventory title bar to move its window, or drag its scrollbar thumb to browse items. Double-click a resizable inventory title bar to maximize it or restore its previous size. Inventory actions execute the original item scripts; storage restrictions are game behavior. The renderer uses the game's fonts and graphics. Inventory resizing, hover-label arbitration, complete click/touch parity and physical iPad controls remain unfinished.
+Point at the Luggage and use Action to open its inventory. Drag an inventory title bar to move its window, its scrollbar thumb to browse items, or its edges/corners to resize it. Double-click a resizable inventory title bar to maximize it or restore its previous size. Inventory actions execute the original item scripts; storage restrictions are game behavior. The renderer uses the game's fonts and graphics. Hover-label arbitration, interrupted resize edge cases, complete click/touch parity and physical iPad controls remain unfinished.
 
 ## What works, and what remains
 

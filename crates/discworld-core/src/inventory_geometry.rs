@@ -29,6 +29,12 @@ impl State {
     pub fn close(&mut self, slot: usize) {
         self.windows[slot].maximized = self.active_maximized;
     }
+    pub fn resized(&mut self, slot: usize, position: [i32; 2]) {
+        if self.active_maximized {
+            self.active_maximized = false;
+            self.windows[slot].other = position;
+        }
+    }
     pub fn toggle(&mut self, slot: usize, window: &mut Window) -> Result<bool, Error> {
         // V1 requires BOTH dimensions to vary, not either one.
         if window.max[0] == window.min[0] || window.max[1] == window.min[1] {

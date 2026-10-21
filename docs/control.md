@@ -352,3 +352,61 @@ Clippy, native/WASM builds, twelve browser-player checks and two clock checks
 pass. The slider regression additionally saves and resumes a scrollbar drag
 after maximization history exists, verifying the combined version-7 payload.
 Physical iPad input and full original menu/resize behavior remain unverified.
+
+### Border and corner resize integration
+
+Ordinary inventories now accept all eight edge/corner drags when both declared
+size ranges vary. The implementation follows the pinned V1 `invDragStart`,
+`xMovement`/`yMovement`, `changeingSize`, `constructInventory(EMPTY/FULL)` and
+`invDragEnd`: X movement precedes Y, limit overshoot is retained, top/left
+movement compensates the window origin, and partial cells round up only above
+12 pixels on release. Release rebuilds the full original frame and icons and
+clears active maximization, retaining the resized window as the normal size.
+
+During the drag, original resize corner reels 21/22/17/23 and filler reels form
+an outline at z=22 over the existing inventory. The outline has no additional
+backdrop or title. The normal backdrop, title and animated contents remain
+visible. The first motion creates the outline. Extreme coordinates cancel the
+gesture atomically and restore its initial size and position.
+
+The real-asset regression covers every edge/corner at the 12/13-pixel threshold,
+exact mid-drag save/pixel restoration, identical engine/DSP/audio continuation,
+release after restoring, unchanged item membership and held state, and resizing
+an expanded window followed by maximizing/restoring its new normal dimensions.
+The default workspace suite and Clippy pass. Browser and native gesture
+acceptance are recorded separately below when complete. Closing or changing
+inventory contents during a held resize, hover-cursor fidelity, original menus,
+and physical iPad gesture acceptance still require further reference checks.
+
+Chrome and WebKit both pass the actual pointer corner-drag test: save while held
+(version 8), import/export exact bytes and pixels, release while paused after
+reload, and resume. All 14 player checks plus the two clock checks pass. Saves
+are `assets/saves/browser-{chrome,webkit}-resize-{active,released}.dws`; screenshots
+are `assets/previews/browser-{chrome,webkit}-resize-active.png`. Independent
+native loads verify the released window is 4×3 at [100,100], with no held item.
+
+Native HID acceptance at tick 33,215 uses
+`assets/saves/native-resize-active-retry.dws` (version 8),
+`native-resize-released.dws` and `native-resize-reloaded-released.dws` (version 4).
+Both release paths produce 4×3 at [100,100]; the second restores the active save
+with F9 first. Independent headless loads confirm the geometry and empty hand.
+The first synthetic attempt (`native-resize-active.dws`) received unintended
+leftward motion from the physical cursor position. The retry explicitly warped
+the cursor before each synthetic event and passed; the first attempt is retained
+as diagnostic evidence, not counted as successful acceptance.
+
+Validation totals: 258 enabled workspace tests; seven opt-in real-asset tests;
+Clippy with warnings denied; release native/tools and WASM builds. A subsequent
+bounds-validation tightening rejects malformed resize minimum/maximum values;
+the real-asset resize/maximization regression and Clippy were rerun afterward.
+
+The final focused browser rerun exposed a test readiness race in WebKit: the
+script sent pointer-down while Play was still awaiting `AudioContext.resume()`.
+The player correctly ignored input while paused. The resize test now waits for
+the button to report `Pause` before beginning the gesture, rather than assuming
+that completion of the DOM click means asynchronous startup has finished.
+The corrected focused test passes in both Chrome and WebKit on the final WASM
+build. Visible native gameplay was refreshed from tick 85,613, running and muted,
+with its state preserved in `assets/saves/playable-inventory-maximized.dws` and
+future saves directed to `playable-inventory-resize.dws`. The inspected screenshot
+is `assets/previews/inventory-resize-current-native.png`.

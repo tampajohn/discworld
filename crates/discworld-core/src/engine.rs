@@ -240,6 +240,8 @@ pub struct Engine {
     #[serde(skip)]
     pub(crate) inventory_slider: Option<crate::inventory_slider::Drag>,
     #[serde(skip)]
+    pub(crate) inventory_resize: Option<crate::inventory_resize::Drag>,
+    #[serde(skip)]
     pub(crate) inventory_geometry: crate::inventory_geometry::State,
     pub movers: std::collections::BTreeMap<i32, crate::mover::Mover>,
     polygon_memory: crate::polygon::EnabledMemory,
@@ -313,6 +315,7 @@ impl Engine {
                     .states()
                     .filter_map(|p| p.play_wait.as_ref().map(|w| &w.1)),
             )
+            .chain(self.inventory_resize.iter().flat_map(|r| r.animations()))
             .chain(self.held_cursor.iter().map(|c| &c.animation))
             .chain(self.top_window.iter().flat_map(|f| &f.parts))
             .chain(self.inventory_display.iter().flat_map(|(f, _)| &f.parts))
@@ -345,6 +348,19 @@ impl Engine {
                 .and_then(|(frame, _)| frame.layout.scrollbar.as_ref())
                 .ok_or(Error("missing saved slider"))?;
             slider.validate(bar)?;
+        }
+        if let Some(resize) = &self.inventory_resize {
+            let Some(slot @ (1 | 2)) = self.inventory_drag else {
+                return Err(Error("invalid resize owner"));
+            };
+            if self.inventory_slider.is_some() {
+                return Err(Error("conflicting inventory gestures"));
+            }
+            resize.validate(
+                self.declarations.windows[slot as usize]
+                    .as_ref()
+                    .ok_or(Error("missing resize window"))?,
+            )?;
         }
         self.inventory_geometry
             .validate(&self.declarations.windows, self.active_inventory)?;
@@ -989,7 +1005,7 @@ impl Engine {
         for event in events {
             use crate::mouse::Button;
             if event == PlayerEvent::DragEnd(Button::Left) || event == PlayerEvent::Action {
-                next.finish_inventory_drag();
+                next.finish_inventory_drag(resources)?;
             }
             if event == PlayerEvent::DragStart(Button::Left)
                 && next.control.enabled
@@ -1002,6 +1018,7 @@ impl Engine {
                         Area::Header => {
                             next.inventory_drag = next.active_inventory;
                             next.inventory_slider = None;
+                            next.inventory_resize = None;
                         }
                         Area::Thumb if matches!(next.active_inventory, Some(1 | 2)) => {
                             let window = next.declarations.windows
@@ -1013,9 +1030,33 @@ impl Engine {
                                 .scrollbar
                                 .as_ref()
                                 .ok_or(Error("missing slider"))?;
+                            next.inventory_resize = None;
                             next.inventory_slider =
                                 Some(crate::inventory_slider::Drag::new(window, bar)?);
                             next.inventory_drag = next.active_inventory;
+                        }
+                        area if matches!(next.active_inventory, Some(1 | 2)) => {
+                            if let Some(direction) = crate::inventory_resize::Drag::direction(area)
+                            {
+                                let window = next.declarations.windows
+                                    [next.active_inventory.unwrap() as usize]
+                                    .as_ref()
+                                    .ok_or(Error("missing resize window"))?;
+                                if window.min[0] != window.max[0] && window.min[1] != window.max[1]
+                                {
+                                    next.inventory_resize =
+                                        Some(crate::inventory_resize::Drag::new(
+                                            resources,
+                                            next.declarations
+                                                .window_parts
+                                                .ok_or(Error("missing window parts"))?,
+                                            window,
+                                            direction,
+                                        )?);
+                                    next.inventory_drag = next.active_inventory;
+                                    next.inventory_slider = None;
+                                }
+                            }
                         }
                         _ => {}
                     }
@@ -1159,9 +1200,15 @@ impl Engine {
                     .checked_sub(old[0])
                     .zip(self.control.cursor[1].checked_sub(old[1]));
                 if delta.is_none_or(|(x, y)| self.move_inventory_drag(slot, [x, y]).is_err()) {
+                    if let Some(resize) = self.inventory_resize.take() {
+                        if let Some(window) = &mut self.declarations.windows[slot as usize] {
+                            resize.cancel(window);
+                        }
+                    }
                     // Malformed/extreme coordinates must never partly move a window.
                     self.inventory_drag = None;
                     self.inventory_slider = None;
+                    self.inventory_resize = None;
                 }
             }
             self.control.user_event(self.ticks);
@@ -1182,6 +1229,16 @@ impl Engine {
         if !self.inventory_geometry.toggle(slot as usize, window)? {
             return Ok(());
         }
+        self.reconstruct_inventory(resources)
+    }
+
+    fn reconstruct_inventory(&mut self, resources: &Resources<'_>) -> Result<(), Error> {
+        let slot = self
+            .active_inventory
+            .ok_or(Error("missing active inventory"))?;
+        let window = self.declarations.windows[slot as usize]
+            .as_mut()
+            .ok_or(Error("missing inventory declaration"))?;
         crate::inventory::adjust_top(window);
         let handle = self
             .declarations
@@ -1226,7 +1283,20 @@ impl Engine {
         Ok(())
     }
 
-    fn finish_inventory_drag(&mut self) {
+    fn finish_inventory_drag(&mut self, resources: &Resources<'_>) -> Result<(), Error> {
+        if let Some(resize) = self.inventory_resize.take() {
+            let slot = self.inventory_drag.ok_or(Error("missing resize owner"))?;
+            let window = self.declarations.windows[slot as usize]
+                .as_mut()
+                .ok_or(Error("missing resize window"))?;
+            resize.finish(window);
+            self.reconstruct_inventory(resources)?;
+            let position = self.declarations.windows[slot as usize]
+                .as_ref()
+                .unwrap()
+                .position;
+            self.inventory_geometry.resized(slot as usize, position);
+        }
         if let Some(slider) = self.inventory_slider.take() {
             if let Some(slot @ (1 | 2)) = self.inventory_drag {
                 if let Some(window) = &mut self.declarations.windows[slot as usize] {
@@ -1236,9 +1306,19 @@ impl Engine {
             }
         }
         self.inventory_drag = None;
+        Ok(())
     }
 
     fn move_inventory_drag(&mut self, slot: i32, delta: [i32; 2]) -> Result<(), Error> {
+        if let Some(mut resize) = self.inventory_resize.clone() {
+            let mut window = self.declarations.windows[slot as usize]
+                .clone()
+                .ok_or(Error("missing resize window"))?;
+            resize.move_by(&mut window, delta)?;
+            self.declarations.windows[slot as usize] = Some(window);
+            self.inventory_resize = Some(resize);
+            return Ok(());
+        }
         let Some(mut slider) = self.inventory_slider.clone() else {
             return self.translate_inventory(slot, delta);
         };
@@ -1713,6 +1793,7 @@ impl Engine {
         self.inventory_display = None;
         self.inventory_drag = None;
         self.inventory_slider = None;
+        self.inventory_resize = None;
         self.inventory_dirty = false;
     }
 
@@ -1942,6 +2023,7 @@ impl Engine {
             mouse: None,
             inventory_drag: None,
             inventory_slider: None,
+            inventory_resize: None,
             inventory_geometry: crate::inventory_geometry::State::default(),
             user_events: 0,
             left_events: 0,
@@ -2221,6 +2303,7 @@ impl Engine {
         self.inventory_display = None;
         self.inventory_drag = None;
         self.inventory_slider = None;
+        self.inventory_resize = None;
         self.inventory_dirty = false;
         self.sample_player.stop();
         self.actor_steps.clear();
@@ -2942,6 +3025,7 @@ impl Engine {
                 self.conversation.hidden = true;
                 self.inventory_drag = None;
                 self.inventory_slider = None;
+                self.inventory_resize = None;
             }
         }
         if process.check_control_on_start {
@@ -3215,6 +3299,7 @@ impl Engine {
                         self.inventory_geometry.open(slot as usize);
                         self.inventory_drag = None;
                         self.inventory_slider = None;
+                        self.inventory_resize = None;
                         self.conversation.hidden = false;
                         self.control.tags_enabled = false;
                         self.rebuild_inventory(
@@ -3246,6 +3331,7 @@ impl Engine {
                             self.inventory_geometry.open(0);
                             self.inventory_drag = None;
                             self.inventory_slider = None;
+                            self.inventory_resize = None;
                             self.control.tags_enabled = false;
                             self.rebuild_inventory(resources, strings)?;
                             self.queue_converse(resources, owner)?;
@@ -4423,6 +4509,9 @@ impl Engine {
             if let Some((frame, content)) = &self.inventory_display {
                 frame.draw(resources, &mut result)?;
                 content.draw(resources, &mut result)?;
+                if let Some(resize) = &self.inventory_resize {
+                    result.draw_animations_ordered(resources, resize.overlay.iter(), [0, 0])?;
+                }
             }
         }
         if self.top_window.is_none() {

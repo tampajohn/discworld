@@ -321,3 +321,16 @@ Version 7 is emitted only when geometry differs from its initial state. Otherwis
 the previous version-selection rules apply, retaining byte-compatible encodings
 for versions 1–6. Legacy saves start with the original default alternate position
 [21,15] and no maximized flags.
+
+### Active border/corner resizing
+
+Core version 8 stores `(EngineV1Fields, ClickState, Option<MouseInput>,
+Option<owner>, InventoryGeometry, ResizeDrag)` only while a resize is active.
+The gesture includes its direction, retained axis deltas, partial-cell offsets,
+initial geometry, original corner dimensions, prepared reel animations and
+current outline. The pre-existing full inventory frame remains in Engine fields.
+Validation requires a visible ordinary inventory owner, no simultaneous slider,
+bounded geometry and partial offsets, the complete required reel set and an
+outline matching its saved geometry. Animation resources undergo the existing
+snapshot validation. Version 1–7 encodings remain unchanged when no resize is
+active. Release returns to the applicable earlier version.

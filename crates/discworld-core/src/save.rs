@@ -12,6 +12,7 @@ const MOUSE_VERSION: u32 = 4;
 const DRAG_VERSION: u32 = 5;
 const SLIDER_VERSION: u32 = 6;
 const GEOMETRY_VERSION: u32 = 7;
+const RESIZE_VERSION: u32 = 8;
 const HEADER: usize = 80;
 pub const MAX_SAVE_BYTES: usize = 16 * 1024 * 1024;
 
@@ -83,7 +84,16 @@ impl Snapshot {
         self.state.validate_snapshot_structure()?;
         let extended = self.state.clicks != crate::click::State::default();
         let geometry = self.state.inventory_geometry != crate::inventory_geometry::State::default();
-        let payload = if geometry {
+        let payload = if let Some(resize) = &self.state.inventory_resize {
+            postcard::to_allocvec(&(
+                &self.state,
+                &self.state.clicks,
+                &self.state.mouse,
+                self.state.inventory_drag,
+                &self.state.inventory_geometry,
+                resize,
+            ))
+        } else if geometry {
             postcard::to_allocvec(&(
                 &self.state,
                 &self.state.clicks,
@@ -116,7 +126,9 @@ impl Snapshot {
         let mut bytes = Vec::with_capacity(HEADER + payload.len());
         bytes.extend_from_slice(MAGIC);
         bytes.extend_from_slice(
-            &(if geometry {
+            &(if self.state.inventory_resize.is_some() {
+                RESIZE_VERSION
+            } else if geometry {
                 GEOMETRY_VERSION
             } else if self.state.inventory_slider.is_some() {
                 SLIDER_VERSION
@@ -158,6 +170,7 @@ impl Snapshot {
             DRAG_VERSION,
             SLIDER_VERSION,
             GEOMETRY_VERSION,
+            RESIZE_VERSION,
         ]
         .contains(&word(8))
         {
@@ -173,7 +186,24 @@ impl Snapshot {
         if Sha256::digest(payload)[..] != bytes[48..80] {
             return Err(Error("save checksum mismatch"));
         }
-        let (state, remaining) = if word(8) == GEOMETRY_VERSION {
+        let (state, remaining) = if word(8) == RESIZE_VERSION {
+            let ((mut state, clicks, mouse, owner, geometry, resize), remaining) =
+                postcard::take_from_bytes::<(
+                    Engine,
+                    crate::click::State,
+                    Option<crate::mouse::MouseInput>,
+                    Option<i32>,
+                    crate::inventory_geometry::State,
+                    crate::inventory_resize::Drag,
+                )>(payload)
+                .map_err(|_| Error("invalid snapshot resize payload"))?;
+            state.clicks = clicks;
+            state.mouse = mouse;
+            state.inventory_drag = owner;
+            state.inventory_geometry = geometry;
+            state.inventory_resize = Some(resize);
+            (state, remaining)
+        } else if word(8) == GEOMETRY_VERSION {
             let ((mut state, clicks, mouse, owner, slider, geometry), remaining) =
                 postcard::take_from_bytes::<(
                     Engine,
