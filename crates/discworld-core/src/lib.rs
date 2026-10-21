@@ -14,6 +14,7 @@ pub mod indexed_surface;
 pub mod inventory;
 pub mod iso;
 pub mod library;
+pub mod mouse;
 pub mod mover;
 pub mod music;
 pub mod music_player;

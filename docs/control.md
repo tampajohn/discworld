@@ -18,8 +18,9 @@ ScummVM `96b42d42bc8533953bdd701db059cc33c839a9ff`, inspect
   holding the left-button token. Double-left acquires that token to cancel the
   pending single-click process. This is more than mapping browser `dblclick` to
   an action after an immediate walk has already run.
-- Control is checked again after that wait. Dispatch must not proceed if a
-  script disabled control while the click was pending.
+- Polygon scripts check control again after that wait. Actor and inventory
+  object processes do not have that second check in their V1 branches; a shared
+  delay must preserve this distinction.
 - `PlayerEvent` advances user/left-event counters before its control check, so
   input during disabled control can still interrupt waiting speech.
 - V1 routes walk/action/look to inventory handling when inventory is active.
@@ -37,6 +38,32 @@ the pending click, speech interruption, inventory/conversation routing, and
 equivalent native/browser behavior. These cases are not established by the
 full semantic-input route. Original menus, cursor trails and keyboard cursor
 behavior also need their own acceptance evidence.
+
+### Physical button classifier
+
+`discworld_core::mouse::MouseInput` implements the first stage of the reference's
+V1 `MouseProcess`. It is not yet connected to the hosts, which still use the
+immediate development controls. Five tests cover strict threshold comparison,
+timing from release rather than press, ending a double-click pair, independent
+left/right timers, swapped buttons, drag-event order, the initial-click quirk,
+32-bit clock wrap, a zero threshold, and serialization midway through a pair.
+
+The reference initializes both prior-release times to the current tick, uses a
+default threshold of 10 ticks, and classifies a down event as double when the
+wrapping elapsed time is strictly less than the threshold. On a double's release
+it subtracts the threshold from the prior release time rather than recording
+the current time. Physical timers are updated before button swapping. Right
+double-click maps to `PLR_NOEVENT`, not a second look action. Each press emits
+drag-start before its click classification; release emits drag-end.
+
+Integration still requires script-token ownership/cancellation in the scheduler,
+capturing the correct target at dispatch time, original inventory drag behavior,
+and including pending input in save/load. `AllowDclick` is called by polygon,
+actor and inventory-object processes (`dialogs.cpp::ObjectProcess`). Bare-ground
+`WalkProcess` does not call it, so delaying every single-click globally would
+change the original movement behavior. A browser `dblclick` callback alone
+cannot reproduce these rules. Raw native/browser button events must feed the
+shared classifier only when this dispatch stage is ready.
 
 ## Initial implementation evidence
 
