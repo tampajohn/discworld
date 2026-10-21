@@ -91,14 +91,14 @@ cargo run --release -p discworld-native -- \
 
 ### Play interactively
 
-These are development bindings, not yet the original click/double-click interface.
+Physical mouse input uses shared single/double-click timing; explicit development bindings remain available. Full input compatibility is still under validation.
 
 | Control | Action |
 | --- | --- |
 | Mouse | Position the original game cursor |
-| Left click / **W** | Walk to a point or target; pick up/put down an inventory item |
-| **A** | Action on the pointed actor, object, or inventory item |
-| **L** | Look at the pointed target |
+| Single left click / **W** | Walk to a point or target; pick up/put down an inventory item |
+| Double left click / **A** | Action on the pointed actor, object, or inventory item |
+| Right click / **L** | Look at the pointed target |
 | **I** | Open pockets |
 | **Backspace** | Close inventory/conversation |
 | Space / click during speech | Advance dialogue/waits |
@@ -108,7 +108,7 @@ These are development bindings, not yet the original click/double-click interfac
 | Scrollbar arrows/track | Scroll using the original inventory graphics |
 | **M**, **P**, **Esc** | Mute, pause, exit |
 
-Point at the Luggage and use Action to open its inventory. Inventory actions execute the original item scripts; storage restrictions are game behavior. The renderer uses the game's fonts and graphics. Slider dragging, inventory resizing, hover-label arbitration, original click timing, and touch controls remain unfinished.
+Point at the Luggage and use Action to open its inventory. Inventory actions execute the original item scripts; storage restrictions are game behavior. The renderer uses the game's fonts and graphics. Slider dragging, inventory resizing, hover-label arbitration, complete click/touch parity and physical iPad controls remain unfinished.
 
 ## What works, and what remains
 

@@ -225,7 +225,7 @@ fn run() -> Result<(), Box<dyn std::error::Error>> {
         );
     } else {
         eprintln!(
-            "Mouse moves cursor. Left click walks/interacts. Space or click during speech advances dialogue. I: pockets. Click inventory cells to pick up/put down. Point at an actor/tag and press A: action, W: walk to, L: look. P: pause. Esc: exit. Click conversation icons to select; Backspace closes the menu. Inventory and original click arbitration are unfinished."
+            "Mouse moves cursor. Single left click walks/selects, double left click acts, right click looks. Space or click during speech advances dialogue. I: pockets. Click inventory cells to pick up/put down. Point at an actor/tag and press A: action, W: walk to, L: look. P: pause. Esc: exit. Click conversation icons to select; Backspace closes the menu. Inventory dragging and complete input compatibility remain unfinished."
         );
         eprintln!(
             "M: mute/unmute sound. Inventory: wheel or Up/Down scrolls rows; Page Up/Page Down, Home/End navigate; click scrollbar arrows or track."
@@ -240,6 +240,7 @@ fn run() -> Result<(), Box<dyn std::error::Error>> {
     }
     let mut stopped = false;
     let mut left_down = false;
+    let mut right_down = false;
     let mut frames = 0u64;
     let mut save_notice = String::new();
     eprintln!("F5: save. F9: load. Save file: {}", save_path.display());
@@ -283,6 +284,7 @@ fn run() -> Result<(), Box<dyn std::error::Error>> {
                     synth = restored.audio;
                     stopped = false;
                     left_down = window.get_mouse_down(MouseButton::Left);
+                    right_down = window.get_mouse_down(MouseButton::Right);
                     replay_position = replay.as_ref().map_or(0, |inputs| {
                         inputs.partition_point(|i| u64::from(i.tick) < engine.ticks)
                     });
@@ -357,17 +359,15 @@ fn run() -> Result<(), Box<dyn std::error::Error>> {
                     }
                 }
                 let left = window.get_mouse_down(MouseButton::Left);
-                if left && !left_down {
-                    if engine.control.enabled && engine.active_inventory().is_none() {
-                        eprintln!(
-                            "input tick={} scene={} point={:?} event=walkto",
-                            engine.ticks,
-                            index[engine.scene.resource()].name,
-                            engine.control.cursor
-                        );
-                    }
-                    engine.primary_click(&resources)?;
-                } else if window.is_key_pressed(Key::Space, KeyRepeat::No) {
+                let right = window.get_mouse_down(MouseButton::Right);
+                if left != left_down {
+                    engine.mouse_button(&resources, discworld_core::mouse::Button::Left, left)?;
+                }
+                if right != right_down {
+                    engine.mouse_button(&resources, discworld_core::mouse::Button::Right, right)?;
+                }
+                right_down = right;
+                if window.is_key_pressed(Key::Space, KeyRepeat::No) {
                     engine.left_event()?;
                 }
                 if window.is_key_pressed(Key::Backspace, KeyRepeat::No) {

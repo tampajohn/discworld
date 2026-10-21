@@ -21,14 +21,14 @@ The host now supports durable player saves. `Snapshot::restore` returns an
 engine after script, audio, polygon, animation and preview checks; the caller
 commits that replacement only after preparing host state. Native F5/F9 and startup `--load` use a combined file; browser persistence remains unfinished. Decoding a snapshot never replaces a running engine.
 
-## Core envelope versions 1, 2 and 3
+## Core envelope versions 1–4
 
 All envelope integers are little endian. The maximum complete file is 16 MiB.
 
 | Offset | Bytes | Meaning |
 | --- | --- | --- |
 | 0 | 8 | `DWRSAVE` followed by a zero byte |
-| 8 | 4 | Format version: 1; 2 for pending scripted clicks; 3 for pending ordinary drops |
+| 8 | 4 | Format version: 1; 2 for pending scripted clicks; 3 for pending ordinary drops; 4 for physical mouse history |
 | 12 | 32 | Host-supplied SHA-256 identity of the original game assets |
 | 44 | 4 | Payload byte length |
 | 48 | 32 | SHA-256 checksum of the payload |
@@ -221,5 +221,10 @@ are appropriate. A pending single click survives decoding and can be cancelled
 by a double click before executing its original script. Version 3 adds pending ordinary inventory-drop phases and their absolute insertion
 index. Version 2 files remain readable; states containing these new phases must
 identify themselves as version 3. Drop owner processes and saved indices are
-validated before activation. Physical mouse classifier persistence and raw host
-input wiring remain unfinished.
+validated before activation. Physical mouse classifier persistence and raw host input wiring are covered
+by version 4 below; complete input compatibility remains unfinished.
+
+Core version 4 stores `(EngineV1Fields, ClickState, MouseInput)` so a partial
+physical click pair survives save/reload. Versions 1–3 remain readable and keep
+their original field layouts. A session without physical input still emits its
+previous compatible version. Raw button history resets at script-driven restart.

@@ -74,9 +74,10 @@ Pausing stops queued sources; an epoch prevents in-flight audio from playing
 after pause/load. Hidden pages and interrupted audio pause the simulation.
 
 The player supports explicit walk/select, action, look, pockets, conversation
-continuation, close and inventory scrolling through touch or keyboard. This is
-the same development input vocabulary as native, not original double-click
-arbitration. Pointer coordinates are mapped from the displayed canvas rectangle.
+continuation, close and inventory scrolling through touch or keyboard. Default canvas input now delivers physical press/release edges to the shared
+V1 classifier and timed world/inventory dispatch; explicit action controls
+remain available. Dragging/resizing and complete original input parity remain
+unverified. Pointer coordinates are mapped from the displayed canvas rectangle.
 Canvas scaling preserves 8:5 aspect and the original indexed image/font output.
 
 Manual saves use one IndexedDB slot per origin, committed as a transaction.
@@ -268,3 +269,15 @@ After switching the browser worker to chunked loading, all six browser tests
 (three scenarios each in Chrome and Playwright WebKit) and both clock regressions
 passed. The web crate's upload regression and Clippy checks also passed. The
 normal browser build's generated interface contains no replay-validation exports.
+
+## Physical pointer evidence
+
+After connecting physical down/up events, the six browser scenarios and two
+clock tests passed. The strengthened inventory scenario additionally requires
+core save version 4 after a real touch and exact import/export of that save,
+including mouse history; this passes in both Chrome and WebKit. The WebKit
+screenshot was inspected and shows the inventory closed. The test now waits for
+the Play button to become Pause before tapping: previously a tap could race
+AudioContext resume and be ignored while input was still paused, and merely
+checking changed save bytes did not prove touch delivery. This is one inventory
+gesture, not complete touch or physical-iPad acceptance.

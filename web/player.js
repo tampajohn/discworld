@@ -113,7 +113,7 @@ $('mute').onclick = async () => {
   } catch (error) { status(error.message, true); }
 };
 async function input(command, point) {
-  if (!ready || paused) return;
+  if (!ready || (paused && !command.endsWith('-up'))) return;
   try { draw(await rpc('input', { command, point })); }
   catch (error) { pause(); status(error.message, true); }
 }
@@ -121,10 +121,27 @@ function point(event) {
   const rect = canvas.getBoundingClientRect();
   return [Math.floor((event.clientX - rect.left) * 320 / rect.width), Math.floor((event.clientY - rect.top) * 200 / rect.height)];
 }
+const pressedPointers = new Map();
+canvas.oncontextmenu = event => event.preventDefault();
 canvas.onpointerdown = event => {
   event.preventDefault(); canvas.focus();
-  input($('action').value, point(event));
+  if (!ready || paused || ![0, 2].includes(event.button)) return;
+  const action = $('action').value;
+  if (action !== 'click' && event.button === 0) { input(action, point(event)); return; }
+  const button = event.button === 2 ? 'right' : 'left';
+  pressedPointers.set(event.pointerId, button);
+  canvas.setPointerCapture(event.pointerId);
+  input(`${button}-down`, point(event));
 };
+function releasePointer(event) {
+  const button = pressedPointers.get(event.pointerId);
+  if (!button) return;
+  pressedPointers.delete(event.pointerId);
+  input(`${button}-up`, point(event));
+}
+canvas.onpointerup = releasePointer;
+canvas.onpointercancel = releasePointer;
+canvas.onlostpointercapture = releasePointer;
 let pointerPending = false;
 canvas.onpointermove = async event => {
   if (!ready || paused || pointerPending || event.pointerType === 'touch') return;

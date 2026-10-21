@@ -97,12 +97,20 @@ test('real WASM canvas, native save import/export, audio controls and device per
   // Send actual touch input through the scaled canvas outside the open inventory.
   await page.locator('summary').click();
   await page.locator('#pause').click();
+  await expect(page.locator('#pause')).toHaveText('Pause');
   await page.touchscreen.tap(bounds.x + bounds.width * 20 / 320, bounds.y + bounds.height * 180 / 200);
   await page.waitForTimeout(250);
   await page.locator('#pause').click();
   await page.waitForTimeout(150);
   await page.screenshot({ path: path.join(root, `assets/previews/browser-${testInfo.project.name}-touch-close-inventory.png`) });
-  expect(await exportedAfterOpeningDetails(page)).not.toEqual(original);
+  const touched = await exportedAfterOpeningDetails(page);
+  expect(touched).not.toEqual(original);
+  // Inner core v4 proves physical input reached the shared classifier. Preserve
+  // its partial click history through the production import/export path.
+  expect(touched.readUInt32LE(52 + 8)).toBe(4);
+  await page.locator('#import').setInputFiles({ name: 'mouse.dws', mimeType: 'application/octet-stream', buffer: touched });
+  await expect(page.locator('#status')).toContainText('Saved game loaded.');
+  expect(await exported(page)).toEqual(touched);
   expect(errors).toEqual([]);
 });
 

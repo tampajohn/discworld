@@ -218,6 +218,16 @@ impl BrowserGame {
         let resources = self.assets.resources();
         let point = engine.control.cursor;
         match command {
+            "left-down" | "left-up" | "right-down" | "right-up" => {
+                let button = if command.starts_with("left") {
+                    discworld_core::mouse::Button::Left
+                } else {
+                    discworld_core::mouse::Button::Right
+                };
+                engine
+                    .mouse_button(&resources, button, command.ends_with("down"))
+                    .map_err(error)?;
+            }
             "continue" => engine.left_event().map_err(error)?,
             "start" => engine.user_event().map_err(error)?,
             "pockets" => {

@@ -233,6 +233,8 @@ pub struct Engine {
     last_interaction_tick: Option<u64>,
     #[serde(skip)]
     pub(crate) clicks: crate::click::State,
+    #[serde(skip)]
+    pub(crate) mouse: Option<crate::mouse::MouseInput>,
     pub movers: std::collections::BTreeMap<i32, crate::mover::Mover>,
     polygon_memory: crate::polygon::EnabledMemory,
     polygon_table: Handle,
@@ -925,6 +927,120 @@ impl Engine {
         self.left_events = next;
         Ok(())
     }
+    /// Deliver a physical edge at the deterministic engine tick. Window dragging
+    /// is not implemented yet; drag edges still advance the user-event counter.
+    pub fn mouse_button(
+        &mut self,
+        resources: &Resources<'_>,
+        button: crate::mouse::Button,
+        down: bool,
+    ) -> Result<(), Error> {
+        use crate::mouse::{DEFAULT_DOUBLE_CLICK_TICKS, MouseInput, PlayerEvent};
+        let mut next = self.clone();
+        let mouse = next
+            .mouse
+            .get_or_insert_with(|| MouseInput::new(0, DEFAULT_DOUBLE_CLICK_TICKS));
+        let events = if down {
+            mouse.button_down(button, next.ticks as u32, false).to_vec()
+        } else {
+            vec![mouse.button_up(button, next.ticks as u32, false)]
+        };
+        for event in events {
+            let action = match event {
+                PlayerEvent::WalkTo => PolygonInteraction::WalkTo,
+                PlayerEvent::Action => PolygonInteraction::Action,
+                PlayerEvent::Look => PolygonInteraction::Look,
+                _ => {
+                    next.user_event()?;
+                    continue;
+                }
+            };
+            let point = next.control.cursor;
+            if !next.control.enabled {
+                next.left_event()?;
+            } else if next.conversation.polygon.is_some() && !next.conversation.hidden {
+                next.left_event()?;
+                if let Some(topic) = next.conversation_topic_at(point) {
+                    if action == PolygonInteraction::Look {
+                        next.look_conversation_topic(resources, topic)?;
+                    } else {
+                        next.interact_conversation(resources, Some(topic))?;
+                    }
+                } else if action != PolygonInteraction::Action
+                    && !next.inventory_contains_point(point)
+                {
+                    next.interact_conversation(resources, None)?;
+                }
+            } else if matches!(next.active_inventory, Some(1 | 2)) {
+                if let Some(slot) = next.inventory_slot_at(point) {
+                    next.inventory_click(resources, slot, action)?;
+                } else {
+                    next.left_event()?;
+                    if !next.inventory_contains_point(point) && action != PolygonInteraction::Action
+                    {
+                        next.close_inventory();
+                    } else if let Some(scroll) = next.inventory_scroll_at(point) {
+                        if action == PolygonInteraction::WalkTo
+                            || (action == PolygonInteraction::Action
+                                && matches!(
+                                    scroll,
+                                    crate::inventory::Scroll::Up | crate::inventory::Scroll::Down
+                                ))
+                        {
+                            next.scroll_inventory(scroll);
+                        }
+                    }
+                }
+            } else if next.active_inventory.is_some() {
+                next.left_event()?;
+            } else {
+                next.world_click(resources, point, action)?;
+            }
+        }
+        *self = next;
+        Ok(())
+    }
+
+    fn look_conversation_topic(
+        &mut self,
+        resources: &Resources<'_>,
+        topic: usize,
+    ) -> Result<(), Error> {
+        if self.last_interaction_tick == Some(self.ticks) {
+            return Ok(());
+        }
+        let window = self.declarations.windows[0]
+            .as_ref()
+            .ok_or(Error("missing conversation window"))?;
+        let index = window
+            .first_display
+            .checked_add(topic)
+            .ok_or(Error("topic index overflow"))?;
+        let Some(item) = window
+            .contents
+            .get(index)
+            .copied()
+            .filter(|item| *item != 0 && *item != self.held_object)
+        else {
+            return Ok(());
+        };
+        let object = self
+            .inventory_objects
+            .get(&item)
+            .ok_or(Error("missing topic object"))?;
+        if object.script.0 == 0 {
+            return Ok(());
+        }
+        scene::script_bytes(resources, object.script)?;
+        let mut process = ScriptProcess::new(object.script);
+        process.inventory_object = Some(item);
+        process.event = PolygonInteraction::Look as i32;
+        self.processes.spawn(Some(self.generation), process)?;
+        self.inventory_event_index = index;
+        self.last_interaction_tick = Some(self.ticks);
+        Ok(())
+    }
+
     /// Route the hosts' immediate primary click. This development control does
     /// not implement the original single/double-click delay and cancellation.
     pub fn primary_click(&mut self, resources: &Resources<'_>) -> Result<(), Error> {
@@ -1557,6 +1673,7 @@ impl Engine {
             held_cursor: None,
             last_interaction_tick: None,
             clicks: crate::click::State::default(),
+            mouse: None,
             user_events: 0,
             left_events: 0,
             subtitles: true,
@@ -2243,6 +2360,12 @@ impl Engine {
             // Keep host-facing time, settings and the RNG stream continuous.
             let mut fresh = Self::bootstrap_after_restart(resources, true)?;
             fresh.ticks = next.ticks;
+            if next.mouse.is_some() {
+                fresh.mouse = Some(crate::mouse::MouseInput::new(
+                    next.ticks as u32,
+                    crate::mouse::DEFAULT_DOUBLE_CLICK_TICKS,
+                ));
+            }
             fresh.subtitles = next.subtitles;
             fresh.random = next.random;
             next.music.stop();
@@ -5008,6 +5131,67 @@ mod tests {
         assert_eq!(engine.globals, [-1]);
         assert!(engine.control.enabled);
         assert!(engine.control.tags_enabled);
+    }
+    #[test]
+    fn physical_click_pair_survives_save_and_cancels_single_script() {
+        let (master, mut scene) = fixtures();
+        scene[8] = 0;
+        scene[32..38].copy_from_slice(&[2, 0x4e, 31, 0x4c, 0, 0]);
+        let resources = Resources(vec![&master, &scene]);
+        let mut engine = Engine::bootstrap(&resources).unwrap();
+        engine.polygons = crate::polygon::Polygons::new(
+            vec![crate::polygon::Polygon {
+                kind: crate::polygon::Kind::Tag,
+                corners: [[0, 0], [20, 0], [20, 20], [0, 20]],
+                tag_position: [0; 2],
+                tag_text: Handle(0),
+                node_position: [0; 2],
+                film: Handle(0),
+                refer_type: 0,
+                id: 1,
+                scales: [1, 0],
+                reel: 0,
+                z_factor: 0,
+                nodes: vec![],
+                lines: vec![],
+                script: Handle((1 << 23) | 32),
+            }],
+            0,
+        );
+        for _ in 0..10 {
+            engine.tick(&resources).unwrap();
+        }
+        engine.control.apply(1, false).unwrap();
+        engine.move_cursor([10, 10]);
+        engine
+            .mouse_button(&resources, crate::mouse::Button::Left, true)
+            .unwrap();
+        engine
+            .mouse_button(&resources, crate::mouse::Button::Left, false)
+            .unwrap();
+        engine.tick(&resources).unwrap();
+        assert_eq!(engine.globals, [0]);
+        let bytes = crate::save::Snapshot::capture(&engine, [4; 32])
+            .to_bytes()
+            .unwrap();
+        assert_eq!(u32::from_le_bytes(bytes[8..12].try_into().unwrap()), 4);
+        let mut restored = crate::save::Snapshot::from_bytes(&bytes, [4; 32])
+            .unwrap()
+            .state()
+            .clone();
+        assert_eq!(engine, restored);
+        for instance in [&mut engine, &mut restored] {
+            instance
+                .mouse_button(&resources, crate::mouse::Button::Left, true)
+                .unwrap();
+            instance
+                .mouse_button(&resources, crate::mouse::Button::Left, false)
+                .unwrap();
+            instance.tick(&resources).unwrap();
+            assert_eq!(instance.globals, [2]);
+            assert_eq!(instance.clicks, crate::click::State::default());
+        }
+        assert_eq!(engine, restored);
     }
     #[test]
     fn timed_world_click_delays_cancels_and_roundtrips_pending_save() {

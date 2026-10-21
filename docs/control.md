@@ -8,7 +8,7 @@ now and exercised by the complete recorded route; they are not still absent.
 That route uses semantic actions, so it does not prove raw mouse/touch fidelity.
 
 Native and browser hosts currently expose development walk/action/look controls.
-Original V1 click arbitration remains an implementation requirement. In pinned
+Timed world/inventory click dispatch is now connected, but full V1 input compatibility remains an acceptance requirement. In pinned
 ScummVM `96b42d42bc8533953bdd701db059cc33c839a9ff`, inspect
 `engines/tinsel/tinsel.cpp`'s mouse event process and
 `engines/tinsel/events.cpp`'s `AllowDclick`, `PlayerEvent` and
@@ -42,8 +42,8 @@ behavior also need their own acceptance evidence.
 ### Physical button classifier
 
 `discworld_core::mouse::MouseInput` implements the first stage of the reference's
-V1 `MouseProcess`. It is not yet connected to the hosts, which still use the
-immediate development controls. Five tests cover strict threshold comparison,
+V1 `MouseProcess`. Native button edges and browser pointer edges now feed this classifier; explicit
+keyboard/action controls remain available. Five tests cover strict threshold comparison,
 timing from release rather than press, ending a double-click pair, independent
 left/right timers, swapped buttons, drag-event order, the initial-click quirk,
 32-bit clock wrap, a zero threshold, and serialization midway through a pair.
@@ -61,8 +61,7 @@ raw host button delivery, and persisting the physical button classifier. `AllowD
 actor and inventory-object processes (`dialogs.cpp::ObjectProcess`). Bare-ground
 `WalkProcess` does not call it, so delaying every single-click globally would
 change the original movement behavior. A browser `dblclick` callback alone
-cannot reproduce these rules. Raw native/browser button events must feed the
-shared classifier only when this dispatch stage is ready.
+cannot reproduce these rules. Raw native/browser button events now feed the shared classifier and timed dispatch.
 
 `discworld_core::click::ClickToken` now implements the scheduler-owned part of
 `AllowDclick`. A single-click script acquires ownership and yields for threshold
@@ -74,9 +73,9 @@ earlier queue entry without losing a neighboring dispatch, exact delay,
 serialization/restoration of a pending wait, and stale ownership rejection.
 `Engine::world_click` attaches this delay/cancellation to newly queued actor
 and polygon scripts; ground walks and look events remain immediate. The existing
-semantic interaction methods retain their timing for recorded routes. Native and
-browser still use development controls; raw button classification is not wired
-in yet, so this is not a claim of completed original mouse support.
+semantic interaction methods retain their timing for recorded routes. Native and browser physical input now reaches these paths. This is not a claim
+of completed original mouse support: inventory dragging, resizing, menus,
+configurable button swapping and timing, and broader gesture parity remain.
 
 Pending click ownership and dispatch phases are persisted in the core save's
 version-2 extension. States without pending clicks retain byte-compatible
@@ -113,5 +112,22 @@ unchanged throughout an ordinary wait, cancelling a saved pending drop with an
 action, exact snapshot continuation, and capacity becoming available during the
 wait. A synthetic hidden window avoids unrelated rendering resources in these
 state tests; browser UI tests separately exercise original inventory rendering.
-Pending ordinary drops require core save version 3. Raw button delivery and
-inventory dragging still need integration before claiming original input parity.
+Pending ordinary drops require core save version 3. Inventory dragging still needs integration before claiming original input parity.
+
+## Physical input delivery and persistence
+
+Native polls left/right button edges and browser sends pointer down/up/cancel
+through its serialized worker. The default canvas action uses physical left
+clicks (single selects/walks, double acts); right click looks. Explicit action
+and look controls remain available for touch. Browser pointer capture ensures
+release outside the canvas reaches the worker. Releases can update button
+history while paused, without advancing simulation. Inventory window dragging
+is not implemented; drag edges currently only increment user-event counters.
+
+Core save version 4 persists physical button timing with pending click state.
+The regression saves after a first click, restores, then applies the second
+click: it produces the same action and cancels the single in both engines.
+Legacy saves remain loadable and do not acquire mouse history until a physical
+edge arrives. Restart initializes physical timing at the restart tick.
+Native polling can miss a press/release that happens entirely between polls;
+raw event-queue capture and more physical-device testing remain follow-up work.

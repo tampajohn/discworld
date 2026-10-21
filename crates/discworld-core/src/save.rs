@@ -8,6 +8,7 @@ const MAGIC: &[u8; 8] = b"DWRSAVE\0";
 const VERSION: u32 = 1;
 const INPUT_VERSION: u32 = 2;
 const DROP_VERSION: u32 = 3;
+const MOUSE_VERSION: u32 = 4;
 const HEADER: usize = 80;
 pub const MAX_SAVE_BYTES: usize = 16 * 1024 * 1024;
 
@@ -78,7 +79,9 @@ impl Snapshot {
     pub fn to_bytes(&self) -> Result<Vec<u8>, Error> {
         self.state.validate_snapshot_structure()?;
         let extended = self.state.clicks != crate::click::State::default();
-        let payload = if extended {
+        let payload = if let Some(mouse) = &self.state.mouse {
+            postcard::to_allocvec(&(&self.state, &self.state.clicks, mouse))
+        } else if extended {
             postcard::to_allocvec(&(&self.state, &self.state.clicks))
         } else {
             postcard::to_allocvec(&self.state)
@@ -90,7 +93,9 @@ impl Snapshot {
         let mut bytes = Vec::with_capacity(HEADER + payload.len());
         bytes.extend_from_slice(MAGIC);
         bytes.extend_from_slice(
-            &(if self.state.clicks.has_drop() {
+            &(if self.state.mouse.is_some() {
+                MOUSE_VERSION
+            } else if self.state.clicks.has_drop() {
                 DROP_VERSION
             } else if extended {
                 INPUT_VERSION
@@ -116,7 +121,7 @@ impl Snapshot {
             return Err(Error("invalid save signature"));
         }
         let word = |start| u32::from_le_bytes(bytes[start..start + 4].try_into().unwrap());
-        if ![VERSION, INPUT_VERSION, DROP_VERSION].contains(&word(8)) {
+        if ![VERSION, INPUT_VERSION, DROP_VERSION, MOUSE_VERSION].contains(&word(8)) {
             return Err(Error("unsupported save version"));
         }
         if bytes[12..44] != asset_id {
@@ -129,7 +134,17 @@ impl Snapshot {
         if Sha256::digest(payload)[..] != bytes[48..80] {
             return Err(Error("save checksum mismatch"));
         }
-        let (state, remaining) = if word(8) >= INPUT_VERSION {
+        let (state, remaining) = if word(8) == MOUSE_VERSION {
+            let ((mut state, clicks, mouse), remaining) = postcard::take_from_bytes::<(
+                Engine,
+                crate::click::State,
+                crate::mouse::MouseInput,
+            )>(payload)
+            .map_err(|_| Error("invalid snapshot mouse payload"))?;
+            state.clicks = clicks;
+            state.mouse = Some(mouse);
+            (state, remaining)
+        } else if word(8) >= INPUT_VERSION {
             let ((mut state, clicks), remaining) =
                 postcard::take_from_bytes::<(Engine, crate::click::State)>(payload)
                     .map_err(|_| Error("invalid snapshot input payload"))?;
