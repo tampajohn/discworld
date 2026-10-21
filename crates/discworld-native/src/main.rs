@@ -341,9 +341,10 @@ fn run() -> Result<(), Box<dyn std::error::Error>> {
                         if speed == 1 {
                             sink.append(rodio::buffer::SamplesBuffer::new(2, 22050, audio));
                         }
-                        // Let the final original-script cutscene return control
-                        // before pausing, even if it outlasts the replay tail.
+                        // Control may return while the new background is still
+                        // black. Finish both the cutscene and its fade first.
                         if engine.control.enabled
+                            && !engine.scene_transition_active()
                             && replay_end.is_some_and(|end| engine.ticks >= end)
                         {
                             replay_end = None;

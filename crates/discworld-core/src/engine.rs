@@ -267,6 +267,15 @@ fn args(vm: &Machine, n: usize) -> Result<&[i32], Error> {
     .ok_or(Error("engine argument underflow"))
 }
 impl Engine {
+    /// Whether a scene change, restoration, or its background fade is unfinished.
+    /// Script control can return before the new scene has faded into view.
+    pub fn scene_transition_active(&self) -> bool {
+        self.pending_scene.is_some()
+            || self.scene_restore.is_some()
+            || self.fade_on_background
+            || self.fade_in_step.is_some()
+    }
+
     fn save_scene_call(&mut self, current: Option<&ScriptProcess>) -> Result<bool, Error> {
         if self.saved_scenes.len() >= 4 {
             return Err(Error("saved scene nesting limit"));
@@ -4381,14 +4390,17 @@ mod tests {
             "peers run until the scene is actually changed"
         );
         let mut cut = engine.clone();
+        assert!(engine.scene_transition_active());
         cut.pending_scene.as_mut().unwrap().2 = 1;
         assert_eq!(cut.tick(&resources).unwrap(), Status::Running);
         assert_eq!(cut.tick(&resources).unwrap(), Status::Halted);
         assert_eq!(cut.scene, Handle(2 << 23));
         assert!(!cut.fade_on_background);
+        assert!(!cut.scene_transition_active());
         let mut restored = engine.clone();
         for multiplier in [0xd000, 0xa000, 0x7000, 0x4000, 0x1000, 0] {
             assert_eq!(engine.tick(&resources).unwrap(), Status::Running);
+            assert!(engine.scene_transition_active());
             assert_eq!(engine.fade_multiplier, multiplier);
             restored.tick(&resources).unwrap();
             assert_eq!(engine, restored);
@@ -4397,6 +4409,10 @@ mod tests {
         assert_eq!(engine.scene, Handle(2 << 23));
         assert_eq!(engine.globals, [9]);
         assert!(engine.processes.is_empty());
+        assert!(
+            engine.scene_transition_active(),
+            "waiting for new background"
+        );
     }
     #[test]
     fn preparescene_consumes_hint_without_loading_or_yielding() {
@@ -5100,6 +5116,45 @@ mod tests {
         engine.request_scene_restore(true).unwrap();
         assert_eq!(engine.saved_scenes.len(), 3);
         assert_eq!(engine.scene_restore.as_ref().unwrap().remaining, 5);
+    }
+
+    #[test]
+    fn returned_control_does_not_end_background_transition() {
+        let (master, scene) = fixtures();
+        let base = 2u32 << 23;
+        let mut film = vec![0; 80];
+        for (at, value) in [
+            (0, 24u32),
+            (4, 1),
+            (8, base + 24),
+            (12, base + 48),
+            (32, 1),
+            (48, 10),
+            (52, 1),
+            (56, (-2i32) as u32),
+        ] {
+            film[at..at + 4].copy_from_slice(&value.to_le_bytes());
+        }
+        let resources = Resources(vec![&master, &scene, &film]);
+        let mut engine = Engine::bootstrap(&resources).unwrap();
+        engine.enter(&resources, Handle(1 << 23), 1, 0).unwrap();
+        assert!(engine.scene_transition_active());
+        engine.start_background(&resources, Handle(base)).unwrap();
+        engine.control.apply(1, false).unwrap();
+        assert_eq!(engine.fade_multiplier, 0);
+        assert!(engine.control.enabled);
+        assert!(
+            engine.scene_transition_active(),
+            "do not pause on black frame"
+        );
+        for _ in 0..5 {
+            engine.tick(&resources).unwrap();
+            assert!(engine.scene_transition_active());
+        }
+        engine.tick(&resources).unwrap();
+        assert!(engine.control.enabled);
+        assert!(!engine.scene_transition_active());
+        assert_eq!(engine.fade_multiplier, 0x10000);
     }
 
     #[test]
