@@ -293,6 +293,8 @@ fn args(vm: &Machine, n: usize) -> Result<&[i32], Error> {
 }
 impl Engine {
     pub(crate) fn validate_snapshot_structure(&self) -> Result<(), Error> {
+        self.sample_player.validate_snapshot_structure()?;
+        self.music.validate_snapshot_structure()?;
         self.master.validate_snapshot_structure()?;
         self.processes.validate_snapshot_structure()?;
         for process in self.processes.states() {

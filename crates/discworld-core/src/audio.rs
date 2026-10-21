@@ -49,6 +49,26 @@ pub struct SamplePlayer {
     remainder: u32,
 }
 impl SamplePlayer {
+    pub(crate) fn validate_snapshot_structure(&self) -> Result<(), Error> {
+        if self.remainder >= 24 || self.id.is_some_and(|id| id <= 0) {
+            return Err(Error("invalid snapshot sample clock or identity"));
+        }
+        Ok(())
+    }
+
+    pub(crate) fn validate_snapshot_bank(&self, bank: &SampleBank<'_>) -> Result<(), Error> {
+        self.validate_snapshot_structure()?;
+        if let Some(id) = self.id {
+            let data = bank
+                .sample(id)?
+                .ok_or(Error("snapshot sample is missing"))?;
+            if self.position >= data.len() {
+                return Err(Error("snapshot active sample cursor outside data"));
+            }
+        }
+        Ok(())
+    }
+
     /// Replaces the V1 single sample channel. Missing IDs do not interrupt it.
     pub fn play(&mut self, bank: &SampleBank<'_>, id: i32) -> Result<bool, Error> {
         let Some(data) = bank.sample(id)? else {
@@ -97,6 +117,29 @@ impl SamplePlayer {
 #[cfg(test)]
 mod tests {
     use super::*;
+    #[test]
+    fn snapshot_checks_fractional_clock_and_active_sample_bounds() {
+        let index = [0, 0, 0, 0, 4, 0, 0, 0];
+        let data = [0, 0, 0, 0, 3, 0, 0, 0, 0, 128, 255];
+        let bank = SampleBank::new(&index, &data).unwrap();
+        let mut player = SamplePlayer::default();
+        player.play(&bank, 1).unwrap();
+        player.validate_snapshot_bank(&bank).unwrap();
+        player.position = 3;
+        assert!(player.validate_snapshot_bank(&bank).is_err());
+        player.position = 0;
+        player.id = Some(2);
+        assert!(player.validate_snapshot_bank(&bank).is_err());
+        player.id = Some(1);
+        player.remainder = 24;
+        assert!(player.validate_snapshot_bank(&bank).is_err());
+        player.remainder = 0;
+        player.tick(&bank).unwrap();
+        assert_eq!(player.position, 3);
+        assert!(player.id.is_none());
+        player.validate_snapshot_bank(&bank).unwrap();
+    }
+
     #[test]
     fn validates_offsets_lengths_and_missing_ids() {
         let index = [0, 0, 0, 0, 4, 0, 0, 0];

@@ -157,6 +157,7 @@ pub fn headless(
                     let bytes = captured.to_bytes()?;
                     let decoded = discworld_core::save::Snapshot::from_bytes(&bytes, asset_id)?;
                     decoded.verify_scripts(&resources)?;
+                    decoded.verify_audio(&bank, &tracks)?;
                     if decoded != captured || decoded.to_bytes()? != bytes {
                         return Err(
                             format!("snapshot round trip failed at {}", engine.ticks).into()

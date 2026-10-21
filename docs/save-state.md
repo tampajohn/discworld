@@ -34,6 +34,12 @@ state or resource validation.
 inside original bytecode chunks, checks pending calls against their encoded
 opcode/operand/next address, and verifies halted positions. Host waits must
 correspond to the VM's pending call; multiple simultaneous waits are rejected.
+`Snapshot::verify_audio` checks active sample IDs/positions against the sample
+bank and compares saved sequencer events with the original music archive. Basic
+decoding also checks the fractional PCM clock, sequencer cursor/loop/note bounds,
+music clock agreement, and pending stop messages. Offset-zero music facts are
+handled without requiring the still-playing sequence to have been stopped.
+This validates core audio state, not the host synthesizer or audio device.
 Changes to serialized field order/types require a format version change or an
 explicit migration. These files are not ScummVM saves.
 
@@ -53,11 +59,13 @@ to check exact snapshot round trips every 1000 ticks, at scene changes, after
 recorded inputs, and at the final tick. Reports include `snapshot_checks` and
 `snapshot_max_bytes`. The audit hashes the supplied ISO as the asset identity;
 it does not activate the decoded state or establish process-relaunch equivalence.
-The audit also invokes `verify_scripts`. The 10,000-tick opening prefix of
+The audit also invokes `verify_scripts` and `verify_audio`. The 10,000-tick opening prefix of
 `evidence/act4-ending-input.json` passed 40 checks with a maximum encoded snapshot
 of 36,973 bytes (`evidence/headless-snapshot-scripts-room.json`); its final
 `unseen.scn` frame was inspected. This is fixture and opening evidence, not full
 game save/load acceptance. Full-route audits are being run separately.
+The same prefix passed all 40 checks with audio validation enabled
+(`evidence/headless-snapshot-audio-room.json`, same maximum snapshot size).
 
 Before exposing load, validate decoded invariants and resource references, with
 atomic failure preserving the current session. Bound decoder allocations as

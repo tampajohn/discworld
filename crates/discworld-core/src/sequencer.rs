@@ -34,6 +34,31 @@ pub struct Sequencer {
     notes: BTreeMap<(u8, u8), u64>,
 }
 impl Sequencer {
+    pub(crate) fn validate_snapshot_structure(&self) -> Result<(), Error> {
+        if self.events.is_empty()
+            || self.events.len() > 1_000_000
+            || self.index > self.events.len()
+            || (self.playing && (self.index == self.events.len() || self.due < self.tick))
+            || self.loops.len() > 16
+            || self
+                .loops
+                .iter()
+                .any(|l| l.start >= self.events.len() || l.remaining > 127)
+            || self
+                .notes
+                .iter()
+                .any(|(&(channel, note), &due)| channel >= 16 || note >= 128 || due < self.tick)
+        {
+            return Err(Error("invalid snapshot sequencer position"));
+        }
+        Ok(())
+    }
+
+    pub(crate) fn matches_snapshot_track(&self, data: &[u8]) -> Result<bool, Error> {
+        self.validate_snapshot_structure()?;
+        Ok(self.events == Self::new(data, self.repeat)?.events)
+    }
+
     pub fn new(data: &[u8], repeat: bool) -> Result<Self, Error> {
         let events = music::events(data)?
             .into_iter()
@@ -200,6 +225,37 @@ impl Sequencer {
 #[cfg(test)]
 mod tests {
     use super::*;
+    #[test]
+    fn snapshot_checks_cursor_loops_notes_and_original_events() {
+        let bytes = [0x90, 60, 100, 9, 12, 0xff, 0x2f, 0];
+        let mut valid = Sequencer::new(&bytes, true).unwrap();
+        valid.advance(5).unwrap();
+        assert!(valid.matches_snapshot_track(&bytes).unwrap());
+        let mut invalid = valid.clone();
+        invalid.index = invalid.events.len();
+        assert!(invalid.validate_snapshot_structure().is_err());
+        let mut invalid = valid.clone();
+        invalid.due = 0;
+        assert!(invalid.validate_snapshot_structure().is_err());
+        let mut invalid = valid.clone();
+        invalid.notes.insert((16, 60), 10);
+        assert!(invalid.validate_snapshot_structure().is_err());
+        let mut invalid = valid.clone();
+        invalid.notes.insert((0, 60), 0);
+        assert!(invalid.validate_snapshot_structure().is_err());
+        let mut invalid = valid.clone();
+        invalid.loops.push(Loop {
+            start: usize::MAX,
+            remaining: 2,
+        });
+        assert!(invalid.validate_snapshot_structure().is_err());
+        let mut invalid = valid.clone();
+        invalid.events[0].data.clear();
+        assert!(!invalid.matches_snapshot_track(&bytes).unwrap());
+        valid.stop();
+        assert!(valid.matches_snapshot_track(&bytes).unwrap());
+    }
+
     #[test]
     fn notes_release_and_finite_loops_repeat_exactly() {
         let bytes = [

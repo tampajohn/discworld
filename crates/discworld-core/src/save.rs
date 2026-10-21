@@ -37,6 +37,17 @@ impl Snapshot {
         self.state.validate_snapshot_scripts(resources)
     }
 
+    /// Validate sample position and sequencer content against original archives.
+    /// Host synthesizer/device restoration is not covered by this check.
+    pub fn verify_audio(
+        &self,
+        bank: &crate::audio::SampleBank<'_>,
+        tracks: &[crate::music::Track<'_>],
+    ) -> Result<(), Error> {
+        self.state.sample_player.validate_snapshot_bank(bank)?;
+        self.state.music.validate_snapshot_tracks(tracks)
+    }
+
     pub fn to_bytes(&self) -> Result<Vec<u8>, Error> {
         self.state.validate_snapshot_structure()?;
         let payload =

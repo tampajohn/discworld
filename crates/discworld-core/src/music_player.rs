@@ -23,6 +23,53 @@ pub struct MusicPlayer {
     pending: Vec<Message>,
 }
 impl MusicPlayer {
+    pub(crate) fn validate_snapshot_structure(&self) -> Result<(), Error> {
+        if self.base > self.clock {
+            return Err(Error("snapshot music base exceeds clock"));
+        }
+        if let Some(sequence) = &self.sequence {
+            sequence.validate_snapshot_structure()?;
+            if self.base.checked_add(sequence.tick) != Some(self.clock) {
+                return Err(Error("snapshot music clocks disagree"));
+            }
+        }
+        for message in &self.pending {
+            let count = if matches!(message.status & 0xf0, 0xc0 | 0xd0) {
+                1
+            } else {
+                2
+            };
+            if message.tick != self.clock
+                || !(0x80..0xf0).contains(&message.status)
+                || message.data.len() != count
+                || message.data.iter().any(|b| *b >= 128)
+            {
+                return Err(Error("invalid snapshot pending MIDI message"));
+            }
+        }
+        Ok(())
+    }
+
+    pub(crate) fn validate_snapshot_tracks(&self, tracks: &[Track<'_>]) -> Result<(), Error> {
+        self.validate_snapshot_structure()?;
+        if let Some(sequence) = &self.sequence {
+            // Offset-zero calls clear saved facts while retaining the sequence.
+            for track in tracks
+                .iter()
+                .filter(|t| self.offset.is_none_or(|offset| offset == t.offset))
+            {
+                if sequence.matches_snapshot_track(track.events)? {
+                    return Ok(());
+                }
+            }
+            return Err(Error("snapshot sequence does not match original music"));
+        }
+        if self.offset.is_some() {
+            return Err(Error("snapshot music facts have no sequence"));
+        }
+        Ok(())
+    }
+
     pub fn facts(&self) -> MidiFacts {
         MidiFacts {
             offset: self.offset.unwrap_or(0),
@@ -109,6 +156,37 @@ impl MusicPlayer {
 #[cfg(test)]
 mod tests {
     use super::*;
+    #[test]
+    fn snapshot_checks_music_identity_clocks_and_pending_stop_messages() {
+        let tracks = [Track {
+            offset: 4,
+            events: &[0x90, 60, 100, 9, 12, 0xff, 0x2f, 0],
+        }];
+        let mut player = MusicPlayer::default();
+        player.play(&tracks, 4, true).unwrap();
+        player.tick().unwrap();
+        player.validate_snapshot_tracks(&tracks).unwrap();
+        let mut invalid = player.clone();
+        invalid.clock += 1;
+        assert!(invalid.validate_snapshot_tracks(&tracks).is_err());
+        let wrong = [Track {
+            offset: 4,
+            events: &[0x90, 61, 100, 9, 12, 0xff, 0x2f, 0],
+        }];
+        assert!(player.validate_snapshot_tracks(&wrong).is_err());
+        player.play(&tracks, 0, false).unwrap();
+        assert!(player.playing());
+        player.validate_snapshot_tracks(&tracks).unwrap();
+        assert!(player.validate_snapshot_tracks(&wrong).is_err());
+        player.stop();
+        player.validate_snapshot_tracks(&tracks).unwrap();
+        let mut invalid = player.clone();
+        invalid.pending[0].data.clear();
+        assert!(invalid.validate_snapshot_structure().is_err());
+        player.pending[0].tick += 1;
+        assert!(player.validate_snapshot_structure().is_err());
+    }
+
     #[test]
     fn restoring_facts_restarts_track_loops_and_preserves_audio_clock() {
         let tracks = [Track {
