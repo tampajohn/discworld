@@ -64,7 +64,7 @@ The host is tested in Chrome and Playwright WebKit at a landscape tablet-sized v
 Actual iPad Safari simulator loading/rendering also matches native pixels, with
 file-picker and gesture automation limitations. Physical iPad, interruption recovery,
 long-run audio and full-route interactive browser acceptance remain unfinished.
-The complete recorded route passes in a WebKit worker with final engine state
+The complete recorded route passes in Chrome and WebKit workers with final engine state
 and pixels matching native exactly. See [browser evidence and limitations](docs/browser-runtime.md).
 
 ### Watch the development playthrough
@@ -121,7 +121,7 @@ Point at the Luggage and use Action to open its inventory. Inventory actions exe
 | Gameplay | Acts I–III completed in replay, including the altered-book theft, temple escape and Act III climax; Act III spell, Shades item, birthmark, moustache, upgraded sword and eye verified (6 of 6), including the sailor exchange, palette-changing birthmark animation and cart/beggar sequence; Act IV fuels, final showdown, ending, scrolling credits and restart verified in headless replay |
 | State | In-memory scene save/restore and script-driven restart; [versioned snapshots](docs/save-state.md) audited across the full route, with core restoration tested across the full route; combined engine/DSP files pass separate-process opening and inventory tests; native startup load and F5/F9 visually verified at credits |
 | macOS | Runnable native window/audio host with interactive and replay modes |
-| Browser/iPad | [WASM boundary](docs/browser-runtime.md) runs the same engine; the complete recorded route passes in Node/WASM and a WebKit browser worker with final engine state and pixels matching native exactly; cross-platform DSP differs; worker/canvas/audio and local saves tested in Chrome, including a touch action; physical iPad and complete interactive browser acceptance remain |
+| Browser/iPad | [WASM boundary](docs/browser-runtime.md) runs the same engine; the complete recorded route passes in Node/WASM and Chrome/WebKit browser workers with final engine state and pixels matching native exactly; cross-platform DSP differs; worker/canvas/audio and local saves tested in Chrome, including a touch action; physical iPad and complete interactive browser acceptance remain |
 
 The project favors compatibility over skipping unsupported script behavior. A passing replay demonstrates that route, not general equivalence with ScummVM. Replays resolve targets explicitly, so they also do not prove mouse hit testing or touch usability.
 

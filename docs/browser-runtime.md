@@ -236,8 +236,20 @@ Elapsed simulation time was 537.094 seconds on this Mac. Evidence:
 `evidence/webkit-full-ending/report.json` and `native-comparison.json`;
 `browser-final.png` was inspected and shows the original title. This used the
 validation harness committed as `3704361`, with unchanged original scripts and
-route. Chrome's corresponding full run is still pending; neither result is
-physical Safari/iPad acceptance.
+route. Chrome 156.0.8078.47 also passed the same complete route in 511.916 seconds:
+all 1,652 inputs accepted, exact native engine state and RGBA, and all samples
+finite, with combined DSP save differences. Its corresponding evidence is in
+`evidence/chrome-full-ending/`; its browser screenshot was also inspected.
+Neither result is physical Safari/iPad acceptance. Both full runs used the
+pre-refactor replay build; the subsequent shared primary-click change affects
+interactive clicks, not the semantic replay events.
+
+After sharing primary-click routing between native and browser, all 232 enabled
+workspace tests, Clippy, six browser scenarios and two clock regressions passed.
+The unrelated asset-dependent DSP test remains ignored in the default workspace
+suite. Native was rebuilt and the visible credits checkpoint reloaded, paused
+and muted, with its original save unchanged. Screenshot:
+`assets/previews/credits-primary-click-current-native.png`.
 
 ## Upload memory evidence
 
