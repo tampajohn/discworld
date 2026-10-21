@@ -410,3 +410,48 @@ build. Visible native gameplay was refreshed from tick 85,613, running and muted
 with its state preserved in `assets/saves/playable-inventory-maximized.dws` and
 future saves directed to `playable-inventory-resize.dws`. The inspected screenshot
 is `assets/previews/inventory-resize-current-native.png`.
+
+### Item redraws during an active resize
+
+V1 `redraw` calls `fillInInventory` when items change: it replaces only icon
+objects and adjusts an existing scrollbar thumb. It does not reconstruct the
+full frame, title or resize outline. Icons use the current declaration's origin
+and cell counts even while the old full frame remains visible. Likewise,
+`invItem` uses declaration geometry rather than the old frame's icon positions.
+
+The Rust engine now preserves that distinction. Scrolling or another item
+change during resizing redraws icons at the current origin; an existing thumb
+moves within its original range. The title and full frame remain in place.
+Ordinary inventory hit-testing and cell-center queries use the current declared
+grid, with checked coordinates and the original one-pixel gaps. No new save
+version is needed: version 8 already retains both the old display and active
+resize state.
+
+The original-asset regression loads the scrollable Luggage at tick 434,050,
+drags its left edge from x=100 to87, and scrolls down while held. It compares
+header/title pixels before and after the redraw, verifies cell0 at105,132,
+first-display3, and thumb y143 in the original124..162 range. Mid-drag save/load
+preserves identical continuation; release produces4×2 at87,100. All eight
+opt-in real-asset tests pass. Closing a held resize, menu transitions and hover
+cursor behavior remain separate reference checks.
+
+Chrome and WebKit exercise the same held left-edge drag followed by ArrowDown,
+then exact active save import/export, release after reload, and continued play.
+The test targets logical pixel centers so CSS coordinate truncation does not
+turn a boundary click into a click outside the window. Both pass on the final
+WASM build. Independent native loads of
+`assets/saves/browser-{chrome,webkit}-resize-redraw-{active,released}.dws`
+confirm 3×2 while held and 4×2 after release, both at [87,100] with
+first-display3 and no held item. The screenshot
+`assets/previews/browser-webkit-resize-redraw-active.png` shows the old title/frame
+and the relocated icons beneath the outline.
+
+Native acceptance saved the active resize/scroll at tick434,070 in
+`assets/saves/native-resize-scroll-active.dws` (version8). F9 followed by a
+focused physical press/release while paused and F5 produced
+`native-resize-scroll-released-retry.dws` (version4). An independent native load
+confirms4×2 at[87,100], first-display3 and no held item. The earlier
+`native-resize-scroll-released.dws` remained an active version8 snapshot and is
+retained as failed automation evidence; its screenshot was insufficient to
+establish release. Final workspace tests, Clippy, native/tools builds and WASM
+build pass.

@@ -1806,6 +1806,53 @@ impl Engine {
         strings: &crate::text::Strings<'_>,
     ) -> Result<(), Error> {
         let slot = self.active_inventory.unwrap_or(0) as usize;
+        if self.inventory_resize.is_some() {
+            // V1 redraw -> fillInInventory preserves the full frame/title while
+            // using the in-progress declaration for icon origins and dimensions.
+            let (mut frame, old_content) = self
+                .inventory_display
+                .as_ref()
+                .ok_or(Error("missing resize display"))?
+                .clone();
+            let window = self.declarations.windows[slot]
+                .as_mut()
+                .ok_or(Error("missing resize window"))?;
+            if let Some(bar) = &frame.layout.scrollbar {
+                crate::inventory::adjust_top(window);
+                let cols = window.size[0] as usize;
+                let top = window.first_display.div_ceil(cols);
+                let bottom = window
+                    .contents
+                    .len()
+                    .saturating_sub(window.first_display)
+                    .div_ceil(cols)
+                    .saturating_sub(window.size[1] as usize);
+                let [min, max] = bar.range.map(i64::from);
+                let y = if top == 0 {
+                    min
+                } else if bottom == 0 {
+                    max
+                } else {
+                    min + top as i64 * (max - min) / (top + bottom) as i64
+                };
+                frame.move_slider(
+                    i32::try_from(y).map_err(|_| Error("inventory thumb overflow"))?,
+                )?;
+            }
+            let mut icon_layout = frame.layout.clone();
+            icon_layout.icons = crate::conversation_window::Layout::inventory_icons(window)?;
+            let content = crate::conversation_window::Content::with_title(
+                resources,
+                window,
+                &icon_layout,
+                old_content.title,
+                &self.inventory_objects,
+                self.held_object,
+            )?;
+            self.inventory_display = Some((frame, content));
+            self.inventory_dirty = false;
+            return Ok(());
+        }
         if slot != 0 && self.inventory_slider.is_none() {
             if let Some(window) = &mut self.declarations.windows[slot] {
                 crate::inventory::adjust_top(window);
@@ -1910,8 +1957,16 @@ impl Engine {
         Ok(true)
     }
     pub fn inventory_cell_position(&self, index: usize) -> Option<[i32; 2]> {
-        let (frame, _) = self.inventory_display.as_ref()?;
-        frame.layout.icons.get(index).map(|[x, y]| [x + 12, y + 12])
+        self.inventory_display.as_ref()?;
+        let position = if let Some(slot @ (1 | 2)) = self.active_inventory {
+            let window = self.declarations.windows[slot as usize].as_ref()?;
+            *crate::conversation_window::Layout::inventory_icons(window)
+                .ok()?
+                .get(index)?
+        } else {
+            *self.inventory_display.as_ref()?.0.layout.icons.get(index)?
+        };
+        Some([position[0].checked_add(12)?, position[1].checked_add(12)?])
     }
 
     /// Visible ordinary inventory cells, including empty drop destinations.
@@ -1919,11 +1974,16 @@ impl Engine {
         if !matches!(self.active_inventory, Some(1 | 2)) || self.conversation.hidden {
             return None;
         }
-        let (frame, _) = self.inventory_display.as_ref()?;
-        frame.layout.icons.iter().position(|[x, y]| {
-            (0..25).contains(&(i64::from(point[0]) - i64::from(*x)))
-                && (0..25).contains(&(i64::from(point[1]) - i64::from(*y)))
-        })
+        self.inventory_display.as_ref()?;
+        let slot = self.active_inventory? as usize;
+        let window = self.declarations.windows[slot].as_ref()?;
+        crate::conversation_window::Layout::inventory_icons(window)
+            .ok()?
+            .iter()
+            .position(|[x, y]| {
+                (0..25).contains(&(i64::from(point[0]) - i64::from(*x)))
+                    && (0..25).contains(&(i64::from(point[1]) - i64::from(*y)))
+            })
     }
 
     /// invWalkTo checks the window region before icons. Only a held-item
@@ -4558,6 +4618,16 @@ mod tests {
         let mut engine = Engine::bootstrap(&resources).unwrap();
         engine.active_inventory = Some(1);
         engine.held_object = 190;
+        engine.declarations.windows[1] = Some(crate::startup::Window {
+            title: Handle(0),
+            capacity: 100,
+            min: [2, 1],
+            size: [2, 2],
+            max: [10, 6],
+            position: [100, 100],
+            first_display: 0,
+            contents: vec![],
+        });
         engine.inventory_display = Some((
             Frame {
                 layout: Layout {

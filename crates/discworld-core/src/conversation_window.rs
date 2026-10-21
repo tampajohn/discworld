@@ -113,6 +113,25 @@ impl Layout {
             i32::try_from(dy).map_err(|_| Error("inventory reposition overflow"))?,
         ])
     }
+    pub(crate) fn inventory_icons(window: &Window) -> Result<Vec<[i32; 2]>, Error> {
+        let [cols, rows] = window.size;
+        if !(1..=10).contains(&cols) || !(1..=6).contains(&rows) {
+            return Err(Error("invalid inventory icon grid"));
+        }
+        let [x, y] = window.position.map(i64::from);
+        let mut icons = Vec::new();
+        for row in 0..rows {
+            for col in 0..cols {
+                icons.push([
+                    i32::try_from(x + 6 + i64::from(col) * 26)
+                        .map_err(|_| Error("inventory icon overflow"))?,
+                    i32::try_from(y + 20 + i64::from(row) * 26)
+                        .map_err(|_| Error("inventory icon overflow"))?,
+                ]);
+            }
+        }
+        Ok(icons)
+    }
     pub fn inventory_area_at(&self, point: [i32; 2]) -> Area {
         let [x, y] = point.map(i64::from);
         let [bx, by, width, height] = self.background.map(i64::from);
@@ -268,15 +287,11 @@ impl Layout {
         }
         let size = point(width, height)?;
         let origin = point(x + 1, y + 1)?;
-        let mut icons = Vec::new();
-        for row in 0..if configuration { 0 } else { rows } {
-            for col in 0..cols {
-                icons.push(point(
-                    x + 6 + i64::from(col) * 26,
-                    y + 20 + i64::from(row) * 26,
-                )?);
-            }
-        }
+        let icons = if configuration {
+            vec![]
+        } else {
+            Self::inventory_icons(window)?
+        };
         let scrollbar = if !conversation && window.contents.len() > (cols * rows) as usize {
             let top_missing = window.first_display.div_ceil(cols as usize);
             let wanted = window

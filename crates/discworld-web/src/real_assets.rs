@@ -604,3 +604,53 @@ fn inventory_resize_outline_rounding_and_active_save() {
         roundtrip_pending(&mut game, 24);
     }
 }
+
+#[test]
+#[ignore = "requires DISCWORLD_TEST_ISO, DISCWORLD_TEST_SOUNDFONT and DISCWORLD_TEST_SLIDER_SAVE"]
+fn inventory_changes_during_resize_preserve_frame_and_use_current_icon_grid() {
+    use discworld_core::inventory::Scroll;
+    let read = |name| std::fs::read(std::env::var_os(name).expect(name)).unwrap();
+    let mut game =
+        BrowserGame::new(read("DISCWORLD_TEST_ISO"), read("DISCWORLD_TEST_SOUNDFONT")).unwrap();
+    game.load(&read("DISCWORLD_TEST_SLIDER_SAVE")).unwrap();
+    game.move_pointer(100, 135);
+    game.input("left-down").unwrap();
+    game.move_pointer(87, 135);
+    assert!(game.inventory_dragging());
+    // The logical window has moved left even though the old full frame remains.
+    assert_eq!(game.engine.inventory_slot_at([105, 132]), Some(0));
+    assert_eq!(game.engine.inventory_cell_position(0), Some([105, 132]));
+    let before = game.frame().unwrap();
+    assert!(game.engine.scroll_inventory(Scroll::Down));
+    game.advance(1).unwrap();
+    let after = game.frame().unwrap();
+    // Title and header remain exactly where they were before the item redraw.
+    for y in 103..115 {
+        for x in 110..180 {
+            let pixel = (y * 320 + x) * 4;
+            assert_eq!(&before[pixel..pixel + 4], &after[pixel..pixel + 4]);
+        }
+    }
+    assert_eq!(
+        game.engine.declarations.windows[1]
+            .as_ref()
+            .unwrap()
+            .first_display,
+        3
+    );
+    // The original thumb range (124..162) remains, with its new midpoint at143.
+    assert_eq!(
+        game.engine.inventory_scroll_at([189, 142]),
+        Some(Scroll::PageUp)
+    );
+    assert_eq!(game.engine.inventory_scroll_at([189, 143]), None);
+    assert_eq!(
+        game.engine.inventory_scroll_at([189, 148]),
+        Some(Scroll::PageDown)
+    );
+    roundtrip_pending(&mut game, 3);
+    game.input("left-up").unwrap();
+    let window = game.engine.declarations.windows[1].as_ref().unwrap();
+    assert_eq!((window.size, window.position), ([4, 2], [87, 100]));
+    roundtrip_pending(&mut game, 3);
+}
