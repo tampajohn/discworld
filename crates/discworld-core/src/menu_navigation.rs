@@ -22,6 +22,8 @@ pub enum Page {
 pub enum Request {
     Restart,
     Quit,
+    Save,
+    Load,
 }
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Default)]
@@ -57,7 +59,7 @@ impl Navigation {
     /// Physical provisional-left, resolved left/right and action events all
     /// reach menuAction. Main text actions wait for the inventory process;
     /// confirmation graphics additionally run ButtonPress before dispatch.
-    /// Settings/save-slot widgets have their own handlers, not this hit test.
+    /// Settings and save-list rows have their own handlers, not this hit test.
     pub fn click_button(&mut self, point: [i32; 2]) -> bool {
         if self.text_action.is_some() || self.graphic.pending() {
             return false;
@@ -75,7 +77,53 @@ impl Navigation {
                 }
                 accepted
             }
+            Some(Page::Save | Page::Load) => {
+                let accepted = crate::save_menu::View::button_at(point)
+                    .is_some_and(|choice| self.graphic.start(choice));
+                if accepted {
+                    self.graphic_page = self.page;
+                }
+                accepted
+            }
             _ => false,
+        }
+    }
+
+    /// RGROUP single-click selects even during a graphic-button effect.
+    /// Double action dispatches immediately using the already selected row;
+    /// the original menuAction does not replace selection with the clicked row.
+    /// The caller resolves the target/draft at dispatch time, not press time.
+    pub fn click_save_row(
+        &mut self,
+        list: &mut crate::save_menu::List,
+        point: [i32; 2],
+        double: bool,
+    ) -> Result<Outcome, crate::iso::Error> {
+        let expected = match self.page {
+            Some(Page::Save) => crate::save_menu::Mode::Save,
+            Some(Page::Load) => crate::save_menu::Mode::Load,
+            _ => return Ok(Outcome::default()),
+        };
+        if list.mode() != expected {
+            return Err(crate::iso::Error("save menu controller mode mismatch"));
+        }
+        let Some(row) = crate::save_menu::List::row_at(point) else {
+            return Ok(Outcome::default());
+        };
+        if double {
+            let request = if expected == crate::save_menu::Mode::Save {
+                Request::Save
+            } else {
+                Request::Load
+            };
+            let mut outcome = self.close();
+            outcome.request = Some(request);
+            Ok(outcome)
+        } else {
+            Ok(Outcome {
+                changed: list.select(row)?,
+                ..Outcome::default()
+            })
         }
     }
 
@@ -140,6 +188,17 @@ impl Navigation {
                     request: Some(Request::Quit),
                     ..Outcome::default()
                 },
+                Some(page @ (Page::Save | Page::Load)) => {
+                    // The captured function survives window closure, but its
+                    // target is resolved from the current saved list state.
+                    let mut outcome = self.close();
+                    outcome.request = Some(if page == Page::Save {
+                        Request::Save
+                    } else {
+                        Request::Load
+                    });
+                    outcome
+                }
                 _ => Outcome::default(),
             },
             None => Outcome::default(),
@@ -150,6 +209,88 @@ impl Navigation {
 #[cfg(test)]
 mod tests {
     use super::*;
+    #[test]
+    fn save_tick_resolves_current_selection_and_double_load_is_immediate() {
+        use crate::save_menu::{Entry, List, Mode, Target};
+        let entries = vec![
+            Entry {
+                id: 7,
+                description: b"Library".to_vec(),
+            },
+            Entry {
+                id: 3,
+                description: b"Street".to_vec(),
+            },
+        ];
+        let mut nav = Navigation::default();
+        let mut save = List::new(Mode::Save, entries.clone()).unwrap();
+        nav.open(Page::Save, true);
+        assert!(nav.click_button([262, 69]));
+        assert_eq!(nav.step(true).request, None);
+        // New-save row was selected when pressed. An intervening row click
+        // selects an existing slot before the queued SAVEGAME runs.
+        assert!(
+            nav.click_save_row(&mut save, [50, 63], false)
+                .unwrap()
+                .changed
+        );
+        for _ in 0..3 {
+            assert_eq!(nav.step(true).request, None);
+        }
+        assert_eq!(nav.step(true).request, Some(Request::Save));
+        assert_eq!(save.target(), Some(Target::Existing(7)));
+        assert_eq!(save.draft(), b"Library");
+        assert_eq!(nav.page(), None);
+        let mut load = List::new(Mode::Load, entries).unwrap();
+        nav.open(Page::Load, true);
+        nav.click_save_row(&mut load, [50, 63], false).unwrap();
+        // Reference uses selBox, not the row argument on the double action.
+        assert_eq!(
+            nav.click_save_row(&mut load, [50, 48], true)
+                .unwrap()
+                .request,
+            Some(Request::Load)
+        );
+        assert_eq!(load.target(), Some(Target::Existing(3)));
+        assert_eq!(nav.page(), None);
+        assert_eq!(nav.step(true).request, None);
+    }
+    #[test]
+    fn save_cancel_closes_without_request_and_empty_load_still_closes() {
+        use crate::save_menu::{List, Mode};
+        let mut nav = Navigation::default();
+        nav.open(Page::Save, true);
+        assert!(nav.click_button([262, 116]));
+        for _ in 0..4 {
+            assert_eq!(nav.step(true), Outcome::default());
+        }
+        assert_eq!(
+            nav.step(true),
+            Outcome {
+                changed: true,
+                ..Outcome::default()
+            }
+        );
+        let mut load = List::new(Mode::Load, vec![]).unwrap();
+        nav.open(Page::Load, true);
+        assert!(
+            nav.click_save_row(&mut List::new(Mode::Save, vec![]).unwrap(), [50, 48], false)
+                .is_err()
+        );
+        assert_eq!(nav.page(), Some(Page::Load));
+        assert_eq!(
+            nav.click_save_row(&mut load, [50, 60], true).unwrap(),
+            Outcome::default()
+        );
+        assert_eq!(
+            nav.click_save_row(&mut load, [50, 48], true)
+                .unwrap()
+                .request,
+            Some(Request::Load)
+        );
+        assert_eq!(load.target(), None); // invLoadGame ignores empty row after close
+        assert_eq!(nav.page(), None);
+    }
     #[test]
     fn pending_actions_survive_window_closure_as_in_inventory_process() {
         let mut nav = Navigation::default();

@@ -238,6 +238,9 @@ impl List {
         result.reset_draft();
         Ok(result)
     }
+    pub fn mode(&self) -> Mode {
+        self.mode
+    }
     pub fn first(&self) -> usize {
         self.first
     }

@@ -932,3 +932,29 @@ the record and optionally exports the unchanged session with no-replace atomic
 publication. Browser manual-save behavior remains available; original F1/menu
 integration, settings persistence, catalog asset filtering and physical iPad
 acceptance are still unfinished.
+
+
+Navigation now emits typed Save/Load requests as well as Restart/Quit. Save/load
+accept/cancel graphics use their original coordinates and ButtonPress timing.
+RGROUP row input is handled separately: a single action changes selection even
+while a graphic effect runs; a double action immediately closes and emits the
+request using the existing selection, not the row argument. Targets/descriptions
+must be resolved at dispatch time. Tests select New, press accept, change to an
+existing row during the animation, then require the existing target/description;
+they also cover immediate double Load, cancel without request, row gaps, mode
+mismatch rejection and blank Load closing without a target. No storage operation
+is performed by Navigation itself. The combined controller must still model the
+shared selection state across window changes; a delayed SAVEGAME after switching
+to Main can find NOBOX, so retaining an old save-list target blindly is incorrect.
+
+Keyboard mapping audit remains open for Return: pinned metaengine.cpp puts
+RETURN/KP_ENTER Action in game-shortcuts, which openMenu disables for Save/Load;
+InvKeyIn lets Return pass, but KeyboardProcess's raw fallback is PLR_NOEVENT.
+Consequently a direct Enter-to-confirm behavior is not established by this pin;
+do not infer it from the comment alone. F5 Save and F7 Load mapping is explicit.
+Mouse/list/graphic dispatch is established by dialogs.cpp::menuAction and
+callFunction. Host keyboard behavior needs reference validation during wiring.
+284 enabled workspace tests and Clippy pass in
+assets/logs/save-menu-dispatch-{workspace,clippy}.log. Engine scene lifecycle,
+input routing, menu snapshot state, live settings and native/browser integration
+remain required; this increment does not change the running session.
