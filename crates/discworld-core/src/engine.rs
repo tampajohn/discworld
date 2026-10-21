@@ -292,7 +292,34 @@ fn args(vm: &Machine, n: usize) -> Result<&[i32], Error> {
     .ok_or(Error("engine argument underflow"))
 }
 impl Engine {
+    fn snapshot_animations(&self) -> impl Iterator<Item = &Animation> {
+        self.background
+            .iter()
+            .chain(self.cursor_animation.iter())
+            .chain(self.films.iter())
+            .chain(self.movers.values().map(|m| &m.animation))
+            .chain(
+                self.processes
+                    .states()
+                    .filter_map(|p| p.play_wait.as_ref().map(|w| &w.1)),
+            )
+            .chain(self.held_cursor.iter().map(|c| &c.animation))
+            .chain(self.top_window.iter().flat_map(|f| &f.parts))
+            .chain(self.inventory_display.iter().flat_map(|(f, _)| &f.parts))
+            .chain(
+                self.inventory_display
+                    .iter()
+                    .flat_map(|(_, c)| c.icons.iter().map(|i| &i.animation)),
+            )
+    }
+
     pub(crate) fn validate_snapshot_structure(&self) -> Result<(), Error> {
+        for animation in self.snapshot_animations() {
+            animation.validate_snapshot_structure()?;
+        }
+        if self.fade_multiplier > 0x10000 {
+            return Err(Error("snapshot fade multiplier out of range"));
+        }
         self.sample_player.validate_snapshot_structure()?;
         self.music.validate_snapshot_structure()?;
         self.master.validate_snapshot_structure()?;
@@ -343,6 +370,30 @@ impl Engine {
             }
         }
         Ok(())
+    }
+
+    pub(crate) fn snapshot_preview(&self, resources: &Resources<'_>) -> Result<Surface, Error> {
+        self.validate_snapshot_structure()?;
+        for animation in self.snapshot_animations() {
+            animation.validate_snapshot_resources(resources)?;
+        }
+        // Hidden inventory and deferred text must also have drawable resources.
+        let mut scratch = Surface::new(320, 200)?;
+        if let Some((frame, content)) = &self.inventory_display {
+            frame.draw(resources, &mut scratch)?;
+            content.draw(resources, &mut scratch)?;
+        }
+        for process in self.processes.states() {
+            for layout in process
+                .talk_wait
+                .iter()
+                .filter_map(|w| w.layout.as_ref())
+                .chain(process.print_wait.iter().filter_map(|w| w.layout.as_ref()))
+            {
+                layout.draw(resources, &mut scratch)?;
+            }
+        }
+        self.render(resources)
     }
 
     /// Original HASRESTARTED state, set only after a committed game reset.
@@ -6989,6 +7040,41 @@ mod tests {
         process.wait = Some((call, 1));
         process.sample_wait = Some(call);
         assert!(engine.validate_snapshot_structure().is_err());
+    }
+    #[test]
+    fn snapshot_preview_checks_hidden_cursor_resources_without_mutation() {
+        let (master, scene) = fixtures();
+        let film = [0u8; 64];
+        let resources = Resources(vec![&master, &scene, &film]);
+        let mut engine = Engine::bootstrap(&resources).unwrap();
+        engine.control.hidden = true;
+        engine.cursor_animation = Some(
+            Animation::new(
+                &resources,
+                &crate::film::Reel {
+                    object: Handle(2 << 23),
+                    script: Handle((2 << 23) | 48),
+                },
+                1,
+            )
+            .unwrap(),
+        );
+        let snapshot = crate::save::Snapshot::capture(&engine, [7; 32]);
+        assert_eq!(
+            snapshot.preview(&resources).unwrap(),
+            engine.render(&resources).unwrap()
+        );
+        let before = engine.clone();
+        engine.cursor_animation.as_mut().unwrap().frame = Handle(u32::MAX);
+        // The hidden cursor is skipped by rendering but must be checked on load.
+        assert_eq!(
+            engine.render(&resources).unwrap(),
+            before.render(&resources).unwrap()
+        );
+        let snapshot = crate::save::Snapshot::capture(&engine, [7; 32]);
+        let malformed = engine.clone();
+        assert!(snapshot.preview(&resources).is_err());
+        assert_eq!(engine, malformed);
     }
     #[test]
     fn snapshot_envelope_rejects_corruption_truncation_wrong_assets_and_trailing_data() {

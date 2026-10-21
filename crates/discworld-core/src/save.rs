@@ -48,6 +48,15 @@ impl Snapshot {
         self.state.music.validate_snapshot_tracks(tracks)
     }
 
+    /// Validate current animation/image references and render without activation.
+    /// Future scene transitions and host state require additional validation.
+    pub fn preview(
+        &self,
+        resources: &crate::graphics::Resources<'_>,
+    ) -> Result<crate::compositor::Surface, Error> {
+        self.state.snapshot_preview(resources)
+    }
+
     pub fn to_bytes(&self) -> Result<Vec<u8>, Error> {
         self.state.validate_snapshot_structure()?;
         let payload =

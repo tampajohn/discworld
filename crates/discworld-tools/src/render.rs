@@ -158,6 +158,9 @@ pub fn headless(
                     let decoded = discworld_core::save::Snapshot::from_bytes(&bytes, asset_id)?;
                     decoded.verify_scripts(&resources)?;
                     decoded.verify_audio(&bank, &tracks)?;
+                    if decoded.preview(&resources)? != engine.render(&resources)? {
+                        return Err(format!("snapshot preview differs at {}", engine.ticks).into());
+                    }
                     if decoded != captured || decoded.to_bytes()? != bytes {
                         return Err(
                             format!("snapshot round trip failed at {}", engine.ticks).into()

@@ -40,6 +40,10 @@ decoding also checks the fractional PCM clock, sequencer cursor/loop/note bounds
 music clock agreement, and pending stop messages. Offset-zero music facts are
 handled without requiring the still-playing sequence to have been stopped.
 This validates core audio state, not the host synthesizer or audio device.
+`Snapshot::preview` checks animation clocks, capacities, script cursors, film
+columns, and current image resources before rendering. It also checks hidden
+cursor/inventory animations and deferred text, which ordinary rendering can
+skip. Preview leaves the running engine unchanged and does not activate a save.
 Changes to serialized field order/types require a format version change or an
 explicit migration. These files are not ScummVM saves.
 
@@ -63,9 +67,20 @@ The audit also invokes `verify_scripts` and `verify_audio`. The 10,000-tick open
 `evidence/act4-ending-input.json` passed 40 checks with a maximum encoded snapshot
 of 36,973 bytes (`evidence/headless-snapshot-scripts-room.json`); its final
 `unseen.scn` frame was inspected. This is fixture and opening evidence, not full
-game save/load acceptance. Full-route audits are being run separately.
+game save/load acceptance.
 The same prefix passed all 40 checks with audio validation enabled
 (`evidence/headless-snapshot-audio-room.json`, same maximum snapshot size).
+The preview-enabled opening audit also passed; at each checkpoint the decoded
+snapshot preview exactly matched the uninterrupted engine's rendered surface
+(`evidence/headless-snapshot-preview-room.json`).
+
+The initial full-route codec/structure audit at commit `9680068` passed 5,048
+checkpoints through all 1,652 recorded inputs, the ending, restart, and title at
+tick 2,630,000. Maximum encoded size was 47,409 bytes. Evidence:
+`evidence/headless-ending-snapshot-audit.json`, exit 0, final title frame inspected.
+This run predates script-resource, audio-resource, and preview validation. A
+second full run checks script references; combined validation is being tested
+separately. Neither run activates a decoded state or verifies host relaunch.
 
 Before exposing load, validate decoded invariants and resource references, with
 atomic failure preserving the current session. Bound decoder allocations as

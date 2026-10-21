@@ -41,6 +41,50 @@ pub struct Animation {
     finished: bool,
 }
 impl Animation {
+    pub(crate) fn validate_snapshot_structure(&self) -> Result<(), Error> {
+        if self.period == 0
+            || self.remaining == 0
+            || self.remaining > self.period
+            || self.capacity == 0
+            || self.capacity > 4096
+        {
+            return Err(Error("invalid snapshot animation clock or capacity"));
+        }
+        Ok(())
+    }
+
+    pub(crate) fn validate_snapshot_resources(
+        &self,
+        resources: &Resources<'_>,
+    ) -> Result<(), Error> {
+        self.validate_snapshot_structure()?;
+        let words = self
+            .index
+            .checked_add(usize::from(!self.finished))
+            .and_then(|n| n.checked_mul(4))
+            .ok_or(Error("snapshot animation offset overflow"))?;
+        resources.resolve(self.script, words)?;
+        if let Some(source) = &self.source {
+            let film = crate::film::Film::read(resources, source.film)?;
+            if source.column >= film.reels.len() {
+                return Err(Error("snapshot reel column outside film"));
+            }
+        }
+        if let Some(reel) = self.reel {
+            resources.resolve(reel, 8)?;
+        }
+        let images = self.images(resources)?;
+        if let Some(handle) = images.first() {
+            let palette = crate::graphics::Image::read(resources, *handle)?.palette;
+            crate::graphics::read_palette(resources, palette)?;
+        }
+        for handle in images {
+            let image = crate::graphics::Image::read(resources, handle)?;
+            crate::graphics::decode_tiles(resources, &image)?;
+        }
+        Ok(())
+    }
+
     /// V1 SkipFrames synchronizes walking reels without changing the visible
     /// shape or clock. Control instructions before the next frame still run.
     /// Errors leave the entire animation unchanged.
@@ -271,6 +315,33 @@ mod tests {
             period,
         )
         .unwrap()
+    }
+    #[test]
+    fn snapshot_checks_animation_clock_capacity_and_script_bounds() {
+        let mut data = fixture(&[0]);
+        data[0..4].copy_from_slice(&0u32.to_le_bytes());
+        let resources = Resources(vec![&data]);
+        let valid = anim(&data, 2);
+        valid.validate_snapshot_resources(&resources).unwrap();
+        for remaining in [0, 3, u32::MAX] {
+            let mut invalid = valid.clone();
+            invalid.remaining = remaining;
+            assert!(invalid.validate_snapshot_resources(&resources).is_err());
+        }
+        for capacity in [0, 4097, usize::MAX] {
+            let mut invalid = valid.clone();
+            invalid.capacity = capacity;
+            assert!(invalid.validate_snapshot_resources(&resources).is_err());
+        }
+        let mut invalid = valid.clone();
+        invalid.index = usize::MAX;
+        assert!(invalid.validate_snapshot_resources(&resources).is_err());
+        let mut invalid = valid.clone();
+        invalid.frame = Handle(u32::MAX);
+        assert!(invalid.validate_snapshot_resources(&resources).is_err());
+        let mut finished = valid;
+        assert_eq!(finished.tick(&resources).unwrap(), Tick::Finished);
+        finished.validate_snapshot_resources(&resources).unwrap();
     }
     #[test]
     fn timing_and_relative_loop() {
