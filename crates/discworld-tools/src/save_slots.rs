@@ -30,6 +30,11 @@ fn path(root: &Path, id: u32) -> io::Result<PathBuf> {
 fn invalid(error: impl ToString) -> io::Error {
     io::Error::new(io::ErrorKind::InvalidData, error.to_string())
 }
+pub fn read_record(path: &Path) -> io::Result<Vec<u8>> {
+    let bytes = crate::save_file::read_bounded(path, slot::MAX_BYTES)?;
+    slot::decode(&bytes).map_err(invalid)?;
+    Ok(bytes)
+}
 pub fn read(root: &Path, id: u32) -> io::Result<Vec<u8>> {
     let bytes = crate::save_file::read_bounded(&path(root, id)?, slot::MAX_BYTES)?;
     if slot::decode(&bytes).map_err(invalid)?.id != id {

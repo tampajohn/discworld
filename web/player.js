@@ -1,3 +1,4 @@
+import { deviceSave } from './storage.js';
 import { advanceClock } from './clock.js';
 const $ = id => document.getElementById(id);
 const canvas = $('game'), context = canvas.getContext('2d', { alpha: false });
@@ -168,26 +169,6 @@ document.onkeydown = event => {
 document.onvisibilitychange = () => { if (ready && document.hidden) { pause(); status('Paused while the page is hidden.'); } };
 window.addEventListener('pagehide', pause);
 
-function database() {
-  return new Promise((resolve, reject) => {
-    const request = indexedDB.open('discworld-player', 1);
-    request.onupgradeneeded = () => request.result.createObjectStore('saves');
-    request.onerror = () => reject(request.error);
-    request.onsuccess = () => resolve(request.result);
-  });
-}
-async function deviceSave(bytes) {
-  const db = await database();
-  try {
-    return await new Promise((resolve, reject) => {
-      const transaction = db.transaction('saves', bytes ? 'readwrite' : 'readonly');
-      const store = transaction.objectStore('saves');
-      const request = bytes ? store.put(bytes, 'manual') : store.get('manual');
-      transaction.oncomplete = () => resolve(request.result);
-      transaction.onerror = transaction.onabort = () => reject(transaction.error || new Error('Save transaction failed'));
-    });
-  } finally { db.close(); }
-}
 async function restore(bytes) {
   pause();
   draw(await rpc('load', { bytes }));

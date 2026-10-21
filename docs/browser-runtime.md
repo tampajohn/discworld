@@ -298,3 +298,33 @@ with explicit source/checkpoint provenance. Replay uses the separate
 replay-validation WASM build and accelerated semantic inputs; it does not prove
 a full physical-input route, Web Audio playback or physical iPad acceptance.
 No additional engine changes were needed for these full browser checks.
+
+
+Browser slot persistence now uses the same Rust DWRSLOT codec through WASM
+encode_slot/decode_slot. storage.js upgrades discworld-player IndexedDB to
+version2, preserving the existing saves/manual record and adding a slots store.
+New-slot selection and full-record publication share one readwrite transaction,
+so concurrent tabs cannot select the same free ID. Explicit overwrites are
+transactional; corrupt occupied keys remain reserved and are reported separately.
+Catalog reads decode one cursor record at a time and retain only metadata, rather
+than retaining all complete sessions. Timestamp input is a checked unsigned
+64-bit BigInt; game-font descriptions remain bytes. Rust/IndexedDB storage
+functions are available, but live menu actions are not connected yet.
+
+All22 Chrome/WebKit tests plus two clock tests pass in
+assets/logs/browser-slots-tests.log. New tests exercise v1 manual-save migration,
+reload persistence, two-tab concurrent allocation, failed overwrite preservation,
+corrupt slot reporting/reservation and timestamp ordering. The existing18 player
+checks also passed after manual deviceSave moved into the shared storage module.
+282 enabled workspace tests and Clippy pass. Browser artifacts
+assets/saves/browser-{chrome,webkit}-slot.dwslot decode with native inspect-slot;
+both envelopes are identical and their extracted sessions exactly match the
+original inventory checkpoint. Full resource/SoundFont restoration and24 ticks
+of native continuation yield identical engine/DSP saves and PNGs at33224,
+Running/rinceroo.scn. The loaded inventory image was inspected. Evidence:
+assets/logs/browser-{chrome,webkit}-slot-{native,loaded}.json and matching loaded
+images under assets/previews. inspect-slot SLOT [FRESH_SESSION_OUTPUT] validates
+the record and optionally exports the unchanged session with no-replace atomic
+publication. Browser manual-save behavior remains available; original F1/menu
+integration, settings persistence, catalog asset filtering and physical iPad
+acceptance are still unfinished.

@@ -22,6 +22,24 @@ fn run() -> Result<(), Box<dyn std::error::Error>> {
         .next()
         .ok_or("usage: discworld-tools inspect-iso <image.iso>")?;
     let path = args.next().ok_or("missing ISO path")?;
+    if command == "inspect-slot" {
+        let output = args.next();
+        if args.next().is_some() {
+            return Err("unexpected slot inspection argument".into());
+        }
+        let bytes = discworld_tools::save_slots::read_record(std::path::Path::new(&path))?;
+        let slot = discworld_audio::slot::decode(&bytes)?;
+        if let Some(output) = output {
+            discworld_tools::save_file::write_new(std::path::Path::new(&output), slot.session)?;
+        }
+        println!(
+            "{}",
+            serde_json::to_string_pretty(
+                &json!({"id":slot.id,"timestamp_ms":slot.timestamp_ms,"description_bytes":slot.description,"session_bytes":slot.session.len(),"session_sha256":format!("{:x}",Sha256::digest(slot.session)),"scope":"slot/session envelope validation; resource restoration is separate"})
+            )?
+        );
+        return Ok(());
+    }
     if command == "audit-save-slots" {
         use discworld_core::save_menu::Target;
         let root = std::path::PathBuf::from(args.next().ok_or("missing fresh slot directory")?);

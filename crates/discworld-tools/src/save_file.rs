@@ -41,6 +41,16 @@ pub fn write_atomic(path: &Path, bytes: &[u8]) -> io::Result<()> {
     )
 }
 
+/// Publish a complete new session without replacing an existing file.
+pub fn write_new(path: &Path, bytes: &[u8]) -> io::Result<()> {
+    write_bounded(
+        path,
+        bytes,
+        discworld_audio::session::MAX_SESSION_BYTES,
+        false,
+    )
+}
+
 pub(crate) fn write_bounded(
     path: &Path,
     bytes: &[u8],

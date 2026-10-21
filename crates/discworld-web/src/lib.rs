@@ -19,6 +19,45 @@ fn error(e: impl std::fmt::Display) -> String {
     e.to_string()
 }
 
+/// Portable slot metadata boundary. Full session restoration still uses Game.load.
+#[wasm_bindgen]
+pub struct SlotInfo {
+    pub id: u32,
+    pub timestamp_ms: u64,
+    description: Vec<u8>,
+    session: Vec<u8>,
+}
+#[wasm_bindgen]
+impl SlotInfo {
+    #[wasm_bindgen(getter)]
+    pub fn description(&self) -> Vec<u8> {
+        self.description.clone()
+    }
+    #[wasm_bindgen(getter)]
+    pub fn session(&self) -> Vec<u8> {
+        self.session.clone()
+    }
+}
+#[wasm_bindgen]
+pub fn encode_slot(
+    id: u32,
+    timestamp_ms: u64,
+    description: &[u8],
+    session: &[u8],
+) -> Result<Vec<u8>> {
+    discworld_audio::slot::encode(id, timestamp_ms, description, session).map_err(error)
+}
+#[wasm_bindgen]
+pub fn decode_slot(bytes: &[u8]) -> Result<SlotInfo> {
+    let slot = discworld_audio::slot::decode(bytes).map_err(error)?;
+    Ok(SlotInfo {
+        id: slot.id,
+        timestamp_ms: slot.timestamp_ms,
+        description: slot.description.to_vec(),
+        session: slot.session.to_vec(),
+    })
+}
+
 struct Assets {
     iso: Vec<u8>,
     identity: [u8; 32],
