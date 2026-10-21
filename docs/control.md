@@ -569,3 +569,30 @@ Evidence: `assets/logs/rightclick-node-exit-{before,fixed}.json`,
 `assets/previews/rightclick-node-exit-fixed.png`. The opt-in original-asset
 regression requires DISCWORLD_TEST_NODE_EXIT_SAVE and checks exact
 engine/pixels/audio continuation across the formerly failing tick.
+
+
+Full-route regression caught and corrected during hover integration:83d1928
+stayed in Arch at tick612000 (ingredient count4), while an isolated cc20493
+pre-hover build entered Detector (count5). New POINTED discovery on the tick
+after an inventory click overwrote global glitterIndex with the object ID before
+ADDOPENINV consumed the click's cell index, changing inventory order. Discovery
+now also runs before raw mouse-button and resolved inventory dispatch, preserving
+pointer-before-click ordering. A regression executes a LOOK script's ADDOPENINV
+and checks insertion at the clicked cell even when movement/click share a frame.
+The unchanged route prefix0–612000 now matches the isolated baseline for scene,
+all globals, inventory contents, held item and control. Evidence:
+`assets/logs/{before-hover,hover-order}-arch-diagnostic.json`; the failed hover
+state is retained as `assets/logs/hover-arch-diagnostic.json`. This establishes
+the cause and prefix recovery; the remaining recorded route is running from
+`assets/saves/hover-order-arch-diagnostic.dws`, not yet claimed complete.
+
+Verification for the hover/cutaway increment:266 enabled workspace tests,
+11 original-asset tests and Clippy pass. All18 Chrome/WebKit player checks and
+two clock tests passed on83d1928; both browser-exported POINTED saves were loaded
+by the original-font pixel and speech-arbitration regression and passed. Final
+pointer-before-click build has its own browser run and route continuation pending.
+Native right-click recovery was visually verified in library.scn after loading
+exact stopped133103 progress; subsequent refresh preserved current library state
+and the user's sound-on preference. Native hover scratch input was deferred
+because the user was actively playing; browser and shared-engine pixel checks
+provide label evidence without interfering with that session.

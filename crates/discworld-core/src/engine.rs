@@ -1039,6 +1039,7 @@ impl Engine {
     ) -> Result<(), Error> {
         use crate::mouse::{DEFAULT_DOUBLE_CLICK_TICKS, MouseInput, PlayerEvent};
         let mut next = self.clone();
+        next.update_inventory_hover(resources)?;
         let mouse = next
             .mouse
             .get_or_insert_with(|| MouseInput::new(0, DEFAULT_DOUBLE_CLICK_TICKS));
@@ -1764,6 +1765,10 @@ impl Engine {
         let index = window.first_display + index;
         let target = window.contents.get(index).copied();
         let mut next = self.clone();
+        // Pointer movement precedes the click's InvTinselEvent. In particular,
+        // POINTED's object-valued glitter index must not overwrite the click's
+        // cell-valued index on the next tick before ADDOPENINV executes.
+        next.update_inventory_hover(resources)?;
         let (item, event) = if interaction == PolygonInteraction::WalkTo && self.held_object != -1 {
             let object = self
                 .inventory_objects
@@ -5043,7 +5048,11 @@ mod tests {
     fn inventory_click_regions_precede_icons_and_gap_fallback_is_only_for_putdown() {
         use crate::conversation_window::{Content, Frame, Layout};
         use PolygonInteraction::{Action, Look, WalkTo};
-        let (master, scene) = fixtures();
+        let (master, mut scene) = fixtures();
+        // LOOK inserts a replacement item; POINTED and UNPOINT simply halt.
+        scene[32..49].copy_from_slice(&[
+            2, 0x4e, 31, 0x41, 3, 20, 0x52, 16, 1, 201, 0, 0, 0, 0x4e, 9, 0, 0,
+        ]);
         let resources = Resources(vec![&master, &scene]);
         let mut engine = Engine::bootstrap(&resources).unwrap();
         engine.active_inventory = Some(1);
@@ -5093,6 +5102,50 @@ mod tests {
         }
         engine.conversation.hidden = true;
         assert_eq!(engine.inventory_click_slot_at([110, 120], WalkTo), None);
+        // A move and click in one host frame must discover POINTED first.
+        // Its object ID is a different global glitter index from the click's
+        // backing-array cell, which ADDOPENINV subsequently consumes.
+        engine.conversation.hidden = false;
+        engine.held_object = -1;
+        engine.declarations.windows[1].as_mut().unwrap().contents = vec![190, 200];
+        for id in [190, 200] {
+            engine.inventory_objects.insert(
+                id,
+                crate::inventory::Object {
+                    id,
+                    film: Handle(0),
+                    script: Handle((1 << 23) | 32),
+                    attributes: 0,
+                },
+            );
+        }
+        engine.control.cursor = [144, 132];
+        assert!(engine.interact_inventory(&resources, 1, Look).unwrap());
+        assert_eq!(engine.inventory_event_index, 1);
+        assert!(
+            engine
+                .processes
+                .states()
+                .any(|p| p.inventory_object == Some(200) && p.event == 0)
+        );
+        engine.update_inventory_hover(&resources).unwrap();
+        assert_eq!(engine.inventory_event_index, 1);
+        let mut look = engine
+            .processes
+            .states()
+            .find(|p| p.inventory_object == Some(200) && p.event == 3)
+            .unwrap()
+            .clone();
+        assert_eq!(
+            engine
+                .run_process(&resources, None, None, None, &mut look)
+                .unwrap(),
+            Status::Halted
+        );
+        assert_eq!(
+            engine.declarations.windows[1].as_ref().unwrap().contents,
+            [190, 201, 200]
+        );
     }
 
     #[test]
