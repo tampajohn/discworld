@@ -10,3 +10,7 @@
 # Retain reproducible routes, not bulk generated diagnostics.
 /evidence/*
 !/evidence/*-input.json
+
+# Local player saves
+*.dws
+*.dws.tmp-*

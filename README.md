@@ -2,7 +2,7 @@
 
 A work-in-progress replacement for the **Tinsel 1** engine that runs the original **Discworld English DOS CD v2** assets and scripts. The goal is the complete game, from opening to credits, on native macOS and a shared browser/WebAssembly engine, ultimately playable on an iPad in landscape with touch controls.
 
-**Currently:** a runnable macOS development host and a reproducible original-input route through Acts I–IV, the ending, scrolling credits, and restart to the title screen. **Not yet:** a complete compatibility implementation, browser player, iPad release, or persistent save/load. This is an independent compatibility project, informed by a pinned ScummVM reference, not an official release or a clean-room implementation.
+**Currently:** a runnable macOS development host and a reproducible original-input route through Acts I–IV, the ending, scrolling credits, and restart to the title screen. **Not yet:** a complete compatibility implementation, browser player, iPad release, or fully validated native save/load. This is an independent compatibility project, informed by a pinned ScummVM reference, not an official release or a clean-room implementation.
 
 ![Scenes rendered by the Rust runtime](docs/media/runtime-montage.gif)
 
@@ -31,6 +31,12 @@ cargo run --release -p discworld-native -- \
 
 `--room` simulates the opening before showing Rincewind's room. Omit it to watch the opening in real time. Add `--mute` to start silently; the SoundFont is still required. Runtime logs from the launchers are retained under `assets/logs/`.
 
+### Save and reload
+
+Press **F5** to save and **F9** to load `discworld-save.dws` in the working directory. Choose a destination with `--save-file PATH`; its parent directory must exist. Relaunch with `--load PATH` to restore the engine and synthesizer together. Use the same ISO and SoundFont. These development saves are not compatible with ScummVM.
+
+Separate-process tests reproduce engine/DSP state, frames, and speech PCM exactly, including an open Luggage inventory with its background. The native hotkeys and window handoff still need visual validation. Browser persistence remains unfinished.
+
 ### Watch the development playthrough
 
 Pass `--paused` to start a native session paused (including after `--from-tick` replay reconstruction); press **P** to resume. Replay reconstruction is not a persistent engine save.
@@ -42,6 +48,7 @@ Double-click **Watch Discworld.command** to replay the recorded route from Rince
 | **M** | Toggle sound |
 | **P** | Pause/resume |
 | **F** | Cycle 1×, 4×, and 16× speed |
+| **F5**, **F9** | Save, load |
 | **Esc** | Exit |
 
 Accelerated replay is silent; returning to normal speed restores the selected sound setting. Manual game inputs are disabled during replay to preserve its recorded route. Seek to a different tick by reconstructing the preceding game state:
@@ -82,7 +89,7 @@ Point at the Luggage and use Action to open its inventory. Inventory actions exe
 | Scripts | Original bytecode, library calls, cooperative scheduling, dialogue, inventory and scene transitions exercised by the recorded start-to-credits route; unsupported behavior stops explicitly |
 | Audio | Original samples and XMIDI music through a local software synth; original hardware and native/browser fidelity are not established |
 | Gameplay | Acts I–III completed in replay, including the altered-book theft, temple escape and Act III climax; Act III spell, Shades item, birthmark, moustache, upgraded sword and eye verified (6 of 6), including the sailor exchange, palette-changing birthmark animation and cart/beggar sequence; Act IV fuels, final showdown, ending, scrolling credits and restart verified in headless replay |
-| State | In-memory scene save/restore and script-driven restart; [versioned snapshots](docs/save-state.md) audited across the full route, with core restoration tested through the opening; durable player save/load controls and host persistence remain unfinished |
+| State | In-memory scene save/restore and script-driven restart; [versioned snapshots](docs/save-state.md) audited across the full route, with core restoration tested across the full route; combined engine/DSP files pass separate-process opening and inventory tests; native controls await visual validation |
 | macOS | Runnable native window/audio host with interactive and replay modes |
 | Browser/iPad | Portable core compiles for `wasm32-unknown-unknown`; browser presentation, audio, storage, touch input and device testing remain to be built |
 
@@ -92,7 +99,7 @@ The project favors compatibility over skipping unsupported script behavior. A pa
 
 | Component | Responsibility |
 | --- | --- |
-| `crates/discworld-core` | Portable resource readers, VM, scheduler, engine state, movement, rendering and UI behavior; no third-party dependencies |
+| `crates/discworld-core` | Portable resource readers, VM, scheduler, engine state, movement, rendering and UI behavior; portable snapshot serialization |
 | `crates/discworld-audio` | Sample/music rendering and SoundFont synthesis |
 | `crates/discworld-native` | macOS development host using minifb and Rodio; keyboard/mouse input and visible replay |
 | `crates/discworld-tools` | ISO/resource audits, diagnostics, frame export and headless interaction replay |
@@ -151,7 +158,7 @@ These are actual 320×200 runtime captures from the supplied release, included t
 
 ## Roadmap and reference material
 
-The full objective remains start-to-credits gameplay, complete interaction and save/load behavior, tested native and browser hosts, and landscape iPad touch play. Upcoming work includes native ending visual validation, persistent saves, browser integration, touch controls, reference comparisons, and coverage of interactions outside the completed route. No release date is promised.
+The full objective remains start-to-credits gameplay, complete interaction and save/load behavior, tested native and browser hosts, and landscape iPad touch play. Upcoming work includes native ending and save/load visual validation, browser integration, touch controls, reference comparisons, and coverage of interactions outside the completed route. No release date is promised.
 
 - [Goal and milestones](docs/goal.md)
 - [Resource formats](docs/resource-format.md), [script runtime](docs/script-runtime.md), [scheduling](docs/scheduling.md)

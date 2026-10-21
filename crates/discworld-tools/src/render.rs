@@ -45,13 +45,19 @@ pub fn headless(
         })
         .transpose()?;
     let interaction_trace = args.next();
-    let snapshot_audit = match args.next() {
-        None => false,
-        Some(flag) if flag == "--snapshot-audit" => true,
-        Some(_) => return Err("unexpected headless argument".into()),
-    };
-    if args.next().is_some() {
-        return Err("unexpected headless argument".into());
+    let mut snapshot_audit = false;
+    let mut session_load = None;
+    let mut session_save = None;
+    while let Some(flag) = args.next() {
+        if flag == "--snapshot-audit" {
+            snapshot_audit = true;
+        } else if flag == "--load" {
+            session_load = Some(args.next().ok_or("missing load file")?);
+        } else if flag == "--save" {
+            session_save = Some(args.next().ok_or("missing save file")?);
+        } else {
+            return Err("unexpected headless argument".into());
+        }
     }
     // The caller supplies the simulation budget. Only WAV capture needs an
     // upper bound on duration because its PCM buffer accumulates in memory.
@@ -106,6 +112,20 @@ pub fn headless(
         iso.file("/DISCWLD/ENGLISH.TXT")
             .ok_or("missing text archive")?,
     )?;
+    if let Some(path) = session_load {
+        let bytes = discworld_tools::save_file::read(std::path::Path::new(&path))?;
+        let font = soundfont_bytes
+            .as_deref()
+            .ok_or("--load requires a SoundFont")?;
+        let restored =
+            discworld_audio::session::decode(&bytes, asset_id, &resources, &bank, &tracks, font)?;
+        engine = restored.engine;
+        synth = Some(restored.audio);
+    }
+    let start_tick = u32::try_from(engine.ticks)?;
+    if start_tick > ticks {
+        return Err("loaded save is beyond the requested final tick".into());
+    }
     let mut pcm = Vec::new();
     let mut status = "ready".to_owned();
     let mut state_changes = std::collections::VecDeque::new();
@@ -114,7 +134,7 @@ pub fn headless(
     let mut previous_mover_scene = engine.scene;
     let mut previous_globals = engine.globals.clone();
     let mut previous_control = engine.control.enabled;
-    for tick in 0..ticks {
+    for tick in start_tick..ticks {
         if tick % 100_000 == 0 {
             eprintln!(
                 "Headless replay {tick}/{ticks}: {}",
@@ -303,6 +323,14 @@ pub fn headless(
         ticks,
         index[engine.scene.resource()].name
     );
+    if let Some(path) = session_save {
+        if engine.ticks != u64::from(ticks) {
+            return Err("not saving an incomplete headless run".into());
+        }
+        let audio = synth.as_ref().ok_or("--save requires a SoundFont")?;
+        let bytes = discworld_audio::session::encode(&engine, audio, asset_id)?;
+        discworld_tools::save_file::write_atomic(std::path::Path::new(&path), &bytes)?;
+    }
     let surface = engine.render(&resources)?;
     if let Some(path) = wave_output {
         crate::audio::write_wav(std::path::Path::new(&path), &pcm)?;

@@ -4,6 +4,8 @@ use rustysynth::{SoundFont, Synthesizer, SynthesizerSettings};
 use sha2::{Digest, Sha256};
 use std::{io::Cursor, sync::Arc};
 
+pub mod session;
+
 const CHECKPOINT_HEADER: usize = 92;
 pub const MAX_CHECKPOINT_BYTES: usize = 8 * 1024 * 1024;
 
@@ -18,6 +20,11 @@ pub struct MusicOutput {
     font_id: [u8; 32],
 }
 impl MusicOutput {
+    pub fn matches_engine_clock(&self, clock: u64) -> bool {
+        self.rate == discworld_core::audio::SAMPLE_RATE
+            && clock.checked_mul(u64::from(self.rate)).map(|n| n / 120) == Some(self.sample)
+    }
+
     pub fn new(soundfont: &[u8], rate: u32) -> Result<Self, Box<dyn std::error::Error>> {
         let font = Arc::new(SoundFont::new(&mut Cursor::new(soundfont))?);
         let rate_i32 = i32::try_from(rate)?;

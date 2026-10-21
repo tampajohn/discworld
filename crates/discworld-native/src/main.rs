@@ -35,7 +35,7 @@ fn run() -> Result<(), Box<dyn std::error::Error>> {
     let mut args = std::env::args_os().skip(1);
     let path = args
         .next()
-        .ok_or("usage: discworld-native ISO SOUNDFONT [--room | --replay TRACE [--from-tick N]] [--mute] [--paused] [--frames N]")?;
+        .ok_or("usage: discworld-native ISO SOUNDFONT [--room | --replay TRACE [--from-tick N]] [--load SAVE] [--save-file SAVE] [--mute] [--paused] [--frames N]")?;
     let soundfont = args.next().ok_or("missing SoundFont")?;
     let mut from_tick = 0u64;
     let mut replay_path = None;
@@ -43,8 +43,18 @@ fn run() -> Result<(), Box<dyn std::error::Error>> {
     let mut start_paused = false;
     let mut room = false;
     let mut frame_limit = None;
+    let mut load_path = None;
+    let mut save_path = None;
     while let Some(arg) = args.next() {
-        if arg == "--replay" {
+        if arg == "--load" {
+            load_path = Some(std::path::PathBuf::from(
+                args.next().ok_or("missing load path")?,
+            ));
+        } else if arg == "--save-file" {
+            save_path = Some(std::path::PathBuf::from(
+                args.next().ok_or("missing save path")?,
+            ));
+        } else if arg == "--replay" {
             replay_path = Some(args.next().ok_or("missing replay path")?);
         } else if arg == "--from-tick" {
             from_tick = args
@@ -79,8 +89,15 @@ fn run() -> Result<(), Box<dyn std::error::Error>> {
     if replay.is_some() && room {
         return Err("--room and --replay cannot be combined".into());
     }
+    if load_path.is_some() && (room || from_tick != 0) {
+        return Err("--load cannot be combined with --room or --from-tick".into());
+    }
+    let save_path = save_path
+        .or_else(|| load_path.clone())
+        .unwrap_or_else(|| std::path::PathBuf::from("discworld-save.dws"));
     let mut replay_position = 0usize;
     let data = std::fs::read(path)?;
+    let asset_id = discworld_audio::session::asset_identity(&data);
     let iso = Iso::parse(&data)?;
     let index = parse_index(iso.file("/DISCWLD/INDEX").ok_or("missing index")?)?;
     if let Some(inputs) = &replay {
@@ -103,14 +120,35 @@ fn run() -> Result<(), Box<dyn std::error::Error>> {
     let tracks = music::archive(iso.file("/DISCWLD/MIDI.DAT").ok_or("missing music")?)?;
     let strings = Strings::new(iso.file("/DISCWLD/ENGLISH.TXT").ok_or("missing text")?)?;
     let mut engine = Engine::bootstrap(&resources)?;
-    let mut synth = discworld_audio::MusicOutput::new(&std::fs::read(soundfont)?, 22050)?;
-    let mut step = |engine: &mut Engine| -> Result<(Status, Vec<f32>), Box<dyn std::error::Error>> {
+    let soundfont_bytes = std::fs::read(soundfont)?;
+    let mut synth = discworld_audio::MusicOutput::new(&soundfont_bytes, 22050)?;
+    if let Some(path) = &load_path {
+        let bytes = discworld_tools::save_file::read(path)?;
+        let restored = discworld_audio::session::decode(
+            &bytes,
+            asset_id,
+            &resources,
+            &bank,
+            &tracks,
+            &soundfont_bytes,
+        )?;
+        engine = restored.engine;
+        synth = restored.audio;
+        replay_position = replay.as_ref().map_or(0, |inputs| {
+            inputs.partition_point(|i| u64::from(i.tick) < engine.ticks)
+        });
+        eprintln!("Loaded {} at tick {}", path.display(), engine.ticks);
+    }
+    let step = |engine: &mut Engine,
+                synth: &mut discworld_audio::MusicOutput,
+                replay_position: &mut usize|
+     -> Result<(Status, Vec<f32>), Box<dyn std::error::Error>> {
         if let Some(inputs) = &replay {
             if engine.ticks == 500 {
                 engine.user_event()?;
             }
             if let Some(input) = inputs
-                .get(replay_position)
+                .get(*replay_position)
                 .filter(|i| u64::from(i.tick) == engine.ticks)
             {
                 let scene = &index[engine.scene.resource()].name;
@@ -118,7 +156,7 @@ fn run() -> Result<(), Box<dyn std::error::Error>> {
                     return Err(format!("Replay input rejected at tick {}", engine.ticks).into());
                 }
                 eprintln!("Replay tick {}: {} {:?}", input.tick, scene, input.event);
-                replay_position += 1;
+                *replay_position += 1;
             }
         }
         let status = engine.tick_content(&resources, Some(&bank), Some(&tracks), Some(&strings))?;
@@ -139,7 +177,7 @@ fn run() -> Result<(), Box<dyn std::error::Error>> {
             if tick == 500 {
                 engine.user_event()?;
             }
-            let (status, _) = step(&mut engine)?;
+            let (status, _) = step(&mut engine, &mut synth, &mut replay_position)?;
             if status != Status::Running {
                 return Err(format!("startup stopped: {status:?}").into());
             }
@@ -151,7 +189,7 @@ fn run() -> Result<(), Box<dyn std::error::Error>> {
         }
         eprintln!("Preparing replay at tick {from_tick}…");
         while engine.ticks < from_tick {
-            let (status, _) = step(&mut engine)?;
+            let (status, _) = step(&mut engine, &mut synth, &mut replay_position)?;
             if status != Status::Running {
                 return Err(format!("replay preparation stopped: {status:?}").into());
             }
@@ -203,6 +241,8 @@ fn run() -> Result<(), Box<dyn std::error::Error>> {
     let mut stopped = false;
     let mut left_down = false;
     let mut frames = 0u64;
+    let mut save_notice = String::new();
+    eprintln!("F5: save. F9: load. Save file: {}", save_path.display());
     while window.is_open()
         && !window.is_key_down(Key::Escape)
         && frame_limit.is_none_or(|limit| frames < limit)
@@ -210,6 +250,54 @@ fn run() -> Result<(), Box<dyn std::error::Error>> {
         let now = Instant::now();
         elapsed = (elapsed + now.duration_since(previous)).min(interval * 4);
         previous = now;
+        if window.is_key_pressed(Key::F5, KeyRepeat::No) {
+            let result =
+                discworld_audio::session::encode(&engine, &synth, asset_id).and_then(|bytes| {
+                    discworld_tools::save_file::write_atomic(&save_path, &bytes).map_err(Into::into)
+                });
+            save_notice = match result {
+                Ok(()) => format!("saved tick {}", engine.ticks),
+                Err(error) => format!("save failed: {error}"),
+            };
+            eprintln!("{save_notice}: {}", save_path.display());
+            elapsed = Duration::ZERO;
+            previous = Instant::now();
+        }
+        if window.is_key_pressed(Key::F9, KeyRepeat::No) {
+            let result = discworld_tools::save_file::read(&save_path)
+                .map_err(Box::<dyn std::error::Error>::from)
+                .and_then(|bytes| {
+                    discworld_audio::session::decode(
+                        &bytes,
+                        asset_id,
+                        &resources,
+                        &bank,
+                        &tracks,
+                        &soundfont_bytes,
+                    )
+                });
+            match result {
+                Ok(restored) => {
+                    replace_audio_sink(&mut sink, stream.mixer(), paused);
+                    engine = restored.engine;
+                    synth = restored.audio;
+                    stopped = false;
+                    left_down = window.get_mouse_down(MouseButton::Left);
+                    replay_position = replay.as_ref().map_or(0, |inputs| {
+                        inputs.partition_point(|i| u64::from(i.tick) < engine.ticks)
+                    });
+                    replay_end = replay
+                        .as_ref()
+                        .and_then(|v| v.last())
+                        .map(|i| u64::from(i.tick) + 2400);
+                    save_notice = format!("loaded tick {}", engine.ticks);
+                }
+                Err(error) => save_notice = format!("load failed: {error}"),
+            }
+            eprintln!("{save_notice}: {}", save_path.display());
+            elapsed = Duration::ZERO;
+            previous = Instant::now();
+        }
         if window.is_key_pressed(Key::M, KeyRepeat::No) {
             muted = !muted;
             sink.set_volume(if muted { 0.0 } else { 1.0 });
@@ -339,7 +427,7 @@ fn run() -> Result<(), Box<dyn std::error::Error>> {
             let playback_interval = interval / speed;
             while elapsed >= playback_interval && (speed > 1 || sink.len() < 6) {
                 elapsed -= playback_interval;
-                match step(&mut engine) {
+                match step(&mut engine, &mut synth, &mut replay_position) {
                     Ok((Status::Running, audio)) => {
                         if speed == 1 {
                             sink.append(rodio::buffer::SamplesBuffer::new(2, 22050, audio));
@@ -384,7 +472,7 @@ fn run() -> Result<(), Box<dyn std::error::Error>> {
         }
         if !stopped {
             window.set_title(&format!(
-                "Discworld Rust — {} — {} — {} — M sound",
+                "Discworld Rust — {} — {} — {} — M sound — F5 save/F9 load {}",
                 index[engine.scene.resource()].name,
                 if paused && replay.is_some() && replay_end.is_none() {
                     "recorded route finished (P continues)"
@@ -418,7 +506,8 @@ fn run() -> Result<(), Box<dyn std::error::Error>> {
                         "A action · W walk · L look{}",
                         if muted { " · muted" } else { "" }
                     )
-                }
+                },
+                save_notice
             ));
         }
         let surface = engine.render(&resources)?;

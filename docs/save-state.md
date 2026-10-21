@@ -4,7 +4,7 @@ The core has a versioned snapshot codec. It captures the complete owned `Engine`
 at a tick boundary, including suspended scripts, scheduler order, scene and
 cutaway state, inventory, animation, random state, timers, and PCM/music timing.
 External game archives and audio devices are not serialized. The core snapshot
-and host synthesizer checkpoint currently use separate envelopes.
+and host synthesizer checkpoint have separate inner envelopes, combined in a player save.
 The host `MusicOutput` supports exact in-memory cloning, including its sample
 clock and all synthesizer DSP state. A real TimGM6mb SoundFont test verifies
 bit-exact continuation through active voices, pitch bend, sustain release,
@@ -17,11 +17,9 @@ reconstructs a fresh synthesizer, verifies bit-exact continuation, and rejects
 wrong fonts, truncated/corrupted data, and invalid DSP settings with a repaired
 checksum. Its encoded checkpoint is 315,019 bytes.
 
-This is groundwork for durable player saves. `Snapshot::restore` returns an
+The host now supports durable player saves. `Snapshot::restore` returns an
 engine after script, audio, polygon, animation and preview checks; the caller
-commits that replacement only after preparing host state. There is no native
-save/load control, filesystem persistence, or browser persistence yet. Decoding
-a snapshot never replaces a running engine.
+commits that replacement only after preparing host state. Native F5/F9 and startup `--load` use a combined file; browser persistence remains unfinished. Decoding a snapshot never replaces a running engine.
 
 ## Envelope version 1
 
@@ -80,7 +78,7 @@ identities and sample bounds before installing into a separately constructed
 synthesizer. Reverb cursors may equal the buffer length because wrapping occurs
 on the next process call; a dedicated vendored unit test covers this boundary.
 This is not a complete hostile-file/allocation audit or cross-platform floating
-point equivalence claim. Native/browser persistence and device handoff remain.
+point equivalence claim. Native device handoff needs visual validation; browser persistence remains.
 
 Core tests exercise exact encode/decode equality and deterministic continuation
 of a suspended wait, inventory interaction after a reordered/scrolled window,
@@ -97,7 +95,7 @@ recorded inputs, and at the final tick. Reports include `snapshot_checks` and
 `snapshot_max_bytes`. The audit hashes the supplied ISO as the asset identity;
 it restores the decoded engine at each checkpoint and compares a trial next tick
 against uninterrupted execution, including full state, PCM, and rendered surface.
-This does not establish host synthesizer or process-relaunch equivalence.
+With a SoundFont, the newer audit also restores the synthesizer and compares synthesized output. Process-relaunch evidence is recorded separately below.
 The audit also invokes `verify_scripts` and `verify_audio`. The 10,000-tick opening prefix of
 `evidence/act4-ending-input.json` passed 40 checks with a maximum encoded snapshot
 of 36,973 bytes (`evidence/headless-snapshot-scripts-room.json`); its final
@@ -140,11 +138,33 @@ with bit-exact synthesized output through the current and trial next tick
 was 317,055 bytes. The headless audit now reports `audio_snapshot_checks` and
 `audio_snapshot_max_bytes` and restores DSP state when a SoundFont is supplied.
 
-Before exposing load, validate decoded invariants and resource references, with
-atomic failure preserving the current session. Bound decoder allocations as
-well as input size. Define the host asset identity consistently. Implement
-atomic file replacement and host audio restoration, including synth state and
-fractional clocks. Verify actual game checkpoints by save, process exit,
-relaunch, load, and comparison of future inputs, frames, and audio. Exercise
-inventory, dialogue, movement, transitions, and cutaways. Browser persistence
-and real iPad interruption/relaunch checks remain required separately.
+## Combined player save version 1
+
+`discworld_audio::session` prepares engine and synthesizer together and rejects
+mismatched clocks before returning a replacement. Its 52-byte header contains
+`DWRPLAY\0`, version (u32), engine length (u32), audio length (u32), and SHA-256
+of the first 20 header bytes plus both payloads. The inner envelopes bind the
+save to the exact ISO and SoundFont. Total size is capped at 24 MiB + 52 bytes.
+Native writes use a synced temporary sibling file followed by rename and parent
+directory sync. Failed decoding leaves the running session intact.
+
+F5 saves; F9 loads. `--save-file PATH` selects the file, defaulting to the
+`--load PATH` source or `discworld-save.dws`. Startup `--load` cannot combine with
+`--room` or `--from-tick`. Mute, speed and pause are host preferences preserved
+when loading. Native hotkeys and device/window handoff are not visually accepted yet.
+
+`scripts/check-save-relaunch.py ISO SOUNDFONT TRACE OUTPUTDIR` runs separate
+baseline, save, and resumed processes. The default 10,000-to-12,000 opening test
+passed with a 335,749-byte save. A second run with `--checkpoint 33200 --end 33400`
+passed with a 332,019-byte save and open Luggage inventory. Both produce exactly
+identical final engine/DSP files, rendered PNGs, and speech PCM continuation;
+both reject a clock mismatch despite repaired checksums. The inventory frame
+was inspected: its original dark patterned background and gold border are present.
+Evidence: `evidence/save-relaunch-opening/verification.json` and
+`evidence/save-relaunch-inventory/verification.json`. Speech WAV comparison does
+not include synthesized music; DSP state equality and the audio continuation
+tests cover that component separately.
+
+Remaining gates include decoder allocation limits and deeper hostile-state
+validation, native controls and failure recovery, more dialogue/movement/cutaway
+relaunch checkpoints, browser persistence, and real iPad interruption/relaunch.
