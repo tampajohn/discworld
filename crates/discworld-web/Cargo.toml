@@ -8,7 +8,11 @@ license.workspace = true
 [lib]
 crate-type = ["cdylib", "rlib"]
 
+[features]
+replay-validation = ["dep:discworld-replay"]
+
 [dependencies]
+discworld-replay = { path = "../discworld-replay", optional = true }
 discworld-core = { path = "../discworld-core" }
 discworld-audio = { path = "../discworld-audio" }
 wasm-bindgen = "=0.2.129"

@@ -130,6 +130,7 @@ The project favors compatibility over skipping unsupported script behavior. A pa
 | `crates/discworld-core` | Portable resource readers, VM, scheduler, engine state, movement, rendering and UI behavior; portable snapshot serialization |
 | `crates/discworld-audio` | Sample/music rendering and SoundFont synthesis |
 | `crates/discworld-native` | macOS development host using minifb and Rodio; keyboard/mouse input and visible replay |
+| `crates/discworld-replay` | Shared strict recorded-input decoder and application for native/WASM validation |
 | `crates/discworld-web` | WASM exports for engine advancement, original RGBA frames, stereo PCM, input and save/load |
 | `crates/discworld-tools` | ISO/resource audits, diagnostics, frame export and headless interaction replay |
 | `vendor/rustysynth` | RustySynth 1.3.7 with documented safe decoding changes and retained MIT license |

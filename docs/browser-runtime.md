@@ -146,3 +146,40 @@ and a specific `safari:deviceUDID`, as described in
 [WebKit's Safari WebDriver documentation](https://webkit.org/blog/9395/webdriver-is-coming-to-safari-in-ios-13/).
 Playwright WebKit tests are a distinct result and passed their gesture/audio
 checks; they are not substituted for simulator or physical-iPad acceptance.
+
+## Full-route WASM validation harness
+
+`discworld-replay` now owns the existing strict ordinary-input decoder and
+application logic. Native tools re-export that same module. The web crate's
+optional `replay-validation` feature exposes one-input-at-the-current-tick
+validation and restart status. These exports are absent from the regular player.
+Accepted inputs reset the diagnostic dispatch ring exactly as the headless host
+does; this changes no original scripts or puzzle state.
+
+```sh
+cargo build --release -p discworld-web --features replay-validation --target wasm32-unknown-unknown
+wasm-bindgen --target nodejs --out-dir target/web-replay-node \
+  target/wasm32-unknown-unknown/release/discworld_web.wasm
+node scripts/run-wasm-replay.cjs target/web-replay-node/discworld_web.js \
+  /path/to/discworld.iso /path/to/gm.sf2 evidence/act4-ending-input.json \
+  evidence/new-wasm-ending
+```
+
+The runner uses the unchanged 1,652-event route, the same start event at tick 500,
+and the same 2,630,000 final tick as native. It verifies each event at its exact
+tick and scene, advances the real engine and synthesizer, checks every returned
+sample for finiteness, and writes the final RGBA, combined save and report. Scene
+history is sampled after batches of at most 24 ticks and may miss brief scenes.
+It is Node/WASM runtime validation, not browser input, audio-device or iPad testing.
+
+`scripts/compare-wasm-replay.cjs` compares those outputs against a fresh native
+headless run with `--save`: complete core-envelope bytes, PNG-decoded RGBA,
+accepted-input counts, tick, scene and restart. It reports combined DSP save
+identity separately; cross-platform audio equality is not assumed. It also
+writes a viewable PNG of the WASM framebuffer. The first full run is in progress;
+no start-to-credits WASM acceptance is claimed until it completes and compares.
+
+The browser AudioContext interruption test passes in Chrome and Playwright
+WebKit: suspending the actual context pauses simulation, ticks remain stable,
+and Play resumes the context and engine. This tests the statechange path;
+real OS/device interruptions and background-tab recovery remain separate gates.

@@ -124,3 +124,33 @@ test('cold start reaches the original title and accepts Continue', async ({ page
   await page.screenshot({ path: path.join(root, `assets/previews/browser-${testInfo.project.name}-cold-start.png`) });
   await expect(page.locator('#status')).not.toHaveAttribute('data-error', 'true');
 });
+
+test('audio interruption pauses simulation and Play resumes it', async ({ page }) => {
+  await page.addInitScript(() => {
+    const Original = window.AudioContext;
+    window.AudioContext = new Proxy(Original, {
+      construct(target, args) {
+        const context = Reflect.construct(target, args);
+        window.audioContextUnderTest = context;
+        return context;
+      },
+    });
+  });
+  await page.goto('/');
+  await open(page);
+  await page.locator('#pause').click();
+  await expect.poll(async () => Number(await page.locator('#game').getAttribute('data-tick'))).toBeGreaterThan(33203);
+  // Suspend the real context, exercising the player's actual statechange handler.
+  // This does not simulate an OS-level interruption or prove device recovery.
+  await page.evaluate(() => window.audioContextUnderTest.suspend());
+  await expect(page.locator('#status')).toHaveText('Audio interrupted. Press Play to resume.');
+  await expect(page.locator('#pause')).toHaveText('Play');
+  await page.waitForTimeout(150);
+  const tick = await page.locator('#game').getAttribute('data-tick');
+  await page.waitForTimeout(200);
+  await expect(page.locator('#game')).toHaveAttribute('data-tick', tick);
+  await page.locator('#pause').click();
+  await expect.poll(async () => Number(await page.locator('#game').getAttribute('data-tick'))).toBeGreaterThan(Number(tick));
+  expect(await page.evaluate(() => window.audioContextUnderTest.state)).toBe('running');
+  await page.locator('#pause').click();
+});

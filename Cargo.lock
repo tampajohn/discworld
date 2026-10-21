@@ -235,11 +235,20 @@ dependencies = [
 ]
 
 [[package]]
+name = "discworld-replay"
+version = "0.1.0"
+dependencies = [
+ "discworld-core",
+ "serde_json",
+]
+
+[[package]]
 name = "discworld-tools"
 version = "0.1.0"
 dependencies = [
  "discworld-audio",
  "discworld-core",
+ "discworld-replay",
  "md-5",
  "png",
  "serde_json",
@@ -252,6 +261,7 @@ version = "0.1.0"
 dependencies = [
  "discworld-audio",
  "discworld-core",
+ "discworld-replay",
  "wasm-bindgen",
 ]
 

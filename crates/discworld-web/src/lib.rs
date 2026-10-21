@@ -272,3 +272,43 @@ impl BrowserGame {
         Ok(())
     }
 }
+
+// Validation builds use precisely the same event decoder/application as the
+// native recorded route. These exports are absent from the normal player.
+#[cfg(feature = "replay-validation")]
+#[wasm_bindgen]
+impl BrowserGame {
+    pub fn replay_input(&mut self, bytes: &[u8]) -> Result<()> {
+        if let Some(fault) = &self.fault {
+            return Err(fault.clone());
+        }
+        let inputs = discworld_replay::interactions(bytes, u32::MAX).map_err(error)?;
+        if inputs.len() != 1 || u64::from(inputs[0].tick) != self.engine.ticks {
+            return Err("replay requires one input at the current tick".into());
+        }
+        let scene = self.scene();
+        let result = discworld_replay::apply(
+            &inputs[0],
+            &mut self.engine,
+            &self.assets.resources(),
+            &scene,
+        )
+        .map_err(error)
+        .and_then(|accepted| {
+            if accepted {
+                // Match headless diagnostics: record dispatches since this input.
+                self.engine.scene_calls = Some(std::collections::VecDeque::new());
+                Ok(())
+            } else {
+                Err("recorded input was rejected".into())
+            }
+        });
+        if let Err(reason) = &result {
+            self.fault = Some(reason.clone());
+        }
+        result
+    }
+    pub fn has_restarted(&self) -> bool {
+        self.engine.has_restarted()
+    }
+}
