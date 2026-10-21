@@ -880,6 +880,31 @@ impl Engine {
         self.left_events = next;
         Ok(())
     }
+    /// Route the hosts' immediate primary click. This development control does
+    /// not implement the original single/double-click delay and cancellation.
+    pub fn primary_click(&mut self, resources: &Resources<'_>) -> Result<(), Error> {
+        let point = self.control.cursor;
+        if self.conversation.polygon.is_some() && !self.conversation.hidden {
+            if let Some(topic) = self.conversation_topic_at(point) {
+                self.interact_conversation(resources, Some(topic))?;
+            }
+        } else if matches!(self.active_inventory, Some(1 | 2)) && self.control.enabled {
+            if let Some(action) = self.inventory_scroll_at(point) {
+                self.scroll_inventory(action);
+            } else if let Some(slot) = self.inventory_slot_at(point) {
+                self.interact_inventory(resources, slot, PolygonInteraction::WalkTo)?;
+            } else if !self.inventory_contains_point(point) {
+                self.close_inventory();
+            }
+        } else if self.control.enabled && self.active_inventory.is_none() {
+            self.interact_world(resources, point, PolygonInteraction::WalkTo)?;
+        } else {
+            // Hidden conversation inventory still owns the click. Wake speech
+            // waits instead of attempting a world action which would be rejected.
+            self.left_event()?;
+        }
+        Ok(())
+    }
     /// Logical game coordinates. V1 WAITKEY also wakes on cursor movement.
     pub fn move_cursor(&mut self, position: [i32; 2]) {
         let old = self.control.cursor;
@@ -3857,6 +3882,22 @@ mod tests {
         put(&mut scene, 104, 0x3334000b);
         put(&mut scene, 112, 1);
         (master, scene)
+    }
+    #[test]
+    fn primary_click_during_hidden_conversation_wakes_waits_without_world_dispatch() {
+        let (master, scene) = fixtures();
+        let resources = Resources(vec![&master, &scene]);
+        for enabled in [false, true] {
+            let mut engine = Engine::bootstrap(&resources).unwrap();
+            engine.active_inventory = Some(0);
+            engine.conversation.polygon = Some(0);
+            engine.conversation.hidden = true;
+            engine.control.enabled = enabled;
+            let mut expected = engine.clone();
+            expected.left_event().unwrap();
+            engine.primary_click(&resources).unwrap();
+            assert_eq!(engine, expected);
+        }
     }
     #[test]
     fn restart_reboots_game_state_preserves_host_clock_and_reports_restart() {

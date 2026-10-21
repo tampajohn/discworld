@@ -23,8 +23,13 @@ ScummVM `96b42d42bc8533953bdd701db059cc33c839a9ff`, inspect
 - `PlayerEvent` advances user/left-event counters before its control check, so
   input during disabled control can still interrupt waiting speech.
 - V1 routes walk/action/look to inventory handling when inventory is active.
-  Conversation transitions also need coverage; browser and native branch order
-  currently differs for hidden conversation inventory with control enabled.
+  Conversation transitions also need coverage. Both hosts now call the shared
+  `Engine::primary_click` for their immediate click control. Hidden conversation
+  inventory consumes the click as a left event, waking speech waits even when
+  control is enabled; the browser previously attempted a rejected world action
+  in that case. A core regression compares the complete resulting state with a
+  left event for both enabled and disabled control. This does not add the
+  original double-click timing.
 
 Required acceptance cases include single versus double clicks at the timing
 boundary, cancellation without duplicate script execution, control loss during

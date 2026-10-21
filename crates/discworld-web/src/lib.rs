@@ -245,28 +245,8 @@ impl BrowserGame {
                     Scroll::Down
                 });
             }
-            "click" if engine.conversation.polygon.is_some() && !engine.conversation.hidden => {
-                if let Some(topic) = engine.conversation_topic_at(point) {
-                    engine
-                        .interact_conversation(&resources, Some(topic))
-                        .map_err(error)?;
-                }
-            }
-            "click"
-                if matches!(engine.active_inventory(), Some(1 | 2)) && engine.control.enabled =>
-            {
-                if let Some(action) = engine.inventory_scroll_at(point) {
-                    engine.scroll_inventory(action);
-                } else if let Some(slot) = engine.inventory_slot_at(point) {
-                    engine
-                        .interact_inventory(&resources, slot, PolygonInteraction::WalkTo)
-                        .map_err(error)?;
-                } else if !engine.inventory_contains_point(point) {
-                    engine.close_inventory();
-                }
-            }
-            "click" if !engine.control.enabled => engine.left_event().map_err(error)?,
-            "click" | "walk" | "action" | "look" => {
+            "click" => engine.primary_click(&resources).map_err(error)?,
+            "walk" | "action" | "look" => {
                 let event = match command {
                     "action" => PolygonInteraction::Action,
                     "look" => PolygonInteraction::Look,

@@ -357,43 +357,17 @@ fn run() -> Result<(), Box<dyn std::error::Error>> {
                     }
                 }
                 let left = window.get_mouse_down(MouseButton::Left);
-                if left
-                    && !left_down
-                    && engine.conversation.polygon.is_some()
-                    && !engine.conversation.hidden
-                {
-                    if let Some(topic) = engine.conversation_topic_at(engine.control.cursor) {
-                        engine.interact_conversation(&resources, Some(topic))?;
+                if left && !left_down {
+                    if engine.control.enabled && engine.active_inventory().is_none() {
+                        eprintln!(
+                            "input tick={} scene={} point={:?} event=walkto",
+                            engine.ticks,
+                            index[engine.scene.resource()].name,
+                            engine.control.cursor
+                        );
                     }
-                } else if left
-                    && !left_down
-                    && matches!(engine.active_inventory(), Some(1 | 2))
-                    && engine.control.enabled
-                {
-                    if let Some(action) = engine.inventory_scroll_at(engine.control.cursor) {
-                        engine.scroll_inventory(action);
-                    } else if let Some(slot) = engine.inventory_slot_at(engine.control.cursor) {
-                        engine.interact_inventory(&resources, slot, PolygonInteraction::WalkTo)?;
-                    } else if !engine.inventory_contains_point(engine.control.cursor) {
-                        engine.close_inventory();
-                    }
-                } else if left
-                    && !left_down
-                    && engine.control.enabled
-                    && engine.active_inventory().is_none()
-                {
-                    eprintln!(
-                        "input tick={} scene={} point={:?} event=walkto",
-                        engine.ticks,
-                        index[engine.scene.resource()].name,
-                        engine.control.cursor
-                    );
-                    engine.interact_world(
-                        &resources,
-                        engine.control.cursor,
-                        PolygonInteraction::WalkTo,
-                    )?;
-                } else if (left && !left_down) || window.is_key_pressed(Key::Space, KeyRepeat::No) {
+                    engine.primary_click(&resources)?;
+                } else if window.is_key_pressed(Key::Space, KeyRepeat::No) {
                     engine.left_event()?;
                 }
                 if window.is_key_pressed(Key::Backspace, KeyRepeat::No) {
