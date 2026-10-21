@@ -28,6 +28,8 @@ fn run() -> Result<(), Box<dyn std::error::Error>> {
         || command == "preview-restart-menu"
         || command == "preview-quit-menu"
         || command == "preview-sound-menu"
+        || command == "preview-controls-menu"
+        || command == "preview-subtitles-menu"
     {
         return window::preview(path, args, command.to_str().filter(|c| c.ends_with("menu")));
     }

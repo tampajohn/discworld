@@ -65,12 +65,64 @@ pub fn preview(
         };
         let mut surface = engine.render(&resources)?;
         let mut sound_audit = None;
+        let mut settings_audit = None;
         match kind {
             "preview-menu" => MainMenu::new(&resources, &strings, &engine.declarations)?.draw(
                 &resources,
                 &mut surface,
                 Some([100, 43]),
             )?,
+            "preview-controls-menu" | "preview-subtitles-menu" => {
+                use discworld_core::settings_menu::{Kind, SettingsMenu};
+                let controls = kind == "preview-controls-menu";
+                let page = if controls {
+                    Kind::Controls
+                } else {
+                    Kind::Subtitles
+                };
+                let mut menu = SettingsMenu::new(
+                    &resources,
+                    &strings,
+                    &engine.declarations,
+                    page,
+                    if controls { 10 } else { 0 },
+                    false,
+                    false,
+                )?;
+                let point = if controls { [185, 120] } else { [172, 85] };
+                menu.point_at(Some(point));
+                if !menu.click(point, false) || menu.click(point, false) {
+                    return Err("toggle busy audit failed".into());
+                }
+                let changes = (0..5)
+                    .map(|_| menu.step_toggle(true, true))
+                    .collect::<Vec<_>>();
+                if changes != [None, None, Some(true), None, None] || !menu.enabled() {
+                    return Err("toggle timing audit failed".into());
+                }
+                if controls
+                    && (menu.click([172, 80], false)
+                        || !menu.click([172, 80], true)
+                        || !menu.flipped())
+                {
+                    return Err("double click test audit failed".into());
+                }
+                let thumb = if controls { [205, 53] } else { [178, 48] };
+                if !menu.begin_drag(&resources, thumb)?
+                    || menu.drag(0)?.is_some()
+                    || menu.drag(1)? != Some(if controls { 10 } else { 1 })
+                {
+                    return Err("settings slider audit failed".into());
+                }
+                menu.end_drag()?;
+                if menu.drag(1)?.is_some() {
+                    return Err("settings slider remained grabbed".into());
+                }
+                settings_audit = Some(
+                    serde_json::json!({"toggle_changes": changes, "enabled": menu.enabled(), "flipped": menu.flipped(), "slider_value": menu.value(), "slider_released": true}),
+                );
+                menu.draw(&resources, &mut surface)?;
+            }
             "preview-sound-menu" => {
                 let mut menu =
                     SoundMenu::new(&resources, &strings, &engine.declarations, [255, 128, 0])?;
@@ -132,7 +184,7 @@ pub fn preview(
         println!(
             "{}",
             serde_json::to_string_pretty(&serde_json::json!({
-                "tick": engine.ticks, "menu": kind, "preview_state": slot, "sound_drag_audit": sound_audit,
+                "tick": engine.ticks, "menu": kind, "preview_state": slot, "sound_drag_audit": sound_audit, "settings_audit": settings_audit,
                 "strings": engine.declarations.config_strings.unwrap()[..8].iter()
                     .map(|h| strings.get(h.0).map(String::from_utf8_lossy)).collect::<Result<Vec<_>, _>>()?,
                 "scope": "Original menu assets and palette rendering over startup; menu activation and actions not connected"

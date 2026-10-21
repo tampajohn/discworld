@@ -769,3 +769,36 @@ live host input/audio test or independent reference screenshot comparison.
 275 enabled workspace tests and final Clippy pass, recorded in
 assets/logs/sound-menu-workspace.log and sound-menu-clippy-final.log.
 Controls/subtitles widgets and save/load slots remain alongside host integration.
+
+
+Controls/Subtitles components now render the English CD V1 tables using the
+original configuration strings14..18, tag font, circle reels38/39, and all six
+cross/tick button states. Controls uses10x5 at20,16; Subtitles uses10x3 there.
+Pinned detection_tables.h English CD v2 has GF_SCNFILES and enhanced audio,
+without GF_USE_3/4/5FLAGS, so the compact no-language-flags table applies.
+Double-click-speed range is0..30 (3*DOUBLE_CLICK_TIME10); text speed is0..100.
+The double-click test circle flips only on a double action. Constructors accept
+its existing value so the controller can preserve the original global bFlipped.
+Both sliders use the shared retained-overshoot arithmetic and actual thumb bounds.
+
+ButtonToggle is separate from ButtonPress: remove highlight, old depressed,
+flip setting/new depressed, remove, new highlighted, each separated by one
+inventory step. After waits it checks inventory activity at phases1/4 and HL1
+existence at2/3. Loss before the flip aborts without changing the setting; loss
+afterward preserves the change. The tests exercise each abort point. Hover owns
+the same overlay and can replace/remove it during the effect, as invBoxes does.
+No per-channel mixer, live mouse swap/timing, subtitle text speed or host settings
+persistence is wired by these components yet.
+
+`preview-controls-menu` and `preview-subtitles-menu` take ISO and fresh PNG path.
+They assert busy-toggle rejection, the exact [none,none,true,none,none] change
+sequence, actual thumb pickup/one-pixel drag/release, and (Controls) rejection
+of single-click circle flipping followed by successful double-click flipping.
+Inspected original-controls-menu.png and original-subtitles-menu.png under
+assets/previews; full audits and updated renders are original-*-menu-verified
+under assets/logs and assets/previews respectively. Audits end with slider10
+(Controls) and1(Subtitles), both enabled, and no retained drag. These are original
+asset component checks, not physical host input or an independent reference run.
+276 enabled workspace tests pass, final Clippy is clean in
+assets/logs/settings-menu-clippy-final.log. Save/load widgets, engine lifecycle,
+snapshot state and native/browser menu wiring remain required.
