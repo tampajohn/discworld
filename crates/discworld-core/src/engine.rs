@@ -1477,11 +1477,7 @@ impl Engine {
     }
     pub fn inventory_contains_point(&self, point: [i32; 2]) -> bool {
         self.inventory_display.as_ref().is_some_and(|(frame, _)| {
-            let [x, y, w, h] = frame.layout.background;
-            point[0] >= x - 1
-                && i64::from(point[0]) <= i64::from(x) + i64::from(w)
-                && point[1] >= y - 1
-                && i64::from(point[1]) <= i64::from(y) + i64::from(h)
+            frame.layout.inventory_area_at(point) != crate::conversation_window::Area::Outside
         })
     }
     pub fn inventory_scroll_at(&self, point: [i32; 2]) -> Option<crate::inventory::Scroll> {
@@ -1492,9 +1488,8 @@ impl Engine {
             .as_ref()?
             .0
             .layout
-            .scrollbar
-            .as_ref()?
-            .action_at(point)
+            .inventory_area_at(point)
+            .scroll()
     }
 
     pub fn active_inventory(&self) -> Option<i32> {

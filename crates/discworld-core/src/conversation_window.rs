@@ -9,6 +9,41 @@ use crate::{
     startup::Window,
 };
 
+/// DOS V1 dialogs.cpp invArea, for ordinary inventory/conversation windows.
+/// Corners and borders take priority over header, scroll controls and body.
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub enum Area {
+    Outside,
+    TopLeft,
+    Top,
+    TopRight,
+    Left,
+    Right,
+    BottomLeft,
+    Bottom,
+    BottomRight,
+    Header,
+    Up,
+    Down,
+    PageUp,
+    Thumb,
+    PageDown,
+    Body,
+}
+
+impl Area {
+    pub fn scroll(self) -> Option<crate::inventory::Scroll> {
+        use crate::inventory::Scroll;
+        match self {
+            Self::Up => Some(Scroll::Up),
+            Self::Down => Some(Scroll::Down),
+            Self::PageUp => Some(Scroll::PageUp),
+            Self::PageDown => Some(Scroll::PageDown),
+            _ => None,
+        }
+    }
+}
+
 #[derive(serde::Serialize, serde::Deserialize, Debug, Clone, PartialEq, Eq)]
 pub struct Layout {
     /// Original window-parts reel index and animation origin, in draw order.
@@ -27,29 +62,75 @@ pub struct Scrollbar {
     pub range: [i32; 2],
 }
 impl Scrollbar {
-    pub fn action_at(&self, [x, y]: [i32; 2]) -> Option<crate::inventory::Scroll> {
-        use crate::inventory::Scroll;
-        if x <= self.right - 9 || x > self.right - 2 {
-            return None;
+    fn area_at(&self, point: [i32; 2]) -> Area {
+        let [x, y] = point.map(i64::from);
+        let [top, right, bottom] = [self.top, self.right, self.bottom].map(i64::from);
+        if x <= right - 9 || x > right - 2 {
+            return Area::Body;
         }
-        if y > self.top + 17 && y < self.top + 23 {
-            return Some(Scroll::Up);
+        if y > top + 17 && y < top + 23 {
+            return Area::Up;
         }
-        if y > self.bottom - 6 && y <= self.bottom - 2 {
-            return Some(Scroll::Down);
+        if y > bottom - 6 && y <= bottom - 2 {
+            return Area::Down;
         }
-        if y >= self.range[0] && y < self.range[1] + 5 {
-            if y < self.thumb[1] {
-                return Some(Scroll::PageUp);
+        if y >= i64::from(self.range[0]) && y < i64::from(self.range[1]) + 5 {
+            if y < i64::from(self.thumb[1]) {
+                return Area::PageUp;
             }
-            if y >= self.thumb[1] + 5 {
-                return Some(Scroll::PageDown);
+            if y < i64::from(self.thumb[1]) + 5 {
+                return Area::Thumb;
             }
+            return Area::PageDown;
         }
-        None
+        Area::Body
+    }
+    pub fn action_at(&self, point: [i32; 2]) -> Option<crate::inventory::Scroll> {
+        self.area_at(point).scroll()
     }
 }
 impl Layout {
+    pub fn inventory_area_at(&self, point: [i32; 2]) -> Area {
+        let [x, y] = point.map(i64::from);
+        let [bx, by, width, height] = self.background.map(i64::from);
+        let (left, top, right, bottom) = (bx - 1, by - 1, bx + width, by + height);
+        // EXTRA=1: the last included pixel is right/bottom + 1. Left/top
+        // tests are exclusive at origin - 1, so the origin itself is included.
+        if x < left || x > right + 1 || y < top || y > bottom + 1 {
+            return Area::Outside;
+        }
+        if y > bottom - 3 {
+            return if x <= left + 3 {
+                Area::BottomLeft
+            } else if x > right - 3 {
+                Area::BottomRight
+            } else {
+                Area::Bottom
+            };
+        }
+        if y <= top + 3 {
+            return if x <= left + 3 {
+                Area::TopLeft
+            } else if x > right - 3 {
+                Area::TopRight
+            } else {
+                Area::Top
+            };
+        }
+        if x <= left + 3 {
+            return Area::Left;
+        }
+        if x > right - 3 {
+            return Area::Right;
+        }
+        // English DOS M_SW=5, M_TH=5, M_TBB=14.
+        if x >= left + 3 && x <= right - 2 && y >= top + 3 && y < top + 16 {
+            return Area::Header;
+        }
+        self.scrollbar
+            .as_ref()
+            .map_or(Area::Body, |bar| bar.area_at(point))
+    }
     pub fn new(
         window: &Window,
         top_left: [i32; 2],
@@ -380,6 +461,74 @@ mod tests {
             position: [20, 8],
             first_display: 0,
             contents: vec![],
+        }
+    }
+    #[test]
+    fn v1_hit_regions_include_frame_halo_and_prioritize_borders() {
+        use Area::*;
+        let layout = Layout::inventory(&window([3, 2]), [8, 16], 40, 8).unwrap();
+        // Left/top=20/8; rectangle's exclusive right/bottom=118/56.
+        for (point, expected) in [
+            ([19, 30], Outside),
+            ([20, 30], Left),
+            ([23, 30], Left),
+            ([24, 30], Body),
+            ([115, 30], Body),
+            ([116, 30], Right),
+            ([119, 30], Right),
+            ([120, 30], Outside),
+            ([50, 7], Outside),
+            ([50, 8], Top),
+            ([50, 11], Top),
+            ([50, 12], Header),
+            ([50, 23], Header),
+            ([50, 24], Body),
+            ([50, 53], Body),
+            ([50, 54], Bottom),
+            ([50, 57], Bottom),
+            ([50, 58], Outside),
+            ([20, 8], TopLeft),
+            ([119, 8], TopRight),
+            ([20, 57], BottomLeft),
+            ([119, 57], BottomRight),
+            ([23, 12], Left),
+            ([116, 12], Right),
+        ] {
+            assert_eq!(layout.inventory_area_at(point), expected, "{point:?}");
+        }
+        let mut w = window([3, 2]);
+        w.contents = (0..15).collect();
+        w.first_display = 3;
+        let layout = Layout::inventory(&w, [8, 24], 40, 8).unwrap();
+        let bar = layout.scrollbar.as_ref().unwrap();
+        assert_eq!(layout.inventory_area_at([bar.right - 5, bar.top + 20]), Up);
+        assert_eq!(
+            layout.inventory_area_at([bar.right - 5, bar.bottom - 4]),
+            Down
+        );
+        // Border wins even where the raw scrollbar's down-arrow test overlaps.
+        assert_eq!(
+            layout.inventory_area_at([bar.right - 5, bar.bottom - 2]),
+            Bottom
+        );
+        assert_eq!(
+            layout.inventory_area_at([bar.right - 5, bar.thumb[1] - 1]),
+            PageUp
+        );
+        assert_eq!(
+            layout.inventory_area_at([bar.right - 5, bar.thumb[1]]),
+            Thumb
+        );
+        assert_eq!(
+            layout.inventory_area_at([bar.right - 5, bar.thumb[1] + 4]),
+            Thumb
+        );
+        assert_eq!(
+            layout.inventory_area_at([bar.right - 5, bar.thumb[1] + 5]),
+            PageDown
+        );
+        for point in [[i32::MIN, i32::MAX], [i32::MAX, i32::MIN]] {
+            assert_eq!(layout.inventory_area_at(point), Outside);
         }
     }
     #[test]

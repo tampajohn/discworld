@@ -161,3 +161,34 @@ release build pass. SDL is statically linked; `otool -L` shows only macOS system
 libraries/frameworks, without a Homebrew SDL dependency. The bundled SDL CMake
 project needs CMake 4's policy-floor compatibility setting, supplied in
 `.cargo/config.toml`.
+
+## Inventory frame hit regions
+
+The shared window layout now classifies the English DOS V1 regions from pinned
+`dialogs.cpp::invArea`: outside, eight border/corner regions, title header,
+scroll arrows, page regions, slider thumb, and body. This is the geometry needed
+by `invDragStart`; movement, resizing and thumb dragging are still unfinished.
+The declarations `idec_convw`, `idec_inv1`, and `idec_inv2` make these windows
+movable. The reference starts movement only on a left drag in the header,
+translates frame/background/title/icons by cursor deltas, and ends it on left
+release or an action event. Movement must preserve animation progress, update
+hit regions immediately, and survive save/load before claiming compatibility.
+
+The region audit found a concrete outside-click bug: V1 `EXTRA=1` includes one
+additional pixel at the right and bottom, beyond the background rectangle's
+exclusive bounds. Clicking those pixels previously closed the window. Native
+and browser now use the same corrected region test. Borders also take priority
+over overlapping scrollbar arrows, as in the reference. Arithmetic uses i64
+for bounds calculations so extreme input coordinates cannot overflow.
+
+The unit regression checks each border/corner, exact header boundaries, scroll
+thumb/page boundaries, the extra pixels and extreme coordinates. The opt-in
+real-asset test `inventory_frame_edge_does_not_close_window` clicks both extra
+edges of the original luggage checkpoint, advances 24 ticks, and verifies that
+the inventory stays open with an empty hand. One pixel farther right still
+closes it. Run with the same asset environment variables documented in
+[save-state.md](save-state.md#save-during-inventory-pickup-and-putdown).
+Validation passes: 248 enabled workspace tests, both opt-in real-asset inventory
+tests, all-workspace Clippy, native/WASM release builds, and all six Chrome/
+WebKit player tests plus two browser clock tests. The visible native credits
+session was refreshed with the same paused/muted checkpoint and unchanged save.
