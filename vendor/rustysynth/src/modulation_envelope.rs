@@ -4,7 +4,7 @@ use crate::envelope_stage::EnvelopeStage;
 use crate::soundfont_math::SoundFontMath;
 use crate::synthesizer_settings::SynthesizerSettings;
 
-#[derive(Clone, Debug)]
+#[derive(serde::Serialize, serde::Deserialize, Clone, Debug)]
 #[non_exhaustive]
 pub(crate) struct ModulationEnvelope {
     sample_rate: i32,
@@ -137,5 +137,24 @@ impl ModulationEnvelope {
 
     pub(crate) fn get_value(&self) -> f32 {
         self.value
+    }
+}
+
+impl ModulationEnvelope {
+    pub(crate) fn validate_checkpoint(&self, template: &Self, wave_len: usize) -> bool {
+        let _ = (template, wave_len);
+        (self.sample_rate == template.sample_rate)
+            && (self.attack_slope.is_finite())
+            && (self.decay_slope.is_finite())
+            && (self.release_slope.is_finite())
+            && (self.attack_start_time.is_finite())
+            && (self.hold_start_time.is_finite())
+            && (self.decay_start_time.is_finite())
+            && (self.decay_end_time.is_finite())
+            && (self.release_end_time.is_finite())
+            && (self.sustain_level.is_finite())
+            && (self.release_level.is_finite())
+            && (self.processed_sample_count < usize::MAX - 1_000_000)
+            && (self.value.is_finite())
     }
 }

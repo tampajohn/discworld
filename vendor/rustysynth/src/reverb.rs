@@ -2,7 +2,7 @@
 
 use std::cmp;
 
-#[derive(Clone, Debug)]
+#[derive(serde::Serialize, serde::Deserialize, Clone, Debug)]
 #[non_exhaustive]
 pub(crate) struct Reverb {
     cfs_l: Vec<CombFilter>,
@@ -237,7 +237,7 @@ impl Reverb {
     }
 }
 
-#[derive(Clone, Debug)]
+#[derive(serde::Serialize, serde::Deserialize, Clone, Debug)]
 #[non_exhaustive]
 struct CombFilter {
     buffer: Vec<f32>,
@@ -325,7 +325,7 @@ impl CombFilter {
     }
 }
 
-#[derive(Clone, Debug)]
+#[derive(serde::Serialize, serde::Deserialize, Clone, Debug)]
 #[non_exhaustive]
 struct AllPassFilter {
     buffer: Vec<f32>,
@@ -387,5 +387,93 @@ impl AllPassFilter {
 
     fn set_feedback(&mut self, value: f32) {
         self.feedback = value;
+    }
+}
+
+impl Reverb {
+    pub(crate) fn validate_checkpoint(&self, template: &Self, wave_len: usize) -> bool {
+        let _ = (template, wave_len);
+        (self.cfs_l.len() == template.cfs_l.len())
+            && (self
+                .cfs_l
+                .iter()
+                .zip(&template.cfs_l)
+                .all(|(a, b)| a.validate_checkpoint(b, wave_len)))
+            && (self.cfs_r.len() == template.cfs_r.len())
+            && (self
+                .cfs_r
+                .iter()
+                .zip(&template.cfs_r)
+                .all(|(a, b)| a.validate_checkpoint(b, wave_len)))
+            && (self.apfs_l.len() == template.apfs_l.len())
+            && (self
+                .apfs_l
+                .iter()
+                .zip(&template.apfs_l)
+                .all(|(a, b)| a.validate_checkpoint(b, wave_len)))
+            && (self.apfs_r.len() == template.apfs_r.len())
+            && (self
+                .apfs_r
+                .iter()
+                .zip(&template.apfs_r)
+                .all(|(a, b)| a.validate_checkpoint(b, wave_len)))
+            && (self.gain.is_finite())
+            && (self.room_size.is_finite())
+            && (self.room_size1.is_finite())
+            && (self.damp.is_finite())
+            && (self.damp1.is_finite())
+            && (self.wet.is_finite())
+            && (self.wet1.is_finite())
+            && (self.wet2.is_finite())
+            && (self.width.is_finite())
+    }
+}
+
+impl CombFilter {
+    pub(crate) fn validate_checkpoint(&self, template: &Self, wave_len: usize) -> bool {
+        let _ = (template, wave_len);
+        (self.buffer.len() == template.buffer.len())
+            && (self.buffer.iter().all(|v| v.is_finite()))
+            && (self.filter_store.is_finite())
+            && (self.feedback.is_finite())
+            && (self.damp1.is_finite())
+            && (self.damp2.is_finite())
+            && (self.buffer_index <= self.buffer.len())
+    }
+}
+
+impl AllPassFilter {
+    pub(crate) fn validate_checkpoint(&self, template: &Self, wave_len: usize) -> bool {
+        let _ = (template, wave_len);
+        (self.buffer.len() == template.buffer.len())
+            && (self.buffer.iter().all(|v| v.is_finite()))
+            && (self.feedback.is_finite())
+            && (self.buffer_index <= self.buffer.len())
+    }
+}
+
+#[cfg(test)]
+mod checkpoint_tests {
+    use super::*;
+
+    #[test]
+    fn snapshot_accepts_pending_delay_buffer_wrap() {
+        let template = CombFilter::new(8);
+        let mut comb = template.clone();
+        comb.process(&[0.0; 8], &mut [0.0; 8]);
+        assert_eq!(comb.buffer_index, comb.buffer.len());
+        assert!(comb.validate_checkpoint(&template, 0));
+        comb.process(&[0.0; 1], &mut [0.0; 1]);
+        assert_eq!(comb.buffer_index, 1);
+        comb.buffer_index = 9;
+        assert!(!comb.validate_checkpoint(&template, 0));
+
+        let template = AllPassFilter::new(8);
+        let mut allpass = template.clone();
+        allpass.process(&mut [0.0; 8]);
+        assert_eq!(allpass.buffer_index, allpass.buffer.len());
+        assert!(allpass.validate_checkpoint(&template, 0));
+        allpass.process(&mut [0.0; 1]);
+        assert_eq!(allpass.buffer_index, 1);
     }
 }

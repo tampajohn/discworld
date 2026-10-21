@@ -1,13 +1,13 @@
 #![allow(dead_code)]
 
-#[derive(Clone, Debug, PartialEq, Eq)]
+#[derive(serde::Serialize, serde::Deserialize, Clone, Debug, PartialEq, Eq)]
 enum DataType {
     None,
     Rpn,
     Nrpn,
 }
 
-#[derive(Clone, Debug)]
+#[derive(serde::Serialize, serde::Deserialize, Clone, Debug)]
 #[non_exhaustive]
 pub(crate) struct Channel {
     pub(crate) is_percussion_channel: bool,
@@ -241,5 +241,12 @@ impl Channel {
 
     pub(crate) fn get_pitch_bend(&self) -> f32 {
         self.get_pitch_bend_range() * self.pitch_bend
+    }
+}
+
+impl Channel {
+    pub(crate) fn validate_checkpoint(&self, template: &Self, wave_len: usize) -> bool {
+        let _ = (template, wave_len);
+        self.pitch_bend.is_finite()
     }
 }

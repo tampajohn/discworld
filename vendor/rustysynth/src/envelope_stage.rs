@@ -1,4 +1,4 @@
-#[derive(Clone, Debug, PartialEq, Eq, PartialOrd, Ord)]
+#[derive(serde::Serialize, serde::Deserialize, Clone, Debug, PartialEq, Eq, PartialOrd, Ord)]
 pub(crate) enum EnvelopeStage {
     Delay = 0,
     Attack = 1,

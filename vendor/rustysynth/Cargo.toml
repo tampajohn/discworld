@@ -39,3 +39,4 @@ name = "rustysynth"
 path = "src/lib.rs"
 
 [dependencies]
+serde = { version = "=1.0.229", features = ["derive"] }

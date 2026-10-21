@@ -8,7 +8,7 @@ use crate::synthesizer_settings::SynthesizerSettings;
 // and the rest represent the integer part.
 // For clarity, fixed-point number variables have a suffix "_fp".
 
-#[derive(Clone, Debug)]
+#[derive(serde::Serialize, serde::Deserialize, Clone, Debug)]
 #[non_exhaustive]
 pub(crate) struct Oscillator {
     synthesizer_sample_rate: i32,
@@ -162,5 +162,24 @@ impl Oscillator {
         }
 
         true
+    }
+}
+
+impl Oscillator {
+    pub(crate) fn validate_checkpoint(&self, template: &Self, wave_len: usize) -> bool {
+        let _ = (template, wave_len);
+        (self.synthesizer_sample_rate == template.synthesizer_sample_rate)
+            && (self.tune.is_finite())
+            && (self.pitch_change_scale.is_finite())
+            && (self.sample_rate_ratio.is_finite())
+            && (self.position_fp >= 0)
+            && (self.start >= 0)
+            && (self.end >= self.start)
+            && ((self.end as usize) < wave_len)
+            && (!self.looping
+                || (self.start_loop >= 0
+                    && self.start_loop < self.end_loop
+                    && (self.end_loop as usize) <= wave_len))
+            && ((self.position_fp >> 24) <= wave_len as i64)
     }
 }

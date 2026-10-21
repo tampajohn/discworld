@@ -1,5 +1,5 @@
 /// Specifies how the sample loops during playback.
-#[derive(Clone, Debug, PartialEq, Eq)]
+#[derive(serde::Serialize, serde::Deserialize, Clone, Debug, PartialEq, Eq)]
 pub enum LoopMode {
     /// The sample will be played without loop.
     NoLoop,

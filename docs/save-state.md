@@ -3,15 +3,19 @@
 The core has a versioned snapshot codec. It captures the complete owned `Engine`
 at a tick boundary, including suspended scripts, scheduler order, scene and
 cutaway state, inventory, animation, random state, timers, and PCM/music timing.
-External game archives and the host synthesizer/device are not serialized.
-The host `MusicOutput` now supports exact in-memory cloning, including its sample
+External game archives and audio devices are not serialized. The core snapshot
+and host synthesizer checkpoint currently use separate envelopes.
+The host `MusicOutput` supports exact in-memory cloning, including its sample
 clock and all synthesizer DSP state. A real TimGM6mb SoundFont test verifies
 bit-exact continuation through active voices, pitch bend, sustain release,
 effect tails, and a partially consumed block; a separate branch remains
 unaffected by new notes. Run it explicitly with
 `cargo test -p discworld-audio -- --ignored`; supply `DISCWORLD_TEST_SOUNDFONT`
 to use a different local font. The test requires the font and is not silently
-treated as passing when assets are missing. Durable encoding remains unfinished.
+treated as passing when assets are missing. The same test now serializes and
+reconstructs a fresh synthesizer, verifies bit-exact continuation, and rejects
+wrong fonts, truncated/corrupted data, and invalid DSP settings with a repaired
+checksum. Its encoded checkpoint is 315,019 bytes.
 
 This is groundwork for durable player saves. `Snapshot::restore` returns an
 engine after script, audio, polygon, animation and preview checks; the caller
@@ -58,6 +62,25 @@ Changes to serialized field order/types require a format version change or an
 explicit migration. These files are not ScummVM saves.
 
 ## Evidence and remaining gates
+
+### Host audio checkpoint version 1
+
+`MusicOutput::checkpoint_bytes` serializes all mutable DSP state, including voice
+envelopes/oscillators/filters, channel controllers, chorus/reverb delay buffers,
+the partially consumed output block, and the absolute sample cursor. It excludes
+the immutable SoundFont and its preset lookup, which are reconstructed.
+
+The 92-byte envelope contains `DWRMIDI\0` (8 bytes), version (u32), SoundFont
+SHA-256 (32 bytes), rate (u32), sample cursor (u64), payload length (u32), and
+SHA-256 of the preceding 60 header bytes plus payload (32 bytes). Integers are
+little endian; the payload is Postcard and total size is capped at 8 MiB.
+Restore checks format, identity and integrity before decoding, then validates
+DSP vector shapes, fixed settings, finite numeric state, delay cursors, voice
+identities and sample bounds before installing into a separately constructed
+synthesizer. Reverb cursors may equal the buffer length because wrapping occurs
+on the next process call; a dedicated vendored unit test covers this boundary.
+This is not a complete hostile-file/allocation audit or cross-platform floating
+point equivalence claim. Native/browser persistence and device handoff remain.
 
 Core tests exercise exact encode/decode equality and deterministic continuation
 of a suspended wait, inventory interaction after a reordered/scrolled window,
@@ -106,6 +129,16 @@ continuation use the newer restore audit and remain a separate result.
 The restore-enabled opening audit passed 40 replacements and continuation checks
 through tick 10,000 (`evidence/headless-snapshot-restore-room.json`). Tests also
 reject invalid inventory, fade, and transition indices before restoration.
+The full engine restore audit at `8226489` then passed all 5,048 replacements,
+trial next ticks and frame comparisons through title/restart at 2,630,000
+(`evidence/headless-ending-snapshot-restore-audit.json`, exit 0). It retains the
+live synthesizer and therefore does not prove synthesizer restoration.
+
+The opening combined engine/DSP audit passed 40 replacements of both components,
+with bit-exact synthesized output through the current and trial next tick
+(`evidence/headless-snapshot-dsp-room-wrap.json`). Maximum audio checkpoint size
+was 317,055 bytes. The headless audit now reports `audio_snapshot_checks` and
+`audio_snapshot_max_bytes` and restores DSP state when a SoundFont is supplied.
 
 Before exposing load, validate decoded invariants and resource references, with
 atomic failure preserving the current session. Bound decoder allocations as

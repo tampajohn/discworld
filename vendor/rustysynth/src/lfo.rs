@@ -2,7 +2,7 @@
 
 use crate::synthesizer_settings::SynthesizerSettings;
 
-#[derive(Clone, Debug)]
+#[derive(serde::Serialize, serde::Deserialize, Clone, Debug)]
 #[non_exhaustive]
 pub(crate) struct Lfo {
     sample_rate: i32,
@@ -70,5 +70,18 @@ impl Lfo {
 
     pub(crate) fn get_value(&self) -> f32 {
         self.value
+    }
+}
+
+impl Lfo {
+    pub(crate) fn validate_checkpoint(&self, template: &Self, wave_len: usize) -> bool {
+        let _ = (template, wave_len);
+        (self.sample_rate == template.sample_rate)
+            && (self.block_size == template.block_size)
+            && (self.delay.is_finite())
+            && (self.period.is_finite())
+            && (self.processed_sample_count < usize::MAX - 1_000_000)
+            && (self.value.is_finite())
+            && (!self.active || self.period > 0.0)
     }
 }

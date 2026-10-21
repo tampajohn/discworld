@@ -5,7 +5,7 @@ use crate::instrument_region::InstrumentRegion;
 use crate::synthesizer_settings::SynthesizerSettings;
 use crate::voice::Voice;
 
-#[derive(Clone, Debug)]
+#[derive(serde::Serialize, serde::Deserialize, Clone, Debug)]
 #[non_exhaustive]
 pub(crate) struct VoiceCollection {
     voices: Vec<Voice>,
@@ -93,5 +93,18 @@ impl VoiceCollection {
 
     pub(crate) fn clear(&mut self) {
         self.active_voice_count = 0;
+    }
+}
+
+impl VoiceCollection {
+    pub(crate) fn validate_checkpoint(&self, template: &Self, wave_len: usize) -> bool {
+        let _ = (template, wave_len);
+        (self.voices.len() == template.voices.len())
+            && (self
+                .voices
+                .iter()
+                .zip(&template.voices)
+                .all(|(a, b)| a.validate_checkpoint(b, wave_len)))
+            && (self.active_voice_count <= self.voices.len())
     }
 }

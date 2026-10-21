@@ -4,7 +4,7 @@ use std::f32::consts;
 
 use crate::synthesizer_settings::SynthesizerSettings;
 
-#[derive(Clone, Debug)]
+#[derive(serde::Serialize, serde::Deserialize, Clone, Debug)]
 #[non_exhaustive]
 pub(crate) struct BiQuadFilter {
     sample_rate: i32,
@@ -105,5 +105,21 @@ impl BiQuadFilter {
         self.a2 = b2 / a0;
         self.a3 = a1 / a0;
         self.a4 = a2 / a0;
+    }
+}
+
+impl BiQuadFilter {
+    pub(crate) fn validate_checkpoint(&self, template: &Self, wave_len: usize) -> bool {
+        let _ = (template, wave_len);
+        (self.sample_rate == template.sample_rate)
+            && (self.a0.is_finite())
+            && (self.a1.is_finite())
+            && (self.a2.is_finite())
+            && (self.a3.is_finite())
+            && (self.a4.is_finite())
+            && (self.x1.is_finite())
+            && (self.x2.is_finite())
+            && (self.y1.is_finite())
+            && (self.y2.is_finite())
     }
 }

@@ -43,7 +43,64 @@ pub struct Synthesizer {
     effects: Option<Effects>,
 }
 
+/// Mutable synthesis state; the immutable SoundFont remains external.
+#[derive(serde::Serialize, serde::Deserialize, Clone, Debug)]
+pub struct SynthesizerCheckpoint {
+    sample_rate: i32,
+    block_size: usize,
+    maximum_polyphony: usize,
+    channels: Vec<Channel>,
+    voices: VoiceCollection,
+    block_left: Vec<f32>,
+    block_right: Vec<f32>,
+    inverse_block_size: f32,
+    block_read: usize,
+    master_volume: f32,
+    effects: Option<Effects>,
+}
+
 impl Synthesizer {
+    /// Capture all mutable DSP state at a render boundary.
+    pub fn checkpoint(&self) -> SynthesizerCheckpoint {
+        SynthesizerCheckpoint {
+            sample_rate: self.sample_rate,
+            block_size: self.block_size,
+            maximum_polyphony: self.maximum_polyphony,
+            channels: self.channels.clone(),
+            voices: self.voices.clone(),
+            block_left: self.block_left.clone(),
+            block_right: self.block_right.clone(),
+            inverse_block_size: self.inverse_block_size,
+            block_read: self.block_read,
+            master_volume: self.master_volume,
+            effects: self.effects.clone(),
+        }
+    }
+
+    /// Validate and install mutable state. The host must bind the checkpoint
+    /// to the same SoundFont identity before calling this method.
+    pub fn restore_checkpoint(&mut self, state: SynthesizerCheckpoint) -> Result<(), &'static str> {
+        if !state.validate_checkpoint(&self.checkpoint(), self.sound_font.wave_data.len()) {
+            return Err("invalid synthesizer checkpoint");
+        }
+        self.install_checkpoint(state);
+        Ok(())
+    }
+
+    fn install_checkpoint(&mut self, state: SynthesizerCheckpoint) {
+        self.sample_rate = state.sample_rate;
+        self.block_size = state.block_size;
+        self.maximum_polyphony = state.maximum_polyphony;
+        self.channels = state.channels;
+        self.voices = state.voices;
+        self.block_left = state.block_left;
+        self.block_right = state.block_right;
+        self.inverse_block_size = state.inverse_block_size;
+        self.block_read = state.block_read;
+        self.master_volume = state.master_volume;
+        self.effects = state.effects;
+    }
+
     /// The number of channels.
     pub const CHANNEL_COUNT: usize = 16;
     /// The percussion channel.
@@ -526,7 +583,7 @@ impl Synthesizer {
     }
 }
 
-#[derive(Clone, Debug)]
+#[derive(serde::Serialize, serde::Deserialize, Clone, Debug)]
 struct Effects {
     reverb: Reverb,
     reverb_input: Vec<f32>,
@@ -553,5 +610,56 @@ impl Effects {
             chorus_output_left: vec![0_f32; settings.block_size],
             chorus_output_right: vec![0_f32; settings.block_size],
         }
+    }
+}
+
+impl SynthesizerCheckpoint {
+    pub(crate) fn validate_checkpoint(&self, template: &Self, wave_len: usize) -> bool {
+        let _ = (template, wave_len);
+        (self.sample_rate == template.sample_rate)
+            && (self.block_size == template.block_size)
+            && (self.maximum_polyphony == template.maximum_polyphony)
+            && (self.channels.len() == template.channels.len())
+            && (self
+                .channels
+                .iter()
+                .zip(&template.channels)
+                .all(|(a, b)| a.validate_checkpoint(b, wave_len)))
+            && (self.voices.validate_checkpoint(&template.voices, wave_len))
+            && (self.block_left.len() == template.block_left.len())
+            && (self.block_left.iter().all(|v| v.is_finite()))
+            && (self.block_right.len() == template.block_right.len())
+            && (self.block_right.iter().all(|v| v.is_finite()))
+            && (self.inverse_block_size.is_finite())
+            && (self.master_volume.is_finite())
+            && (match (&self.effects, &template.effects) {
+                (Some(a), Some(b)) => a.validate_checkpoint(b, wave_len),
+                (None, None) => true,
+                _ => false,
+            })
+            && (self.block_read <= self.block_size)
+            && (self.inverse_block_size.to_bits() == template.inverse_block_size.to_bits())
+    }
+}
+
+impl Effects {
+    pub(crate) fn validate_checkpoint(&self, template: &Self, wave_len: usize) -> bool {
+        let _ = (template, wave_len);
+        (self.reverb.validate_checkpoint(&template.reverb, wave_len))
+            && (self.reverb_input.len() == template.reverb_input.len())
+            && (self.reverb_input.iter().all(|v| v.is_finite()))
+            && (self.reverb_output_left.len() == template.reverb_output_left.len())
+            && (self.reverb_output_left.iter().all(|v| v.is_finite()))
+            && (self.reverb_output_right.len() == template.reverb_output_right.len())
+            && (self.reverb_output_right.iter().all(|v| v.is_finite()))
+            && (self.chorus.validate_checkpoint(&template.chorus, wave_len))
+            && (self.chorus_input_left.len() == template.chorus_input_left.len())
+            && (self.chorus_input_left.iter().all(|v| v.is_finite()))
+            && (self.chorus_input_right.len() == template.chorus_input_right.len())
+            && (self.chorus_input_right.iter().all(|v| v.is_finite()))
+            && (self.chorus_output_left.len() == template.chorus_output_left.len())
+            && (self.chorus_output_left.iter().all(|v| v.is_finite()))
+            && (self.chorus_output_right.len() == template.chorus_output_right.len())
+            && (self.chorus_output_right.iter().all(|v| v.is_finite()))
     }
 }

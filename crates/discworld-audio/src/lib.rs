@@ -1,16 +1,21 @@
 //! Portable SoundFont presentation for timestamped engine MIDI messages.
 use discworld_core::sequencer::Message;
 use rustysynth::{SoundFont, Synthesizer, SynthesizerSettings};
+use sha2::{Digest, Sha256};
 use std::{io::Cursor, sync::Arc};
+
+const CHECKPOINT_HEADER: usize = 92;
+pub const MAX_CHECKPOINT_BYTES: usize = 8 * 1024 * 1024;
 
 /// Cloning captures all DSP state, including active voices, effect buffers and
 /// the partly consumed synthesis block. The immutable SoundFont is shared.
-/// This is an in-memory checkpoint; durable encoding is a separate host concern.
+/// Versioned durable checkpoints are available through `checkpoint_bytes`.
 #[derive(Clone)]
 pub struct MusicOutput {
     synth: Synthesizer,
     sample: u64,
     rate: u32,
+    font_id: [u8; 32],
 }
 impl MusicOutput {
     pub fn new(soundfont: &[u8], rate: u32) -> Result<Self, Box<dyn std::error::Error>> {
@@ -21,7 +26,61 @@ impl MusicOutput {
             synth,
             sample: 0,
             rate,
+            font_id: Sha256::digest(soundfont).into(),
         })
+    }
+    /// Versioned DSP checkpoint, bound to the exact external SoundFont bytes.
+    pub fn checkpoint_bytes(&self) -> Result<Vec<u8>, Box<dyn std::error::Error>> {
+        let payload = postcard::to_allocvec(&self.synth.checkpoint())?;
+        if payload.len() > MAX_CHECKPOINT_BYTES - CHECKPOINT_HEADER {
+            return Err("audio checkpoint size limit".into());
+        }
+        let mut bytes = Vec::with_capacity(CHECKPOINT_HEADER + payload.len());
+        bytes.extend_from_slice(b"DWRMIDI\0");
+        bytes.extend_from_slice(&1u32.to_le_bytes());
+        bytes.extend_from_slice(&self.font_id);
+        bytes.extend_from_slice(&self.rate.to_le_bytes());
+        bytes.extend_from_slice(&self.sample.to_le_bytes());
+        bytes.extend_from_slice(&(payload.len() as u32).to_le_bytes());
+        let mut digest = Sha256::new();
+        digest.update(&bytes);
+        digest.update(&payload);
+        bytes.extend_from_slice(&digest.finalize());
+        bytes.extend_from_slice(&payload);
+        Ok(bytes)
+    }
+
+    /// Build a separate audio output; failure cannot modify the live output.
+    pub fn from_checkpoint(
+        soundfont: &[u8],
+        bytes: &[u8],
+    ) -> Result<Self, Box<dyn std::error::Error>> {
+        if !(CHECKPOINT_HEADER..=MAX_CHECKPOINT_BYTES).contains(&bytes.len()) {
+            return Err("invalid audio checkpoint size".into());
+        }
+        let word = |at| u32::from_le_bytes(bytes[at..at + 4].try_into().unwrap());
+        if &bytes[..8] != b"DWRMIDI\0" || word(8) != 1 {
+            return Err("unsupported audio checkpoint format".into());
+        }
+        if Sha256::digest(soundfont)[..] != bytes[12..44] {
+            return Err("audio checkpoint belongs to another SoundFont".into());
+        }
+        let payload = &bytes[CHECKPOINT_HEADER..];
+        let mut digest = Sha256::new();
+        digest.update(&bytes[..60]);
+        digest.update(payload);
+        if word(56) as usize != payload.len() || digest.finalize()[..] != bytes[60..92] {
+            return Err("audio checkpoint length or checksum mismatch".into());
+        }
+        let (state, trailing) =
+            postcard::take_from_bytes::<rustysynth::SynthesizerCheckpoint>(payload)?;
+        if !trailing.is_empty() {
+            return Err("trailing audio checkpoint data".into());
+        }
+        let mut output = Self::new(soundfont, word(44))?;
+        output.synth.restore_checkpoint(state)?;
+        output.sample = u64::from_le_bytes(bytes[48..56].try_into().unwrap());
+        Ok(output)
     }
     /// Render up to an exclusive musical tick; messages must be ordered and
     /// within this interval. Returns interleaved stereo samples.
@@ -127,7 +186,29 @@ mod tests {
             .unwrap();
         assert!(first.iter().any(|sample| sample.abs() > 0.00001));
         assert_ne!(original.sample % 64, 0, "checkpoint within a synth block");
-        let mut restored = original.clone();
+        let checkpoint = original.checkpoint_bytes().unwrap();
+        eprintln!("audio checkpoint bytes: {}", checkpoint.len());
+        let mut restored = MusicOutput::from_checkpoint(&font, &checkpoint).unwrap();
+        assert_eq!(restored.checkpoint_bytes().unwrap(), checkpoint);
+        for end in [0, 7, 12, 44, 60, 91, checkpoint.len() - 1] {
+            assert!(MusicOutput::from_checkpoint(&font, &checkpoint[..end]).is_err());
+        }
+        for offset in [48, 59, 60, 92, checkpoint.len() - 1] {
+            let mut corrupted = checkpoint.clone();
+            corrupted[offset] ^= 1;
+            assert!(MusicOutput::from_checkpoint(&font, &corrupted).is_err());
+        }
+        let mut wrong_font = font.clone();
+        wrong_font[0] ^= 1;
+        assert!(MusicOutput::from_checkpoint(&wrong_font, &checkpoint).is_err());
+        // A repaired checksum cannot bypass fixed DSP settings validation.
+        let mut invalid_state = checkpoint.clone();
+        invalid_state[CHECKPOINT_HEADER] ^= 1; // serialized synthesizer sample rate
+        let mut digest = Sha256::new();
+        digest.update(&invalid_state[..60]);
+        digest.update(&invalid_state[CHECKPOINT_HEADER..]);
+        invalid_state[60..92].copy_from_slice(&digest.finalize());
+        assert!(MusicOutput::from_checkpoint(&font, &invalid_state).is_err());
         for (end, messages) in [
             (11, vec![message(8, 0xe0, &[0, 80])]),
             (

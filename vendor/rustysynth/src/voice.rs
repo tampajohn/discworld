@@ -13,7 +13,7 @@ use crate::soundfont_math::SoundFontMath;
 use crate::synthesizer_settings::SynthesizerSettings;
 use crate::volume_envelope::VolumeEnvelope;
 
-#[derive(Clone, Debug, PartialEq, Eq)]
+#[derive(serde::Serialize, serde::Deserialize, Clone, Debug, PartialEq, Eq)]
 #[non_exhaustive]
 enum VoiceState {
     Playing = 0,
@@ -21,7 +21,7 @@ enum VoiceState {
     Released = 2,
 }
 
-#[derive(Clone, Debug)]
+#[derive(serde::Serialize, serde::Deserialize, Clone, Debug)]
 #[non_exhaustive]
 pub(crate) struct Voice {
     vol_env: VolumeEnvelope,
@@ -318,5 +318,52 @@ impl Voice {
         } else {
             self.vol_env.get_priority()
         }
+    }
+}
+
+impl Voice {
+    pub(crate) fn validate_checkpoint(&self, template: &Self, wave_len: usize) -> bool {
+        let _ = (template, wave_len);
+        (self
+            .vol_env
+            .validate_checkpoint(&template.vol_env, wave_len))
+            && (self
+                .mod_env
+                .validate_checkpoint(&template.mod_env, wave_len))
+            && (self
+                .vib_lfo
+                .validate_checkpoint(&template.vib_lfo, wave_len))
+            && (self
+                .mod_lfo
+                .validate_checkpoint(&template.mod_lfo, wave_len))
+            && (self
+                .oscillator
+                .validate_checkpoint(&template.oscillator, wave_len))
+            && (self.filter.validate_checkpoint(&template.filter, wave_len))
+            && (self.block.len() == template.block.len())
+            && (self.block.iter().all(|v| v.is_finite()))
+            && (self.previous_mix_gain_left.is_finite())
+            && (self.previous_mix_gain_right.is_finite())
+            && (self.current_mix_gain_left.is_finite())
+            && (self.current_mix_gain_right.is_finite())
+            && (self.previous_reverb_send.is_finite())
+            && (self.previous_chorus_send.is_finite())
+            && (self.current_reverb_send.is_finite())
+            && (self.current_chorus_send.is_finite())
+            && (self.note_gain.is_finite())
+            && (self.cutoff.is_finite())
+            && (self.resonance.is_finite())
+            && (self.vib_lfo_to_pitch.is_finite())
+            && (self.mod_lfo_to_pitch.is_finite())
+            && (self.mod_env_to_pitch.is_finite())
+            && (self.mod_lfo_to_volume.is_finite())
+            && (self.instrument_pan.is_finite())
+            && (self.instrument_reverb.is_finite())
+            && (self.instrument_chorus.is_finite())
+            && (self.smoothed_cutoff.is_finite())
+            && (self.voice_length < usize::MAX - 1_000_000)
+            && ((0..16).contains(&self.channel))
+            && ((0..128).contains(&self.key))
+            && ((0..128).contains(&self.velocity))
     }
 }

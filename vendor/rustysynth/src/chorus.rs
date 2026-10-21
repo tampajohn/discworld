@@ -2,7 +2,7 @@
 
 use std::f64::consts;
 
-#[derive(Clone, Debug)]
+#[derive(serde::Serialize, serde::Deserialize, Clone, Debug)]
 #[non_exhaustive]
 pub(crate) struct Chorus {
     buffer_l: Vec<f32>,
@@ -122,5 +122,21 @@ impl Chorus {
         for t in 0..buffer_length {
             self.buffer_r[t] = 0_f32;
         }
+    }
+}
+
+impl Chorus {
+    pub(crate) fn validate_checkpoint(&self, template: &Self, wave_len: usize) -> bool {
+        let _ = (template, wave_len);
+        (self.buffer_l.len() == template.buffer_l.len())
+            && (self.buffer_l.iter().all(|v| v.is_finite()))
+            && (self.buffer_r.len() == template.buffer_r.len())
+            && (self.buffer_r.iter().all(|v| v.is_finite()))
+            && (self.delay_table.len() == template.delay_table.len())
+            && (self.delay_table.iter().all(|v| v.is_finite()))
+            && (self.buffer_index < self.buffer_l.len())
+            && (self.delay_table_index_l < self.delay_table.len())
+            && (self.delay_table_index_r < self.delay_table.len())
+            && (self.delay_table == template.delay_table)
     }
 }
