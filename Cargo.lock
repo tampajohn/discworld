@@ -247,6 +247,15 @@ dependencies = [
 ]
 
 [[package]]
+name = "discworld-web"
+version = "0.1.0"
+dependencies = [
+ "discworld-audio",
+ "discworld-core",
+ "wasm-bindgen",
+]
+
+[[package]]
 name = "dispatch2"
 version = "0.3.1"
 source = "registry+https://github.com/rust-lang/crates.io-index"

@@ -1,0 +1,274 @@
+//! Browser boundary. Original assets, engine, renderer, DSP and saves are shared
+//! with native. JavaScript owns presentation, input timing and persistence.
+use discworld_audio::{MusicOutput, session};
+use discworld_core::{
+    audio::SampleBank,
+    engine::{Engine, PolygonInteraction, Status},
+    graphics::Resources,
+    inventory::Scroll,
+    iso::Iso,
+    music,
+    resource::parse_index,
+    text::Strings,
+};
+use std::ops::Range;
+use wasm_bindgen::prelude::*;
+
+type Result<T> = std::result::Result<T, String>;
+fn error(e: impl std::fmt::Display) -> String {
+    e.to_string()
+}
+
+struct Assets {
+    iso: Vec<u8>,
+    identity: [u8; 32],
+    names: Vec<String>,
+    resources: Vec<Range<usize>>,
+    sample_index: Range<usize>,
+    samples: Range<usize>,
+    music: Range<usize>,
+    text: Range<usize>,
+}
+impl Assets {
+    fn new(data: Vec<u8>) -> Result<Self> {
+        let iso = Iso::parse(&data).map_err(error)?;
+        let range = |name: &str| {
+            iso.entries
+                .iter()
+                .find(|e| e.path.eq_ignore_ascii_case(name))
+                .map(|e| e.range.clone())
+                .ok_or_else(|| format!("missing {name}"))
+        };
+        let index = parse_index(&data[range("/DISCWLD/INDEX")?]).map_err(error)?;
+        let resources = index
+            .iter()
+            .map(|e| range(&format!("/DISCWLD/{}", e.name)))
+            .collect::<Result<Vec<_>>>()?;
+        let sample_index = range("/DISCWLD/ENGLISH.IDX")?;
+        let samples = range("/DISCWLD/ENGLISH.SMP")?;
+        let music = range("/DISCWLD/MIDI.DAT")?;
+        let text = range("/DISCWLD/ENGLISH.TXT")?;
+        Ok(Self {
+            identity: session::asset_identity(&data),
+            iso: data,
+            names: index.into_iter().map(|e| e.name).collect(),
+            resources,
+            sample_index,
+            samples,
+            music,
+            text,
+        })
+    }
+    fn resources(&self) -> Resources<'_> {
+        Resources(
+            self.resources
+                .iter()
+                .map(|r| &self.iso[r.clone()])
+                .collect(),
+        )
+    }
+    fn bank(&self) -> Result<SampleBank<'_>> {
+        SampleBank::new(
+            &self.iso[self.sample_index.clone()],
+            &self.iso[self.samples.clone()],
+        )
+        .map_err(error)
+    }
+}
+
+#[wasm_bindgen]
+pub struct BrowserGame {
+    assets: Assets,
+    font: Vec<u8>,
+    engine: Engine,
+    audio: MusicOutput,
+    fault: Option<String>,
+}
+
+#[wasm_bindgen]
+impl BrowserGame {
+    #[wasm_bindgen(constructor)]
+    pub fn new(iso: Vec<u8>, soundfont: Vec<u8>) -> Result<BrowserGame> {
+        let assets = Assets::new(iso)?;
+        let resources = assets.resources();
+        let engine = Engine::bootstrap(&resources).map_err(error)?;
+        assets.bank()?;
+        music::archive(&assets.iso[assets.music.clone()]).map_err(error)?;
+        Strings::new(&assets.iso[assets.text.clone()]).map_err(error)?;
+        let audio = MusicOutput::new(&soundfont, 22050).map_err(error)?;
+        Ok(Self {
+            assets,
+            font: soundfont,
+            engine,
+            audio,
+            fault: None,
+        })
+    }
+
+    /// Advance at most one second (24 ticks). Return interleaved stereo f32 at
+    /// 22050 Hz, including speech. Muting must not skip engine/DSP advancement.
+    pub fn advance(&mut self, ticks: u32) -> Result<Vec<f32>> {
+        if ticks > 24 {
+            return Err("advance is limited to 24 ticks".into());
+        }
+        if let Some(fault) = &self.fault {
+            return Err(fault.clone());
+        }
+        let resources = self.assets.resources();
+        let bank = self.assets.bank()?;
+        let tracks = music::archive(&self.assets.iso[self.assets.music.clone()]).map_err(error)?;
+        let strings = Strings::new(&self.assets.iso[self.assets.text.clone()]).map_err(error)?;
+        let result = (|| {
+            let mut output = Vec::new();
+            for _ in 0..ticks {
+                let status = self
+                    .engine
+                    .tick_content(&resources, Some(&bank), Some(&tracks), Some(&strings))
+                    .map_err(error)?;
+                let mut audio = self
+                    .audio
+                    .render(self.engine.music.clock, &self.engine.music_frame)
+                    .map_err(error)?;
+                if audio.len() != self.engine.audio_frame.len() * 2 {
+                    return Err("audio clock mismatch".into());
+                }
+                for (stereo, speech) in audio.chunks_exact_mut(2).zip(&self.engine.audio_frame) {
+                    for sample in stereo {
+                        *sample = (*sample + f32::from(*speech) / 32768.0).clamp(-1.0, 1.0);
+                    }
+                }
+                output.extend(audio);
+                if status != Status::Running {
+                    return Err(format!("runtime stopped: {status:?}"));
+                }
+            }
+            Ok(output)
+        })();
+        if let Err(reason) = &result {
+            self.fault = Some(reason.clone());
+        }
+        result
+    }
+
+    /// Original 320x200 RGBA pixels, including game fonts, cursor and overlays.
+    pub fn frame(&self) -> Result<Vec<u8>> {
+        self.engine
+            .render(&self.assets.resources())
+            .map(|s| s.rgba)
+            .map_err(error)
+    }
+    pub fn tick(&self) -> u64 {
+        self.engine.ticks
+    }
+    pub fn scene(&self) -> String {
+        self.assets.names[self.engine.scene.resource()].clone()
+    }
+    pub fn move_pointer(&mut self, x: i32, y: i32) {
+        self.engine.move_cursor([x.clamp(0, 319), y.clamp(0, 199)]);
+    }
+    /// Development input vocabulary shared with the native host. Touch UI maps
+    /// explicit walk/action/look controls here; original double-click timing is
+    /// not claimed by this interface.
+    pub fn input(&mut self, command: &str) -> Result<()> {
+        if let Some(fault) = &self.fault {
+            return Err(fault.clone());
+        }
+        let engine = &mut self.engine;
+        let resources = self.assets.resources();
+        let point = engine.control.cursor;
+        match command {
+            "continue" => engine.left_event().map_err(error)?,
+            "start" => engine.user_event().map_err(error)?,
+            "pockets" => {
+                if matches!(engine.active_inventory(), Some(1 | 2)) {
+                    engine.close_inventory();
+                } else if let Some(lead) = &engine.declarations.lead {
+                    engine
+                        .interact_actor(&resources, lead.id as u32, PolygonInteraction::WalkTo)
+                        .map_err(error)?;
+                }
+            }
+            "close" => {
+                if matches!(engine.active_inventory(), Some(1 | 2)) {
+                    engine.close_inventory();
+                } else {
+                    engine
+                        .interact_conversation(&resources, None)
+                        .map_err(error)?;
+                }
+            }
+            "up" | "down" => {
+                engine.scroll_inventory(if command == "up" {
+                    Scroll::Up
+                } else {
+                    Scroll::Down
+                });
+            }
+            "click" if engine.conversation.polygon.is_some() && !engine.conversation.hidden => {
+                if let Some(topic) = engine.conversation_topic_at(point) {
+                    engine
+                        .interact_conversation(&resources, Some(topic))
+                        .map_err(error)?;
+                }
+            }
+            "click"
+                if matches!(engine.active_inventory(), Some(1 | 2)) && engine.control.enabled =>
+            {
+                if let Some(action) = engine.inventory_scroll_at(point) {
+                    engine.scroll_inventory(action);
+                } else if let Some(slot) = engine.inventory_slot_at(point) {
+                    engine
+                        .interact_inventory(&resources, slot, PolygonInteraction::WalkTo)
+                        .map_err(error)?;
+                } else if !engine.inventory_contains_point(point) {
+                    engine.close_inventory();
+                }
+            }
+            "click" if !engine.control.enabled => engine.left_event().map_err(error)?,
+            "click" | "walk" | "action" | "look" => {
+                let event = match command {
+                    "action" => PolygonInteraction::Action,
+                    "look" => PolygonInteraction::Look,
+                    _ => PolygonInteraction::WalkTo,
+                };
+                if let Some(slot) = engine.inventory_slot_at(point) {
+                    engine
+                        .interact_inventory(&resources, slot, event)
+                        .map_err(error)?;
+                } else {
+                    engine
+                        .interact_world(&resources, point, event)
+                        .map_err(error)?;
+                }
+            }
+            _ => return Err(format!("unknown input: {command}")),
+        }
+        Ok(())
+    }
+    pub fn save(&self) -> Result<Vec<u8>> {
+        if let Some(fault) = &self.fault {
+            return Err(fault.clone());
+        }
+        session::encode(&self.engine, &self.audio, self.assets.identity).map_err(error)
+    }
+    /// Prepare both components before replacing the live session. A rejected
+    /// file leaves engine, DSP and existing fault state unchanged.
+    pub fn load(&mut self, bytes: &[u8]) -> Result<()> {
+        let resources = self.assets.resources();
+        let bank = self.assets.bank()?;
+        let tracks = music::archive(&self.assets.iso[self.assets.music.clone()]).map_err(error)?;
+        let restored = session::decode(
+            bytes,
+            self.assets.identity,
+            &resources,
+            &bank,
+            &tracks,
+            &self.font,
+        )
+        .map_err(error)?;
+        self.engine = restored.engine;
+        self.audio = restored.audio;
+        self.fault = None;
+        Ok(())
+    }
+}

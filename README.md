@@ -91,7 +91,7 @@ Point at the Luggage and use Action to open its inventory. Inventory actions exe
 | Gameplay | Acts I–III completed in replay, including the altered-book theft, temple escape and Act III climax; Act III spell, Shades item, birthmark, moustache, upgraded sword and eye verified (6 of 6), including the sailor exchange, palette-changing birthmark animation and cart/beggar sequence; Act IV fuels, final showdown, ending, scrolling credits and restart verified in headless replay |
 | State | In-memory scene save/restore and script-driven restart; [versioned snapshots](docs/save-state.md) audited across the full route, with core restoration tested across the full route; combined engine/DSP files pass separate-process opening and inventory tests; native startup load and F5/F9 visually verified at credits |
 | macOS | Runnable native window/audio host with interactive and replay modes |
-| Browser/iPad | Portable core compiles for `wasm32-unknown-unknown`; browser presentation, audio, storage, touch input and device testing remain to be built |
+| Browser/iPad | [WASM boundary](docs/browser-runtime.md) runs the same engine; native/WASM state and pixels match at opening and inventory checkpoints, with small measured DSP differences; browser presentation, audio scheduling, storage, touch input and device testing remain to be built |
 
 The project favors compatibility over skipping unsupported script behavior. A passing replay demonstrates that route, not general equivalence with ScummVM. Replays resolve targets explicitly, so they also do not prove mouse hit testing or touch usability.
 
@@ -102,6 +102,7 @@ The project favors compatibility over skipping unsupported script behavior. A pa
 | `crates/discworld-core` | Portable resource readers, VM, scheduler, engine state, movement, rendering and UI behavior; portable snapshot serialization |
 | `crates/discworld-audio` | Sample/music rendering and SoundFont synthesis |
 | `crates/discworld-native` | macOS development host using minifb and Rodio; keyboard/mouse input and visible replay |
+| `crates/discworld-web` | WASM exports for engine advancement, original RGBA frames, stereo PCM, input and save/load |
 | `crates/discworld-tools` | ISO/resource audits, diagnostics, frame export and headless interaction replay |
 | `vendor/rustysynth` | RustySynth 1.3.7 with documented safe decoding changes and retained MIT license |
 | `evidence/*-input.json` | Reproducible interaction routes, without embedded game resources |
