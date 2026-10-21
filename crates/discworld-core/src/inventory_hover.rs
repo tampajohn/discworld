@@ -6,6 +6,52 @@
 //! tinlib.cpp::PrintObjPointed without retaining pointers to either resource.
 use crate::iso::Error;
 
+#[derive(serde::Serialize, serde::Deserialize, Debug, Clone, Default, PartialEq, Eq)]
+pub(crate) struct State {
+    pub monitor: Monitor,
+    pub waits: Vec<(crate::scheduler::ProcessId, Wait)>,
+}
+#[derive(serde::Serialize, serde::Deserialize, Debug, Clone, PartialEq, Eq)]
+pub(crate) enum Wait {
+    Label {
+        label: Label,
+        call: crate::script::LibraryCall,
+        layout: crate::text::Layout,
+        visible: bool,
+    },
+    Leave(LeaveWait),
+}
+impl State {
+    pub fn cleanup<T>(&mut self, processes: &crate::scheduler::Scheduler<T>) {
+        self.waits
+            .retain(|(id, _)| processes.entries().any(|(p, _)| p == *id));
+    }
+}
+impl Wait {
+    pub fn item(&self) -> i32 {
+        match self {
+            Self::Label { label, .. } => label.item,
+            Self::Leave(wait) => wait.item,
+        }
+    }
+    pub fn validate(&self, monitor: &Monitor) -> Result<(), Error> {
+        match self {
+            Self::Label {
+                label,
+                call,
+                visible,
+                ..
+            } if label.cell > 209 || call.id != 54 || *visible == label.waiting_for_clear => {
+                Err(Error("invalid saved inventory hover label"))
+            }
+            Self::Leave(wait) if wait.serial == 0 || wait.serial > monitor.completed => {
+                Err(Error("invalid saved inventory unpoint waiter"))
+            }
+            _ => Ok(()),
+        }
+    }
+}
+
 /// invLabels remembers an object identity, not the slot it currently occupies.
 #[derive(serde::Serialize, serde::Deserialize, Debug, Clone, Default, PartialEq, Eq)]
 pub struct Monitor {

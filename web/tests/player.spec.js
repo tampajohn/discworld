@@ -413,7 +413,7 @@ test('original inventory hover cursor survives save and restores over body', asy
     await page.evaluate(() => document.querySelector('#export').click());
     return fs.readFile(await (await download).path());
   };
-  for (const [label, point] of [['arrow',[195,135]],['normal',[145,135]]]) {
+  for (const [label, point] of [['arrow',[195,135]],['normal',[145,135]],['label',[118,132]]]) {
     await page.locator('#pause').click();
     await expect(page.locator('#pause')).toHaveText('Pause');
     await move(...point);

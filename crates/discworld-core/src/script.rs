@@ -102,6 +102,9 @@ impl Default for Machine {
     }
 }
 impl Machine {
+    pub(crate) fn is_halted(&self) -> bool {
+        self.halted
+    }
     pub(crate) fn validate_snapshot_code(&self, code: &[u8]) -> Result<(), Error> {
         self.validate_snapshot_structure()?;
         if self.halted {

@@ -753,3 +753,115 @@ fn inventory_hover_uses_original_arrows_freezes_during_drag_and_restores() {
         }
     }
 }
+
+#[test]
+#[ignore = "requires DISCWORLD_TEST_ISO, DISCWORLD_TEST_SOUNDFONT and DISCWORLD_TEST_SAVE"]
+fn inventory_pointed_label_uses_original_font_and_survives_save() {
+    use discworld_core::{
+        compositor::Surface,
+        text::{Font, Strings},
+    };
+    let read = |name| std::fs::read(std::env::var_os(name).expect(name)).unwrap();
+    let mut game =
+        BrowserGame::new(read("DISCWORLD_TEST_ISO"), read("DISCWORLD_TEST_SOUNDFONT")).unwrap();
+    game.load(&read("DISCWORLD_TEST_SAVE")).unwrap();
+    game.engine.subtitles = false; // POINTED labels ignore speech subtitle preference.
+    game.move_pointer(118, 132);
+    game.advance(1).unwrap();
+    let saved = game.save().unwrap();
+    assert_eq!(u32::from_le_bytes(saved[60..64].try_into().unwrap()), 9);
+    let resources = game.assets.resources();
+    let strings = Strings::new(&game.assets.iso[game.assets.text.clone()]).unwrap();
+    let text = (0..strings.len())
+        .map(|i| strings.get(i as u32).unwrap())
+        .find(|s| s.eq_ignore_ascii_case(b"banana"))
+        .expect("original banana label");
+    let font = Font::read(&resources, game.engine.declarations.tag_font.unwrap()).unwrap();
+    let mut label = font.centered(&resources, text, [118, 120]).unwrap();
+    label.keep_inventory_horizontal(&resources, 320).unwrap();
+    let mut expected = Surface::new(320, 200).unwrap();
+    for p in expected.rgba.chunks_exact_mut(4) {
+        p.copy_from_slice(&[13, 17, 19, 255]);
+    }
+    label.draw(&resources, &mut expected).unwrap();
+    game.engine.control.hidden = true;
+    let frame = game.frame().unwrap();
+    game.engine.control.hidden = false;
+    let pixels: Vec<_> = expected
+        .rgba
+        .chunks_exact(4)
+        .enumerate()
+        .filter(|(_, p)| *p != [13, 17, 19, 255])
+        .collect();
+    assert!(!pixels.is_empty());
+    for (i, p) in pixels {
+        assert_eq!(&frame[i * 4..i * 4 + 4], p, "original label pixel {i}");
+    }
+    roundtrip_pending(&mut game, 4);
+    game.input("look").unwrap();
+    roundtrip_pending(&mut game, 1); // Non-POINTED arbitration's initial sleep.
+    roundtrip_pending(&mut game, 1); // Description and hidden hover label.
+    let spoken = game.frame().unwrap();
+    assert!(
+        expected
+            .rgba
+            .chunks_exact(4)
+            .enumerate()
+            .any(|(i, p)| { p != [13, 17, 19, 255] && &spoken[i * 4..i * 4 + 4] != p }),
+        "hover label must yield to the spoken description"
+    );
+    for _ in 0..600 {
+        game.advance(1).unwrap();
+        if game.engine.control.enabled {
+            break;
+        }
+    }
+    assert!(game.engine.control.enabled);
+    game.advance(2).unwrap();
+    game.engine.control.hidden = true;
+    let redisplayed = game.frame().unwrap();
+    game.engine.control.hidden = false;
+    for (i, p) in expected
+        .rgba
+        .chunks_exact(4)
+        .enumerate()
+        .filter(|(_, p)| *p != [13, 17, 19, 255])
+    {
+        assert_eq!(
+            &redisplayed[i * 4..i * 4 + 4],
+            p,
+            "redisplayed original label pixel {i}"
+        );
+    }
+    game.move_pointer(0, 0);
+    game.advance(1).unwrap();
+    roundtrip_pending(&mut game, 3); // Includes POINTED completion and UNPOINT.
+    game.move_pointer(118, 132);
+    game.advance(1).unwrap();
+    roundtrip_pending(&mut game, 3);
+}
+
+#[test]
+#[ignore = "requires DISCWORLD_TEST_ISO, DISCWORLD_TEST_SOUNDFONT and DISCWORLD_TEST_NODE_EXIT_SAVE"]
+fn right_click_while_leaving_unseen_stairs_preserves_leg_and_recovers() {
+    let read = |name| std::fs::read(std::env::var_os(name).expect(name)).unwrap();
+    let mut game =
+        BrowserGame::new(read("DISCWORLD_TEST_ISO"), read("DISCWORLD_TEST_SOUNDFONT")).unwrap();
+    game.load(&read("DISCWORLD_TEST_NODE_EXIT_SAVE")).unwrap();
+    assert_eq!(game.tick(), 133103);
+    assert_eq!(
+        game.assets.names[game.engine.scene.resource()],
+        "unseen.scn"
+    );
+    roundtrip_pending(&mut game, 1); // Former failing tick, including scripted retarget.
+    roundtrip_pending(&mut game, 24);
+    while game.tick() < 133800 {
+        game.advance((133800 - game.tick()).min(24) as u32).unwrap();
+    }
+    assert_eq!(game.tick(), 133800);
+    assert!(game.engine.control.enabled);
+    assert_eq!(game.engine.movers[&7].placement.position, [452, 553]);
+    assert_eq!(game.engine.movers[&8].placement.position, [452, 573]);
+    assert!(game.engine.movers.values().all(|m| m.walk_target.is_none()));
+    roundtrip_pending(&mut game, 5);
+}

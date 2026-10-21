@@ -334,3 +334,13 @@ bounded geometry and partial offsets, the complete required reel set and an
 outline matching its saved geometry. Animation resources undergo the existing
 snapshot validation. Version 1–7 encodings remain unchanged when no resize is
 active. Release returns to the applicable earlier version.
+
+
+Version9 extends the previous tuples with inventory hover state. The payload is
+(engine, clicks, optional mouse, optional drag owner, optional slider, geometry,
+optional resize, hover). The legacy engine serialization is unchanged. Hover
+contains the remembered object, completed-POINTED serial, suppression flag, and
+process-keyed label or departure waits. Label waits carry the original layout,
+absolute cell, pending PRINTOBJ call and visibility; departure waits require a
+halted POINTED interpreter and a valid completed serial. Older versions restore
+an empty hover state. This is the runtime's save schema, not ScummVM save format.

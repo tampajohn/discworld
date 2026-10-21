@@ -530,3 +530,42 @@ actual colored pixels inspected in
 save is `assets/saves/playable-inventory-printobj.dws`; the previous current
 state remains `assets/saves/playable-inventory-hover.dws`. These checks validate
 this increment, not completed hover-label integration or a new full-route run.
+
+
+POINTED/UNPOINT integration now dispatches the original inventory-object scripts
+when the pointer enters a new item. Labels use the original tag font regardless
+of subtitle preference, retain their original anchor while suppressed, yield to
+non-POINTED PRINTOBJ, and execute UNPOINT after the original completion/departure
+sequence. OFF/ON (-1/-2) update the shared arbitration flag. A held item is not a
+new hover target. Window gestures freeze discovery. Cancelled scene/process
+waiters are removed; suspended label resources are checked during save preview.
+Hover discovery currently runs at the cursor-update tick boundary; complete
+reference equivalence for every immediate event/redraw boundary remains open.
+
+Version9 saves retain the shared monitor, labels, layouts, visibility and
+post-POINTED waiter serials alongside all previous optional input/window state.
+Versions1–8 still decode and are still emitted when hover state is default.
+Structural validation rejects orphan/duplicate owners, mismatched pending calls,
+conflicting host waits, invalid visibility/cell/serial values, and UNPOINT
+waiters whose POINTED interpreter has not halted. The original-asset banana test
+compares actual pixels with the archive's label string and font, checks subtitle
+independence, save/DSP continuation, speech suppression and redisplay. The
+scheduler regression verifies a fresh EVENT8 after leaving a completed EVENT0,
+including save continuation and malformed waiter rejection.
+
+User-reported right-click stop, tick133103 in unseen.scn: preserved original
+state at `assets/saves/rightclick-node-exit-stopped.dws`. The failure was
+`unsupported preserved node exit leg`, a deliberately unimplemented branch in
+Mover::begin_node_walk. Pinned move.cpp::SetOffWithinNodePath explicitly keeps
+its immediate target when already LEAVING through the selected nearest end;
+SetActorDest replaces ultimate/intermediate targets and resets overshoot.
+The runtime now retains that existing leg, then routes toward the new ultimate
+destination normally. An exhausted leg is represented by the current position,
+so the next stationary step routes without moving. Regression retargets an
+active exit, checks leg/serial/overshoot, serializes the mover, then reaches the
+destination identically. The exact user save advances to133800 Running with
+control enabled: Rincewind[452,553], Luggage[452,573], both walks complete.
+Evidence: `assets/logs/rightclick-node-exit-{before,fixed}.json`,
+`assets/previews/rightclick-node-exit-fixed.png`. The opt-in original-asset
+regression requires DISCWORLD_TEST_NODE_EXIT_SAVE and checks exact
+engine/pixels/audio continuation across the formerly failing tick.

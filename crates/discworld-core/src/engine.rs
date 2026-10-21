@@ -91,9 +91,8 @@ struct ScriptProcess {
     sample_wait: Option<LibraryCall>,
 }
 impl ScriptProcess {
-    fn validate_snapshot_waits(&self) -> Result<(), Error> {
-        let pending = self.vm.pending_call();
-        let calls = [
+    fn wait_calls(&self) -> [Option<LibraryCall>; 11] {
+        [
             self.walked_wait.as_ref().map(|w| w.call),
             self.walk_wait.map(|w| w.0),
             self.tag_walk_wait.map(|w| w.0),
@@ -105,7 +104,11 @@ impl ScriptProcess {
             self.music_wait,
             self.wait.map(|w| w.0),
             self.sample_wait,
-        ];
+        ]
+    }
+    fn validate_snapshot_waits(&self) -> Result<(), Error> {
+        let pending = self.vm.pending_call();
+        let calls = self.wait_calls();
         if calls.iter().flatten().any(|call| Some(*call) != pending)
             || calls.iter().flatten().count() > 1
         {
@@ -243,6 +246,8 @@ pub struct Engine {
     pub(crate) inventory_resize: Option<crate::inventory_resize::Drag>,
     #[serde(skip)]
     pub(crate) inventory_geometry: crate::inventory_geometry::State,
+    #[serde(skip)]
+    pub(crate) inventory_hover: crate::inventory_hover::State,
     pub movers: std::collections::BTreeMap<i32, crate::mover::Mover>,
     polygon_memory: crate::polygon::EnabledMemory,
     polygon_table: Handle,
@@ -365,6 +370,37 @@ impl Engine {
         self.inventory_geometry
             .validate(&self.declarations.windows, self.active_inventory)?;
         self.clicks.validate(&self.processes)?;
+        for (index, (id, wait)) in self.inventory_hover.waits.iter().enumerate() {
+            if self.inventory_hover.waits[..index]
+                .iter()
+                .any(|(other, _)| other == id)
+            {
+                return Err(Error("duplicate inventory hover process"));
+            }
+            let process = self
+                .processes
+                .entries()
+                .find(|(p, _)| p == id)
+                .map(|(_, p)| p)
+                .ok_or(Error("missing inventory hover process"))?;
+            if process.event != 0 || process.inventory_object != Some(wait.item()) {
+                return Err(Error("invalid inventory hover process"));
+            }
+            wait.validate(&self.inventory_hover.monitor)?;
+            if let crate::inventory_hover::Wait::Leave(_) = wait {
+                if !process.vm.is_halted() {
+                    return Err(Error("inventory unpoint waiter has unfinished script"));
+                }
+            }
+            if let crate::inventory_hover::Wait::Label { call, .. } = wait {
+                if process.vm.pending_call() != Some(*call)
+                    || process.wait_calls().iter().any(Option::is_some)
+                    || process.object_print_position.is_some()
+                {
+                    return Err(Error("inventory hover call mismatch"));
+                }
+            }
+        }
         for (id, phase) in self.clicks.entries() {
             let process = self
                 .processes
@@ -517,6 +553,11 @@ impl Engine {
         }
         // Hidden inventory and deferred text must also have drawable resources.
         let mut scratch = Surface::new(320, 200)?;
+        for (_, wait) in &self.inventory_hover.waits {
+            if let crate::inventory_hover::Wait::Label { layout, .. } = wait {
+                layout.draw(resources, &mut scratch)?;
+            }
+        }
         if let Some((frame, content)) = &self.inventory_display {
             frame.draw(resources, &mut scratch)?;
             content.draw(resources, &mut scratch)?;
@@ -842,6 +883,10 @@ impl Engine {
             processes.spawn(Some(self.generation), process)?;
         }
         self.processes = processes;
+        // V1 saved interpreter contexts exclude POINTED. New scheduler IDs
+        // may reuse old numbers, so retaining process-keyed hover waits here
+        // could attach a departed label to an unrelated restored script.
+        self.inventory_hover.waits.clear();
         Ok(())
     }
 
@@ -1217,6 +1262,53 @@ impl Engine {
 
     pub fn inventory_dragging(&self) -> bool {
         self.inventory_drag.is_some()
+    }
+
+    fn inventory_item_at(&self, point: [i32; 2]) -> Option<i32> {
+        if self.conversation.hidden {
+            return None;
+        }
+        let slot = usize::try_from(self.active_inventory?).ok()?;
+        let (index, _) = self.inventory_text_cell_at(point)?;
+        self.declarations
+            .windows
+            .get(slot)?
+            .as_ref()?
+            .contents
+            .get(index)
+            .copied()
+            .filter(|id| *id != 0 && *id != -1)
+    }
+
+    fn update_inventory_hover(&mut self, resources: &Resources<'_>) -> Result<(), Error> {
+        if self.inventory_dragging() {
+            return Ok(());
+        }
+        let item = self
+            .inventory_display
+            .as_ref()
+            .filter(|(frame, _)| {
+                frame.layout.inventory_area_at(self.control.cursor)
+                    == crate::conversation_window::Area::Body
+            })
+            .and_then(|_| self.inventory_item_at(self.control.cursor))
+            .filter(|id| *id != self.held_object);
+        if let Some(item) = self.inventory_hover.monitor.observe(item, false) {
+            let object = self
+                .inventory_objects
+                .get(&item)
+                .ok_or(Error("missing pointed inventory object"))?;
+            if object.script.0 != 0 {
+                scene::script_bytes(resources, object.script)?;
+                let mut process = ScriptProcess::new(object.script);
+                process.inventory_object = Some(item);
+                process.event = 0;
+                self.processes.spawn(Some(self.generation), process)?;
+                self.inventory_event_index =
+                    usize::try_from(item).map_err(|_| Error("invalid pointed inventory object"))?;
+            }
+        }
+        Ok(())
     }
 
     fn update_inventory_cursor(&mut self, resources: &Resources<'_>) -> Result<(), Error> {
@@ -2171,6 +2263,7 @@ impl Engine {
             inventory_drag: None,
             inventory_slider: None,
             inventory_resize: None,
+            inventory_hover: Default::default(),
             inventory_geometry: crate::inventory_geometry::State::default(),
             user_events: 0,
             left_events: 0,
@@ -2400,6 +2493,7 @@ impl Engine {
         }
         self.processes.cancel_scene(self.generation);
         self.clicks.cleanup(&self.processes);
+        self.inventory_hover.cleanup(&self.processes);
         self.generation = self
             .generation
             .checked_add(1)
@@ -2917,6 +3011,7 @@ impl Engine {
             cursor.animation.tick(resources)?;
         }
         self.update_inventory_cursor(resources)?;
+        self.update_inventory_hover(resources)?;
         if let Some(bg) = &mut self.background {
             if bg.tick(resources)? == Tick::Finished {
                 return Err(Error("background animation ended"));
@@ -3044,7 +3139,16 @@ impl Engine {
                 .state_mut(id)
                 .ok_or(Error("missing process"))?
                 .clone();
-            let result = self.run_process(resources, bank, tracks, strings, &mut process)?;
+            let mut result = self.run_process(resources, bank, tracks, strings, &mut process)?;
+            if result == Status::Halted && process.event == 0 {
+                if let Some(item) = process.inventory_object {
+                    let wait = self.inventory_hover.monitor.completed_pointed(item)?;
+                    self.inventory_hover
+                        .waits
+                        .push((id, crate::inventory_hover::Wait::Leave(wait)));
+                    result = Status::Running;
+                }
+            }
             *self
                 .processes
                 .state_mut(id)
@@ -3055,6 +3159,7 @@ impl Engine {
                 Some(1)
             })?;
             self.clicks.cleanup(&self.processes);
+            self.inventory_hover.cleanup(&self.processes);
             if let Status::Unsupported(call) = result {
                 blocked = Some(call);
                 break;
@@ -3131,6 +3236,52 @@ impl Engine {
         strings: Option<&crate::text::Strings<'_>>,
         process: &mut ScriptProcess,
     ) -> Result<Status, Error> {
+        if let Some(index) = self
+            .inventory_hover
+            .waits
+            .iter()
+            .position(|(id, _)| Some(*id) == self.processes.current_id())
+        {
+            use crate::inventory_hover::{LabelAction, LeaveAction, Wait};
+            let item = self.inventory_item_at(self.control.cursor);
+            let cell = self
+                .inventory_text_cell_at(self.control.cursor)
+                .map(|(cell, _)| cell);
+            let held = (self.held_object != -1).then_some(self.held_object);
+            let (_, wait) = &mut self.inventory_hover.waits[index];
+            match wait {
+                Wait::Leave(wait) => match wait.wake(&self.inventory_hover.monitor, item) {
+                    LeaveAction::Wait => return Ok(Status::Running),
+                    LeaveAction::Discard => {
+                        self.inventory_hover.waits.remove(index);
+                        process.event = 8;
+                        return Ok(Status::Halted);
+                    }
+                    LeaveAction::Unpoint => {
+                        let mut unpoint = ScriptProcess::new(process.code);
+                        unpoint.inventory_object = process.inventory_object;
+                        unpoint.event = 8;
+                        *process = unpoint;
+                        self.inventory_hover.waits.remove(index);
+                    }
+                },
+                Wait::Label {
+                    label,
+                    call,
+                    visible,
+                    ..
+                } => match label.wake(&self.inventory_hover.monitor, item, cell, held) {
+                    LabelAction::Finish => {
+                        process.vm.complete_library(*call, 1, None)?;
+                        self.inventory_hover.waits.remove(index);
+                    }
+                    action => {
+                        *visible = matches!(action, LabelAction::Keep | LabelAction::Redisplay);
+                        return Ok(Status::Running);
+                    }
+                },
+            }
+        }
         if let Some((actor, target)) = process.player_walk.take() {
             let size = [
                 self.scroll_maximum[0]
@@ -3333,6 +3484,9 @@ impl Engine {
             process
                 .vm
                 .complete_library(wait.call, wait.consumed, None)?;
+            if wait.inventory {
+                self.inventory_hover.monitor.allow();
+            }
             process.print_wait = None;
         }
         if let Some(call) = process.music_wait {
@@ -4119,6 +4273,7 @@ impl Engine {
                     for id in owners {
                         self.processes.cancel(id)?;
                         self.clicks.cleanup(&self.processes);
+                        self.inventory_hover.cleanup(&self.processes);
                     }
                     process.vm.complete_library(call, 1, None)?;
                 }
@@ -4220,13 +4375,66 @@ impl Engine {
                         return Err(Error("PRINTOBJ requires inventory context"));
                     }
                     let text = args(&process.vm, 1)?[0];
-                    // POINTED arbitration and ON/OFF await the hover lifecycle.
-                    if text < 0 || process.event == 0 {
-                        return Ok(Status::Unsupported(call));
+                    if text == -1 || text == -2 {
+                        if text == -1 {
+                            self.inventory_hover.monitor.suppress();
+                        } else {
+                            self.inventory_hover.monitor.allow();
+                        }
+                        process.vm.complete_library(call, 1, None)?;
+                        continue;
+                    }
+                    if text < 0 {
+                        return Err(Error("invalid inventory text"));
                     }
                     let (Some(strings), Some(bank)) = (strings, bank) else {
                         return Ok(Status::Unsupported(call));
                     };
+                    if process.event == 0 {
+                        let Some((cell, position)) =
+                            self.inventory_text_cell_at(self.control.cursor)
+                        else {
+                            process.vm.complete_library(call, 1, None)?;
+                            continue;
+                        };
+                        if bank.sample(text)?.is_some() {
+                            return Err(Error("V1 pointed inventory text has speech"));
+                        }
+                        let font = crate::text::Font::read(
+                            resources,
+                            self.declarations
+                                .tag_font
+                                .ok_or(Error("missing tag font"))?,
+                        )?;
+                        let mut layout =
+                            font.centered(resources, strings.get(text as u32)?, position)?;
+                        layout.keep_inventory_horizontal(resources, 320)?;
+                        let item = process.inventory_object.unwrap();
+                        let mut label =
+                            self.inventory_hover.monitor.begin_pointed_print(item, cell);
+                        if label.enter(
+                            &self.inventory_hover.monitor,
+                            (self.held_object != -1).then_some(self.held_object),
+                        ) == crate::inventory_hover::LabelAction::Finish
+                        {
+                            process.vm.complete_library(call, 1, None)?;
+                            continue;
+                        }
+                        let id = self
+                            .processes
+                            .current_id()
+                            .ok_or(Error("pointed print outside scheduler"))?;
+                        self.inventory_hover.waits.push((
+                            id,
+                            crate::inventory_hover::Wait::Label {
+                                label,
+                                call,
+                                layout,
+                                visible: true,
+                            },
+                        ));
+                        return Ok(Status::Running);
+                    }
                     let Some(position) = process.object_print_position.take() else {
                         let Some((_, position)) = self.inventory_text_cell_at(self.control.cursor)
                         else {
@@ -4234,6 +4442,7 @@ impl Engine {
                             continue;
                         };
                         process.object_print_position = Some(position);
+                        self.inventory_hover.monitor.suppress();
                         // V1 lets POINTED text die for one scheduler tick.
                         return Ok(Status::Running);
                     };
@@ -4674,6 +4883,16 @@ impl Engine {
                 }
             }
         }
+        for (_, wait) in &self.inventory_hover.waits {
+            if let crate::inventory_hover::Wait::Label {
+                layout,
+                visible: true,
+                ..
+            } = wait
+            {
+                layout.draw(resources, &mut result)?;
+            }
+        }
         if !self.control.hidden {
             if let Some(cursor) = &self.held_cursor {
                 cursor.draw(resources, &mut result, self.control.cursor)?;
@@ -4697,6 +4916,88 @@ impl Engine {
 #[cfg(test)]
 mod tests {
     use super::*;
+    #[test]
+    fn completed_pointed_script_waits_then_runs_fresh_unpoint_after_save() {
+        let (master, mut scene) = fixtures();
+        scene[8] = 0;
+        // EVENT(0) -> global zero, then halt. The same code observes UNPOINT
+        // only after the owner has finished POINTED and the pointer departs.
+        scene[32..39].copy_from_slice(&[2, 0x4e, 31, 0x4c, 0, 0, 0]);
+        let resources = Resources(vec![&master, &scene]);
+        let mut engine = Engine::bootstrap(&resources).unwrap();
+        engine.tick(&resources).unwrap();
+        engine.active_inventory = Some(1);
+        engine.declarations.windows[1] = Some(crate::startup::Window {
+            title: Handle(0),
+            capacity: 1,
+            min: [1, 1],
+            size: [1, 1],
+            max: [1, 1],
+            position: [100, 100],
+            first_display: 0,
+            contents: vec![190],
+        });
+        engine.control.cursor = [118, 132];
+        let mut process = ScriptProcess::new(Handle((1 << 23) | 32));
+        process.inventory_object = Some(190);
+        process.event = 0;
+        let id = engine
+            .processes
+            .spawn(Some(engine.generation), process)
+            .unwrap();
+        engine.tick(&resources).unwrap();
+        assert_eq!(engine.globals, [0]);
+        assert_eq!(engine.inventory_hover.waits.len(), 1);
+        let encoded = crate::save::Snapshot::capture(&engine, [7; 32])
+            .to_bytes()
+            .unwrap();
+        assert_eq!(u32::from_le_bytes(encoded[8..12].try_into().unwrap()), 9);
+        let restored = crate::save::Snapshot::from_bytes(&encoded, [7; 32]).unwrap();
+        restored.verify_scripts(&resources).unwrap();
+        let mut resumed = restored.state().clone();
+        for e in [&mut engine, &mut resumed] {
+            e.tick(&resources).unwrap();
+            assert_eq!(e.globals, [0]);
+            assert_eq!(e.inventory_hover.waits.len(), 1);
+            e.control.cursor = [0, 0];
+            e.tick(&resources).unwrap();
+            assert_eq!(e.globals, [8]);
+            assert!(e.inventory_hover.waits.is_empty());
+            assert!(!e.processes.entries().any(|(p, _)| p == id));
+        }
+        assert_eq!(engine, resumed);
+        let mut cutaway = restored.state().clone();
+        let scripts = cutaway.capture_scene_scripts();
+        assert!(
+            scripts
+                .contexts
+                .iter()
+                .all(|p| p.inventory_object.is_none() || p.event != 0)
+        );
+        cutaway.restore_scene_scripts(&resources, &scripts).unwrap();
+        assert!(cutaway.inventory_hover.waits.is_empty());
+        let mut invalid = restored.state().clone();
+        invalid.processes.state_mut(id).unwrap().vm = Machine::default();
+        assert_eq!(
+            invalid.validate_snapshot_structure(),
+            Err(Error("inventory unpoint waiter has unfinished script"))
+        );
+        invalid = restored.state().clone();
+        invalid
+            .inventory_hover
+            .waits
+            .push(invalid.inventory_hover.waits[0].clone());
+        assert_eq!(
+            invalid.validate_snapshot_structure(),
+            Err(Error("duplicate inventory hover process"))
+        );
+        invalid = restored.state().clone();
+        invalid.processes.cancel(id).unwrap();
+        assert_eq!(
+            invalid.validate_snapshot_structure(),
+            Err(Error("missing inventory hover process"))
+        );
+    }
     #[test]
     fn inventory_text_cells_use_declared_geometry_and_absolute_indices() {
         let (master, scene) = fixtures();
