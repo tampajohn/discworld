@@ -166,6 +166,9 @@ fn run() -> Result<(), Box<dyn std::error::Error>> {
         .as_ref()
         .and_then(|v| v.last())
         .map(|i| u64::from(i.tick) + 2400);
+    // macOS minifb retains the submitted pointer for its MTKView callback.
+    // Keep the allocation stable until after the window has been destroyed.
+    let mut pixels = vec![0u32; 320 * 200];
     let mut window = Window::new(
         "Discworld Rust — development host",
         320,
@@ -419,11 +422,9 @@ fn run() -> Result<(), Box<dyn std::error::Error>> {
             ));
         }
         let surface = engine.render(&resources)?;
-        let pixels: Vec<u32> = surface
-            .rgba
-            .chunks_exact(4)
-            .map(|p| (u32::from(p[0]) << 16) | (u32::from(p[1]) << 8) | u32::from(p[2]))
-            .collect();
+        for (pixel, rgba) in pixels.iter_mut().zip(surface.rgba.chunks_exact(4)) {
+            *pixel = (u32::from(rgba[0]) << 16) | (u32::from(rgba[1]) << 8) | u32::from(rgba[2]);
+        }
         window.update_with_buffer(&pixels, 320, 200)?;
         frames += 1;
     }
