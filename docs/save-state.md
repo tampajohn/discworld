@@ -228,3 +228,24 @@ Core version 4 stores `(EngineV1Fields, ClickState, MouseInput)` so a partial
 physical click pair survives save/reload. Versions 1–3 remain readable and keep
 their original field layouts. A session without physical input still emits its
 previous compatible version. Raw button history resets at script-driven restart.
+
+## Save immediately after a ground click
+
+A real-asset regression exposed a load failure between physical input and the
+next simulation tick: the queued player-walk task has no bytecode, but script
+validation tried to resolve its zero handle. The validator now recognizes a
+pristine walk task for the existing lead mover, while rejecting an unknown
+actor/mover or extra script/wait state. No save-format change is required.
+
+`cargo run --release -p discworld-web --example check_pending_walk -- ISO SF2 SAVE`
+loads the original inventory checkpoint, closes it, clicks ground at (300,180),
+saves before advancing, reloads, and compares two 24-tick continuations. With
+`evidence/save-relaunch-inventory/checkpoint.dws`, this initially failed with
+`script handle outside bytecode chunk`; it now passes at tick 33,224 in
+`rinceroo.scn`. Complete combined saves, RGBA and stereo PCM are identical
+between original and restored continuation.
+
+`scripts/check-pending-walk.cjs MODULE ISO SF2 SAVE` performs the same check in
+actual Node/WASM, using chunked ISO upload. It also passes. These comparisons
+are exact within each runtime; they do not assert native/WASM DSP equality.
+The workspace tests and Clippy pass, including malformed walk-owner rejection.

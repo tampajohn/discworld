@@ -394,6 +394,16 @@ impl Engine {
         self.master.validate_snapshot_structure()?;
         self.processes.validate_snapshot_structure()?;
         for process in self.processes.states() {
+            if let Some((actor, target)) = process.player_walk {
+                let mut expected = ScriptProcess::new(Handle(0));
+                expected.player_walk = Some((actor, target));
+                if process != &expected
+                    || self.declarations.lead.as_ref().map(|lead| lead.id) != Some(actor)
+                    || !self.movers.contains_key(&actor)
+                {
+                    return Err(Error("invalid queued player walk"));
+                }
+            }
             process.vm.validate_snapshot_structure()?;
             process.validate_snapshot_waits()?;
         }
@@ -423,15 +433,17 @@ impl Engine {
         self.master
             .validate_snapshot_code(scene::script_bytes(resources, self.master_code)?)?;
         for (id, process) in self.processes.entries() {
-            // Ordinary putdown is a native coroutine, not a bytecode script.
-            // Structural validation above requires its process to be pristine.
-            if self.clicks.entries().any(|(pending, phase)| {
-                pending == id
-                    && matches!(
-                        phase,
-                        crate::click::Phase::Drop(_) | crate::click::Phase::DropWaiting(_)
-                    )
-            }) {
+            // Walk and ordinary putdown tasks are native coroutines, not
+            // bytecode. Structural validation requires pristine task state.
+            if process.player_walk.is_some()
+                || self.clicks.entries().any(|(pending, phase)| {
+                    pending == id
+                        && matches!(
+                            phase,
+                            crate::click::Phase::Drop(_) | crate::click::Phase::DropWaiting(_)
+                        )
+                })
+            {
                 continue;
             }
             process
@@ -5131,6 +5143,25 @@ mod tests {
         assert_eq!(engine.globals, [-1]);
         assert!(engine.control.enabled);
         assert!(engine.control.tags_enabled);
+    }
+    #[test]
+    fn queued_walk_snapshot_rejects_missing_lead_and_mover() {
+        let (master, scene) = fixtures();
+        let resources = Resources(vec![&master, &scene]);
+        let mut engine = Engine::bootstrap(&resources).unwrap();
+        let mut task = ScriptProcess::new(Handle(0));
+        task.player_walk = Some((999, [10, 20]));
+        engine
+            .processes
+            .spawn(Some(engine.generation), task)
+            .unwrap();
+        assert_eq!(
+            crate::save::Snapshot::capture(&engine, [0; 32])
+                .to_bytes()
+                .unwrap_err()
+                .0,
+            "invalid queued player walk"
+        );
     }
     #[test]
     fn physical_click_pair_survives_save_and_cancels_single_script() {
