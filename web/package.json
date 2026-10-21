@@ -1,0 +1,7 @@
+{
+  "name": "discworld-browser-host",
+  "private": true,
+  "type": "module",
+  "scripts": { "test": "node --test tests/clock.test.js && playwright test" },
+  "devDependencies": { "@playwright/test": "1.64.1" }
+}

@@ -14,3 +14,10 @@
 # Local player saves
 *.dws
 *.dws.tmp-*
+
+# Generated browser bindings
+/web/pkg/
+
+/web/node_modules/
+/web/test-results/
+/web/playwright-report/

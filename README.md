@@ -2,7 +2,7 @@
 
 A work-in-progress replacement for the **Tinsel 1** engine that runs the original **Discworld English DOS CD v2** assets and scripts. The goal is the complete game, from opening to credits, on native macOS and a shared browser/WebAssembly engine, ultimately playable on an iPad in landscape with touch controls.
 
-**Currently:** a runnable macOS development host and a reproducible original-input route through Acts I–IV, the ending, scrolling credits, and restart to the title screen. **Not yet:** a complete compatibility implementation, browser player, iPad release, or fully validated native save/load. This is an independent compatibility project, informed by a pinned ScummVM reference, not an official release or a clean-room implementation.
+**Currently:** runnable macOS and browser development hosts and a reproducible original-input route through Acts I–IV, the ending, scrolling credits, and restart to the title screen. **Not yet:** a complete compatibility implementation, iPad release, or fully validated native/browser save/load. This is an independent compatibility project, informed by a pinned ScummVM reference, not an official release or a clean-room implementation.
 
 ![Scenes rendered by the Rust runtime](docs/media/runtime-montage.gif)
 
@@ -36,6 +36,33 @@ cargo run --release -p discworld-native -- \
 Press **F5** to save and **F9** to load `discworld-save.dws` in the working directory. Choose a destination with `--save-file PATH`; its parent directory must exist. Relaunch with `--load PATH` to restore the engine and synthesizer together. Use the same ISO and SoundFont. These development saves are not compatible with ScummVM.
 
 Separate-process tests reproduce engine/DSP state, frames, and mixed speech/music PCM exactly, including an open Luggage inventory with its background. Native startup load, F5 save, and F9 reload are visually verified at the ending credits; broader in-game and failure-recovery checks remain. Browser persistence remains unfinished.
+
+## Run in a browser
+
+```sh
+rustup target add wasm32-unknown-unknown
+cargo install wasm-bindgen-cli --version 0.2.129 --locked
+scripts/build-web.sh
+python3 -m http.server 8765 --bind 127.0.0.1 --directory web
+```
+
+Open [the local player](http://127.0.0.1:8765), select your ISO and SoundFont,
+and optionally import a `.dws` save. Press **Play**; sound starts off.
+Game files are read locally. The browser uses the original engine-rendered
+image, fonts and overlays. Choose Walk/select, Action or Look before tapping.
+Pockets, Continue and Close also have touch buttons.
+
+**Save on device** replaces one IndexedDB slot for this browser origin.
+**Export save** downloads a portable file; clearing browser data can erase the
+local slot. After reloading the page, select the ISO/SoundFont again and use
+**Load device save**. Imported native saves require the same ISO and SoundFont.
+Hidden pages pause; return and press Play to resume.
+
+![Browser player with the original Luggage inventory](docs/media/browser-player.png)
+
+The host is tested in desktop Chrome at a landscape tablet-sized viewport.
+Real iPad/Safari, interruption recovery, long-run audio and full-route browser
+acceptance remain unfinished. See [browser evidence and limitations](docs/browser-runtime.md).
 
 ### Watch the development playthrough
 
@@ -91,7 +118,7 @@ Point at the Luggage and use Action to open its inventory. Inventory actions exe
 | Gameplay | Acts I–III completed in replay, including the altered-book theft, temple escape and Act III climax; Act III spell, Shades item, birthmark, moustache, upgraded sword and eye verified (6 of 6), including the sailor exchange, palette-changing birthmark animation and cart/beggar sequence; Act IV fuels, final showdown, ending, scrolling credits and restart verified in headless replay |
 | State | In-memory scene save/restore and script-driven restart; [versioned snapshots](docs/save-state.md) audited across the full route, with core restoration tested across the full route; combined engine/DSP files pass separate-process opening and inventory tests; native startup load and F5/F9 visually verified at credits |
 | macOS | Runnable native window/audio host with interactive and replay modes |
-| Browser/iPad | [WASM boundary](docs/browser-runtime.md) runs the same engine; native/WASM state and pixels match at opening and inventory checkpoints, with small measured DSP differences; browser presentation, audio scheduling, storage, touch input and device testing remain to be built |
+| Browser/iPad | [WASM boundary](docs/browser-runtime.md) runs the same engine; native/WASM state and pixels match at opening and inventory checkpoints, with small measured DSP differences; worker/canvas/audio and local saves tested in Chrome, including a touch action; Safari/iPad and full-route browser validation remain |
 
 The project favors compatibility over skipping unsupported script behavior. A passing replay demonstrates that route, not general equivalence with ScummVM. Replays resolve targets explicitly, so they also do not prove mouse hit testing or touch usability.
 
@@ -159,7 +186,7 @@ These are actual 320×200 runtime captures from the supplied release, included t
 
 ## Roadmap and reference material
 
-The full objective remains start-to-credits gameplay, complete interaction and save/load behavior, tested native and browser hosts, and landscape iPad touch play. Upcoming work includes broader native save/load validation, browser integration, touch controls, reference comparisons, and coverage of interactions outside the completed route. No release date is promised.
+The full objective remains start-to-credits gameplay, complete interaction and save/load behavior, tested native and browser hosts, and landscape iPad touch play. Upcoming work includes broader native save/load validation, browser/iPad validation, broader touch controls, reference comparisons, and coverage of interactions outside the completed route. No release date is promised.
 
 - [Goal and milestones](docs/goal.md)
 - [Resource formats](docs/resource-format.md), [script runtime](docs/script-runtime.md), [scheduling](docs/scheduling.md)

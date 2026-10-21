@@ -1,0 +1,38 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover">
+<title>Discworld</title>
+<link rel="stylesheet" href="player.css">
+</head>
+<body>
+<main>
+<section id="setup">
+<h1>Discworld</h1>
+<p>Play with your original English DOS CD v2 game files. Files stay on this device.</p>
+<form id="open-game">
+<label>Game ISO <input id="iso" type="file" accept=".iso" required></label>
+<label>Music SoundFont <input id="font" type="file" accept=".sf2" required></label>
+<label>Saved game (optional) <input id="initial-save" type="file" accept=".dws"></label>
+<button id="open" type="submit">Open game</button>
+</form>
+<p class="note">Development player. Use landscape on a tablet. Original game graphics and fonts are preserved; touch controls are still being tested.</p>
+</section>
+<section id="player" hidden aria-label="Discworld player">
+<div class="screen"><canvas id="game" width="320" height="200" tabindex="0" aria-label="Game scene"></canvas></div>
+<nav class="controls" aria-label="Game controls">
+<button id="pause">Play</button><button id="mute" aria-pressed="true">Sound off</button>
+<select id="action" aria-label="Tap action"><option value="click">Walk / select</option><option value="action">Action</option><option value="look">Look</option></select>
+<button data-input="continue">Continue</button><button data-input="pockets">Pockets</button><button data-input="close">Close</button><button data-input="up" aria-label="Scroll inventory up">↑</button><button data-input="down" aria-label="Scroll inventory down">↓</button>
+</nav>
+<details><summary>Saved games &amp; controls</summary>
+<div class="controls"><button id="save-local">Save on device</button><button id="load-local">Load device save</button><button id="export">Export save</button><label class="file-button">Import save <input id="import" type="file" accept=".dws"></label></div>
+<p class="note">Mouse or touch selects a location. Choose Action or Look before tapping. Keyboard: W walk, A action, L look, I pockets, Backspace close, Space continue, P pause, M sound. Saving on device replaces its previous slot. Export a copy to keep it.</p>
+</details>
+</section>
+<p id="status" role="status" aria-live="polite">Choose your game files to begin.</p>
+</main>
+<script type="module" src="player.js"></script>
+</body>
+</html>
