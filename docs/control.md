@@ -521,3 +521,12 @@ empty/hidden cells, gaps, bounds, and the actual PRINTOBJ first-tick yield befor
 speech takes control. All265 enabled workspace tests and nine original-asset
 tests pass; workspace Clippy and release native/tools builds pass. Logs:
 `assets/logs/hover-label-foundation-{tests,assets,clippy,build}.log`.
+
+The rebuilt WASM also passes all18 Chrome/WebKit player checks and both clock
+checks (`assets/logs/hover-label-foundation-browser.log`). Native bcc2ada was
+reloaded from preserved current progress at tick122120, running/muted, with
+actual colored pixels inspected in
+`assets/previews/inventory-printobj-current-native.png`. Current native output
+save is `assets/saves/playable-inventory-printobj.dws`; the previous current
+state remains `assets/saves/playable-inventory-hover.dws`. These checks validate
+this increment, not completed hover-label integration or a new full-route run.
