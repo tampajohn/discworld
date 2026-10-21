@@ -22,8 +22,11 @@ fn run() -> Result<(), Box<dyn std::error::Error>> {
         .next()
         .ok_or("usage: discworld-tools inspect-iso <image.iso>")?;
     let path = args.next().ok_or("missing ISO path")?;
-    if command == "preview-conversation" || command == "preview-inventory" {
-        return window::preview(path, args);
+    if command == "preview-conversation"
+        || command == "preview-inventory"
+        || command == "preview-menu"
+    {
+        return window::preview(path, args, command == "preview-menu");
     }
     if command == "audit-text" {
         if args.next().is_some() {

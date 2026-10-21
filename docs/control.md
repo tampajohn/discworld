@@ -654,3 +654,25 @@ with explicit source/checkpoint provenance. Replay uses the separate
 replay-validation WASM build and accelerated semantic inputs; it does not prove
 a full physical-input route, Web Audio playback or physical iPad acceptance.
 No additional engine changes were needed for these full browser checks.
+
+
+Original main-menu presentation is now implemented in configuration_menu::MainMenu:
+original configuration strings0..7, tag-font layouts, configuration frame,
+background-palette rectangles228/231 and half-open button hit regions with
+inactive two-pixel row gaps. Opaque rectangle writes retain palette indices,
+including index0, so a later translucent overlay maps the actual destination.
+Tests cover clipping/extreme bounds, atomic invalid dimensions, opaque black,
+subsequent translucency and hit-region boundaries. No engine/controller field
+or save layout changed; F1 activation, submenus and dispatch remain unfinished.
+
+`discworld-tools preview-menu ISO FRESH_OUTPUT.png` advances startup with the
+original sample bank, MIDI tracks and strings, then renders the main menu with
+Load highlighted. The actual asset preview was inspected:
+`assets/previews/original-main-menu-content.png`, with string report
+`assets/logs/original-main-menu-content.json`. An initial preview incorrectly
+used tick() without media/text and ignored Unsupported, leaving the placeholder
+startup palette (green buttons); the tool now supplies dependencies and rejects
+Unsupported. This was a preview harness problem, not evidence for changing the
+reserved blue palette. No independently captured reference image comparison is
+claimed. All267 enabled workspace tests pass; final Clippy and tool tests pass.
+The live player's behavior is unchanged by this presentation-only increment.

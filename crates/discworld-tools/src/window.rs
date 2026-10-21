@@ -12,6 +12,7 @@ use discworld_core::{
 pub fn preview(
     path: std::ffi::OsString,
     mut args: impl Iterator<Item = std::ffi::OsString>,
+    menu: bool,
 ) -> Result<(), Box<dyn std::error::Error>> {
     let output = args.next().ok_or("missing output PNG")?;
     let slot = args
@@ -39,7 +40,52 @@ pub fn preview(
             })
             .collect::<Result<Vec<_>, _>>()?,
     );
-    let engine = Engine::bootstrap(&resources)?;
+    let mut engine = Engine::bootstrap(&resources)?;
+    if menu {
+        if slot != 0 {
+            return Err("menu preview takes no window slot".into());
+        }
+        let strings = Strings::new(iso.file("/DISCWLD/ENGLISH.TXT").ok_or("missing text")?)?;
+        let bank = discworld_core::audio::SampleBank::new(
+            iso.file("/DISCWLD/ENGLISH.IDX")
+                .ok_or("missing audio index")?,
+            iso.file("/DISCWLD/ENGLISH.SMP").ok_or("missing samples")?,
+        )?;
+        let tracks =
+            discworld_core::music::archive(iso.file("/DISCWLD/MIDI.DAT").ok_or("missing MIDI")?)?;
+        for _ in 0..500 {
+            if let discworld_core::engine::Status::Unsupported(call) =
+                engine.tick_content(&resources, Some(&bank), Some(&tracks), Some(&strings))?
+            {
+                return Err(format!("menu preview stopped: {call:?}").into());
+            }
+        }
+        let menu = discworld_core::configuration_menu::MainMenu::new(
+            &resources,
+            &strings,
+            &engine.declarations,
+        )?;
+        let mut surface = engine.render(&resources)?;
+        menu.draw(&resources, &mut surface, Some([100, 43]))?;
+        let file = std::fs::OpenOptions::new()
+            .write(true)
+            .create_new(true)
+            .open(output)?;
+        let mut encoder = png::Encoder::new(std::io::BufWriter::new(file), 320, 200);
+        encoder.set_color(png::ColorType::Rgba);
+        encoder.set_depth(png::BitDepth::Eight);
+        encoder.write_header()?.write_image_data(&surface.rgba)?;
+        println!(
+            "{}",
+            serde_json::to_string_pretty(&serde_json::json!({
+                "tick": engine.ticks, "highlight": "Load",
+                "strings": engine.declarations.config_strings.unwrap()[..8].iter()
+                    .map(|h| strings.get(h.0).map(String::from_utf8_lossy)).collect::<Result<Vec<_>, _>>()?,
+                "scope": "Original menu assets and palette rendering over startup; menu activation and actions not connected"
+            }))?
+        );
+        return Ok(());
+    }
     let declarations = &engine.declarations;
     let mut window = declarations.windows[slot]
         .clone()

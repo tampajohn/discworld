@@ -4,6 +4,7 @@ pub mod animation;
 pub mod audio;
 pub mod click;
 pub mod compositor;
+pub mod configuration_menu;
 pub mod control;
 pub mod conversation;
 pub mod conversation_window;

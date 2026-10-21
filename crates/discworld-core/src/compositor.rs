@@ -104,6 +104,24 @@ impl Surface {
         }
         Ok(())
     }
+    /// V1 RectangleObject using the current background palette. Preserve the
+    /// destination indices for any translucent objects drawn above the box.
+    pub fn draw_palette_rect(&mut self, bounds: [i32; 4], color: u8) -> Result<(), Error> {
+        let backdrop = self
+            .backdrop
+            .as_mut()
+            .ok_or(Error("rectangle requires background palette"))?;
+        backdrop.indices.solid_rect(bounds, color)?;
+        let rgb = backdrop.palette[usize::from(color)];
+        let [x, y, width, height] = bounds.map(i64::from);
+        for yy in y.max(0)..(y + height).min(self.height as i64) {
+            for xx in x.max(0)..(x + width).min(self.width as i64) {
+                let at = (yy as usize * self.width + xx as usize) * 4;
+                self.rgba[at..at + 4].copy_from_slice(&[rgb[0], rgb[1], rgb[2], 255]);
+            }
+        }
+        Ok(())
+    }
     pub fn draw_backdrop(&mut self, bounds: [i32; 4]) -> Result<(), Error> {
         let Some(backdrop) = &mut self.backdrop else {
             return Ok(());
@@ -250,6 +268,30 @@ impl Surface {
 #[cfg(test)]
 mod tests {
     use super::*;
+    #[test]
+    fn opaque_menu_rectangles_preserve_indices_for_later_translucency() {
+        let mut surface = Surface::new(3, 1).unwrap();
+        let mut colors = vec![[0, 0, 0]; 255];
+        colors[227] = [0, 0, 126]; // index228 maps to229 on the next overlay
+        colors[228] = [0, 0, 189];
+        surface.enable_backdrop(&colors).unwrap();
+        surface.draw_palette_rect([-1, 0, 3, 1], 228).unwrap();
+        assert_eq!(
+            &surface.rgba[..12],
+            &[0, 0, 126, 255, 0, 0, 126, 255, 0, 0, 0, 255]
+        );
+        surface.draw_backdrop([0, 0, 1, 1]).unwrap();
+        assert_eq!(&surface.rgba[..8], &[0, 0, 189, 255, 0, 0, 126, 255]);
+        let before = surface.clone();
+        assert!(surface.draw_palette_rect([0, 0, -1, 1], 0).is_err());
+        assert_eq!(surface, before);
+        surface
+            .draw_palette_rect([i32::MAX, i32::MAX, i32::MAX, i32::MAX], 0)
+            .unwrap();
+        assert_eq!(surface, before);
+        surface.draw_palette_rect([1, 0, 1, 1], 0).unwrap();
+        assert_eq!(&surface.rgba[4..8], &[0, 0, 0, 255]);
+    }
     #[test]
     fn backdrop_uses_raw_destination_indices_and_preserves_uncovered_pixels() {
         let mut background = vec![[0; 3]; 255];

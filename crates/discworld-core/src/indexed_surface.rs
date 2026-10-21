@@ -98,6 +98,22 @@ impl IndexedSurface {
         }
         bounds
     }
+    /// Opaque palette-index fill, including index zero. Clip before iterating so
+    /// even extreme rectangles never allocate or traverse offscreen pixels.
+    pub fn solid_rect(&mut self, bounds: [i32; 4], color: u8) -> Result<(), Error> {
+        let [x, y, width, height] = bounds;
+        if width < 0 || height < 0 {
+            return Err(Error("negative solid rectangle size"));
+        }
+        let b = self.clip(
+            [i64::from(x), i64::from(y)],
+            [width as usize, height as usize],
+        );
+        for y in b[1]..b[3] {
+            self.pixels[y * self.width + b[0]..y * self.width + b[2]].fill(color);
+        }
+        Ok(())
+    }
     /// WrtTrans maps the current destination once per covered pixel. Repeated
     /// overlays therefore remap the result of the previous overlay as well.
     pub fn translucent_rect(
