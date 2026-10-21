@@ -269,6 +269,11 @@ fn args(vm: &Machine, n: usize) -> Result<&[i32], Error> {
     .ok_or(Error("engine argument underflow"))
 }
 impl Engine {
+    /// Original HASRESTARTED state, set only after a committed game reset.
+    pub fn has_restarted(&self) -> bool {
+        self.has_restarted
+    }
+
     /// Whether a scene change, restoration, or its background fade is unfinished.
     /// Script control can return before the new scene has faded into view.
     pub fn scene_transition_active(&self) -> bool {
@@ -3672,7 +3677,7 @@ mod tests {
         let mut engine = Engine::bootstrap(&resources).unwrap();
         engine.tick(&resources).unwrap();
         assert_eq!(engine.globals, [0]);
-        assert!(!engine.has_restarted);
+        assert!(!engine.has_restarted());
         engine.globals[0] = 99;
         engine.held_object = 260;
         engine.menu_enabled = true;
@@ -3695,7 +3700,7 @@ mod tests {
         let tick = engine.ticks;
         assert_eq!(engine.tick(&resources).unwrap(), Status::Running);
         assert_eq!(engine.ticks, tick + 1);
-        assert!(engine.has_restarted);
+        assert!(engine.has_restarted());
         assert!(!engine.restart_pending);
         assert!(!engine.subtitles);
         assert_eq!(engine.held_object, -1);
