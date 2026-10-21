@@ -198,6 +198,35 @@ WebKit: suspending the actual context pauses simulation, ticks remain stable,
 and Play resumes the context and engine. This tests the statechange path;
 real OS/device interruptions and background-tab recovery remain separate gates.
 
+## Full-route browser worker harness
+
+The same route can run in an actual Chrome or Playwright WebKit module worker.
+Build its separate validation bindings, serve `web/` on loopback port 8765, and
+run (the output directory must not already exist):
+
+```sh
+scripts/build-web-replay.sh
+node scripts/run-browser-replay.cjs webkit \
+  /path/to/discworld.iso /path/to/gm.sf2 evidence/act4-ending-input.json \
+  evidence/new-webkit-ending
+node scripts/compare-wasm-replay.cjs evidence/new-webkit-ending \
+  /path/to/native-final.dws /path/to/native-final.png \
+  /path/to/native-report.json
+```
+
+Use `chrome` in place of `webkit` for installed Chrome. Both use the same
+original input decoder and exact event ticks as the Node runner. Local File
+objects go to the worker, the ISO is loaded in 1 MiB chunks, and progress frames
+are drawn on the browser canvas. The runner writes the final save, RGBA,
+browser canvas screenshot, browser version and execution report. The comparison
+requires complete engine state and final pixels to match the native baseline.
+
+The validation module is separate from the normal player and its generated
+bindings live in ignored `web/replay-pkg/`. It advances faster than real time;
+PCM is generated and checked for finite values but is not sent through Web Audio.
+A successful route therefore proves browser-worker runtime execution, not
+manual touch operation, continuous audio output, or physical iPad acceptance.
+
 ## Upload memory evidence
 
 `scripts/check-upload-memory.cjs` runs bulk and chunked uploads in separate Node
