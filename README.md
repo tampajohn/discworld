@@ -2,7 +2,7 @@
 
 A work-in-progress replacement for the **Tinsel 1** engine that runs the original **Discworld English DOS CD v2** assets and scripts. The goal is the complete game, from opening to credits, on native macOS and a shared browser/WebAssembly engine, ultimately playable on an iPad in landscape with touch controls.
 
-**Currently:** a runnable macOS development host and a reproducible playthrough that completes Acts I–III and reaches the Act IV city map. **Not yet:** a complete game, browser player, iPad release, or persistent save/load. This is an independent compatibility project, informed by a pinned ScummVM reference, not an official release or a clean-room implementation.
+**Currently:** a runnable macOS development host and a reproducible playthrough that completes Acts I–III and reaches Act IV and acquires the dragon-cage key. **Not yet:** a complete game, browser player, iPad release, or persistent save/load. This is an independent compatibility project, informed by a pinned ScummVM reference, not an official release or a clean-room implementation.
 
 ![Scenes rendered by the Rust runtime](docs/media/runtime-montage.gif)
 
@@ -35,7 +35,7 @@ cargo run --release -p discworld-native -- \
 
 Pass `--paused` to start a native session paused (including after `--from-tick` replay reconstruction); press **P** to resume. Replay reconstruction is not a persistent engine save.
 
-Double-click **Watch Discworld.command** to replay the recorded route from Rincewind's room, initially muted. It covers Acts I and II and the verified Act III route through the palace, toyshop, university closet and kitchen, continuing through the sailor exchange, birthmark, cart clue, moustache, bogeyman, sword upgrade, imp recovery, camera loading, Ramkin supplies, truth potion, sheep photo, gorge discovery and temple-eye escape and Act III climax sequences. It pauses once after the recorded route and the game has returned control; P continues simulation beyond that point, without further recorded inputs. Reaching that point is not evidence that the rest of the game works.
+Double-click **Watch Discworld.command** to replay the recorded route from Rincewind's room, initially muted. It covers Acts I and II and the verified Act III route through the palace, toyshop, university closet and kitchen, continuing through the sailor exchange, birthmark, cart clue, moustache, bogeyman, sword upgrade, imp recovery, camera loading, Ramkin supplies, truth potion, sheep photo, gorge discovery and temple-eye escape and Act III climax and Act IV cage-key sequences. It pauses once after the recorded route and the game has returned control; P continues simulation beyond that point, without further recorded inputs. Reaching that point is not evidence that the rest of the game works.
 
 | Replay control | Action |
 | --- | --- |
