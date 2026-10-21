@@ -428,7 +428,19 @@ impl Mover {
                     let end = crate::routing::node_exit(polygons, path, destination_path)?;
                     travel
                         .start_leaving(&p.definition, from, end)?
-                        .ok_or(Error("unsupported preserved node exit leg"))?
+                        .unwrap_or_else(|| crate::nodepath::Steering::Move {
+                            // V1 SetOffWithinNodePath's LEAVING branch leaves
+                            // targetX/Y untouched while SetActorDest replaces
+                            // the ultimate/intermediate targets and clears over.
+                            // An exhausted leg routes again without moving.
+                            position: next
+                                .node_walk
+                                .as_ref()
+                                .map(|w| w.leg.target)
+                                .or_else(|| next.direct_leg.map(|leg| leg.target))
+                                .unwrap_or(from),
+                            overshoot: false,
+                        })
                 }
             } else {
                 let footprint = next.footprint(resources)?;
@@ -2465,9 +2477,27 @@ mod tests {
             .unwrap();
         let mut restored = mover.clone();
         let mut crossed = false;
+        let mut retargeted_exit = false;
         for _ in 0..200 {
             if mover.walk_target.is_none() {
                 break;
+            }
+            if !retargeted_exit
+                && mover.placement.path == Some(0)
+                && mover
+                    .node_travel
+                    .is_some_and(|t| t.status == crate::nodepath::TravelStatus::Leaving)
+            {
+                let old_target = mover.node_walk.as_ref().unwrap().leg.target;
+                let old_serial = mover.walk_serial;
+                mover
+                    .begin_walk(&resources, &declarations, &connected, [100, 50], [100, 50])
+                    .unwrap();
+                assert_eq!(mover.node_walk.as_ref().unwrap().leg.target, old_target);
+                assert!(!mover.node_walk.as_ref().unwrap().leg.overshoot);
+                assert_eq!(mover.walk_serial, old_serial + 1);
+                restored = postcard::from_bytes(&postcard::to_allocvec(&mover).unwrap()).unwrap();
+                retargeted_exit = true;
             }
             mover
                 .advance_direct_walk(&resources, &declarations, &connected, &[])
@@ -2479,6 +2509,7 @@ mod tests {
             crossed |= mover.placement.path == Some(1);
         }
         assert!(crossed);
+        assert!(retargeted_exit);
         assert_eq!(mover.walk_target, None);
         assert_eq!(mover.placement.position, [100, 50]);
         let source = connected.active[0].definition.clone();
