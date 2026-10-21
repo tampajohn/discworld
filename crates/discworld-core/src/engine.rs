@@ -1011,7 +1011,7 @@ impl Engine {
                     next.interact_conversation(resources, None)?;
                 }
             } else if matches!(next.active_inventory, Some(1 | 2)) {
-                if let Some(slot) = next.inventory_slot_at(point) {
+                if let Some(slot) = next.inventory_click_slot_at(point, action) {
                     next.inventory_click(resources, slot, action)?;
                 } else {
                     next.left_event()?;
@@ -1677,6 +1677,28 @@ impl Engine {
         frame.layout.icons.iter().position(|[x, y]| {
             (0..25).contains(&(i64::from(point[0]) - i64::from(*x)))
                 && (0..25).contains(&(i64::from(point[1]) - i64::from(*y)))
+        })
+    }
+
+    /// invWalkTo checks the window region before icons. Only a held-item
+    /// single click searches the one-pixel gaps: right, down, then down-right.
+    fn inventory_click_slot_at(
+        &self,
+        point: [i32; 2],
+        action: PolygonInteraction,
+    ) -> Option<usize> {
+        let (frame, _) = self.inventory_display.as_ref()?;
+        if frame.layout.inventory_area_at(point) != crate::conversation_window::Area::Body {
+            return None;
+        }
+        if let Some(slot) = self.inventory_slot_at(point) {
+            return Some(slot);
+        }
+        if self.held_object == -1 || action != PolygonInteraction::WalkTo {
+            return None;
+        }
+        [[1, 0], [0, 1], [1, 1]].into_iter().find_map(|[dx, dy]| {
+            self.inventory_slot_at([point[0].checked_add(dx)?, point[1].checked_add(dy)?])
         })
     }
 
@@ -4261,6 +4283,52 @@ impl Engine {
 #[cfg(test)]
 mod tests {
     use super::*;
+    #[test]
+    fn inventory_click_regions_precede_icons_and_gap_fallback_is_only_for_putdown() {
+        use crate::conversation_window::{Content, Frame, Layout};
+        use PolygonInteraction::{Action, Look, WalkTo};
+        let (master, scene) = fixtures();
+        let resources = Resources(vec![&master, &scene]);
+        let mut engine = Engine::bootstrap(&resources).unwrap();
+        engine.active_inventory = Some(1);
+        engine.held_object = 190;
+        engine.inventory_display = Some((
+            Frame {
+                layout: Layout {
+                    parts: vec![],
+                    background: [101, 101, 92, 73],
+                    title: [140, 110],
+                    icons: vec![[106, 120], [132, 120], [106, 146], [132, 146]],
+                    scrollbar: None,
+                },
+                parts: vec![],
+            },
+            Content {
+                title: crate::text::Layout { glyphs: vec![] },
+                icons: vec![],
+            },
+        ));
+        for (point, slot) in [([131, 132], 1), ([118, 145], 2), ([131, 145], 3)] {
+            assert_eq!(engine.inventory_click_slot_at(point, WalkTo), Some(slot));
+            for event in [Action, Look] {
+                assert_eq!(engine.inventory_click_slot_at(point, event), None);
+            }
+            engine.held_object = -1;
+            assert_eq!(engine.inventory_click_slot_at(point, WalkTo), None);
+            engine.held_object = 190;
+        }
+        // Even inconsistent saved icon geometry cannot steal a header/border
+        // click: the original invArea dispatch precedes invItem lookup.
+        engine.inventory_display.as_mut().unwrap().0.layout.icons = vec![[100, 100]];
+        for point in [[100, 100], [110, 110], [99, 110], [i32::MAX, i32::MAX]] {
+            for event in [WalkTo, Action, Look] {
+                assert_eq!(engine.inventory_click_slot_at(point, event), None);
+            }
+        }
+        engine.conversation.hidden = true;
+        assert_eq!(engine.inventory_click_slot_at([110, 120], WalkTo), None);
+    }
+
     #[test]
     fn drag_snapshot_rejects_invalid_owner_and_extreme_motion_is_atomic() {
         let (master, scene) = fixtures();

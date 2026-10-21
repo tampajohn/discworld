@@ -168,3 +168,83 @@ fn inventory_header_drag_moves_immediately_and_survives_save() {
     assert!(!game.inventory_dragging());
     game.save().unwrap();
 }
+
+#[test]
+#[ignore = "requires DISCWORLD_TEST_ISO, DISCWORLD_TEST_SOUNDFONT and DISCWORLD_TEST_SAVE (tick 33200 inventory checkpoint)"]
+fn held_inventory_item_drops_through_one_pixel_cell_gaps() {
+    let read = |name| std::fs::read(std::env::var_os(name).expect(name)).unwrap();
+    let mut game =
+        BrowserGame::new(read("DISCWORLD_TEST_ISO"), read("DISCWORLD_TEST_SOUNDFONT")).unwrap();
+    game.load(&read("DISCWORLD_TEST_SAVE")).unwrap();
+    let initial = game.save().unwrap();
+    let window = game.engine.declarations.windows[1].as_ref().unwrap();
+    assert!(window.size[0] >= 2 && window.size[1] >= 2);
+    let columns = window.size[0] as usize;
+    let item = window.contents[0];
+    let original_items = window.contents.clone();
+    let [x, y] = game.engine.inventory_cell_position(0).unwrap();
+    // Each cell has 25 pixels followed by one dead pixel. These are the
+    // vertical gap, horizontal gap, and intersection of the two gaps.
+    let gaps = [
+        ([x + 13, y], 1),
+        ([x, y + 13], columns),
+        ([x + 13, y + 13], columns + 1),
+    ];
+    for (point, destination) in gaps {
+        game.load(&initial).unwrap();
+        assert_eq!(game.engine.inventory_slot_at(point), None);
+        // Empty-hand clicks must not acquire an adjacent item.
+        game.move_pointer(point[0], point[1]);
+        game.input("left-down").unwrap();
+        game.input("left-up").unwrap();
+        game.advance(24).unwrap();
+        assert_eq!(game.engine.held_object, -1);
+        assert_eq!(
+            game.engine.declarations.windows[1]
+                .as_ref()
+                .unwrap()
+                .contents,
+            original_items
+        );
+
+        game.load(&initial).unwrap();
+        game.move_pointer(x, y);
+        game.input("left-down").unwrap();
+        game.input("left-up").unwrap();
+        game.advance(24).unwrap();
+        assert_eq!(game.engine.held_object, item);
+        game.move_pointer(point[0], point[1]);
+        let held = game.save().unwrap();
+        game.input("right-down").unwrap();
+        game.input("right-up").unwrap();
+        game.advance(24).unwrap();
+        assert_eq!(game.engine.held_object, item);
+        assert_eq!(
+            game.engine.declarations.windows[1]
+                .as_ref()
+                .unwrap()
+                .contents,
+            original_items
+        );
+
+        game.load(&held).unwrap();
+        game.input("left-down").unwrap();
+        game.input("left-up").unwrap();
+        assert_eq!(game.engine.held_object, item);
+        // Both queued and suspended drop tasks must survive an exact save/load.
+        roundtrip_pending(&mut game, 1);
+        assert_eq!(game.engine.held_object, item);
+        roundtrip_pending(&mut game, 24);
+        assert_eq!(game.engine.held_object, -1, "gap {point:?}");
+        let mut expected = original_items.clone();
+        expected.remove(0);
+        expected.insert(destination.min(expected.len()), item);
+        assert_eq!(
+            game.engine.declarations.windows[1]
+                .as_ref()
+                .unwrap()
+                .contents,
+            expected
+        );
+    }
+}

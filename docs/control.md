@@ -236,3 +236,21 @@ not physical iPad acceptance. The core tests, three opt-in real-asset checks,
 Clippy, native/WASM builds and the eight browser-player checks pass. Resizing,
 slider dragging, window maximization and broader conversation-drag acceptance
 are still required.
+
+### Inventory cell gaps
+
+Pinned `dialogs.cpp::invWalkTo` first dispatches on `invArea`, then resolves an
+icon in the body. While holding an ordinary inventory item, a single click in
+the one-pixel gap between cells tries one pixel right, then one pixel down,
+then one pixel down-right. Empty-hand clicks, double-click actions and looks
+use only the exact cell. Physical input now follows this rule; header, border
+and scrollbar regions cannot be treated as icon targets by this fallback.
+The immediate semantic replay API retains its explicit-cell behavior.
+
+The opt-in `held_inventory_item_drops_through_one_pixel_cell_gaps` regression
+uses the original tick-33200 inventory checkpoint and actual mouse edges. It
+checks vertical, horizontal and intersecting gaps, empty-hand and look
+non-actions, the delayed held-item release, and the resulting item order. Both
+queued and suspended drop saves resume with identical engine/DSP bytes, RGBA
+and audio over the following ticks. A core regression also checks that window
+regions take priority even when icon coordinates overlap them.
