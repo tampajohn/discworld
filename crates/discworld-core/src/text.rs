@@ -72,6 +72,12 @@ pub struct Layout {
     pub glyphs: Vec<Glyph>,
 }
 
+enum Alignment {
+    Center,
+    Right,
+    Left,
+}
+
 impl Font {
     pub fn read(resources: &Resources<'_>, handle: Handle) -> Result<Self, Error> {
         let data = resources.resolve(handle, 44 + 256 * 4)?;
@@ -93,7 +99,7 @@ impl Font {
         bytes: &[u8],
         position: [i32; 2],
     ) -> Result<Layout, Error> {
-        self.justified(resources, bytes, position, false)
+        self.justified(resources, bytes, position, Alignment::Center)
     }
     /// V1 TXT_RIGHT subtracts the complete line width, including spaces but
     /// excluding the final inter-character spacing, separately for each line.
@@ -103,14 +109,22 @@ impl Font {
         bytes: &[u8],
         position: [i32; 2],
     ) -> Result<Layout, Error> {
-        self.justified(resources, bytes, position, true)
+        self.justified(resources, bytes, position, Alignment::Right)
+    }
+    pub fn left_aligned(
+        &self,
+        resources: &Resources<'_>,
+        bytes: &[u8],
+        position: [i32; 2],
+    ) -> Result<Layout, Error> {
+        self.justified(resources, bytes, position, Alignment::Left)
     }
     fn justified(
         &self,
         resources: &Resources<'_>,
         bytes: &[u8],
         position: [i32; 2],
-        right: bool,
+        alignment: Alignment,
     ) -> Result<Layout, Error> {
         if bytes.len() > 4096 {
             return Err(Error("text layout length limit"));
@@ -130,7 +144,12 @@ impl Font {
                 } + i64::from(self.x_spacing);
             }
             width = (width - i64::from(self.x_spacing)).max(0);
-            let mut x = i64::from(position[0]) - if right { width } else { width / 2 };
+            let mut x = i64::from(position[0])
+                - match alignment {
+                    Alignment::Right => width,
+                    Alignment::Left => 0,
+                    Alignment::Center => width / 2,
+                };
             for c in line {
                 let handle = self.glyphs[*c as usize];
                 if handle.0 != 0 {

@@ -802,3 +802,36 @@ asset component checks, not physical host input or an independent reference run.
 276 enabled workspace tests pass, final Clippy is clean in
 assets/logs/settings-menu-clippy-final.log. Save/load widgets, engine lifecycle,
 snapshot state and native/browser menu wiring remain required.
+
+
+save_menu::List now models the V1 nine-row,100-entry save/load catalog with
+stable host IDs. The host supplies newest-first validated entries (reference
+saveload.cpp::getList sorts by header timestamp). Save page0 has a blank new
+row only when count<100; other pages have no modifier. Blank save rows return
+Target::New, blank load rows return no target. Row/page/Home/End navigation uses
+capacity91 as the final first index, including empty catalog tails. Wheel
+scrolling adjusts selection by one row; page movement selects row8/0. Text
+rows use half-open bounds48..214,47+row*15..+13 with two-pixel inactive gaps.
+Selecting another row or scrolling reloads the draft; selecting the same row
+does not erase current edits.
+
+Name editing uses original-font bytes,40-byte maximum, underscore cursor,
+left-aligned layout at50,47+row*15, and rejects unsupported glyphs. Space is
+accepted after existing content (or if the font defines a space image).
+InvKeyIn's inclusive right boundary213 is measured including the cursor;
+when exceeded, one trailing byte is removed, including the reference's unusual
+second deletion if backspacing an already oversized imported name. Host Unicode
+mapping remains pending. Catalog/header decoding must mirror getList's
+strlcpy(desc,40) truncation to39 bytes separately from the40-byte editor limit;
+this component accepts already-decoded catalog descriptions. It performs no I/O
+and does not claim ScummVM save-format compatibility.
+
+Tests cover modifier disappearance, full capacity, stable target IDs, blank load
+rows, paging/click gaps, duplicate IDs, width versus byte limits, glyph filtering,
+backspace and draft replacement. Font left justification shares the existing
+checked layout using a private alignment enum; centered/right behavior tests pass.
+279 enabled workspace tests passed in assets/logs/save-menu-list-workspace.log;
+expanded editor and text tests passed afterward, with final Clippy in
+assets/logs/save-menu-list-clippy-typed.log. Save-menu frame/scrollbar rendering,
+scroll-thumb interaction, confirmation/Return dispatch, catalog persistence,
+snapshot integration and live menu activation remain unfinished.
