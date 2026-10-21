@@ -76,6 +76,47 @@ impl Assets {
     }
 }
 
+/// Bounded upload avoids retaining a second complete ISO in JavaScript memory.
+/// The original ISO remains byte-identical; it is parsed only after completion.
+#[wasm_bindgen]
+pub struct GameUpload {
+    bytes: Vec<u8>,
+    expected: usize,
+}
+
+#[wasm_bindgen]
+impl GameUpload {
+    #[wasm_bindgen(constructor)]
+    pub fn new(size: u32) -> Result<GameUpload> {
+        if size == 0 || size > 1024 * 1024 * 1024 {
+            return Err("ISO upload must be between 1 byte and 1 GiB".into());
+        }
+        let expected = size as usize;
+        let mut bytes = Vec::new();
+        bytes.try_reserve_exact(expected).map_err(error)?;
+        Ok(Self { bytes, expected })
+    }
+    pub fn append(&mut self, bytes: &[u8]) -> Result<()> {
+        if bytes.len() > 1024 * 1024 {
+            return Err("ISO upload chunks are limited to 1 MiB".into());
+        }
+        if bytes.len() > self.expected - self.bytes.len() {
+            return Err("ISO upload exceeds declared size".into());
+        }
+        self.bytes.extend_from_slice(bytes);
+        Ok(())
+    }
+    pub fn received(&self) -> u32 {
+        self.bytes.len() as u32
+    }
+    pub fn finish(self, soundfont: Vec<u8>) -> Result<BrowserGame> {
+        if self.bytes.len() != self.expected {
+            return Err("ISO upload is incomplete".into());
+        }
+        BrowserGame::new(self.bytes, soundfont)
+    }
+}
+
 #[wasm_bindgen]
 pub struct BrowserGame {
     assets: Assets,
@@ -310,5 +351,22 @@ impl BrowserGame {
     }
     pub fn has_restarted(&self) -> bool {
         self.engine.has_restarted()
+    }
+}
+
+#[cfg(test)]
+mod upload_tests {
+    use super::GameUpload;
+    #[test]
+    fn upload_rejects_incomplete_overflow_and_large_chunks_without_partial_append() {
+        assert!(GameUpload::new(0).is_err());
+        assert!(GameUpload::new(1024 * 1024 * 1024 + 1).is_err());
+        let mut upload = GameUpload::new(3).unwrap();
+        upload.append(&[1, 2]).unwrap();
+        assert!(upload.append(&[3, 4]).is_err());
+        assert_eq!(upload.received(), 2);
+        assert!(upload.append(&vec![0; 1024 * 1024 + 1]).is_err());
+        assert_eq!(upload.received(), 2);
+        assert!(matches!(upload.finish(Vec::new()), Err(error) if error.contains("incomplete")));
     }
 }

@@ -1,4 +1,4 @@
-import init, { BrowserGame } from './pkg/discworld_web.js';
+import init, { GameUpload } from './pkg/discworld_web.js';
 let game;
 let queue = Promise.resolve();
 const snapshot = () => ({ frame: game.frame(), tick: game.tick().toString(), scene: game.scene() });
@@ -9,9 +9,20 @@ async function handle({ id, type, ...data }) {
       case 'open': {
         await init();
         if (game) throw new Error('Game is already open');
-        const iso = new Uint8Array(await data.iso.arrayBuffer());
-        const font = new Uint8Array(await data.font.arrayBuffer());
-        const prepared = new BrowserGame(iso, font);
+        if (!Number.isSafeInteger(data.iso.size) || data.iso.size <= 0 || data.iso.size > 1024 ** 3) {
+          throw new Error('ISO upload must be between 1 byte and 1 GiB');
+        }
+        let upload = new GameUpload(data.iso.size);
+        let prepared;
+        try {
+          for (let offset = 0; offset < data.iso.size; offset += 1024 ** 2) {
+            upload.append(new Uint8Array(await data.iso.slice(offset, offset + 1024 ** 2).arrayBuffer()));
+          }
+          const font = new Uint8Array(await data.font.arrayBuffer());
+          // finish consumes its Rust receiver even when validation fails.
+          const complete = upload; upload = null;
+          prepared = complete.finish(font);
+        } finally { if (upload) upload.free(); }
         try {
           if (data.save) prepared.load(new Uint8Array(await data.save.arrayBuffer()));
           game = prepared;

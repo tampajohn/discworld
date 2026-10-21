@@ -5,9 +5,12 @@ same core engine, original indexed renderer/fonts, speech and MIDI synthesis,
 and combined save format as native macOS. The `web/` player now provides worker, canvas, audio and persistence hosts.
 This is not yet an iPad acceptance result.
 
-The constructor takes ISO and SoundFont bytes. The ISO is owned once in Rust;
-resource ranges borrow it without copying the archives. JavaScript-to-WASM
-transfer still copies the input, so peak memory on an iPad must be measured.
+The direct constructor takes ISO and SoundFont bytes. The ISO is owned once in
+Rust; resource ranges borrow it without copying the archives. The browser uses
+`GameUpload` to copy File slices of at most 1 MiB into a reserved Rust buffer,
+avoiding a second complete ISO ArrayBuffer in JavaScript. Upload size is bounded
+to 1 GiB, incomplete/overflowing uploads are rejected, and parsing starts only
+after all original bytes arrive. Actual peak memory on an iPad still needs measurement.
 Resource, text and music views are rebuilt per advance call; their cost needs
 profiling on the device. No unsafe application Rust is introduced.
 
@@ -183,3 +186,21 @@ The browser AudioContext interruption test passes in Chrome and Playwright
 WebKit: suspending the actual context pauses simulation, ticks remain stable,
 and Play resumes the context and engine. This tests the statechange path;
 real OS/device interruptions and background-tab recovery remain separate gates.
+
+## Upload memory evidence
+
+`scripts/check-upload-memory.cjs` runs bulk and chunked uploads in separate Node
+processes, loads the same native inventory save, and requires a byte-identical
+re-encoded save. Both passed. On this Mac with the 396,863,488-byte ISO, peak RSS
+was 862,960 KiB for bulk loading and 476,784 KiB for chunked loading (about
+843 MiB versus 466 MiB). Elapsed times were 6.39 and 6.46 seconds respectively.
+Evidence: `evidence/wasm-upload-bulk.json` and `evidence/wasm-upload-chunks.json`.
+These are host-process measurements, not an iPad memory limit or performance claim.
+The Rust upload regression rejects incomplete, oversized and overflowing input
+without partially appending a rejected chunk. The direct constructor remains
+available for callers that already own an in-memory ISO.
+
+After switching the browser worker to chunked loading, all six browser tests
+(three scenarios each in Chrome and Playwright WebKit) and both clock regressions
+passed. The web crate's upload regression and Clippy checks also passed. The
+normal browser build's generated interface contains no replay-validation exports.
