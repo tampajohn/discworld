@@ -324,16 +324,28 @@ impl Engine {
                 .find(|(p, _)| *p == id)
                 .map(|(_, p)| p)
                 .ok_or(Error("missing click process"))?;
-            let expected = if phase == crate::click::Phase::Double {
-                2
-            } else {
-                1
-            };
-            if process.player_walk.is_some()
-                || (process.polygon.is_none() && process.actor.is_none())
-                || process.event != expected
+            if let crate::click::Phase::Drop(index) | crate::click::Phase::DropWaiting(index) =
+                phase
             {
-                return Err(Error("invalid click script target"));
+                if index > 4096 || process != &ScriptProcess::new(Handle(0)) {
+                    return Err(Error("invalid pending inventory drop"));
+                }
+            } else {
+                let expected = if phase == crate::click::Phase::Double {
+                    2
+                } else {
+                    1
+                };
+                let scripted_drop =
+                    expected == 1 && process.inventory_object.is_some() && process.event == 9;
+                if process.player_walk.is_some()
+                    || (process.polygon.is_none()
+                        && process.actor.is_none()
+                        && process.inventory_object.is_none())
+                    || (process.event != expected && !scripted_drop)
+                {
+                    return Err(Error("invalid click script target"));
+                }
             }
         }
         if self
@@ -408,7 +420,18 @@ impl Engine {
         self.validate_snapshot_structure()?;
         self.master
             .validate_snapshot_code(scene::script_bytes(resources, self.master_code)?)?;
-        for process in self.processes.states() {
+        for (id, process) in self.processes.entries() {
+            // Ordinary putdown is a native coroutine, not a bytecode script.
+            // Structural validation above requires its process to be pristine.
+            if self.clicks.entries().any(|(pending, phase)| {
+                pending == id
+                    && matches!(
+                        phase,
+                        crate::click::Phase::Drop(_) | crate::click::Phase::DropWaiting(_)
+                    )
+            }) {
+                continue;
+            }
             process
                 .vm
                 .validate_snapshot_code(scene::script_bytes(resources, process.code)?)?;
@@ -1215,6 +1238,98 @@ impl Engine {
         next.last_interaction_tick = Some(self.ticks);
         *self = next;
         Ok(true)
+    }
+
+    /// Timed inventory gesture. Scripted pickup/drop shares the world-click
+    /// token; an ordinary putdown is also delayed, as V1 InvPdProcess requires.
+    pub fn inventory_click(
+        &mut self,
+        resources: &Resources<'_>,
+        index: usize,
+        event: PolygonInteraction,
+    ) -> Result<bool, Error> {
+        let mut next = self.clone();
+        next.left_event()?;
+        if !next.control.enabled {
+            *self = next;
+            return Ok(false);
+        }
+        if event == PolygonInteraction::WalkTo
+            && next.held_object != -1
+            && !next.conversation.hidden
+            && next.last_interaction_tick != Some(next.ticks)
+        {
+            if let Some(slot @ (1 | 2)) = next.active_inventory {
+                let object = next
+                    .inventory_objects
+                    .get(&next.held_object)
+                    .ok_or(Error("missing held inventory object"))?;
+                let window = next.declarations.windows[slot as usize]
+                    .as_ref()
+                    .ok_or(Error("missing drop inventory"))?;
+                let scripted = object.attributes & 4 != 0 && object.script.0 != 0;
+                let wrong_inventory = (object.attributes & 1 != 0 && slot != 1)
+                    || (object.attributes & 2 != 0 && slot != 2);
+                if !scripted
+                    && !wrong_inventory
+                    && index < (window.size[0] * window.size[1]) as usize
+                {
+                    let position = window
+                        .first_display
+                        .checked_add(index)
+                        .ok_or(Error("drop index overflow"))?;
+                    let id = next
+                        .processes
+                        .spawn(Some(next.generation), ScriptProcess::new(Handle(0)))?;
+                    next.clicks
+                        .schedule(id, crate::click::Phase::Drop(position));
+                    next.last_interaction_tick = Some(next.ticks);
+                    *self = next;
+                    return Ok(true);
+                }
+            }
+        }
+        let before: Vec<_> = next.processes.entries().map(|(id, _)| id).collect();
+        let accepted = next.interact_inventory(resources, index, event)?;
+        if accepted && event != PolygonInteraction::Look {
+            if let Some(id) = next
+                .processes
+                .entries()
+                .find(|(id, _)| !before.contains(id))
+                .map(|(id, _)| id)
+            {
+                next.clicks.schedule(
+                    id,
+                    if event == PolygonInteraction::WalkTo {
+                        crate::click::Phase::Single
+                    } else {
+                        crate::click::Phase::Double
+                    },
+                );
+            }
+        }
+        *self = next;
+        Ok(accepted)
+    }
+
+    fn finish_inventory_drop(&mut self, index: usize) -> Result<(), Error> {
+        let Some(slot @ (1 | 2)) = self.active_inventory else {
+            return Ok(());
+        };
+        if self.held_object == -1 {
+            return Ok(());
+        }
+        if crate::inventory::put_down(
+            &mut self.declarations.windows,
+            slot as usize,
+            self.held_object,
+            index,
+        )? {
+            self.held_object = -1;
+            self.held_cursor = None;
+            self.inventory_dirty = true;
+        }
+        Ok(())
     }
 
     /// Scroll a visible ordinary inventory; backing order and held membership do not change.
@@ -2288,6 +2403,11 @@ impl Engine {
                         continue;
                     }
                     self.last_interaction_tick = Some(self.ticks);
+                }
+                crate::click::Dispatch::Drop(index) => {
+                    self.finish_inventory_drop(index)?;
+                    self.processes.finish(None)?;
+                    continue;
                 }
                 crate::click::Dispatch::Ready => {}
             }
@@ -4384,6 +4504,133 @@ mod tests {
         }
     }
 
+    #[test]
+    fn timed_inventory_drop_waits_roundtrips_and_can_be_cancelled() {
+        let (master, mut scene) = fixtures();
+        scene[8] = 0;
+        scene[32..38].copy_from_slice(&[2, 0x4e, 31, 0x4c, 0, 0]);
+        let resources = Resources(vec![&master, &scene]);
+        let mut engine = Engine::bootstrap(&resources).unwrap();
+        engine.active_inventory = Some(2);
+        engine.declarations.windows[2] = Some(crate::startup::Window {
+            title: Handle(0),
+            capacity: 2,
+            min: [1, 1],
+            size: [2, 1],
+            max: [10, 6],
+            position: [0; 2],
+            first_display: 0,
+            contents: vec![],
+        });
+        engine.inventory_objects.insert(
+            284,
+            crate::inventory::Object {
+                id: 284,
+                film: Handle(0),
+                script: Handle((1 << 23) | 32),
+                attributes: 4,
+            },
+        );
+        engine.held_object = 284;
+        engine.control.apply(1, true).unwrap();
+        let mut scripted = engine.clone();
+        assert!(
+            scripted
+                .inventory_click(&resources, 1, PolygonInteraction::WalkTo)
+                .unwrap()
+        );
+        for _ in 0..11 {
+            scripted.tick(&resources).unwrap();
+            assert_eq!(scripted.globals, [0]);
+        }
+        scripted.tick(&resources).unwrap();
+        assert_eq!(scripted.globals, [9]);
+        assert_eq!(scripted.held_object, 284);
+
+        engine.inventory_objects.get_mut(&284).unwrap().attributes = 0;
+        engine.inventory_objects.insert(
+            285,
+            crate::inventory::Object {
+                id: 285,
+                film: Handle(0),
+                script: Handle((1 << 23) | 32),
+                attributes: 0,
+            },
+        );
+        engine.declarations.windows[2].as_mut().unwrap().contents = vec![285];
+        let mut full = engine.clone();
+        full.declarations.windows[2].as_mut().unwrap().capacity = 1;
+        assert!(
+            full.inventory_click(&resources, 1, PolygonInteraction::WalkTo)
+                .unwrap()
+        );
+        full.tick(&resources).unwrap();
+        full.declarations.windows[2].as_mut().unwrap().capacity = 2;
+        full.conversation.hidden = true;
+        for _ in 0..11 {
+            full.tick(&resources).unwrap();
+        }
+        assert_eq!(full.held_object, -1);
+        assert_eq!(
+            full.declarations.windows[2].as_ref().unwrap().contents,
+            [285, 284]
+        );
+        assert!(
+            engine
+                .inventory_click(&resources, 1, PolygonInteraction::WalkTo)
+                .unwrap()
+        );
+        assert_eq!(engine.held_object, 284);
+        assert_eq!(
+            engine.declarations.windows[2].as_ref().unwrap().contents,
+            [285]
+        );
+        engine.tick(&resources).unwrap();
+        crate::save::Snapshot::capture(&engine, [3; 32])
+            .verify_scripts(&resources)
+            .unwrap();
+        let bytes = crate::save::Snapshot::capture(&engine, [3; 32])
+            .to_bytes()
+            .unwrap();
+        assert_eq!(u32::from_le_bytes(bytes[8..12].try_into().unwrap()), 3);
+        let mut wrong_version = bytes.clone();
+        wrong_version[8..12].copy_from_slice(&2u32.to_le_bytes());
+        assert!(crate::save::Snapshot::from_bytes(&wrong_version, [3; 32]).is_err());
+        let mut restored = crate::save::Snapshot::from_bytes(&bytes, [3; 32])
+            .unwrap()
+            .state()
+            .clone();
+        assert_eq!(engine, restored);
+        let mut cancelled = restored.clone();
+        assert!(
+            cancelled
+                .inventory_click(&resources, 0, PolygonInteraction::Action)
+                .unwrap()
+        );
+        cancelled.tick(&resources).unwrap();
+        assert_eq!(cancelled.globals, [2]);
+        assert_eq!(cancelled.held_object, 284);
+        assert_eq!(cancelled.clicks, crate::click::State::default());
+        // Hide the synthetic window so its intentionally absent display/font
+        // resources do not obscure the putdown state transition under test.
+        engine.conversation.hidden = true;
+        restored.conversation.hidden = true;
+        for _ in 0..10 {
+            engine.tick(&resources).unwrap();
+            restored.tick(&resources).unwrap();
+            assert_eq!(engine.held_object, 284);
+            assert_eq!(engine, restored);
+        }
+        engine.tick(&resources).unwrap();
+        restored.tick(&resources).unwrap();
+        assert_eq!(engine, restored);
+        assert_eq!(engine.held_object, -1);
+        assert_eq!(
+            engine.declarations.windows[2].as_ref().unwrap().contents,
+            [285, 284]
+        );
+        assert_eq!(engine.clicks, crate::click::State::default());
+    }
     #[test]
     fn inventory_gestures_dispatch_scripted_drop_and_reject_invalid_input() {
         let (master, mut scene) = fixtures();

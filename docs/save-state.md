@@ -21,14 +21,14 @@ The host now supports durable player saves. `Snapshot::restore` returns an
 engine after script, audio, polygon, animation and preview checks; the caller
 commits that replacement only after preparing host state. Native F5/F9 and startup `--load` use a combined file; browser persistence remains unfinished. Decoding a snapshot never replaces a running engine.
 
-## Core envelope versions 1 and 2
+## Core envelope versions 1, 2 and 3
 
 All envelope integers are little endian. The maximum complete file is 16 MiB.
 
 | Offset | Bytes | Meaning |
 | --- | --- | --- |
 | 0 | 8 | `DWRSAVE` followed by a zero byte |
-| 8 | 4 | Format version: 1, or 2 for pending click state |
+| 8 | 4 | Format version: 1; 2 for pending scripted clicks; 3 for pending ordinary drops |
 | 12 | 32 | Host-supplied SHA-256 identity of the original game assets |
 | 44 | 4 | Payload byte length |
 | 48 | 32 | SHA-256 checksum of the payload |
@@ -218,6 +218,8 @@ and DSP envelopes are unchanged.
 The decoder checks that pending IDs exist and are unique, that exactly the
 waiting phase owns the token, and that sleep values and script targets/events
 are appropriate. A pending single click survives decoding and can be cancelled
-by a double click before executing its original script. This extension currently
-covers the resolved world-click path; physical mouse classifier state and
-inventory click integration remain unfinished.
+by a double click before executing its original script. Version 3 adds pending ordinary inventory-drop phases and their absolute insertion
+index. Version 2 files remain readable; states containing these new phases must
+identify themselves as version 3. Drop owner processes and saved indices are
+validated before activation. Physical mouse classifier persistence and raw host
+input wiring remain unfinished.

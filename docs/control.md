@@ -56,7 +56,7 @@ the current time. Physical timers are updated before button swapping. Right
 double-click maps to `PLR_NOEVENT`, not a second look action. Each press emits
 drag-start before its click classification; release emits drag-end.
 
-Remaining integration includes original inventory drag and object-script click behavior,
+Remaining integration includes original inventory drag behavior,
 raw host button delivery, and persisting the physical button classifier. `AllowDclick` is called by polygon,
 actor and inventory-object processes (`dialogs.cpp::ObjectProcess`). Bare-ground
 `WalkProcess` does not call it, so delaying every single-click globally would
@@ -72,7 +72,7 @@ owner and invalid release fail explicitly, and process teardown must release
 ownership. Tests exercise the real scheduler, including cancellation of an
 earlier queue entry without losing a neighboring dispatch, exact delay,
 serialization/restoration of a pending wait, and stale ownership rejection.
-`Engine::world_click` now attaches this delay/cancellation to newly queued actor
+`Engine::world_click` attaches this delay/cancellation to newly queued actor
 and polygon scripts; ground walks and look events remain immediate. The existing
 semantic interaction methods retain their timing for recorded routes. Native and
 browser still use development controls; raw button classification is not wired
@@ -97,3 +97,21 @@ Tests cover cursor restoration, frozen movement, idle-time reset, and idle queri
 The main cursor uses the declared cursor film's first reel. It is recreated on scene entry and CONTROL_ON, advances while visible, and is composited at logical cursor coordinates. Cursor trails, held-object auxiliary cursors, keyboard acceleration, exact coroutine timing, token contention, and double-click cancellation remain outstanding. Tag enablement is recorded but polygon interaction is still unsupported. This is not complete input compatibility.
 
 With music enabled, the latest original-data run renders the title screen and reaches PRINT at tick 392 (evidence/headless-cursor.json). It emitted 106 MIDI messages. The WAV portion after title music began contains 28482 samples, of which 12427 are nonzero. Text, speech timing, and interaction behavior remain to be implemented; no independent frame/audio equivalence claim is made.
+
+## Timed inventory input
+
+`Engine::inventory_click` now delays both scripted pickup/drop and ordinary
+putdown using the same left-button token as world clicks. V1 `ObjectProcess`
+waits before executing pickup or DROPCODE bytecode. `InvPdProcess` also waits
+before ordinary putdown; it preserves the absolute insertion index and checks
+current inventory space when it wakes. An intervening double-click action can
+cancel either pending operation. Look remains immediate. The existing semantic
+`interact_inventory` method remains available for unchanged recorded routes.
+
+Regression coverage includes delayed scripted PUTDOWN, item ownership remaining
+unchanged throughout an ordinary wait, cancelling a saved pending drop with an
+action, exact snapshot continuation, and capacity becoming available during the
+wait. A synthetic hidden window avoids unrelated rendering resources in these
+state tests; browser UI tests separately exercise original inventory rendering.
+Pending ordinary drops require core save version 3. Raw button delivery and
+inventory dragging still need integration before claiming original input parity.

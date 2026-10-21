@@ -79,6 +79,8 @@ pub(crate) enum Phase {
     Single,
     Double,
     Waiting,
+    Drop(usize),
+    DropWaiting(usize),
 }
 #[derive(Clone, Debug, Default, PartialEq, Eq, Serialize, Deserialize)]
 pub(crate) struct State {
@@ -89,8 +91,14 @@ pub(crate) enum Dispatch {
     Ready,
     Sleep(u32),
     Resumed,
+    Drop(usize),
 }
 impl State {
+    pub(crate) fn has_drop(&self) -> bool {
+        self.pending
+            .iter()
+            .any(|(_, phase)| matches!(phase, Phase::Drop(_) | Phase::DropWaiting(_)))
+    }
     pub(crate) fn entries(&self) -> impl Iterator<Item = (ProcessId, Phase)> + '_ {
         self.pending.iter().copied()
     }
@@ -106,6 +114,19 @@ impl State {
             return Ok(Dispatch::Ready);
         };
         match self.pending[index].1 {
+            Phase::Drop(position) => {
+                let sleep = self
+                    .token
+                    .single(queue, crate::mouse::DEFAULT_DOUBLE_CLICK_TICKS)?;
+                self.pending[index].1 = Phase::DropWaiting(position);
+                self.cleanup(queue);
+                Ok(Dispatch::Sleep(sleep))
+            }
+            Phase::DropWaiting(position) => {
+                self.token.release(queue)?;
+                self.pending.remove(index);
+                Ok(Dispatch::Drop(position))
+            }
             Phase::Single => {
                 let sleep = self
                     .token
@@ -143,24 +164,26 @@ impl State {
         }
         for (index, (id, phase)) in self.pending.iter().enumerate() {
             let sleep_valid = match phase {
-                Phase::Single | Phase::Double => queue.sleep_for(*id) == Some(1),
-                Phase::Waiting => queue.sleep_for(*id).is_some_and(|sleep| {
-                    (1..=crate::mouse::DEFAULT_DOUBLE_CLICK_TICKS + 1).contains(&sleep)
-                }),
+                Phase::Single | Phase::Double | Phase::Drop(_) => queue.sleep_for(*id) == Some(1),
+                Phase::Waiting | Phase::DropWaiting(_) => {
+                    queue.sleep_for(*id).is_some_and(|sleep| {
+                        (1..=crate::mouse::DEFAULT_DOUBLE_CLICK_TICKS + 1).contains(&sleep)
+                    })
+                }
             };
             if !sleep_valid
                 || !queue.entries().any(|(p, _)| p == *id)
                 || self.pending[..index].iter().any(|(p, _)| p == id)
-                || (*phase == Phase::Waiting) != (self.token.owner == Some(*id))
+                || matches!(phase, Phase::Waiting | Phase::DropWaiting(_))
+                    != (self.token.owner == Some(*id))
             {
                 return Err(Error("invalid pending click process"));
             }
         }
         if self.token.owner.is_some_and(|owner| {
-            !self
-                .pending
-                .iter()
-                .any(|(id, phase)| *id == owner && *phase == Phase::Waiting)
+            !self.pending.iter().any(|(id, phase)| {
+                *id == owner && matches!(phase, Phase::Waiting | Phase::DropWaiting(_))
+            })
         }) {
             return Err(Error("missing pending click wait"));
         }

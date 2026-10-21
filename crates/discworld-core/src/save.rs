@@ -7,6 +7,7 @@ use sha2::{Digest, Sha256};
 const MAGIC: &[u8; 8] = b"DWRSAVE\0";
 const VERSION: u32 = 1;
 const INPUT_VERSION: u32 = 2;
+const DROP_VERSION: u32 = 3;
 const HEADER: usize = 80;
 pub const MAX_SAVE_BYTES: usize = 16 * 1024 * 1024;
 
@@ -88,7 +89,16 @@ impl Snapshot {
         }
         let mut bytes = Vec::with_capacity(HEADER + payload.len());
         bytes.extend_from_slice(MAGIC);
-        bytes.extend_from_slice(&(if extended { INPUT_VERSION } else { VERSION }).to_le_bytes());
+        bytes.extend_from_slice(
+            &(if self.state.clicks.has_drop() {
+                DROP_VERSION
+            } else if extended {
+                INPUT_VERSION
+            } else {
+                VERSION
+            })
+            .to_le_bytes(),
+        );
         bytes.extend_from_slice(&self.asset_id);
         bytes.extend_from_slice(&(payload.len() as u32).to_le_bytes());
         bytes.extend_from_slice(&Sha256::digest(&payload));
@@ -106,7 +116,7 @@ impl Snapshot {
             return Err(Error("invalid save signature"));
         }
         let word = |start| u32::from_le_bytes(bytes[start..start + 4].try_into().unwrap());
-        if ![VERSION, INPUT_VERSION].contains(&word(8)) {
+        if ![VERSION, INPUT_VERSION, DROP_VERSION].contains(&word(8)) {
             return Err(Error("unsupported save version"));
         }
         if bytes[12..44] != asset_id {
@@ -119,7 +129,7 @@ impl Snapshot {
         if Sha256::digest(payload)[..] != bytes[48..80] {
             return Err(Error("save checksum mismatch"));
         }
-        let (state, remaining) = if word(8) == INPUT_VERSION {
+        let (state, remaining) = if word(8) >= INPUT_VERSION {
             let ((mut state, clicks), remaining) =
                 postcard::take_from_bytes::<(Engine, crate::click::State)>(payload)
                     .map_err(|_| Error("invalid snapshot input payload"))?;
@@ -131,6 +141,9 @@ impl Snapshot {
         };
         if !remaining.is_empty() {
             return Err(Error("trailing snapshot data"));
+        }
+        if word(8) < DROP_VERSION && state.clicks.has_drop() {
+            return Err(Error("inventory drop requires save version 3"));
         }
         state.validate_snapshot_structure()?;
         Ok(Self { asset_id, state })
