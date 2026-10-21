@@ -60,9 +60,10 @@ Hidden pages pause; return and press Play to resume.
 
 ![Browser player with the original Luggage inventory](docs/media/browser-player.png)
 
-The host is tested in desktop Chrome at a landscape tablet-sized viewport.
-Real iPad/Safari, interruption recovery, long-run audio and full-route browser
-acceptance remain unfinished. See [browser evidence and limitations](docs/browser-runtime.md).
+The host is tested in Chrome and Playwright WebKit at a landscape tablet-sized viewport.
+Actual iPad Safari simulator loading/rendering also matches native pixels, with
+file-picker and gesture automation limitations. Physical iPad, interruption recovery,
+long-run audio and full-route browser acceptance remain unfinished. See [browser evidence and limitations](docs/browser-runtime.md).
 
 ### Watch the development playthrough
 

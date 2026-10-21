@@ -29,7 +29,7 @@ async function matchesOriginalFrame(page) {
     return actual.every((value, i) => value === pixels[i]);
   }, encoded)).toBe(true);
 }
-test('real WASM canvas, native save import/export, audio controls and device persistence', async ({ page }) => {
+test('real WASM canvas, native save import/export, audio controls and device persistence', async ({ page }, testInfo) => {
   const errors = [];
   page.on('pageerror', e => errors.push(e.message));
   await page.addInitScript(() => {
@@ -51,7 +51,7 @@ test('real WASM canvas, native save import/export, audio controls and device per
   await open(page);
   await expect(page.locator('#game')).toHaveAttribute('data-tick', '33200');
   await matchesOriginalFrame(page);
-  await page.screenshot({ path: path.join(root, 'assets/previews/browser-inventory-loaded.png') });
+  await page.screenshot({ path: path.join(root, `assets/previews/browser-${testInfo.project.name}-inventory-loaded.png`) });
   await page.locator('summary').click();
   const original = await fs.readFile(save);
   expect(await exported(page)).toEqual(original);
@@ -101,7 +101,7 @@ test('real WASM canvas, native save import/export, audio controls and device per
   await page.waitForTimeout(250);
   await page.locator('#pause').click();
   await page.waitForTimeout(150);
-  await page.screenshot({ path: path.join(root, 'assets/previews/browser-touch-close-inventory.png') });
+  await page.screenshot({ path: path.join(root, `assets/previews/browser-${testInfo.project.name}-touch-close-inventory.png`) });
   expect(await exportedAfterOpeningDetails(page)).not.toEqual(original);
   expect(errors).toEqual([]);
 });
@@ -111,7 +111,7 @@ async function exportedAfterOpeningDetails(page) {
   return exported(page);
 }
 
-test('cold start reaches the original title and accepts Continue', async ({ page }) => {
+test('cold start reaches the original title and accepts Continue', async ({ page }, testInfo) => {
   await page.goto('/');
   await open(page, false);
   await expect(page.locator('#game')).toHaveAttribute('data-tick', '0');
@@ -121,6 +121,6 @@ test('cold start reaches the original title and accepts Continue', async ({ page
   await page.locator('[data-input="continue"]').click();
   await expect(page.locator('#game')).not.toHaveAttribute('data-scene', 'title.scn', { timeout: 15000 });
   await page.locator('#pause').click();
-  await page.screenshot({ path: path.join(root, 'assets/previews/browser-cold-start.png') });
+  await page.screenshot({ path: path.join(root, `assets/previews/browser-${testInfo.project.name}-cold-start.png`) });
   await expect(page.locator('#status')).not.toHaveAttribute('data-error', 'true');
 });

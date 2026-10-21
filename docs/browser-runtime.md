@@ -83,12 +83,14 @@ after a page reload; automatic asset persistence and autosave are not implemente
 
 ### Browser evidence
 
-`npm --prefix web ci` then `npm --prefix web test` runs Playwright against locally
-installed Chrome, using the real ISO, SoundFont and inventory checkpoint. The
+Run `npm --prefix web ci` and
+`npm --prefix web exec -- playwright install webkit` first.
+Then `npm --prefix web test` runs Playwright projects against locally
+installed Chrome and the downloaded Playwright WebKit, using the real ISO, SoundFont and inventory checkpoint. The
 fixture defaults are documented in `web/tests/player.spec.js`; missing assets
 fail the test rather than silently skipping it. The server serves only `web/`.
 
-The real browser test at 1024×768 passed exact canvas-to-native PNG comparison,
+The real browser tests in Chrome and Playwright WebKit at 1024×768 passed exact canvas-to-native PNG comparison,
 byte-identical native save import/export, pause stability, nonzero finite stereo
 22,050-Hz buffer scheduling, sound toggles, IndexedDB save/load across page reload,
 and corrupt-file rejection with the original live save unchanged. It checked
@@ -112,3 +114,35 @@ Remaining gates include real Safari/iPad memory/performance, audio interruption
 and long-run scheduling, full-route WASM/browser verification, broader touch
 interactions, offline packaging, and deeper decoder robustness. Node and desktop
 Chrome results do not establish iPad acceptance.
+
+## Safari iPad simulator evidence
+
+Safari 26.5 on the iPad Pro 11-inch (M5), iPadOS 26.5 simulator, successfully
+loaded the same ISO/SoundFont and native inventory checkpoint. Its RGBA pixels
+at tick 33,200 in `rinceroo.scn` exactly match the native image. Evidence:
+`evidence/ipad-safari-simulator-render.json`, session capabilities in
+`assets/logs/ipad-safari-session.json`, and screenshot
+`assets/previews/ipad-safari-render-verified.png`. This run used an 834×1124
+portrait viewport; landscape and physical-device performance remain unverified.
+
+The installed Safari WebDriver exited when asked to populate a file input.
+A replacement session used `scripts/serve-browser-fixtures.py`, which serves
+only the explicitly supplied ISO, font and save on loopback fixture endpoints,
+and `scripts/check-safari-simulator.py` to construct File inputs and submit the
+form. This is a separate test harness, not the production file-selection flow.
+The render checker accepts an existing Safari WebDriver session ID, the expected
+PNG path, and the report destination. Start the fixture server with ISO, font
+and save paths; its default address is `http://127.0.0.1:8767`.
+
+WebDriver click/touch requests in this simulator returned without delivering
+DOM pointer/click events; scripted Play did not unlock AudioContext. Therefore
+this result proves loading and rendering only, not trusted gestures, file-picker
+usability, audio playback or an iPad playthrough. Button/canvas text selection
+and touch callouts are disabled to keep browser selection out of the game UI;
+this does not resolve the simulator's missing input events.
+
+Safari simulator sessions use `platformName: iOS`, `safari:useSimulator: true`
+and a specific `safari:deviceUDID`, as described in
+[WebKit's Safari WebDriver documentation](https://webkit.org/blog/9395/webdriver-is-coming-to-safari-in-ios-13/).
+Playwright WebKit tests are a distinct result and passed their gesture/audio
+checks; they are not substituted for simulator or physical-iPad acceptance.
