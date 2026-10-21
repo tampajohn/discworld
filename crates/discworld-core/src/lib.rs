@@ -2,6 +2,7 @@
 pub mod actor;
 pub mod animation;
 pub mod audio;
+pub mod click;
 pub mod compositor;
 pub mod control;
 pub mod conversation;

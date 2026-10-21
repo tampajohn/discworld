@@ -65,6 +65,24 @@ change the original movement behavior. A browser `dblclick` callback alone
 cannot reproduce these rules. Raw native/browser button events must feed the
 shared classifier only when this dispatch stage is ready.
 
+`discworld_core::click::ClickToken` now implements the scheduler-owned part of
+`AllowDclick`. A single-click script acquires ownership and yields for threshold
+plus one passes; a double-click script cancels that owner and immediately frees
+the token. Acquisition requires an active dispatch, repeated acquisition by the
+owner and invalid release fail explicitly, and process teardown must release
+ownership. Tests exercise the real scheduler, including cancellation of an
+earlier queue entry without losing a neighboring dispatch, exact delay,
+serialization/restoration of a pending wait, and stale ownership rejection.
+This helper is not yet installed in `Engine` or either host.
+
+The existing version-1 save payload serializes `Engine` and each script process
+positionally with Postcard. Adding pending mouse/token fields directly would
+invalidate existing saves. Integration must version or explicitly extend that
+payload, retain loading of current user checkpoints, validate pending owner IDs
+against the restored scheduler, and test a saved single click followed by a
+double after reload. None of the classifier/token additions changes the current
+engine payload or the semantic replay path.
+
 ## Initial implementation evidence
 
 The control model follows the V1 branch of tinlib.cpp Control: mode 0 hides the cursor and saves its position, mode 1 restores control and the main cursor, mode 2 keeps a frozen visible cursor, mode 3 keeps a visible cursor without forcing a new freeze, and mode 4 disables control for scene startup. Restoring after mode 0 or 2 returns to the saved position; mode 3 or 4 preserves the current position. Every CONTROL call clears the startup menu permission.
