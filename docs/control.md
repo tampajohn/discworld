@@ -867,3 +867,38 @@ workspace tests pass; final save-menu tests and Clippy pass in
 assets/logs/save-menu-view-{tests,clippy}-final.log. Catalog persistence, slot
 metadata/snapshot writes, action/Return dispatch, engine snapshot state and
 native/browser F1 integration remain required. Live game behavior is unchanged.
+
+
+Portable slot record and native persistence are now implemented. audio::slot
+wraps an unchanged DWRPLAY engine/DSP session with DWRSLOT version1 metadata:
+ID0..99, host timestamp in milliseconds, up to40 original-font description
+bytes (no NUL), payload lengths and SHA256. Metadata and snapshot are one record,
+so there is no separate manifest that can refer to a different generation.
+The codec bounds lengths, validates outer and nested session envelopes and
+borrows the decoded payload. This verifies envelope integrity only; resource,
+asset identity, core/DSP restoration and clock checks still run through
+session::decode before activation. Existing DWRPLAY files remain unchanged.
+
+Native save_slots uses fixed slot-NNN.dwslot names, stable IDs, newest-first
+catalog ordering with ID tie-breaks, and reports corrupt IDs separately from
+valid entries. New saves do not reuse occupied corrupt names. Complete sibling
+files are synced before publication. New slots use atomic hard-link publication
+that cannot replace an existing name, retrying the next ID on a concurrent
+collision; explicit existing-slot writes use atomic rename. Directory entries
+are synced. Tests run eight concurrent allocations, preserve a corrupt slot,
+verify failed-metadata overwrite leaves prior bytes intact and check temp cleanup.
+The existing single-file save API still uses its original size bound/rename path.
+
+`audit-save-slots INPUT_DWRPLAY FRESH_DIRECTORY` exercises new-slot creation,
+metadata replacement, catalog and byte-identical payload export. Actual user
+checkpoint rightclick-node-exit-stopped.dws passed through
+assets/saves/native-slot-roundtrip; the exported roundtrip.dws was fully decoded
+with original resources/SoundFont and advanced to133800 Running/unseen.scn.
+Its recovered.dws and assets/previews/native-slot-roundtrip-recovered.png exactly
+match the earlier rightclick-node-exit-fixed session bytes and PNG. The image was
+inspected. Evidence: assets/logs/native-slot-roundtrip.json and
+native-slot-roundtrip-recovered.json. No active user save was replaced.
+282 enabled workspace tests, Clippy, and wasm32 web-crate checking pass in
+assets/logs/save-slots-{workspace,clippy-final,wasm-check}.log. Browser IndexedDB
+slot persistence, host catalog asset validation/description conversion, settings
+persistence and engine/native/browser menu wiring remain unfinished.

@@ -22,6 +22,48 @@ fn run() -> Result<(), Box<dyn std::error::Error>> {
         .next()
         .ok_or("usage: discworld-tools inspect-iso <image.iso>")?;
     let path = args.next().ok_or("missing ISO path")?;
+    if command == "audit-save-slots" {
+        use discworld_core::save_menu::Target;
+        let root = std::path::PathBuf::from(args.next().ok_or("missing fresh slot directory")?);
+        if args.next().is_some() {
+            return Err("unexpected slot audit argument".into());
+        }
+        let session = discworld_tools::save_file::read(std::path::Path::new(&path))?;
+        std::fs::create_dir(&root)?;
+        let id =
+            discworld_tools::save_slots::write(&root, Target::New, 1, b"Slot audit", &session)?;
+        let first = discworld_tools::save_slots::read(&root, id)?;
+        if discworld_audio::slot::decode(&first)?.session != session {
+            return Err("slot payload differs".into());
+        }
+        discworld_tools::save_slots::write(
+            &root,
+            Target::Existing(id),
+            2,
+            b"Slot audit replaced",
+            &session,
+        )?;
+        let replaced = discworld_tools::save_slots::read(&root, id)?;
+        let decoded = discworld_audio::slot::decode(&replaced)?;
+        if decoded.session != session {
+            return Err("replacement payload differs".into());
+        }
+        let catalog = discworld_tools::save_slots::catalog(&root)?;
+        if catalog.entries.len() != 1
+            || !catalog.rejected.is_empty()
+            || catalog.entries[0].timestamp_ms != 2
+        {
+            return Err("slot catalog audit failed".into());
+        }
+        discworld_tools::save_file::write_atomic(&root.join("roundtrip.dws"), decoded.session)?;
+        println!(
+            "{}",
+            serde_json::to_string_pretty(
+                &json!({"slot":id,"session_bytes":session.len(),"session_sha256":format!("{:x}",Sha256::digest(&session)),"metadata_replaced":true,"session_bytes_equal":true,"scope":"slot record and native atomic publication; session resource restoration is separate"})
+            )?
+        );
+        return Ok(());
+    }
     if command == "preview-conversation"
         || command == "preview-inventory"
         || command == "preview-menu"

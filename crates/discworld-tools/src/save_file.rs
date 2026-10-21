@@ -8,11 +8,15 @@ use std::{
 static SERIAL: AtomicU64 = AtomicU64::new(0);
 
 pub fn read(path: &Path) -> io::Result<Vec<u8>> {
+    read_bounded(path, discworld_audio::session::MAX_SESSION_BYTES)
+}
+
+pub(crate) fn read_bounded(path: &Path, limit: usize) -> io::Result<Vec<u8>> {
     let mut bytes = Vec::new();
     File::open(path)?
-        .take(discworld_audio::session::MAX_SESSION_BYTES as u64 + 1)
+        .take(limit as u64 + 1)
         .read_to_end(&mut bytes)?;
-    if bytes.len() > discworld_audio::session::MAX_SESSION_BYTES {
+    if bytes.len() > limit {
         return Err(io::Error::new(
             io::ErrorKind::InvalidData,
             "save file size limit",
@@ -29,7 +33,21 @@ impl Drop for Temporary {
 }
 
 pub fn write_atomic(path: &Path, bytes: &[u8]) -> io::Result<()> {
-    if bytes.len() > discworld_audio::session::MAX_SESSION_BYTES {
+    write_bounded(
+        path,
+        bytes,
+        discworld_audio::session::MAX_SESSION_BYTES,
+        true,
+    )
+}
+
+pub(crate) fn write_bounded(
+    path: &Path,
+    bytes: &[u8],
+    limit: usize,
+    replace: bool,
+) -> io::Result<()> {
+    if bytes.len() > limit {
         return Err(io::Error::new(
             io::ErrorKind::InvalidInput,
             "save file size limit",
@@ -63,7 +81,14 @@ pub fn write_atomic(path: &Path, bytes: &[u8]) -> io::Result<()> {
     file.write_all(bytes)?;
     file.sync_all()?;
     drop(file);
-    fs::rename(&temp.0, path)?;
+    if replace {
+        fs::rename(&temp.0, path)?;
+    } else {
+        // Same-directory hard-link publication is atomic and cannot replace an
+        // existing name, unlike rename. Concurrent new-slot allocation retries.
+        fs::hard_link(&temp.0, path)?;
+        fs::remove_file(&temp.0)?;
+    }
     File::open(parent)?.sync_all()?;
     Ok(())
 }

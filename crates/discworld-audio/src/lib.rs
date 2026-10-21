@@ -5,6 +5,7 @@ use sha2::{Digest, Sha256};
 use std::{io::Cursor, sync::Arc};
 
 pub mod session;
+pub mod slot;
 
 const CHECKPOINT_HEADER: usize = 92;
 pub const MAX_CHECKPOINT_BYTES: usize = 8 * 1024 * 1024;

@@ -41,7 +41,7 @@ pub fn encode(engine: &Engine, audio: &MusicOutput, asset_id: [u8; 32]) -> Resul
     Ok(bytes)
 }
 
-fn sections(bytes: &[u8]) -> Result<(&[u8], &[u8]), Error> {
+pub(crate) fn sections(bytes: &[u8]) -> Result<(&[u8], &[u8]), Error> {
     if !(HEADER..=MAX_SESSION_BYTES).contains(&bytes.len()) {
         return Err("invalid session save size".into());
     }
