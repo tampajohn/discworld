@@ -835,3 +835,35 @@ expanded editor and text tests passed afterward, with final Clippy in
 assets/logs/save-menu-list-clippy-typed.log. Save-menu frame/scrollbar rendering,
 scroll-thumb interaction, confirmation/Return dispatch, catalog persistence,
 snapshot integration and live menu activation remain unfinished.
+
+
+Save/load View now draws the original10x6 configuration frame, heading strings8/9,
+extra list-window parts from addExtraWindow, palette-colored row selection,
+original-font descriptions/edit cursor and three-state accept/cancel graphics.
+The extra frame uses reels21/49/17/18, horizontal11 and vertical4; slider reel0
+is positioned at223,49+first*125/91 after addBoxes(true). Mode mismatches are
+rejected before drawing. Save selected-row text is replaced by the live draft;
+Load retains the catalog description. The component accepts button-effect state
+separately from hover, as with the confirmation menus.
+
+The save-list slider now models slideCSlider independently of mixing-desk sliders:
+raw drag overshoot is retained, logical Y is clamped49..174, first index is
+floor((Y-49)*91/125), selected row changes by oldFirst-newFirst clamped0..8.
+V1 changes the rendered thumb only when first index changes; release does not
+snap/rebuild it. Keyboard/wheel scrolling rebuilds from first index. The drag
+regression distinguishes logical Y50/rendered49, then first1/rendered51, retains
+that through release, verifies overshoot at the bottom and checks scrollbar hit
+regions. whichMenuBox's absolute half-open scroll region is221..229,42..184;
+arrow/track/thumb precedence and logical (not last drawn) Y determine the hit.
+
+Original-asset previews inspected: assets/previews/original-save-menu.png
+(12 synthetic catalog entries, blank new-save row) and original-load-menu-end.png
+(100 synthetic entries, last page91..99). These are synthetic save-name fixtures,
+not stored progress. Commands preview-save-menu/preview-load-menu take ISO,
+fresh PNG, optional state0=first page with12 entries,1=page down with100,
+2=end with100. They prove original artwork/font composition, not storage I/O,
+manual host controls or an independent reference image match. All280 enabled
+workspace tests pass; final save-menu tests and Clippy pass in
+assets/logs/save-menu-view-{tests,clippy}-final.log. Catalog persistence, slot
+metadata/snapshot writes, action/Return dispatch, engine snapshot state and
+native/browser F1 integration remain required. Live game behavior is unchanged.

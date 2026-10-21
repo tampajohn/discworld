@@ -72,6 +72,36 @@ pub fn preview(
                 &mut surface,
                 Some([100, 43]),
             )?,
+            "preview-save-menu" | "preview-load-menu" => {
+                use discworld_core::save_menu::{Entry, List, Mode, Scroll, View};
+                let mode = if kind == "preview-save-menu" {
+                    Mode::Save
+                } else {
+                    Mode::Load
+                };
+                let mut list = List::new(
+                    mode,
+                    (0..100)
+                        .map(|id| Entry {
+                            id,
+                            description: format!("Checkpoint {id:02}").into_bytes(),
+                        })
+                        .take(if slot == 0 { 12 } else { 100 })
+                        .collect(),
+                )?;
+                if slot == 1 {
+                    list.scroll(Scroll::PageDown);
+                } else if slot == 2 {
+                    list.scroll(Scroll::End);
+                }
+                View::new(&resources, &strings, &engine.declarations, mode)?.draw(
+                    &resources,
+                    &mut surface,
+                    &list,
+                    Some([262, 69]),
+                    None,
+                )?;
+            }
             "preview-controls-menu" | "preview-subtitles-menu" => {
                 use discworld_core::settings_menu::{Kind, SettingsMenu};
                 let controls = kind == "preview-controls-menu";

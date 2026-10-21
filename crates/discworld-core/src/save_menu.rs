@@ -35,6 +35,15 @@ pub enum Scroll {
     End,
 }
 
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub enum SliderHit {
+    Up,
+    Down,
+    PageUp,
+    PageDown,
+    Thumb,
+}
+
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub struct List {
     mode: Mode,
@@ -42,6 +51,167 @@ pub struct List {
     first: usize,
     selected: usize,
     draft: Vec<u8>,
+    slider_raw: Option<i64>,
+    slider_y: i32,
+    slider_drawn_y: i32,
+}
+
+/// Original save/load window presentation. Rebuilt row labels reflect the
+/// catalog/draft, while the host retains snapshot bytes outside this component.
+#[derive(Debug, Clone, PartialEq, Eq)]
+pub struct View {
+    mode: Mode,
+    frame: crate::conversation_window::Frame,
+    extra: Vec<crate::animation::Animation>,
+    thumb: crate::animation::Animation,
+    buttons: Vec<crate::animation::Animation>,
+    font: Font,
+    heading: Layout,
+}
+impl View {
+    pub fn new(
+        resources: &Resources<'_>,
+        strings: &crate::text::Strings<'_>,
+        declarations: &crate::startup::Declarations,
+        mode: Mode,
+    ) -> Result<Self, Error> {
+        use crate::{animation::Animation, film::Film, graphics::Handle, startup::Window};
+        let handle = declarations
+            .window_parts
+            .ok_or(Error("missing window parts"))?;
+        let window = Window {
+            title: Handle(0),
+            capacity: 0,
+            min: [10, 6],
+            size: [10, 6],
+            max: [10, 6],
+            position: [20, 16],
+            first_display: 0,
+            contents: vec![],
+        };
+        let frame = crate::conversation_window::Frame::configuration(resources, handle, &window)?;
+        let film = Film::read(resources, handle)?;
+        let image = |reel: usize, [x, y]: [i32; 2]| -> Result<Animation, Error> {
+            let mut a = Animation::new(
+                resources,
+                film.reels
+                    .get(reel)
+                    .ok_or(Error("missing save menu reel"))?,
+                1,
+            )?;
+            a.object.x = x;
+            a.object.y = y;
+            Ok(a)
+        };
+        let extra = [
+            (21, [40, 40]),
+            (49, [192, 40]),
+            (17, [40, 164]),
+            (18, [192, 164]),
+            (11, [46, 40]),
+            (11, [46, 183]),
+            (4, [40, 60]),
+            (4, [219, 60]),
+            (4, [228, 60]),
+        ]
+        .into_iter()
+        .map(|(reel, point)| image(reel, point))
+        .collect::<Result<Vec<_>, _>>()?;
+        let thumb = image(0, [223, 49])?;
+        let buttons = [46, 47, 48, 40, 41, 42]
+            .into_iter()
+            .enumerate()
+            .map(|(i, reel)| image(reel, [250, if i < 3 { 60 } else { 107 }]))
+            .collect::<Result<Vec<_>, _>>()?;
+        let font = Font::read(
+            resources,
+            declarations.tag_font.ok_or(Error("missing tag font"))?,
+        )?;
+        let handles = declarations
+            .config_strings
+            .ok_or(Error("missing configuration strings"))?;
+        let heading = font.centered(
+            resources,
+            strings.get(handles[if mode == Mode::Load { 8 } else { 9 }].0)?,
+            frame.layout.title,
+        )?;
+        Ok(Self {
+            mode,
+            frame,
+            extra,
+            thumb,
+            buttons,
+            font,
+            heading,
+        })
+    }
+    pub fn button_at([x, y]: [i32; 2]) -> Option<crate::configuration_menu::Choice> {
+        if x <= 250 || x >= 273 {
+            return None;
+        }
+        if y > 60 && y < 79 {
+            Some(crate::configuration_menu::Choice::Accept)
+        } else if y > 107 && y < 126 {
+            Some(crate::configuration_menu::Choice::Cancel)
+        } else {
+            None
+        }
+    }
+    pub fn draw(
+        &self,
+        resources: &Resources<'_>,
+        surface: &mut crate::compositor::Surface,
+        list: &List,
+        pointer: Option<[i32; 2]>,
+        effect: Option<(
+            crate::configuration_menu::Choice,
+            crate::configuration_menu::ButtonImage,
+        )>,
+    ) -> Result<(), Error> {
+        if self.mode != list.mode {
+            return Err(Error("save menu view mode mismatch"));
+        }
+        self.frame.draw(resources, surface)?;
+        for a in &self.extra {
+            surface.draw_animation(resources, a)?;
+        }
+        let mut thumb = self.thumb.clone();
+        thumb.object.y = list.slider_drawn_y;
+        surface.draw_animation(resources, &thumb)?;
+        self.heading.draw(resources, surface)?;
+        for row in 0..ROWS {
+            let y = 47 + row as i32 * 15;
+            surface.draw_palette_rect(
+                [48, y, 166, 13],
+                if row == list.selected { 231 } else { 228 },
+            )?;
+            if row == list.selected && list.mode == Mode::Save {
+                list.edit_layout(resources, &self.font)?
+                    .draw(resources, surface)?;
+            } else if let Some(entry) = list.row(row) {
+                self.font
+                    .left_aligned(resources, &entry.description, [50, y])?
+                    .draw(resources, surface)?;
+            }
+        }
+        surface.draw_animation(resources, &self.buttons[0])?;
+        surface.draw_animation(resources, &self.buttons[3])?;
+        use crate::configuration_menu::{ButtonImage, Choice};
+        if let Some((choice, state)) = effect.or_else(|| {
+            pointer
+                .and_then(Self::button_at)
+                .map(|c| (c, ButtonImage::Highlight))
+        }) {
+            let base = if choice == Choice::Accept { 0 } else { 3 };
+            let offset = match state {
+                ButtonImage::Normal => 0,
+                ButtonImage::Down => 1,
+                ButtonImage::Highlight => 2,
+            };
+            surface.draw_animation(resources, &self.buttons[base + offset])?;
+        }
+        Ok(())
+    }
 }
 impl List {
     pub fn new(mode: Mode, entries: Vec<Entry>) -> Result<Self, Error> {
@@ -61,6 +231,9 @@ impl List {
             first: 0,
             selected: 0,
             draft: vec![],
+            slider_raw: None,
+            slider_y: 49,
+            slider_drawn_y: 49,
         };
         result.reset_draft();
         Ok(result)
@@ -142,8 +315,59 @@ impl List {
             _ => return false,
         };
         self.selected = row;
+        self.slider_y = 49 + (self.first * 125 / (CAPACITY - ROWS)) as i32;
+        self.slider_drawn_y = self.slider_y;
         self.reset_draft();
         true
+    }
+    pub fn slider_at(&self, [x, y]: [i32; 2]) -> Option<SliderHit> {
+        if !(221..229).contains(&x) || !(42..184).contains(&y) {
+            return None;
+        }
+        Some(if y < 47 {
+            SliderHit::Up
+        } else if y > 179 {
+            SliderHit::Down
+        } else if y < self.slider_y {
+            SliderHit::PageUp
+        } else if y >= self.slider_y + 5 {
+            SliderHit::PageDown
+        } else {
+            SliderHit::Thumb
+        })
+    }
+    pub fn begin_slider(&mut self) -> bool {
+        if self.slider_raw.is_some() {
+            return false;
+        }
+        self.slider_raw = Some(i64::from(self.slider_y));
+        true
+    }
+    /// V1 moves the actual thumb only when extraBase changes (addBoxes(false)),
+    /// retaining logical/raw positions between redraws. Release does not snap.
+    pub fn drag_slider(&mut self, dy: i32) -> Result<bool, Error> {
+        let Some(raw) = self.slider_raw else {
+            return Ok(false);
+        };
+        let raw = raw
+            .checked_add(i64::from(dy))
+            .ok_or(Error("save slider overflow"))?;
+        let y = raw.clamp(49, 174) as i32;
+        let first = ((y - 49) as usize * (CAPACITY - ROWS)) / 125;
+        self.slider_raw = Some(raw);
+        self.slider_y = y;
+        if first == self.first {
+            return Ok(false);
+        }
+        self.selected = (self.selected as i64 + self.first as i64 - first as i64)
+            .clamp(0, (ROWS - 1) as i64) as usize;
+        self.first = first;
+        self.slider_drawn_y = y;
+        self.reset_draft();
+        Ok(true)
+    }
+    pub fn end_slider(&mut self) {
+        self.slider_raw = None;
     }
     pub fn row_at([x, y]: [i32; 2]) -> Option<usize> {
         if !(48..214).contains(&x) || !(47..180).contains(&y) {
@@ -211,6 +435,33 @@ mod tests {
                 description: format!("Save {i}").into_bytes(),
             })
             .collect()
+    }
+    #[test]
+    fn scrollbar_retains_logical_position_between_redraws_and_release() {
+        let mut list = List::new(Mode::Load, entries(100)).unwrap();
+        assert_eq!(list.slider_at([224, 42]), Some(SliderHit::Up));
+        assert_eq!(list.slider_at([224, 48]), Some(SliderHit::PageUp));
+        assert_eq!(list.slider_at([224, 49]), Some(SliderHit::Thumb));
+        assert_eq!(list.slider_at([224, 54]), Some(SliderHit::PageDown));
+        assert_eq!(list.slider_at([224, 180]), Some(SliderHit::Down));
+        assert_eq!(list.slider_at([229, 50]), None);
+        assert!(list.begin_slider());
+        assert!(!list.drag_slider(1).unwrap());
+        assert_eq!((list.slider_y, list.slider_drawn_y), (50, 49));
+        assert!(list.drag_slider(1).unwrap());
+        assert_eq!((list.first, list.slider_drawn_y), (1, 51));
+        list.end_slider();
+        assert_eq!(list.slider_drawn_y, 51); // rebuilding from first would yield50
+        assert!(list.begin_slider());
+        assert!(list.drag_slider(500).unwrap());
+        assert_eq!(list.first, 91);
+        assert!(!list.drag_slider(-375).unwrap());
+        assert!(list.drag_slider(-3).unwrap());
+        assert_eq!((list.first, list.slider_drawn_y), (90, 173));
+        list.end_slider();
+        list.scroll(Scroll::Home);
+        assert_eq!((list.slider_y, list.slider_drawn_y), (49, 49));
+        assert!(!list.drag_slider(10).unwrap());
     }
     #[test]
     fn new_row_modifier_only_applies_to_save_first_page_with_capacity() {
