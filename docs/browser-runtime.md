@@ -179,8 +179,19 @@ It is Node/WASM runtime validation, not browser input, audio-device or iPad test
 headless run with `--save`: complete core-envelope bytes, PNG-decoded RGBA,
 accepted-input counts, tick, scene and restart. It reports combined DSP save
 identity separately; cross-platform audio equality is not assumed. It also
-writes a viewable PNG of the WASM framebuffer. The first full run is in progress;
-no start-to-credits WASM acceptance is claimed until it completes and compares.
+writes a viewable PNG of the WASM framebuffer. The first full run at `708771b` completed and compared successfully. It accepted
+all 1,652 inputs, reached title/restart at 2,630,000, and matched the fresh native
+run's complete serialized engine envelope and final RGBA exactly. All
+4,832,625,000 returned stereo samples were finite. The run took 526.56 seconds on
+this Mac. Evidence: `evidence/wasm-full-ending/report.json` and
+`evidence/wasm-full-ending/native-comparison.json`; native report
+`evidence/wasm-comparison-native.json`. The resulting
+`evidence/wasm-full-ending/final.png` was inspected and shows the original title.
+The engine-envelope SHA-256 is
+`62570b31e8aca0793e461792be622810dbcb8c3d980db53513cb2f474d374d64`.
+The combined saves differ in DSP state, consistent with the previously measured
+cross-platform audio differences. This verifies the recorded route in Node/WASM,
+not every interaction or a full browser/iPad playthrough.
 
 The browser AudioContext interruption test passes in Chrome and Playwright
 WebKit: suspending the actual context pauses simulation, ticks remain stable,
