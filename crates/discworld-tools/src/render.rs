@@ -45,6 +45,11 @@ pub fn headless(
         })
         .transpose()?;
     let interaction_trace = args.next();
+    let snapshot_audit = match args.next() {
+        None => false,
+        Some(flag) if flag == "--snapshot-audit" => true,
+        Some(_) => return Err("unexpected headless argument".into()),
+    };
     if args.next().is_some() {
         return Err("unexpected headless argument".into());
     }
@@ -60,6 +65,12 @@ pub fn headless(
     let mut interaction_log = Vec::new();
     let mut text_calls = std::collections::VecDeque::new();
     let data = std::fs::read(iso_path)?;
+    let asset_id: [u8; 32] = {
+        use sha2::Digest;
+        sha2::Sha256::digest(&data).into()
+    };
+    let mut snapshot_checks = 0u64;
+    let mut snapshot_max_bytes = 0usize;
     let iso = Iso::parse(&data)?;
     let index = parse_index(iso.file("/DISCWLD/INDEX").ok_or("missing index")?)?;
     discworld_tools::replay::validate_scenes(&interactions, &index)?;
@@ -136,6 +147,23 @@ pub fn headless(
             Some(&strings),
         ) {
             Ok(s) => {
+                if snapshot_audit
+                    && (engine.ticks % 1000 == 0
+                        || engine.ticks == u64::from(ticks)
+                        || engine.scene != previous_mover_scene
+                        || interactions.iter().any(|input| input.tick == tick))
+                {
+                    let captured = discworld_core::save::Snapshot::capture(&engine, asset_id);
+                    let bytes = captured.to_bytes()?;
+                    let decoded = discworld_core::save::Snapshot::from_bytes(&bytes, asset_id)?;
+                    if decoded != captured || decoded.to_bytes()? != bytes {
+                        return Err(
+                            format!("snapshot round trip failed at {}", engine.ticks).into()
+                        );
+                    }
+                    snapshot_checks += 1;
+                    snapshot_max_bytes = snapshot_max_bytes.max(bytes.len());
+                }
                 let movers: Vec<_> = engine
                     .movers
                     .iter()
@@ -239,7 +267,7 @@ pub fn headless(
     println!(
         "{}",
         serde_json::to_string_pretty(
-            &serde_json::json!({"movement_history_scope":"Last 256 tick boundaries with changed mover state or scene; mover tuples are actor, position, ultimate target, direct-leg target, path index; intra-tick changes not observed", "movement_history":movement_history,"state_change_history_scope":"Last 256 tick boundaries with changed globals or control; intra-tick writes not observed", "state_change_history":state_changes,"text_call_history_scope":"Latest 256 committed scene PRINT/PRINTOBJ/PRINTTAG/TALK/TALKAT/TALKATS dispatches observed at tick boundaries; master calls excluded; a tick with more than 256 dispatches may truncate earlier calls","text_call_history":text_calls,"globals":engine.globals,"world_origin":engine.world_origin,"control_enabled":engine.control.enabled,"has_restarted":engine.has_restarted(),"movers":engine.movers.iter().map(|(actor,m)| serde_json::json!({"actor":actor,"position":m.placement.position,"path":m.placement.path,"target":m.walk_target,"constrained":m.constrained_walk,"node_travel":format!("{:?}",m.node_travel),"node_walk":format!("{:?}",m.node_walk),"direct_leg":format!("{:?}",m.direct_leg),"footprint":format!("{:?}",m.footprint(&resources))})).collect::<Vec<_>>(),"actor_hotspots":actor_hotspots,"conversation":{"owner":engine.conversation.polygon,"hidden":engine.conversation.hidden,"icon":engine.conversation.icon,"topics":engine.declarations.windows[0].as_ref().map(|w| &w.contents)},"scene_call_trace_scope":"Last 256 committed scene library dispatches since the most recent accepted interaction; master calls excluded", "scene_call_trace":engine.scene_calls.iter().flatten().map(|entry|serde_json::json!({"tick":entry.tick,"script":entry.script.0,"id":entry.call.id,"instruction":entry.call.instruction,"operation":discworld_core::library::name(entry.call.id),"operands":entry.operands})).collect::<Vec<_>>(),"active_inventory":engine.active_inventory(),"inventory_geometry":engine.declarations.windows.iter().map(|w|w.as_ref().map(|w|serde_json::json!({"min":w.min,"size":w.size,"max":w.max,"position":w.position,"capacity":w.capacity}))).collect::<Vec<_>>(),"inventory_first_display":engine.declarations.windows.iter().map(|w|w.as_ref().map(|w|w.first_display)).collect::<Vec<_>>(),"inventory_contents":engine.declarations.windows.iter().map(|w|w.as_ref().map(|w|&w.contents)).collect::<Vec<_>>(),"inventory_objects":engine.inventory_objects.values().map(|o|serde_json::json!({"id":o.id,"film":o.film.0,"script":o.script.0,"attributes":o.attributes})).collect::<Vec<_>>(),"held_object":engine.held_object,"interactions":interaction_log,"polygons":engine.polygons.active.iter().enumerate().map(|(index,p)|serde_json::json!({"index":index,"kind":format!("{:?}",p.definition.kind),"id":p.definition.id,"enabled":p.enabled,"script":p.definition.script.0,"corners":p.definition.corners,"text":p.definition.tag_text.0})).collect::<Vec<_>>(),"ticks":engine.ticks,"midi_messages":midi_count,"music_offset":engine.music.offset,"scene":engine.scene.0,"scene_name":index[engine.scene.resource()].name,"status":status,"standing_requests":engine.pending_calls().iter().filter(|(_,call,a)|call.id==72 && a.len()>=4).map(|(_,_,a)|{let a=&a[a.len()-4..];format!("{:?}",discworld_core::mover::Placement::initial(&engine.declarations,&engine.polygons,a[0],[a[1],a[2]],Handle(a[3] as u32)))}).collect::<Vec<_>>(),"pending_calls":engine.pending_calls().iter().map(|(code, call, operands)| serde_json::json!({"script":code.0,"operation":discworld_core::library::name(call.id),"id":call.id,"instruction":call.instruction,"operands":operands})).collect::<Vec<_>>(),"film_reels":engine.films.len(),"animations":engine.films.iter().map(|a|format!("{a:?}")).collect::<Vec<_>>(),"scope":"Queued scene/entrance runtime; full scheduling and pixels not yet compared with ScummVM"})
+            &serde_json::json!({"movement_history_scope":"Last 256 tick boundaries with changed mover state or scene; mover tuples are actor, position, ultimate target, direct-leg target, path index; intra-tick changes not observed", "movement_history":movement_history,"state_change_history_scope":"Last 256 tick boundaries with changed globals or control; intra-tick writes not observed", "state_change_history":state_changes,"text_call_history_scope":"Latest 256 committed scene PRINT/PRINTOBJ/PRINTTAG/TALK/TALKAT/TALKATS dispatches observed at tick boundaries; master calls excluded; a tick with more than 256 dispatches may truncate earlier calls","text_call_history":text_calls,"globals":engine.globals,"world_origin":engine.world_origin,"control_enabled":engine.control.enabled,"snapshot_checks":snapshot_checks,"snapshot_max_bytes":snapshot_max_bytes,"has_restarted":engine.has_restarted(),"movers":engine.movers.iter().map(|(actor,m)| serde_json::json!({"actor":actor,"position":m.placement.position,"path":m.placement.path,"target":m.walk_target,"constrained":m.constrained_walk,"node_travel":format!("{:?}",m.node_travel),"node_walk":format!("{:?}",m.node_walk),"direct_leg":format!("{:?}",m.direct_leg),"footprint":format!("{:?}",m.footprint(&resources))})).collect::<Vec<_>>(),"actor_hotspots":actor_hotspots,"conversation":{"owner":engine.conversation.polygon,"hidden":engine.conversation.hidden,"icon":engine.conversation.icon,"topics":engine.declarations.windows[0].as_ref().map(|w| &w.contents)},"scene_call_trace_scope":"Last 256 committed scene library dispatches since the most recent accepted interaction; master calls excluded", "scene_call_trace":engine.scene_calls.iter().flatten().map(|entry|serde_json::json!({"tick":entry.tick,"script":entry.script.0,"id":entry.call.id,"instruction":entry.call.instruction,"operation":discworld_core::library::name(entry.call.id),"operands":entry.operands})).collect::<Vec<_>>(),"active_inventory":engine.active_inventory(),"inventory_geometry":engine.declarations.windows.iter().map(|w|w.as_ref().map(|w|serde_json::json!({"min":w.min,"size":w.size,"max":w.max,"position":w.position,"capacity":w.capacity}))).collect::<Vec<_>>(),"inventory_first_display":engine.declarations.windows.iter().map(|w|w.as_ref().map(|w|w.first_display)).collect::<Vec<_>>(),"inventory_contents":engine.declarations.windows.iter().map(|w|w.as_ref().map(|w|&w.contents)).collect::<Vec<_>>(),"inventory_objects":engine.inventory_objects.values().map(|o|serde_json::json!({"id":o.id,"film":o.film.0,"script":o.script.0,"attributes":o.attributes})).collect::<Vec<_>>(),"held_object":engine.held_object,"interactions":interaction_log,"polygons":engine.polygons.active.iter().enumerate().map(|(index,p)|serde_json::json!({"index":index,"kind":format!("{:?}",p.definition.kind),"id":p.definition.id,"enabled":p.enabled,"script":p.definition.script.0,"corners":p.definition.corners,"text":p.definition.tag_text.0})).collect::<Vec<_>>(),"ticks":engine.ticks,"midi_messages":midi_count,"music_offset":engine.music.offset,"scene":engine.scene.0,"scene_name":index[engine.scene.resource()].name,"status":status,"standing_requests":engine.pending_calls().iter().filter(|(_,call,a)|call.id==72 && a.len()>=4).map(|(_,_,a)|{let a=&a[a.len()-4..];format!("{:?}",discworld_core::mover::Placement::initial(&engine.declarations,&engine.polygons,a[0],[a[1],a[2]],Handle(a[3] as u32)))}).collect::<Vec<_>>(),"pending_calls":engine.pending_calls().iter().map(|(code, call, operands)| serde_json::json!({"script":code.0,"operation":discworld_core::library::name(call.id),"id":call.id,"instruction":call.instruction,"operands":operands})).collect::<Vec<_>>(),"film_reels":engine.films.len(),"animations":engine.films.iter().map(|a|format!("{a:?}")).collect::<Vec<_>>(),"scope":"Queued scene/entrance runtime; full scheduling and pixels not yet compared with ScummVM"})
         )?
     );
     if status.starts_with("Unsupported") || status.starts_with("unsupported_or_error") {

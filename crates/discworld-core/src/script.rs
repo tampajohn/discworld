@@ -74,7 +74,7 @@ enum SceneResume {
     Saved,
 }
 
-/// Explicit state can be copied for snapshots; a durable save format is still pending.
+/// Explicit interpreter state, included in complete-runtime snapshots.
 #[derive(serde::Serialize, serde::Deserialize, Debug, Clone, PartialEq, Eq)]
 pub struct Machine {
     #[serde(with = "crate::save_array")]
@@ -102,6 +102,21 @@ impl Default for Machine {
     }
 }
 impl Machine {
+    pub(crate) fn validate_snapshot_structure(&self) -> Result<(), Error> {
+        if self.sp >= STACK_SIZE || self.bp == 0 || self.bp >= STACK_SIZE {
+            return Err(Error("invalid snapshot script stack"));
+        }
+        if self.halted && (self.sp != 0 || self.pending.is_some()) {
+            return Err(Error("invalid snapshot halted script"));
+        }
+        if self.pending.is_some_and(|call| {
+            call.id < 0 || call.instruction != self.ip || call.next <= call.instruction
+        }) {
+            return Err(Error("invalid snapshot pending call"));
+        }
+        Ok(())
+    }
+
     /// Restore only interpreter context, as pcode.cpp RestoreInterpretContext
     /// does. Host coroutine locals and scene objects must be rebuilt separately.
     pub fn restored_context(&self) -> Self {
@@ -340,6 +355,57 @@ impl Machine {
 #[cfg(test)]
 mod tests {
     use super::*;
+    #[test]
+    fn snapshot_rejects_invalid_stack_and_pending_state() {
+        let valid = Machine::default();
+        assert!(valid.validate_snapshot_structure().is_ok());
+        for sp in [STACK_SIZE, usize::MAX] {
+            let mut invalid = valid.clone();
+            invalid.sp = sp;
+            assert!(invalid.validate_snapshot_structure().is_err());
+        }
+        for bp in [0, STACK_SIZE, usize::MAX] {
+            let mut invalid = valid.clone();
+            invalid.bp = bp;
+            assert!(invalid.validate_snapshot_structure().is_err());
+        }
+        let mut pending = valid.clone();
+        pending.step(&[0x4e, 86], &mut []).unwrap();
+        assert!(pending.validate_snapshot_structure().is_ok());
+        for call in [
+            LibraryCall {
+                id: -1,
+                instruction: 0,
+                next: 2,
+            },
+            LibraryCall {
+                id: 86,
+                instruction: 1,
+                next: 2,
+            },
+            LibraryCall {
+                id: 86,
+                instruction: 0,
+                next: 0,
+            },
+        ] {
+            pending.pending = Some(call);
+            assert!(pending.validate_snapshot_structure().is_err());
+        }
+        pending.pending = Some(LibraryCall {
+            id: 86,
+            instruction: 0,
+            next: 2,
+        });
+        pending.halted = true;
+        assert!(pending.validate_snapshot_structure().is_err());
+        let mut halted = valid;
+        halted.step(&[0], &mut []).unwrap();
+        assert!(halted.validate_snapshot_structure().is_ok());
+        halted.sp = 1;
+        assert!(halted.validate_snapshot_structure().is_err());
+    }
+
     #[test]
     fn restored_scene_resume_is_atomic_and_consumes_one_cutaway() {
         let mut vm = Machine::default().restored_context();

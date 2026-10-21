@@ -31,6 +31,7 @@ impl Snapshot {
     }
 
     pub fn to_bytes(&self) -> Result<Vec<u8>, Error> {
+        self.state.validate_snapshot_structure()?;
         let payload =
             postcard::to_allocvec(&self.state).map_err(|_| Error("snapshot encode failed"))?;
         if payload.len() > MAX_SAVE_BYTES - HEADER {
@@ -74,6 +75,7 @@ impl Snapshot {
         if !remaining.is_empty() {
             return Err(Error("trailing snapshot data"));
         }
+        state.validate_snapshot_structure()?;
         Ok(Self { asset_id, state })
     }
 

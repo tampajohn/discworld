@@ -25,6 +25,11 @@ All envelope integers are little endian. The maximum complete file is 16 MiB.
 The decoder rejects incorrect sizes, signatures, versions, asset identities,
 checksums, and trailing payload data. The checksum detects corruption; it does
 not authenticate a file or establish semantic validity of decoded engine state.
+Encoding and decoding also check stack/base-pointer bounds, halted/pending-call
+consistency, saved-scene nesting, and idle scheduler state with unique process
+identities and positive sleeps. These checks cover scripts in active processes,
+saved cutaways, and pending scene restoration. They do not yet constitute full
+state or resource validation.
 Changes to serialized field order/types require a format version change or an
 explicit migration. These files are not ScummVM saves.
 
@@ -36,6 +41,14 @@ and active speech/animation through natural completion. The speech test compares
 complete engine state after each resumed tick, including its PCM output.
 Envelope tests reject every single-byte mutation and every truncation of a
 fixture, wrong assets, and trailing data with a recomputed checksum.
+Additional tests reject forged scheduler state with a valid checksum and invalid
+VM stack/pending-call state.
+
+Append `--snapshot-audit` after the interaction-trace argument to `run-headless`
+to check exact snapshot round trips every 1000 ticks, at scene changes, after
+recorded inputs, and at the final tick. Reports include `snapshot_checks` and
+`snapshot_max_bytes`. The audit hashes the supplied ISO as the asset identity;
+it does not activate the decoded state or establish process-relaunch equivalence.
 
 Before exposing load, validate decoded invariants and resource references, with
 atomic failure preserving the current session. Bound decoder allocations as

@@ -269,6 +269,27 @@ fn args(vm: &Machine, n: usize) -> Result<&[i32], Error> {
     .ok_or(Error("engine argument underflow"))
 }
 impl Engine {
+    pub(crate) fn validate_snapshot_structure(&self) -> Result<(), Error> {
+        self.master.validate_snapshot_structure()?;
+        self.processes.validate_snapshot_structure()?;
+        for process in self.processes.states() {
+            process.vm.validate_snapshot_structure()?;
+        }
+        if self.saved_scenes.len() > 4 {
+            return Err(Error("snapshot saved scene nesting limit"));
+        }
+        for saved in self
+            .saved_scenes
+            .iter()
+            .chain(self.scene_restore.iter().map(|restore| &restore.snapshot))
+        {
+            for context in &saved.scripts.contexts {
+                context.vm.validate_snapshot_structure()?;
+            }
+        }
+        Ok(())
+    }
+
     /// Original HASRESTARTED state, set only after a committed game reset.
     pub fn has_restarted(&self) -> bool {
         self.has_restarted
@@ -6899,6 +6920,19 @@ mod tests {
         assert_eq!(
             Snapshot::from_bytes(&trailing, [7; 32]),
             Err(Error("trailing snapshot data"))
+        );
+        // A correct checksum must not permit a mid-dispatch scheduler to load.
+        let mut mid_pass = engine.clone();
+        mid_pass.processes.begin().unwrap();
+        assert!(Snapshot::capture(&mid_pass, [7; 32]).to_bytes().is_err());
+        let payload = postcard::to_allocvec(&mid_pass).unwrap();
+        let mut forged = bytes[..80].to_vec();
+        forged[44..48].copy_from_slice(&(payload.len() as u32).to_le_bytes());
+        forged[48..80].copy_from_slice(&Sha256::digest(&payload));
+        forged.extend_from_slice(&payload);
+        assert_eq!(
+            Snapshot::from_bytes(&forged, [7; 32]),
+            Err(Error("snapshot scheduler is not idle"))
         );
         assert_eq!(engine, Engine::bootstrap(&resources).unwrap());
     }

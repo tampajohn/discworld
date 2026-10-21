@@ -39,6 +39,27 @@ impl<T> Default for Scheduler<T> {
 }
 
 impl<T> Scheduler<T> {
+    /// Runtime snapshots are only valid between complete scheduler passes.
+    pub(crate) fn validate_snapshot_structure(&self) -> Result<(), Error> {
+        if self.running || self.current.is_some() || self.cursor > self.processes.len() {
+            return Err(Error("snapshot scheduler is not idle"));
+        }
+        if self.processes.len() > 1024 || self.dispatches > 10000 || self.next_id == 0 {
+            return Err(Error("invalid snapshot scheduler limits"));
+        }
+        let mut ids = std::collections::BTreeSet::new();
+        for process in &self.processes {
+            if process.id.0 == 0
+                || process.id.0 >= self.next_id
+                || !ids.insert(process.id.0)
+                || process.sleep == 0
+            {
+                return Err(Error("invalid snapshot process identity or sleep"));
+            }
+        }
+        Ok(())
+    }
+
     pub fn current_id(&self) -> Option<ProcessId> {
         self.current
     }
@@ -179,6 +200,36 @@ impl<T> Scheduler<T> {
 #[cfg(test)]
 mod tests {
     use super::*;
+    #[test]
+    fn snapshot_requires_idle_queue_and_unique_bounded_identities() {
+        let mut valid = Scheduler::default();
+        valid.spawn(None, 1).unwrap();
+        valid.spawn(None, 2).unwrap();
+        assert!(valid.validate_snapshot_structure().is_ok());
+        let mut invalid = valid.clone();
+        invalid.processes[1].id = invalid.processes[0].id;
+        assert!(invalid.validate_snapshot_structure().is_err());
+        for id in [0, valid.next_id, u64::MAX] {
+            let mut invalid = valid.clone();
+            invalid.processes[0].id = ProcessId(id);
+            assert!(invalid.validate_snapshot_structure().is_err());
+        }
+        let mut invalid = valid.clone();
+        invalid.processes[0].sleep = 0;
+        assert!(invalid.validate_snapshot_structure().is_err());
+        let mut invalid = valid.clone();
+        invalid.cursor = usize::MAX;
+        assert!(invalid.validate_snapshot_structure().is_err());
+        valid.begin().unwrap();
+        assert!(valid.validate_snapshot_structure().is_err());
+        valid.ready().unwrap();
+        assert!(valid.validate_snapshot_structure().is_err());
+        valid.finish(Some(2)).unwrap();
+        assert!(valid.validate_snapshot_structure().is_err());
+        valid.end_pass().unwrap();
+        assert!(valid.validate_snapshot_structure().is_ok());
+    }
+
     #[test]
     fn spawned_children_run_same_pass_in_reverse_creation_order() {
         let mut q = Scheduler::default();
