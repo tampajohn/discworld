@@ -282,3 +282,19 @@ the Play button to become Pause before tapping: previously a tap could race
 AudioContext resume and be ignored while input was still paused, and merely
 checking changed save bytes did not prove touch delivery. This is one inventory
 gesture, not complete touch or physical-iPad acceptance.
+
+
+Full browser replay revalidated runtime8702043 after the node-exit and inventory
+hover ordering fixes. Chrome156.0.8078.47 (504.338s) and Playwright WebKit27.2
+(534.320s) each accepted all1652 unchanged inputs from startup through credits,
+then restarted to title.scn at2630000. Both complete serialized engine states
+and final RGBA match the corrected native route exactly. Both browser title
+screenshots were inspected. Each generated4,832,625,000 finite audio samples;
+combined DSP saves differ, so cross-platform audio equality is not established.
+Evidence: evidence/{chrome,webkit}-hover-full-ending/{report,native-comparison}.json
+and browser-final.png. The native comparison report combines the measured283
+prefix and1369 continuation inputs in assets/logs/hover-order-native-comparison.json,
+with explicit source/checkpoint provenance. Replay uses the separate
+replay-validation WASM build and accelerated semantic inputs; it does not prove
+a full physical-input route, Web Audio playback or physical iPad acceptance.
+No additional engine changes were needed for these full browser checks.

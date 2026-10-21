@@ -620,3 +620,37 @@ checkpoint139277 was reopened on8702043 as PID16294 with output
 were unavailable and were not claimed preserved. Colored library/pockets
 pixels were inspected in `assets/previews/pointed-order-current-native.png`;
 subsequent user mute selection was left unchanged.
+
+
+Original configuration menus remain an implementation gap. Source mapping for
+next work (pinned ScummVM 96b42d42, engines/tinsel): events.cpp::ProcessKeyEvent
+allows PLR_MENU during startup when ENABLEMENU is set, turning control on;
+otherwise normal control gating applies. dialogs.cpp::openMenu rejects opening
+while another inventory is active in V1 and uses a nonmovable, nonresizable
+INV_CONF window. The English V1 main menu is 6x5 at (72,23), with eight original
+text buttons (Load, Save, Restart, Sound, Controls, Subtitles, Quit, Resume),
+relative x15/y20 plus 15 per row, size145x13. Text comes from the twenty handles
+registered by library call101, already captured as Startup.config_strings,
+and uses the original tag font (dialogs.cpp::addBox), not host UI fonts.
+Sound, controls and subtitles have separate V1 tables; do not substitute V2
+system-string tables or Japanese geometry. Restart confirmation is 4x2 at
+(98,53); its original tick/cross reels have relative positions (70,28)/(30,28).
+Before implementation, trace configuration click/close/reopen behavior, frame
+and highlight rendering, slider settings and save-slot host integration. This
+mapping does not claim that F1 menus or original save slots currently work.
+
+
+Full browser replay revalidated runtime8702043 after the node-exit and inventory
+hover ordering fixes. Chrome156.0.8078.47 (504.338s) and Playwright WebKit27.2
+(534.320s) each accepted all1652 unchanged inputs from startup through credits,
+then restarted to title.scn at2630000. Both complete serialized engine states
+and final RGBA match the corrected native route exactly. Both browser title
+screenshots were inspected. Each generated4,832,625,000 finite audio samples;
+combined DSP saves differ, so cross-platform audio equality is not established.
+Evidence: evidence/{chrome,webkit}-hover-full-ending/{report,native-comparison}.json
+and browser-final.png. The native comparison report combines the measured283
+prefix and1369 continuation inputs in assets/logs/hover-order-native-comparison.json,
+with explicit source/checkpoint provenance. Replay uses the separate
+replay-validation WASM build and accelerated semantic inputs; it does not prove
+a full physical-input route, Web Audio playback or physical iPad acceptance.
+No additional engine changes were needed for these full browser checks.
