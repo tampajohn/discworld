@@ -13,12 +13,12 @@ pub fn word(data: &[u8], offset: usize) -> Result<u32, Error> {
             .unwrap(),
     ))
 }
-#[derive(Debug, Clone, PartialEq, Eq)]
+#[derive(serde::Serialize, serde::Deserialize, Debug, Clone, PartialEq, Eq)]
 pub struct Reel {
     pub object: Handle,
     pub script: Handle,
 }
-#[derive(Debug, Clone, PartialEq, Eq)]
+#[derive(serde::Serialize, serde::Deserialize, Debug, Clone, PartialEq, Eq)]
 pub struct Film {
     pub rate: i32,
     pub reels: Vec<Reel>,
@@ -44,7 +44,7 @@ impl Film {
         Ok(Self { rate, reels })
     }
 }
-#[derive(Debug, Clone, PartialEq, Eq)]
+#[derive(serde::Serialize, serde::Deserialize, Debug, Clone, PartialEq, Eq)]
 pub struct Object {
     pub frame: Handle,
     pub flags: u32,

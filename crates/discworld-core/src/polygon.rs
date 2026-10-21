@@ -7,7 +7,7 @@ use crate::{
     resource::chunks,
 };
 
-#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+#[derive(serde::Serialize, serde::Deserialize, Debug, Clone, Copy, PartialEq, Eq)]
 pub enum Kind {
     Path,
     NodePath,
@@ -18,7 +18,7 @@ pub enum Kind {
     Tag,
 }
 
-#[derive(Debug, Clone, PartialEq, Eq)]
+#[derive(serde::Serialize, serde::Deserialize, Debug, Clone, PartialEq, Eq)]
 pub struct Polygon {
     pub kind: Kind,
     pub corners: [[i32; 2]; 4],
@@ -139,7 +139,7 @@ fn parse(data: &[u8], count: usize) -> Result<Vec<Polygon>, Error> {
 }
 
 /// Runtime geometry uses signed 16-bit coordinates, as CommonInits does in V1.
-#[derive(Debug, Clone, PartialEq, Eq)]
+#[derive(serde::Serialize, serde::Deserialize, Debug, Clone, PartialEq, Eq)]
 pub struct ActivePolygon {
     pub definition: Polygon,
     pub enabled: bool,
@@ -201,7 +201,7 @@ impl ActivePolygon {
     }
 }
 
-#[derive(Debug, Clone, PartialEq, Eq, Default)]
+#[derive(serde::Serialize, serde::Deserialize, Debug, Clone, PartialEq, Eq, Default)]
 pub struct EnabledMemory(std::collections::BTreeMap<(u32, bool, i32), bool>);
 impl EnabledMemory {
     /// V1 remembers tags/exits by polygon table handle and ID across scene visits.
@@ -250,7 +250,7 @@ impl EnabledMemory {
     }
 }
 
-#[derive(Debug, Clone, PartialEq, Eq, Default)]
+#[derive(serde::Serialize, serde::Deserialize, Debug, Clone, PartialEq, Eq, Default)]
 pub struct Polygons {
     pub active: Vec<ActivePolygon>,
     pub default_refer: i32,

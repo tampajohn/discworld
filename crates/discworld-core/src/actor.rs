@@ -26,7 +26,7 @@ pub fn hotspot(bounds: [i64; 4], kind: i32, point: [i64; 2]) -> Result<Option<[i
     )
 }
 
-#[derive(Debug, Clone, PartialEq, Eq)]
+#[derive(serde::Serialize, serde::Deserialize, Debug, Clone, PartialEq, Eq)]
 pub struct Actor {
     pub alive: bool,
     pub hidden: bool,
@@ -36,7 +36,7 @@ pub struct Actor {
     pub script: Handle,
 }
 
-#[derive(Debug, Clone, PartialEq, Eq)]
+#[derive(serde::Serialize, serde::Deserialize, Debug, Clone, PartialEq, Eq)]
 pub struct Actors {
     entries: Vec<Actor>,
     revive_on_entry: bool,

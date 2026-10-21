@@ -1,7 +1,7 @@
 // SPDX-License-Identifier: GPL-3.0-or-later
 //! Pinned ScummVM common/random.cpp generator and V1 tinlib.cpp RandomFn.
 //! The host chooses a seed; the core never consults a platform clock.
-#[derive(Debug, Clone, PartialEq, Eq)]
+#[derive(serde::Serialize, serde::Deserialize, Debug, Clone, PartialEq, Eq)]
 pub struct Random {
     seed: u32,
     last: u32,

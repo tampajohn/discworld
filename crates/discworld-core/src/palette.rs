@@ -7,7 +7,7 @@ use crate::{
 };
 /// Scene palette replacement for the direct-color compositor. Retain unwritten
 /// DAC entries when a replacement is shorter, as V1 SwapPalette does.
-#[derive(Debug, Clone, PartialEq, Eq)]
+#[derive(serde::Serialize, serde::Deserialize, Debug, Clone, PartialEq, Eq)]
 pub struct BackgroundPalette {
     pub handles: Vec<Handle>,
     pub colors: Vec<[u8; 3]>,
@@ -40,7 +40,7 @@ impl BackgroundPalette {
 
 const MOVED: usize = 0x8000;
 
-#[derive(Debug, Clone, PartialEq, Eq)]
+#[derive(serde::Serialize, serde::Deserialize, Debug, Clone, PartialEq, Eq)]
 pub struct Allocation {
     pub handle: Handle,
     pub references: u32,
@@ -55,16 +55,17 @@ impl Allocation {
         self.position & MOVED != 0
     }
 }
-#[derive(Debug, Clone, PartialEq, Eq)]
+#[derive(serde::Serialize, serde::Deserialize, Debug, Clone, PartialEq, Eq)]
 struct Upload {
     position: usize,
     colors: usize,
     handle: Handle,
 }
-#[derive(Debug, Clone, PartialEq, Eq)]
+#[derive(serde::Serialize, serde::Deserialize, Debug, Clone, PartialEq, Eq)]
 pub struct Palettes {
     slots: [Option<Allocation>; 32],
     pending: Vec<Upload>,
+    #[serde(with = "crate::save_array")]
     pub screen: [[u8; 3]; 256],
 }
 impl Default for Palettes {

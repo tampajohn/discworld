@@ -52,21 +52,22 @@ impl<'a> Strings<'a> {
     }
 }
 
-#[derive(Debug, Clone, PartialEq, Eq)]
+#[derive(serde::Serialize, serde::Deserialize, Debug, Clone, PartialEq, Eq)]
 pub struct Font {
     pub x_spacing: i32,
     pub y_spacing: i32,
     pub space: i32,
     pub flags: u32,
+    #[serde(with = "crate::save_array")]
     pub glyphs: [Handle; 256],
 }
-#[derive(Debug, Clone, PartialEq, Eq)]
+#[derive(serde::Serialize, serde::Deserialize, Debug, Clone, PartialEq, Eq)]
 pub struct Glyph {
     pub image: Handle,
     pub x: i32,
     pub y: i32,
 }
-#[derive(Debug, Clone, PartialEq, Eq)]
+#[derive(serde::Serialize, serde::Deserialize, Debug, Clone, PartialEq, Eq)]
 pub struct Layout {
     pub glyphs: Vec<Glyph>,
 }

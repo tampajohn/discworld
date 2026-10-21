@@ -5,7 +5,7 @@ use crate::{
     polygon::{Kind, Polygon},
 };
 
-#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+#[derive(serde::Serialize, serde::Deserialize, Debug, Clone, Copy, PartialEq, Eq)]
 pub struct Projection {
     pub position: [i32; 2],
     /// Segment index for a perpendicular, node index for a selected node.
@@ -387,20 +387,20 @@ mod tests {
 
 /// Node traversal state corresponding to V1 npstatus and line. The caller owns
 /// path identity, ultimate destination, animation, collision, and scheduling.
-#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+#[derive(serde::Serialize, serde::Deserialize, Debug, Clone, Copy, PartialEq, Eq)]
 pub enum TravelStatus {
     Entering,
     GoingUp,
     GoingDown,
     Leaving,
 }
-#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+#[derive(serde::Serialize, serde::Deserialize, Debug, Clone, Copy, PartialEq, Eq)]
 pub struct Travel {
     pub line: usize,
     pub status: TravelStatus,
     pub overshoot: bool,
 }
-#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+#[derive(serde::Serialize, serde::Deserialize, Debug, Clone, Copy, PartialEq, Eq)]
 pub enum Steering {
     Move {
         position: [i32; 2],

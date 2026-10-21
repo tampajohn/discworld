@@ -5,14 +5,14 @@ use crate::{
     graphics::{Handle, Resources},
     iso::Error,
 };
-#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+#[derive(serde::Serialize, serde::Deserialize, Debug, Clone, Copy, PartialEq, Eq)]
 pub enum Tick {
     Waiting,
     Frame,
     Hidden,
     Finished,
 }
-#[derive(Debug, Clone, PartialEq, Eq)]
+#[derive(serde::Serialize, serde::Deserialize, Debug, Clone, PartialEq, Eq)]
 pub struct ReelSource {
     pub film: Handle,
     pub column: usize,
@@ -21,7 +21,7 @@ pub struct ReelSource {
     pub depth: i32,
 }
 
-#[derive(Debug, Clone, PartialEq, Eq)]
+#[derive(serde::Serialize, serde::Deserialize, Debug, Clone, PartialEq, Eq)]
 pub struct Animation {
     pub source: Option<ReelSource>,
     /// FIELD_STATUS uses screen coordinates, independently of world scrolling.

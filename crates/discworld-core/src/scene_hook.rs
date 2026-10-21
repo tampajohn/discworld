@@ -2,7 +2,7 @@
 //! Single-disc V1 scene interception from pinned tinsel.cpp SetNewScene.
 use crate::{graphics::Handle, iso::Error};
 
-#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+#[derive(serde::Serialize, serde::Deserialize, Debug, Clone, Copy, PartialEq, Eq)]
 pub struct Request {
     pub scene: Handle,
     pub entrance: i32,
@@ -22,7 +22,7 @@ impl Request {
     }
 }
 
-#[derive(Debug, Default, Clone, PartialEq, Eq)]
+#[derive(serde::Serialize, serde::Deserialize, Debug, Default, Clone, PartialEq, Eq)]
 pub struct Hooks {
     hook: Option<Request>,
     delayed: Option<Request>,

@@ -2,7 +2,7 @@
 //! V1 player-control modes from tinlib.cpp Control and cursor.cpp.
 use crate::iso::Error;
 
-#[derive(Debug, Clone, PartialEq, Eq)]
+#[derive(serde::Serialize, serde::Deserialize, Debug, Clone, PartialEq, Eq)]
 pub struct Control {
     pub enabled: bool,
     pub hidden: bool,

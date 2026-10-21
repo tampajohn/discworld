@@ -9,7 +9,7 @@ use crate::{
 };
 use std::collections::BTreeMap;
 
-#[derive(Debug, Clone, PartialEq, Eq)]
+#[derive(serde::Serialize, serde::Deserialize, Debug, Clone, PartialEq, Eq)]
 pub struct Window {
     pub title: Handle,
     pub capacity: i32,
@@ -21,20 +21,20 @@ pub struct Window {
     pub first_display: usize,
     pub contents: Vec<i32>,
 }
-#[derive(Debug, Clone, PartialEq, Eq)]
+#[derive(serde::Serialize, serde::Deserialize, Debug, Clone, PartialEq, Eq)]
 pub struct Lead {
     pub id: i32,
     pub text: Handle,
     pub tagged: bool,
 }
-#[derive(Debug, Clone, PartialEq, Eq)]
+#[derive(serde::Serialize, serde::Deserialize, Debug, Clone, PartialEq, Eq)]
 pub struct ScalingReels {
     pub actor: i32,
     pub scale: i32,
     pub direction: i32,
     pub reels: [Handle; 4],
 }
-#[derive(Debug, Clone, Default, PartialEq, Eq)]
+#[derive(serde::Serialize, serde::Deserialize, Debug, Clone, Default, PartialEq, Eq)]
 pub struct Declarations {
     pub cursor: Option<(Handle, Film)>,
     pub windows: [Option<Window>; 3],

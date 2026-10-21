@@ -7,13 +7,13 @@ use crate::{
 };
 
 /// V1 CurrentMidiFacts, separate from the active sequencer position.
-#[derive(Debug, Clone, Copy, Default, PartialEq, Eq)]
+#[derive(serde::Serialize, serde::Deserialize, Debug, Clone, Copy, Default, PartialEq, Eq)]
 pub struct MidiFacts {
     pub offset: u32,
     pub repeat: bool,
 }
 
-#[derive(Debug, Clone, Default, PartialEq, Eq)]
+#[derive(serde::Serialize, serde::Deserialize, Debug, Clone, Default, PartialEq, Eq)]
 pub struct MusicPlayer {
     sequence: Option<Sequencer>,
     base: u64,

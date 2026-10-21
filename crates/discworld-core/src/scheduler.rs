@@ -4,10 +4,10 @@
 //! Explicit reschedule/giveWay and event objects are not implemented yet.
 use crate::iso::Error;
 
-#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+#[derive(serde::Serialize, serde::Deserialize, Debug, Clone, Copy, PartialEq, Eq)]
 pub struct ProcessId(u64);
 
-#[derive(Debug, Clone, PartialEq, Eq)]
+#[derive(serde::Serialize, serde::Deserialize, Debug, Clone, PartialEq, Eq)]
 struct Process<T> {
     id: ProcessId,
     scene: Option<u64>,
@@ -15,7 +15,7 @@ struct Process<T> {
     state: T,
 }
 
-#[derive(Debug, Clone, PartialEq, Eq)]
+#[derive(serde::Serialize, serde::Deserialize, Debug, Clone, PartialEq, Eq)]
 pub struct Scheduler<T> {
     processes: Vec<Process<T>>,
     next_id: u64,

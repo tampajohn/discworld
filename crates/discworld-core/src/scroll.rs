@@ -1,7 +1,7 @@
 // SPDX-License-Identifier: GPL-3.0-or-later
 //! Scripted V1 scrolling from pinned scroll.cpp and tinlib.cpp.
 use crate::iso::Error;
-#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+#[derive(serde::Serialize, serde::Deserialize, Debug, Clone, Copy, PartialEq, Eq)]
 pub enum CameraDirection {
     Left,
     Right,
@@ -10,7 +10,7 @@ pub enum CameraDirection {
 }
 
 /// Scene-local V1 NOSCROLL lines. Coordinates retain their supplied order.
-#[derive(Debug, Clone, PartialEq, Eq, Default)]
+#[derive(serde::Serialize, serde::Deserialize, Debug, Clone, PartialEq, Eq, Default)]
 pub struct Boundaries {
     vertical: Vec<[i32; 3]>,
     horizontal: Vec<[i32; 3]>,
@@ -49,7 +49,7 @@ impl Boundaries {
         })
     }
 }
-#[derive(Debug, Clone, PartialEq, Eq, Default)]
+#[derive(serde::Serialize, serde::Deserialize, Debug, Clone, PartialEq, Eq, Default)]
 pub struct Scroll {
     pub serial: u64,
     pub boundaries: Boundaries,

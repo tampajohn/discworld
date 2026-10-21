@@ -5,7 +5,7 @@ use crate::iso::Error;
 
 const STACK_SIZE: usize = 128;
 
-#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+#[derive(serde::Serialize, serde::Deserialize, Debug, Clone, Copy, PartialEq, Eq)]
 pub struct Instruction {
     pub opcode: u8,
     pub operand: Option<i32>,
@@ -50,14 +50,14 @@ pub fn decode(code: &[u8], ip: usize) -> Result<Instruction, Error> {
     })
 }
 
-#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+#[derive(serde::Serialize, serde::Deserialize, Debug, Clone, Copy, PartialEq, Eq)]
 pub struct LibraryCall {
     pub id: i32,
     pub instruction: usize,
     pub next: usize,
 }
 
-#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+#[derive(serde::Serialize, serde::Deserialize, Debug, Clone, Copy, PartialEq, Eq)]
 pub enum Step {
     Continue,
     Library(LibraryCall),
@@ -66,7 +66,7 @@ pub enum Step {
 
 /// V1 interpreter resume states used by SAVESCENE/NEWSCENE. Unlike V2,
 /// RES_1 survives unrelated library calls until explicitly consumed.
-#[derive(Debug, Clone, Copy, Default, PartialEq, Eq)]
+#[derive(serde::Serialize, serde::Deserialize, Debug, Clone, Copy, Default, PartialEq, Eq)]
 enum SceneResume {
     #[default]
     Normal,
@@ -75,8 +75,9 @@ enum SceneResume {
 }
 
 /// Explicit state can be copied for snapshots; a durable save format is still pending.
-#[derive(Debug, Clone, PartialEq, Eq)]
+#[derive(serde::Serialize, serde::Deserialize, Debug, Clone, PartialEq, Eq)]
 pub struct Machine {
+    #[serde(with = "crate::save_array")]
     stack: [i32; STACK_SIZE],
     sp: usize,
     bp: usize,

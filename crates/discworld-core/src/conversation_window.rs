@@ -9,7 +9,7 @@ use crate::{
     startup::Window,
 };
 
-#[derive(Debug, Clone, PartialEq, Eq)]
+#[derive(serde::Serialize, serde::Deserialize, Debug, Clone, PartialEq, Eq)]
 pub struct Layout {
     /// Original window-parts reel index and animation origin, in draw order.
     pub parts: Vec<(usize, [i32; 2])>,
@@ -18,7 +18,7 @@ pub struct Layout {
     pub icons: Vec<[i32; 2]>,
     pub scrollbar: Option<Scrollbar>,
 }
-#[derive(Debug, Clone, PartialEq, Eq)]
+#[derive(serde::Serialize, serde::Deserialize, Debug, Clone, PartialEq, Eq)]
 pub struct Scrollbar {
     pub top: i32,
     pub right: i32,
@@ -211,7 +211,7 @@ impl Layout {
         })
     }
 }
-#[derive(Debug, Clone, PartialEq, Eq)]
+#[derive(serde::Serialize, serde::Deserialize, Debug, Clone, PartialEq, Eq)]
 pub struct Frame {
     pub layout: Layout,
     pub parts: Vec<Animation>,
@@ -297,12 +297,12 @@ impl Frame {
 
 /// Initial visible page of conversation topics. Scrolling and window lifecycle
 /// belong to the inventory controller; rebuilding starts each icon script anew.
-#[derive(Debug, Clone, PartialEq, Eq)]
+#[derive(serde::Serialize, serde::Deserialize, Debug, Clone, PartialEq, Eq)]
 pub struct Content {
     pub title: crate::text::Layout,
     pub icons: Vec<Topic>,
 }
-#[derive(Debug, Clone, PartialEq, Eq)]
+#[derive(serde::Serialize, serde::Deserialize, Debug, Clone, PartialEq, Eq)]
 pub struct Topic {
     pub slot: usize,
     pub id: i32,

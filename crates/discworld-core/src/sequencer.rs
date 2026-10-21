@@ -3,13 +3,13 @@
 use crate::{iso::Error, music};
 use std::collections::BTreeMap;
 
-#[derive(Debug, Clone, PartialEq, Eq)]
+#[derive(serde::Serialize, serde::Deserialize, Debug, Clone, PartialEq, Eq)]
 pub struct Message {
     pub tick: u64,
     pub status: u8,
     pub data: Vec<u8>,
 }
-#[derive(Debug, Clone, PartialEq, Eq)]
+#[derive(serde::Serialize, serde::Deserialize, Debug, Clone, PartialEq, Eq)]
 struct Event {
     delta: u32,
     status: u8,
@@ -17,12 +17,12 @@ struct Event {
     meta: Option<u8>,
     duration: Option<u32>,
 }
-#[derive(Debug, Clone, PartialEq, Eq)]
+#[derive(serde::Serialize, serde::Deserialize, Debug, Clone, PartialEq, Eq)]
 struct Loop {
     start: usize,
     remaining: u8,
 }
-#[derive(Debug, Clone, PartialEq, Eq)]
+#[derive(serde::Serialize, serde::Deserialize, Debug, Clone, PartialEq, Eq)]
 pub struct Sequencer {
     events: Vec<Event>,
     index: usize,

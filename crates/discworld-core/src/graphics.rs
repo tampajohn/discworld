@@ -3,7 +3,7 @@
 // See NOTICE for attribution and the pinned reference.
 use crate::iso::Error;
 
-#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+#[derive(serde::Serialize, serde::Deserialize, Debug, Clone, Copy, PartialEq, Eq)]
 pub struct Handle(pub u32);
 impl Handle {
     pub fn resource(self) -> usize {
@@ -34,7 +34,7 @@ fn word(data: &[u8], offset: usize) -> Result<u32, Error> {
     ))
 }
 
-#[derive(Debug, Clone, PartialEq, Eq)]
+#[derive(serde::Serialize, serde::Deserialize, Debug, Clone, PartialEq, Eq)]
 pub struct Image {
     pub width: u16,
     pub height: u16,
@@ -62,7 +62,7 @@ impl Image {
     }
 }
 
-#[derive(Debug, PartialEq, Eq)]
+#[derive(serde::Serialize, serde::Deserialize, Debug, PartialEq, Eq)]
 pub struct IndexedImage {
     pub width: usize,
     pub height: usize,

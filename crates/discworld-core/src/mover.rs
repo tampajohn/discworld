@@ -7,7 +7,7 @@ use crate::{
     startup::Declarations,
 };
 
-#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+#[derive(serde::Serialize, serde::Deserialize, Debug, Clone, Copy, PartialEq, Eq)]
 pub enum Direction {
     Left,
     Right,
@@ -34,7 +34,7 @@ impl Direction {
         }
     }
 }
-#[derive(Debug, Clone, PartialEq, Eq)]
+#[derive(serde::Serialize, serde::Deserialize, Debug, Clone, PartialEq, Eq)]
 pub struct Placement {
     pub actor: i32,
     pub position: [i32; 2],
@@ -126,7 +126,7 @@ impl Placement {
     }
 }
 /// Persistent mover object; standing changes only its animation script.
-#[derive(Debug, Clone, PartialEq, Eq)]
+#[derive(serde::Serialize, serde::Deserialize, Debug, Clone, PartialEq, Eq)]
 pub struct Mover {
     /// V1 hLastFilm: last selected reel film, including walking and talking.
     pub last_film: Handle,
@@ -144,7 +144,7 @@ pub struct Mover {
     pub no_path: bool,
     pub constrained_walk: bool,
 }
-#[derive(Debug, Clone, PartialEq, Eq)]
+#[derive(serde::Serialize, serde::Deserialize, Debug, Clone, PartialEq, Eq)]
 pub struct NodeWalk {
     difficulty: u8,
     pub intermediate: [i32; 2],

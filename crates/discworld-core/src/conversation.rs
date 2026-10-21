@@ -3,7 +3,7 @@
 //! Rendering and CONVERSE scheduling are engine responsibilities.
 use crate::{iso::Error, startup::Window};
 
-#[derive(Debug, Clone, Default, PartialEq, Eq)]
+#[derive(serde::Serialize, serde::Deserialize, Debug, Clone, Default, PartialEq, Eq)]
 pub struct Conversation {
     pub polygon: Option<usize>,
     /// SCANICON: -2 for the preamble, -1 for the postamble, otherwise item ID.

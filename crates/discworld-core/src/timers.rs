@@ -3,7 +3,7 @@
 //! Advance once after script scheduling, independent of host wall-clock time.
 use crate::iso::Error;
 
-#[derive(Debug, Clone, Copy, Default, PartialEq, Eq)]
+#[derive(serde::Serialize, serde::Deserialize, Debug, Clone, Copy, Default, PartialEq, Eq)]
 struct Timer {
     id: i32,
     ticks: i32,
@@ -12,7 +12,7 @@ struct Timer {
     frames: bool,
 }
 
-#[derive(Debug, Clone, Default, PartialEq, Eq)]
+#[derive(serde::Serialize, serde::Deserialize, Debug, Clone, Default, PartialEq, Eq)]
 pub struct Timers([Timer; 16]);
 impl Timers {
     pub fn start(&mut self, id: i32, start: i32, up: bool, frames: bool) -> Result<(), Error> {

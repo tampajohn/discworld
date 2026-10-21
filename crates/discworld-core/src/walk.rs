@@ -3,13 +3,13 @@
 //! Routing, collision response, and scheduling are separate from these calculations.
 use crate::{iso::Error, mover::Direction};
 
-#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+#[derive(serde::Serialize, serde::Deserialize, Debug, Clone, Copy, PartialEq, Eq)]
 pub enum Restriction {
     LeavingPath,
     EnteringBlock(usize),
     EnteringMover(i32),
 }
-#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+#[derive(serde::Serialize, serde::Deserialize, Debug, Clone, Copy, PartialEq, Eq)]
 pub struct ConstrainedStep {
     pub position: [i32; 2],
     pub target: [i32; 2],
@@ -135,7 +135,7 @@ fn constrain(
 
 /// Geometry used by V1 InMoverBlock. Supply active movers in declaration order;
 /// hidden movers still block. Sprite top/bottom do not participate in this test.
-#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+#[derive(serde::Serialize, serde::Deserialize, Debug, Clone, Copy, PartialEq, Eq)]
 pub struct Footprint {
     pub actor: i32,
     pub position: [i32; 2],
@@ -221,7 +221,7 @@ fn step_sizes(from: [i32; 2], target: [i32; 2], force_minor: bool) -> ([i64; 2],
 
 /// V1 NewCoOrdinates inputs for an intermediate or final leg. An axis set to
 /// -1 is disabled, and arrival can change either axis to -1 or to an overshoot.
-#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+#[derive(serde::Serialize, serde::Deserialize, Debug, Clone, Copy, PartialEq, Eq)]
 pub struct Leg {
     pub target: [i32; 2],
     pub ultimate: [i32; 2],

@@ -3,13 +3,13 @@
 use crate::graphics::Handle;
 use std::collections::BTreeMap;
 
-#[derive(Debug, Clone, PartialEq, Eq, Default)]
+#[derive(serde::Serialize, serde::Deserialize, Debug, Clone, PartialEq, Eq, Default)]
 struct ActorFilms {
     latest: Option<Handle>,
     normal: Option<Handle>,
     talk: Option<Handle>,
 }
-#[derive(Debug, Clone, PartialEq, Eq, Default)]
+#[derive(serde::Serialize, serde::Deserialize, Debug, Clone, PartialEq, Eq, Default)]
 pub struct Playback(BTreeMap<i32, ActorFilms>);
 impl Playback {
     /// NewestFilm runs when a film is scheduled, before its reel processes start.

@@ -41,7 +41,7 @@ impl<'a> SampleBank<'a> {
         ))
     }
 }
-#[derive(Debug, Clone, Default, PartialEq, Eq)]
+#[derive(serde::Serialize, serde::Deserialize, Debug, Clone, Default, PartialEq, Eq)]
 pub struct SamplePlayer {
     pub serial: u64,
     pub id: Option<i32>,

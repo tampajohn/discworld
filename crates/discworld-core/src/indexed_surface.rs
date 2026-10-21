@@ -3,8 +3,9 @@
 //! destination indices survive drawing and can be remapped by WrtTrans.
 use crate::{compositor::Surface, graphics::IndexedImage, iso::Error};
 
-#[derive(Debug, Clone, PartialEq, Eq)]
+#[derive(serde::Serialize, serde::Deserialize, Debug, Clone, PartialEq, Eq)]
 pub struct Translucency {
+    #[serde(with = "crate::save_array")]
     pub lookup: [u8; 256],
 }
 impl Default for Translucency {
@@ -29,7 +30,7 @@ impl Translucency {
     }
 }
 
-#[derive(Debug, Clone, PartialEq, Eq)]
+#[derive(serde::Serialize, serde::Deserialize, Debug, Clone, PartialEq, Eq)]
 pub struct IndexedSurface {
     width: usize,
     height: usize,

@@ -7,7 +7,7 @@ use crate::{
     iso::Error,
 };
 
-#[derive(Debug, Clone, PartialEq, Eq)]
+#[derive(serde::Serialize, serde::Deserialize, Debug, Clone, PartialEq, Eq)]
 pub struct Surface {
     pub width: usize,
     pub height: usize,
@@ -16,10 +16,11 @@ pub struct Surface {
     scene_palette: Option<crate::palette::BackgroundPalette>,
 }
 
-#[derive(Debug, Clone, PartialEq, Eq)]
+#[derive(serde::Serialize, serde::Deserialize, Debug, Clone, PartialEq, Eq)]
 struct Backdrop {
     indices: IndexedSurface,
     table: Translucency,
+    #[serde(with = "crate::save_array")]
     palette: [[u8; 3]; 256],
 }
 impl Surface {

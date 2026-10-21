@@ -9,7 +9,7 @@ use crate::{
 use std::collections::BTreeMap;
 
 /// Resolved original inventory navigation, shared by all hosts.
-#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+#[derive(serde::Serialize, serde::Deserialize, Debug, Clone, Copy, PartialEq, Eq)]
 pub enum Scroll {
     Up,
     Down,
@@ -193,7 +193,7 @@ pub fn which(windows: &[Option<crate::startup::Window>; 3], held: i32, item: i32
     -1
 }
 
-#[derive(Debug, Clone, PartialEq, Eq)]
+#[derive(serde::Serialize, serde::Deserialize, Debug, Clone, PartialEq, Eq)]
 pub struct Object {
     pub id: i32,
     pub film: Handle,
@@ -201,7 +201,7 @@ pub struct Object {
     pub attributes: u32,
 }
 
-#[derive(Debug, Clone, PartialEq, Eq)]
+#[derive(serde::Serialize, serde::Deserialize, Debug, Clone, PartialEq, Eq)]
 pub struct HeldCursor {
     pub animation: crate::animation::Animation,
     pub offset: [i32; 2],

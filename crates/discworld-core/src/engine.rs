@@ -15,27 +15,27 @@ use crate::{
     startup::Declarations,
 };
 
-#[derive(Debug, Clone, PartialEq, Eq)]
+#[derive(serde::Serialize, serde::Deserialize, Debug, Clone, PartialEq, Eq)]
 pub enum Status {
     Running,
     Unsupported(LibraryCall),
     Halted,
 }
 /// Original V1 EVENT values for resolved player interactions.
-#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+#[derive(serde::Serialize, serde::Deserialize, Debug, Clone, Copy, PartialEq, Eq)]
 #[repr(i32)]
 pub enum PolygonInteraction {
     WalkTo = 1,
     Action = 2,
     Look = 3,
 }
-#[derive(Debug, Clone, PartialEq, Eq)]
+#[derive(serde::Serialize, serde::Deserialize, Debug, Clone, PartialEq, Eq)]
 struct KeyWait {
     call: LibraryCall,
     events: u64,
     cursor: [i32; 2],
 }
-#[derive(Debug, Clone, PartialEq, Eq)]
+#[derive(serde::Serialize, serde::Deserialize, Debug, Clone, PartialEq, Eq)]
 struct PrintWait {
     inventory: bool,
     restore_control: bool,
@@ -47,7 +47,7 @@ struct PrintWait {
     timeout: u32,
     left_events: u64,
 }
-#[derive(Debug, Clone, PartialEq, Eq)]
+#[derive(serde::Serialize, serde::Deserialize, Debug, Clone, PartialEq, Eq)]
 struct TalkWait {
     mover_saved: Option<Handle>,
     call: LibraryCall,
@@ -63,7 +63,7 @@ struct TalkWait {
     restore_control: bool,
     restore_tags: bool,
 }
-#[derive(Debug, Clone, PartialEq, Eq)]
+#[derive(serde::Serialize, serde::Deserialize, Debug, Clone, PartialEq, Eq)]
 struct ScriptProcess {
     walked_wait: Option<WalkedWait>,
     restored_context: bool,
@@ -121,7 +121,7 @@ impl ScriptProcess {
     }
 }
 
-#[derive(Debug, Clone, PartialEq, Eq)]
+#[derive(serde::Serialize, serde::Deserialize, Debug, Clone, PartialEq, Eq)]
 struct WalkedWait {
     call: LibraryCall,
     actor: i32,
@@ -132,13 +132,13 @@ struct WalkedWait {
 
 /// Interpreter-only scene state. Host waits, animations, and scheduler sleeps
 /// are rebuilt rather than resumed from their old coroutine locals.
-#[derive(Debug, Clone, PartialEq, Eq)]
+#[derive(serde::Serialize, serde::Deserialize, Debug, Clone, PartialEq, Eq)]
 pub struct SceneScripts {
     scene: Handle,
     contexts: Vec<SavedScript>,
 }
 
-#[derive(Debug, Clone, PartialEq, Eq)]
+#[derive(serde::Serialize, serde::Deserialize, Debug, Clone, PartialEq, Eq)]
 struct SavedScript {
     code: Handle,
     vm: Machine,
@@ -150,14 +150,14 @@ struct SavedScript {
 }
 
 /// V1 SaveMovers records reel banks even for movers absent from this scene.
-#[derive(Debug, Clone, PartialEq, Eq)]
+#[derive(serde::Serialize, serde::Deserialize, Debug, Clone, PartialEq, Eq)]
 pub struct SceneMovers {
     scene: Handle,
     banks: std::collections::BTreeMap<i32, [[Handle; 12]; 10]>,
     active: Vec<(i32, [i32; 2], Handle)>,
 }
 
-#[derive(Debug, Clone, PartialEq, Eq)]
+#[derive(serde::Serialize, serde::Deserialize, Debug, Clone, PartialEq, Eq)]
 pub struct SceneSnapshot {
     scripts: SceneScripts,
     movers: SceneMovers,
@@ -171,20 +171,20 @@ pub struct SceneSnapshot {
     music: crate::music_player::MidiFacts,
 }
 
-#[derive(Debug, Clone, PartialEq, Eq)]
+#[derive(serde::Serialize, serde::Deserialize, Debug, Clone, PartialEq, Eq)]
 struct SceneRestore {
     snapshot: SceneSnapshot,
     remaining: u8,
     fade: bool,
 }
-#[derive(Debug, Clone, PartialEq, Eq)]
+#[derive(serde::Serialize, serde::Deserialize, Debug, Clone, PartialEq, Eq)]
 pub struct SceneCall {
     pub tick: u64,
     pub script: Handle,
     pub call: LibraryCall,
     pub operands: Vec<i32>,
 }
-#[derive(Debug, Clone, PartialEq, Eq)]
+#[derive(serde::Serialize, serde::Deserialize, Debug, Clone, PartialEq, Eq)]
 pub struct Engine {
     saved_scenes: Vec<SceneSnapshot>,
     scene_restore: Option<SceneRestore>,
@@ -4178,6 +4178,20 @@ mod tests {
             engine.declarations.windows[2].as_ref().unwrap().contents,
             [10, 11, 284, 12]
         );
+        let bytes = crate::save::Snapshot::capture(&engine, [7; 32])
+            .to_bytes()
+            .unwrap();
+        let decoded = crate::save::Snapshot::from_bytes(&bytes, [7; 32]).unwrap();
+        assert_eq!(decoded.state(), &engine);
+        let mut restored = decoded.state().clone();
+        engine.last_interaction_tick = None;
+        restored.last_interaction_tick = None;
+        for instance in [&mut engine, &mut restored] {
+            instance
+                .interact_inventory(&resources, 0, PolygonInteraction::WalkTo)
+                .unwrap();
+        }
+        assert_eq!(restored, engine);
     }
 
     #[test]
@@ -6788,12 +6802,25 @@ mod tests {
         }
         assert!(!engine.control.tags_enabled);
         assert!(engine.sample_player.id.is_some());
+        let bytes = crate::save::Snapshot::capture(&engine, [7; 32])
+            .to_bytes()
+            .unwrap();
+        let decoded = crate::save::Snapshot::from_bytes(&bytes, [7; 32]).unwrap();
+        assert_eq!(decoded.state(), &engine);
+        let mut resumed = decoded.state().clone();
         let mut natural = engine.clone();
         let mut status = Status::Running;
         for _ in 0..12 {
             status = natural
                 .tick_content(&resources, Some(&bank), None, Some(&strings))
                 .unwrap();
+            assert_eq!(
+                resumed
+                    .tick_content(&resources, Some(&bank), None, Some(&strings))
+                    .unwrap(),
+                status
+            );
+            assert_eq!(resumed, natural);
             if status == Status::Halted {
                 break;
             }
@@ -6827,13 +6854,55 @@ mod tests {
         let mut engine = Engine::bootstrap(&resources).unwrap();
         assert_eq!(engine.scene, Handle(1 << 23));
         assert_eq!(engine.tick(&resources).unwrap(), Status::Running);
-        let mut restored = engine.clone();
+        let snapshot = crate::save::Snapshot::capture(&engine, [7; 32]);
+        let bytes = snapshot.to_bytes().unwrap();
+        let decoded = crate::save::Snapshot::from_bytes(&bytes, [7; 32]).unwrap();
+        assert_eq!(decoded, snapshot);
+        assert_eq!(decoded.tick(), engine.ticks);
+        assert_eq!(decoded.to_bytes().unwrap(), bytes);
+        let mut restored = decoded.state().clone();
         assert_eq!(restored.tick(&resources).unwrap(), Status::Running);
         assert_eq!(restored.tick(&resources).unwrap(), Status::Halted);
         engine.tick(&resources).unwrap();
         engine.tick(&resources).unwrap();
         assert_eq!(restored, engine);
     }
+    #[test]
+    fn snapshot_envelope_rejects_corruption_truncation_wrong_assets_and_trailing_data() {
+        use crate::save::Snapshot;
+        use sha2::{Digest, Sha256};
+        let (master, scene) = fixtures();
+        let resources = Resources(vec![&master, &scene]);
+        let engine = Engine::bootstrap(&resources).unwrap();
+        let bytes = Snapshot::capture(&engine, [7; 32]).to_bytes().unwrap();
+        for end in 0..bytes.len() {
+            assert!(Snapshot::from_bytes(&bytes[..end], [7; 32]).is_err());
+        }
+        for index in 0..bytes.len() {
+            let mut corrupted = bytes.clone();
+            corrupted[index] ^= 1;
+            assert!(
+                Snapshot::from_bytes(&corrupted, [7; 32]).is_err(),
+                "byte {index}"
+            );
+        }
+        assert_eq!(
+            Snapshot::from_bytes(&bytes, [8; 32]),
+            Err(Error("save belongs to different game assets"))
+        );
+        let mut trailing = bytes.clone();
+        trailing.push(0);
+        let payload_len = trailing.len() - 80;
+        trailing[44..48].copy_from_slice(&(payload_len as u32).to_le_bytes());
+        let digest = Sha256::digest(&trailing[80..]);
+        trailing[48..80].copy_from_slice(&digest);
+        assert_eq!(
+            Snapshot::from_bytes(&trailing, [7; 32]),
+            Err(Error("trailing snapshot data"))
+        );
+        assert_eq!(engine, Engine::bootstrap(&resources).unwrap());
+    }
+
     #[test]
     fn failed_scene_execution_is_atomic() {
         let (master, mut scene) = fixtures();
