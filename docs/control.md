@@ -596,3 +596,27 @@ exact stopped133103 progress; subsequent refresh preserved current library state
 and the user's sound-on preference. Native hover scratch input was deferred
 because the user was actively playing; browser and shared-engine pixel checks
 provide label evidence without interfering with that session.
+
+
+8702043 verification completed: all18 Chrome/WebKit player tests and two clock
+checks pass (`assets/logs/hover-order-browser.log`), along with final Clippy.
+Both browsers' new label exports pass the original-font pixel, suppression,
+redisplay and save/DSP continuation test when loaded natively
+(`assets/logs/{chrome,webkit}-pointed-order-crossload.log`). WebKit's actual
+Banana label screenshot was inspected. The complete unchanged1652-input route
+passes in two continuous segments:283 inputs from0 to612000, followed by1369
+from that exact save to2630000. Every input reports Ok(true), final scene is
+Title, status Running, has_restarted=true, and the final title image was
+inspected. Reports are `assets/logs/hover-order-arch-diagnostic.json` and
+`assets/logs/hover-order-full-ending.json`; final save/image are
+`assets/saves/hover-order-full-ending.dws` and
+`assets/previews/hover-order-full-ending.png`. This revalidates the recorded
+native route after hover/node changes, not a complete physical-input route,
+new full-browser route or physical iPad acceptance.
+
+The user's previous native window closed normally at139628; its last saved
+checkpoint139277 was reopened on8702043 as PID16294 with output
+`assets/saves/playable-inventory-pointed-order.dws`. The final351 unsaved ticks
+were unavailable and were not claimed preserved. Colored library/pockets
+pixels were inspected in `assets/previews/pointed-order-current-native.png`;
+subsequent user mute selection was left unchanged.
