@@ -2,7 +2,7 @@
 
 A work-in-progress replacement for the **Tinsel 1** engine that runs the original **Discworld English DOS CD v2** assets and scripts. The goal is the complete game, from opening to credits, on native macOS and a shared browser/WebAssembly engine, ultimately playable on an iPad in landscape with touch controls.
 
-**Currently:** a runnable macOS development host and a reproducible playthrough that completes Acts I–III and reaches Act IV and acquires the caged dragon. **Not yet:** a complete game, browser player, iPad release, or persistent save/load. This is an independent compatibility project, informed by a pinned ScummVM reference, not an official release or a clean-room implementation.
+**Currently:** a runnable macOS development host and a reproducible playthrough that completes Acts I–III and reaches Act IV and fully fuels the dragon. **Not yet:** a complete game, browser player, iPad release, or persistent save/load. This is an independent compatibility project, informed by a pinned ScummVM reference, not an official release or a clean-room implementation.
 
 ![Scenes rendered by the Rust runtime](docs/media/runtime-montage.gif)
 
