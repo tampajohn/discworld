@@ -683,7 +683,8 @@ Confirmation presentation now supports the original Restart/Quit headings
 46..48/40..42 at168,81/128,81. Graphic hit regions exclude all four edges;
 text-button regions remain half-open. ButtonPress models the inventory-process
 coroutine: install normal, sleep1, depressed for2, normal for1, then dispatch
-once; a second press is rejected and cancellation discards the pending action.
+once; a second press is rejected. Full reset discards the pending action,
+but menu closure does not (corrected by the lifecycle audit below).
 The component is not yet attached to engine scheduling, so this verifies its
 relative steps, not exact physical-input scheduling or live restart behavior.
 
@@ -705,6 +706,36 @@ killInventory reopens Main and writes configuration. Clicking a cancel graphic
 instead calls CLOSEWIN/killInventory without setting _reOpenMenu, closing the
 menu entirely. Do not make these two cancellation paths equivalent. AATBUT
 text actions dispatch on the next InventoryProcess pass without ButtonPress;
-AAGBUT/ARSGBUT wait for ButtonPress first. Button effects must be canceled when
-the menu disappears. Host menu wiring and save-slot/settings integration remain
+AAGBUT/ARSGBUT wait for ButtonPress first. Closing the menu removes HL1 but retains the queued action; see the lifecycle
+audit below. Host menu wiring and save-slot/settings integration remain
 required; current live player behavior and save format are unchanged.
+
+
+V1 navigation component (menu_navigation::Navigation) now models idle-inventory
+exclusion, main-menu destinations, delayed text-button dispatch, graphic-button
+requests, and Escape versus explicit close. Escape from any ordinary submenu
+reopens Main and requests a configuration write; CLOSEWIN/outside-click closes
+entirely. Restart closes before emitting a host request; Quit leaves the window
+until the host handles the request. This is a controller component, not yet
+Engine/F1 integration: settings widgets, save-slot handlers, actual event/control
+counters, cursor relocation, rendering lifecycle and snapshot extension remain.
+
+Important correction to the previous cancellation assumption: pinned
+ dialogs.cpp::killInventory does not clear _buttonEffect. ButtonPress checks
+HL1 after the first sleep and the two-tick depressed sleep, returning early
+when the overlay disappeared. InventoryProcess still invokes callFunction
+unconditionally afterward. Therefore pending text/confirmation functions survive
+closing, and confirmation dispatch uses its original page, even if Escape opened
+Main meanwhile. ButtonPress::step now takes actual overlay existence; navigation
+retains the queued origin. Tests cover closure before text dispatch, Escape
+while pressing Restart, global busy-button exclusion, every overlay-removal sleep
+phase, cancel versus Escape, and one-shot request dispatch. Only full component
+reset drops a pending effect. This source-derived edge behavior has not been
+independently exercised in a reference binary; do not substitute an assumed
+cancel-on-close policy during engine integration.
+
+Final checks:273 enabled workspace tests pass and Clippy is clean in
+assets/logs/menu-navigation-{workspace,clippy}-final.log. Early tests caught a
+missing queued-origin assignment; the final tests require a Restart request
+after returning to Main and pass. No live engine, save-format or host behavior
+changed in this increment.

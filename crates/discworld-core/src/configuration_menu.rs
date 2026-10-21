@@ -33,7 +33,8 @@ pub enum ButtonImage {
 
 /// ButtonPress coroutine, advanced by the inventory process. The first step
 /// installs normal, then sleeps 1/2/1 ticks before dispatching the choice.
-/// Closing a menu must discard this pending effect rather than dispatch it.
+/// Removing HL1 ends the coroutine early after its first or second sleep;
+/// InventoryProcess still calls the queued function. Only a full reset cancels it.
 #[derive(Debug, Clone, PartialEq, Eq, Default)]
 pub struct ButtonPress {
     pending: Option<(Choice, u8)>,
@@ -46,12 +47,15 @@ impl ButtonPress {
         self.pending = Some((choice, 0));
         true
     }
-    pub fn cancel(&mut self) {
+    pub fn reset(&mut self) {
         self.pending = None;
     }
-    pub fn step(&mut self) -> Option<Choice> {
+    pub fn pending(&self) -> bool {
+        self.pending.is_some()
+    }
+    pub fn step(&mut self, overlay_exists: bool) -> Option<Choice> {
         let (choice, age) = self.pending.as_mut()?;
-        if *age == 4 {
+        if *age == 4 || (matches!(*age, 1 | 3) && !overlay_exists) {
             let result = *choice;
             self.pending = None;
             return Some(result);
@@ -285,7 +289,7 @@ impl MainMenu {
 mod tests {
     use super::*;
     #[test]
-    fn confirmation_press_waits_and_cancel_never_dispatches() {
+    fn confirmation_press_waits_and_full_reset_discards_effect() {
         let mut press = ButtonPress::default();
         assert!(press.start(Choice::Accept));
         assert!(!press.start(Choice::Cancel));
@@ -296,17 +300,34 @@ mod tests {
             ButtonImage::Down,
             ButtonImage::Normal,
         ] {
-            assert_eq!(press.step(), None);
+            assert_eq!(press.step(true), None);
             assert_eq!(press.image(), Some((Choice::Accept, image)));
         }
-        assert_eq!(press.step(), Some(Choice::Accept));
-        assert_eq!(press.step(), None);
+        assert_eq!(press.step(true), Some(Choice::Accept));
+        assert_eq!(press.step(true), None);
         assert_eq!(press.image(), None);
         assert!(press.start(Choice::Cancel));
-        press.step();
-        press.cancel();
+        press.step(true);
+        press.reset();
         for _ in 0..6 {
-            assert_eq!(press.step(), None);
+            assert_eq!(press.step(true), None);
+        }
+    }
+    #[test]
+    fn deleted_overlay_aborts_animation_but_still_returns_queued_action() {
+        for elapsed in 1..=4 {
+            let mut press = ButtonPress::default();
+            press.start(Choice::Accept);
+            for _ in 0..elapsed {
+                assert_eq!(press.step(true), None);
+            }
+            // The second tick of the depressed-image sleep has no HL1 check.
+            if elapsed == 2 {
+                assert_eq!(press.step(false), None);
+            }
+            assert_eq!(press.step(false), Some(Choice::Accept));
+            assert!(!press.pending());
+            assert_eq!(press.step(false), None);
         }
     }
     #[test]
