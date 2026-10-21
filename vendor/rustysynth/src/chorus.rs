@@ -2,7 +2,7 @@
 
 use std::f64::consts;
 
-#[derive(Debug)]
+#[derive(Clone, Debug)]
 #[non_exhaustive]
 pub(crate) struct Chorus {
     buffer_l: Vec<f32>,

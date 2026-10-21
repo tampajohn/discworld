@@ -3,6 +3,10 @@ use discworld_core::sequencer::Message;
 use rustysynth::{SoundFont, Synthesizer, SynthesizerSettings};
 use std::{io::Cursor, sync::Arc};
 
+/// Cloning captures all DSP state, including active voices, effect buffers and
+/// the partly consumed synthesis block. The immutable SoundFont is shared.
+/// This is an in-memory checkpoint; durable encoding is a separate host concern.
+#[derive(Clone)]
 pub struct MusicOutput {
     synth: Synthesizer,
     sample: u64,
@@ -85,5 +89,72 @@ impl MusicOutput {
             output.extend([l, r]);
         }
         self.sample = end;
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    #[ignore = "requires local TimGM6mb.sf2 or DISCWORLD_TEST_SOUNDFONT"]
+    fn checkpoint_preserves_active_voices_effect_tails_and_partial_blocks() {
+        let path = std::env::var_os("DISCWORLD_TEST_SOUNDFONT")
+            .map(std::path::PathBuf::from)
+            .unwrap_or_else(|| {
+                std::path::Path::new(env!("CARGO_MANIFEST_DIR"))
+                    .join("../../assets/soundfonts/TimGM6mb.sf2")
+            });
+        let font = std::fs::read(path).unwrap();
+        let mut original = MusicOutput::new(&font, 22050).unwrap();
+        let message = |tick, status, data: &[u8]| Message {
+            tick,
+            status,
+            data: data.to_vec(),
+        };
+        let first = original
+            .render(
+                7,
+                &[
+                    message(0, 0xc0, &[0]),
+                    message(0, 0xb0, &[91, 127]),
+                    message(0, 0xb0, &[93, 127]),
+                    message(0, 0xb0, &[64, 127]),
+                    message(0, 0x90, &[60, 100]),
+                    message(2, 0x90, &[67, 95]),
+                ],
+            )
+            .unwrap();
+        assert!(first.iter().any(|sample| sample.abs() > 0.00001));
+        assert_ne!(original.sample % 64, 0, "checkpoint within a synth block");
+        let mut restored = original.clone();
+        for (end, messages) in [
+            (11, vec![message(8, 0xe0, &[0, 80])]),
+            (
+                24,
+                vec![message(12, 0x80, &[60, 0]), message(13, 0x80, &[67, 0])],
+            ),
+            (61, vec![message(25, 0xb0, &[64, 0])]),
+            (125, vec![]),
+            (240, vec![]),
+            (480, vec![]),
+        ] {
+            let a = original.render(end, &messages).unwrap();
+            let b = restored.render(end, &messages).unwrap();
+            assert_eq!(
+                a.iter().map(|v| v.to_bits()).collect::<Vec<_>>(),
+                b.iter().map(|v| v.to_bits()).collect::<Vec<_>>(),
+                "tick {end}"
+            );
+        }
+        // Modifying one branch must not alter another branch's voices/buffers.
+        let mut control = original.clone();
+        restored
+            .render(485, &[message(480, 0x90, &[72, 127])])
+            .unwrap();
+        assert_eq!(
+            original.render(485, &[]).unwrap(),
+            control.render(485, &[]).unwrap()
+        );
     }
 }

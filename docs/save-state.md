@@ -4,6 +4,14 @@ The core has a versioned snapshot codec. It captures the complete owned `Engine`
 at a tick boundary, including suspended scripts, scheduler order, scene and
 cutaway state, inventory, animation, random state, timers, and PCM/music timing.
 External game archives and the host synthesizer/device are not serialized.
+The host `MusicOutput` now supports exact in-memory cloning, including its sample
+clock and all synthesizer DSP state. A real TimGM6mb SoundFont test verifies
+bit-exact continuation through active voices, pitch bend, sustain release,
+effect tails, and a partially consumed block; a separate branch remains
+unaffected by new notes. Run it explicitly with
+`cargo test -p discworld-audio -- --ignored`; supply `DISCWORLD_TEST_SOUNDFONT`
+to use a different local font. The test requires the font and is not silently
+treated as passing when assets are missing. Durable encoding remains unfinished.
 
 This is groundwork for durable player saves. `Snapshot::restore` returns an
 engine after script, audio, polygon, animation and preview checks; the caller
@@ -87,6 +95,13 @@ second full run at `1bf9525` passed the same 5,048 checkpoints with script-refer
 validation (`evidence/headless-ending-snapshot-scripts-audit.json`, exit 0, title
 at 2,630,000). Combined validation is being tested separately. Neither of these
 two earlier runs activates a decoded state or verifies host relaunch.
+
+The full audit at `14e1037` also passed all 5,048 checkpoints with script and
+audio resource checks plus exact preview comparisons. It reached the title at
+2,630,000 with restart true, exit 0, and the same 47,409-byte maximum snapshot
+(`evidence/headless-ending-snapshot-preview-audit.json`). Its final PNG is byte
+identical to the inspected initial-audit title frame. Actual replacement and
+continuation use the newer restore audit and remain a separate result.
 
 The restore-enabled opening audit passed 40 replacements and continuation checks
 through tick 10,000 (`evidence/headless-snapshot-restore-room.json`). Tests also
