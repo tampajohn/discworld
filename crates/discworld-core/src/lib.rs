@@ -14,6 +14,7 @@ pub mod graphics;
 pub mod indexed_surface;
 pub mod inventory;
 mod inventory_geometry;
+pub mod inventory_hover;
 mod inventory_resize;
 mod inventory_slider;
 pub mod iso;

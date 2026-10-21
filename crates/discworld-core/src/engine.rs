@@ -2039,6 +2039,23 @@ impl Engine {
         Some([position[0].checked_add(12)?, position[1].checked_add(12)?])
     }
 
+    /// V1 invItem uses declared geometry, even while the old frame remains
+    /// during resize. It returns a backing-array cell and text anchor, including
+    /// empty cells; unlike invItemId it does not test inventory visibility.
+    fn inventory_text_cell_at(&self, point: [i32; 2]) -> Option<(usize, [i32; 2])> {
+        let slot = usize::try_from(self.active_inventory?).ok()?;
+        let window = self.declarations.windows.get(slot)?.as_ref()?;
+        let icons = crate::conversation_window::Layout::inventory_icons(window).ok()?;
+        let (index, [x, y]) = icons.iter().enumerate().find(|(_, [x, y])| {
+            (0..25).contains(&(i64::from(point[0]) - i64::from(*x)))
+                && (0..25).contains(&(i64::from(point[1]) - i64::from(*y)))
+        })?;
+        Some((
+            window.first_display.checked_add(index)?,
+            [x.checked_add(12)?, *y],
+        ))
+    }
+
     /// Visible ordinary inventory cells, including empty drop destinations.
     pub fn inventory_slot_at(&self, point: [i32; 2]) -> Option<usize> {
         if !matches!(self.active_inventory, Some(1 | 2)) || self.conversation.hidden {
@@ -4211,12 +4228,12 @@ impl Engine {
                         return Ok(Status::Unsupported(call));
                     };
                     let Some(position) = process.object_print_position.take() else {
-                        let Some(index) = self.inventory_slot_at(self.control.cursor) else {
+                        let Some((_, position)) = self.inventory_text_cell_at(self.control.cursor)
+                        else {
                             process.vm.complete_library(call, 1, None)?;
                             continue;
                         };
-                        let [x, y] = self.inventory_display.as_ref().unwrap().0.layout.icons[index];
-                        process.object_print_position = Some([x + 12, y]);
+                        process.object_print_position = Some(position);
                         // V1 lets POINTED text die for one scheduler tick.
                         return Ok(Status::Running);
                     };
@@ -4680,6 +4697,47 @@ impl Engine {
 #[cfg(test)]
 mod tests {
     use super::*;
+    #[test]
+    fn inventory_text_cells_use_declared_geometry_and_absolute_indices() {
+        let (master, scene) = fixtures();
+        let resources = Resources(vec![&master, &scene]);
+        let mut engine = Engine::bootstrap(&resources).unwrap();
+        for slot in 0..3 {
+            engine.active_inventory = Some(slot);
+            engine.declarations.windows[slot as usize] = Some(crate::startup::Window {
+                title: Handle(0),
+                capacity: 100,
+                min: [1, 1],
+                size: [2, 2],
+                max: [10, 6],
+                position: [87, 100],
+                first_display: 3,
+                contents: vec![],
+            });
+            // invItem includes empty cells and works independently of the old
+            // frame/hidden flag. These differ from invItemId's visibility rules.
+            engine.conversation.hidden = true;
+            assert_eq!(
+                engine.inventory_text_cell_at([93, 120]),
+                Some((3, [105, 120]))
+            );
+            assert_eq!(
+                engine.inventory_text_cell_at([143, 170]),
+                Some((6, [131, 146]))
+            );
+            for point in [[118, 132], [105, 145], [92, 120], [i32::MIN, i32::MAX]] {
+                assert_eq!(engine.inventory_text_cell_at(point), None);
+            }
+            engine.declarations.windows[slot as usize]
+                .as_mut()
+                .unwrap()
+                .first_display = usize::MAX;
+            assert_eq!(engine.inventory_text_cell_at([119, 120]), None);
+        }
+        engine.active_inventory = Some(-1);
+        assert_eq!(engine.inventory_text_cell_at([93, 120]), None);
+    }
+
     #[test]
     fn inventory_click_regions_precede_icons_and_gap_fallback_is_only_for_putdown() {
         use crate::conversation_window::{Content, Frame, Layout};
@@ -7767,11 +7825,28 @@ mod tests {
             let mut process = ScriptProcess::new(Handle((1 << 23) | 32));
             process.inventory_object = Some(284);
             process.event = 3;
-            process.object_print_position = Some([112, 120]);
+            engine.declarations.windows[2] = Some(crate::startup::Window {
+                title: Handle(0),
+                capacity: 10,
+                min: [1, 1],
+                size: [1, 1],
+                max: [1, 1],
+                position: [94, 100],
+                first_display: 0,
+                contents: vec![284],
+            });
+            engine.control.cursor = [112, 132];
             engine
                 .processes
                 .spawn(Some(engine.generation), process)
                 .unwrap();
+            engine
+                .tick_content(&resources, Some(&bank), None, Some(&strings))
+                .unwrap();
+            // PRINTOBJ obtains its anchor from declarations without requiring
+            // a current rendered frame, then yields before taking control.
+            assert_eq!(engine.control.enabled, initially_enabled);
+            assert!(engine.sample_player.id.is_none());
             engine
                 .tick_content(&resources, Some(&bank), None, Some(&strings))
                 .unwrap();

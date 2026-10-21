@@ -496,3 +496,28 @@ and matching screenshots under `assets/previews/`.
 The same asset regression independently loads both browsers' exported hover
 saves and matches their pixels against the original reels, then checks exact
 continuation. Both browser/native cross-load checks and final Clippy pass.
+
+
+Inventory hover-label lifecycle foundation (not yet dispatched): the pinned
+`dialogs.cpp::ObjectProcess` increments its shared POINTED serial only after
+interpretation completes, sleeps, then tests departure before serial mismatch.
+Departure runs UNPOINT even for an older waiter. `tinlib.cpp::PrintObjPointed`
+checks held-object identity before suppression; while suppressed it waits
+without checking pointer or held state. On release it compares the original
+absolute cell, redisplays at the original position, sleeps, and only then
+compares object identity. POINTED clears an unmatched OFF. The new
+`inventory_hover` state machine covers these distinctions, including serialized
+continuation of suppression and waiter state. It is not yet connected to engine
+processes, rendering or the save envelope; POINTED PRINTOBJ and ON/OFF remain
+unsupported until that integration is complete.
+
+A prerequisite runtime correction is connected: PRINTOBJ now uses V1 invItem's
+current declared grid and text anchor, including empty cells and conversation
+windows, rather than indexing the previous rendered frame. During resize those
+geometries can differ. The lookup returns absolute FirstDisp-based cells, skips
+one-pixel gaps, checks arithmetic, and intentionally has no visibility guard,
+matching invItem rather than invItemId. Regression tests cover geometry,
+empty/hidden cells, gaps, bounds, and the actual PRINTOBJ first-tick yield before
+speech takes control. All265 enabled workspace tests and nine original-asset
+tests pass; workspace Clippy and release native/tools builds pass. Logs:
+`assets/logs/hover-label-foundation-{tests,assets,clippy,build}.log`.
