@@ -35,7 +35,7 @@ cargo run --release -p discworld-native -- \
 
 Pass `--paused` to start a native session paused (including after `--from-tick` replay reconstruction); press **P** to resume. Replay reconstruction is not a persistent engine save.
 
-Double-click **Watch Discworld.command** to replay the recorded route from Rincewind's room, initially muted. It covers Acts I and II and the verified Act III route through the palace, toyshop, university closet and kitchen, continuing through the sailor exchange, birthmark, cart clue, moustache, bogeyman, sword upgrade, imp recovery, camera loading, Ramkin supplies, truth potion, sheep photo, gorge discovery and temple-eye escape sequences. It pauses once after the recorded route; P continues simulation beyond that point, without further recorded inputs. Reaching that point is not evidence that the rest of the game works.
+Double-click **Watch Discworld.command** to replay the recorded route from Rincewind's room, initially muted. It covers Acts I and II and the verified Act III route through the palace, toyshop, university closet and kitchen, continuing through the sailor exchange, birthmark, cart clue, moustache, bogeyman, sword upgrade, imp recovery, camera loading, Ramkin supplies, truth potion, sheep photo, gorge discovery and temple-eye escape and Act III climax sequences. It pauses once after the recorded route and the game has returned control; P continues simulation beyond that point, without further recorded inputs. Reaching that point is not evidence that the rest of the game works.
 
 | Replay control | Action |
 | --- | --- |
@@ -151,7 +151,7 @@ These are actual 320×200 runtime captures from the supplied release, included t
 
 ## Roadmap and reference material
 
-The full objective remains start-to-credits gameplay, complete interaction and save/load behavior, tested native and browser hosts, and landscape iPad touch play. Upcoming work includes playing through Act III and subsequent acts, implementing missing behavior as later scripts exercise it, reference comparisons, persistent saves, and browser integration. No release date is promised.
+The full objective remains start-to-credits gameplay, complete interaction and save/load behavior, tested native and browser hosts, and landscape iPad touch play. Upcoming work includes completing Act IV and the ending, implementing missing behavior as later scripts exercise it, reference comparisons, persistent saves, and browser integration. No release date is promised.
 
 - [Goal and milestones](docs/goal.md)
 - [Resource formats](docs/resource-format.md), [script runtime](docs/script-runtime.md), [scheduling](docs/scheduling.md)

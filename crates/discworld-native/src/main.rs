@@ -341,7 +341,11 @@ fn run() -> Result<(), Box<dyn std::error::Error>> {
                         if speed == 1 {
                             sink.append(rodio::buffer::SamplesBuffer::new(2, 22050, audio));
                         }
-                        if replay_end.is_some_and(|end| engine.ticks >= end) {
+                        // Let the final original-script cutscene return control
+                        // before pausing, even if it outlasts the replay tail.
+                        if engine.control.enabled
+                            && replay_end.is_some_and(|end| engine.ticks >= end)
+                        {
                             replay_end = None;
                             eprintln!(
                                 "Recorded route finished. P resumes with manual game controls enabled."
