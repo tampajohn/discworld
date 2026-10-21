@@ -139,6 +139,9 @@ impl Animation {
         }
         Err(Error("animation skip instruction budget exhausted"))
     }
+    pub(crate) fn uses_script(&self, script: Handle) -> bool {
+        self.script == script
+    }
     /// InitStepAnimScript changes the script/clock, retaining the multi-object.
     pub fn set_script(&mut self, script: Handle, period: u32) -> Result<(), Error> {
         if period == 0 {

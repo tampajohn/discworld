@@ -401,3 +401,34 @@ test('inventory scrolling during resize keeps an active restorable outline', asy
   await page.waitForTimeout(150);
   await fs.writeFile(path.join(root, `assets/saves/browser-${testInfo.project.name}-resize-redraw-released.dws`), await exportHeld());
 });
+
+test('original inventory hover cursor survives save and restores over body', async ({ page }, testInfo) => {
+  await page.goto('/');
+  await open(page);
+  const canvas = page.locator('#game');
+  const bounds = await canvas.boundingBox();
+  const move = (x,y) => page.mouse.move(bounds.x + bounds.width*(x+0.5)/320, bounds.y + bounds.height*(y+0.5)/200);
+  const exportPaused = async () => {
+    const download = page.waitForEvent('download');
+    await page.evaluate(() => document.querySelector('#export').click());
+    return fs.readFile(await (await download).path());
+  };
+  for (const [label, point] of [['arrow',[195,135]],['normal',[145,135]]]) {
+    await page.locator('#pause').click();
+    await expect(page.locator('#pause')).toHaveText('Pause');
+    await move(...point);
+    const movedTick = Number(await canvas.getAttribute('data-tick'));
+    await expect.poll(async () => Number(await canvas.getAttribute('data-tick'))).toBeGreaterThan(movedTick+2);
+    await page.keyboard.press('p');
+    await expect(page.locator('#pause')).toHaveText('Play');
+    await page.waitForTimeout(150);
+    const saved = await exportPaused();
+    const pixels = await canvas.evaluate(c => c.toDataURL());
+    await fs.writeFile(path.join(root, `assets/saves/browser-${testInfo.project.name}-hover-${label}.dws`),saved);
+    await page.screenshot({path:path.join(root, `assets/previews/browser-${testInfo.project.name}-hover-${label}.png`)});
+    await page.locator('#import').setInputFiles({name:'hover.dws',mimeType:'application/octet-stream',buffer:saved});
+    await expect(page.locator('#status')).toContainText('Saved game loaded.');
+    expect(await exportPaused()).toEqual(saved);
+    expect(await canvas.evaluate(c => c.toDataURL())).toBe(pixels);
+  }
+});

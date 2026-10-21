@@ -455,3 +455,44 @@ confirms4×2 at[87,100], first-display3 and no held item. The earlier
 retained as failed automation evidence; its screenshot was insufficient to
 establish release. Final workspace tests, Clippy, native/tools builds and WASM
 build pass.
+
+### Original inventory edge cursors
+
+The pinned V1 `invCursor` selects window-parts reel24 for horizontal resizing,
+25 for vertical resizing,26 for the rising diagonal, and27 for the falling
+diagonal. Titles, bodies and scroll controls keep the normal cursor. Borders of
+fixed-size windows also keep the normal cursor. Any inventory drag freezes the
+current shape until release.
+
+The engine switches the existing cursor object's animation script rather than
+creating another cursor. Temporary scripts run at period2; returning to normal
+uses the declared cursor film's rate and steps immediately. Flip flags reset on
+script changes, matching `InitStepAnimScript`. The current script identifies a
+temporary cursor, so its existing animation serialization preserves hover and
+drag shapes without another save version. The host-independent cursor update
+runs after cursor animation in the simulation tick, matching the reference's
+AnimateProcess order. Exact event-boundary timing (including close before the
+next tick), cursor trails, and hover-label/POINTED arbitration still need work.
+
+The real-asset regression compares the complete rendered image against the
+original cursor reels for all eight borders/corners, then checks frozen shape
+while dragging, restoration after release and close, and exact saved
+engine/DSP/audio continuation. Normal title/body behavior and fixed pockets use
+the declared cursor artwork. Workspace tests and all nine opt-in asset tests
+pass, along with Clippy and release native/tools/WASM builds.
+
+Native HID saves `assets/saves/native-hover-arrow.dws`,
+`native-hover-corner.dws` and `native-hover-normal.dws` were independently loaded
+by the asset regression and matched pixel-for-pixel against original reels24,
+27 and the declared normal cursor film. Fixed pockets also retain the normal
+cursor; its comparison advances the expected original animation28 ticks after
+restoration, since the normal cross itself is animated. Comparing only its first
+frame at that point incorrectly failed the initial test.
+
+All18 Chrome/WebKit player checks and both clock checks pass. The new hover
+check exports and reloads both arrow and normal cursor saves with identical
+bytes and pixels. Evidence uses `assets/saves/browser-{chrome,webkit}-hover-{arrow,normal}.dws`
+and matching screenshots under `assets/previews/`.
+The same asset regression independently loads both browsers' exported hover
+saves and matches their pixels against the original reels, then checks exact
+continuation. Both browser/native cross-load checks and final Clippy pass.

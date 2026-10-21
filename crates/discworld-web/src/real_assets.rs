@@ -654,3 +654,102 @@ fn inventory_changes_during_resize_preserve_frame_and_use_current_icon_grid() {
     assert_eq!((window.size, window.position), ([4, 2], [87, 100]));
     roundtrip_pending(&mut game, 3);
 }
+
+#[test]
+#[ignore = "requires DISCWORLD_TEST_ISO, DISCWORLD_TEST_SOUNDFONT and DISCWORLD_TEST_SAVE"]
+fn inventory_hover_uses_original_arrows_freezes_during_drag_and_restores() {
+    use discworld_core::{animation::Animation, film::Film};
+    fn original_cursor(game: &mut BrowserGame, reel: Option<usize>) {
+        original_cursor_phase(game, reel, 1);
+    }
+    fn original_cursor_phase(game: &mut BrowserGame, reel: Option<usize>, ticks: u32) {
+        let resources = game.assets.resources();
+        let film = if reel.is_some() {
+            Film::read(&resources, game.engine.declarations.window_parts.unwrap()).unwrap()
+        } else {
+            game.engine.declarations.cursor.as_ref().unwrap().1.clone()
+        };
+        let mut cursor = Animation::new(
+            &resources,
+            &film.reels[reel.unwrap_or(0)],
+            if reel.is_some() {
+                2
+            } else {
+                24 / film.rate as u32
+            },
+        )
+        .unwrap();
+        for _ in 0..ticks {
+            cursor.tick(&resources).unwrap();
+        }
+        [cursor.object.x, cursor.object.y] = game.engine.control.cursor;
+        let was_hidden = game.engine.control.hidden;
+        let actual = game.frame().unwrap();
+        game.engine.control.hidden = true;
+        let mut expected = game.engine.render(&resources).unwrap();
+        game.engine.control.hidden = false;
+        expected.draw_animation(&resources, &cursor).unwrap();
+        assert!(
+            actual == expected.rgba,
+            "cursor reel {reel:?}, hidden={was_hidden}, tick={}",
+            game.tick()
+        );
+    }
+    let read = |name| std::fs::read(std::env::var_os(name).expect(name)).unwrap();
+    let mut game =
+        BrowserGame::new(read("DISCWORLD_TEST_ISO"), read("DISCWORLD_TEST_SOUNDFONT")).unwrap();
+    let initial = read("DISCWORLD_TEST_SAVE");
+    for (point, reel) in [
+        ([100, 135], 24),
+        ([195, 135], 24),
+        ([145, 100], 25),
+        ([145, 173], 25),
+        ([100, 100], 27),
+        ([195, 173], 27),
+        ([195, 100], 26),
+        ([100, 173], 26),
+    ] {
+        game.load(&initial).unwrap();
+        game.move_pointer(point[0], point[1]);
+        game.advance(2).unwrap();
+        original_cursor(&mut game, Some(reel));
+        roundtrip_pending(&mut game, 3);
+        game.input("left-down").unwrap();
+        game.move_pointer(300, 10);
+        game.advance(2).unwrap();
+        original_cursor(&mut game, Some(reel));
+        roundtrip_pending(&mut game, 3);
+        game.input("left-up").unwrap();
+        game.move_pointer(300, 0);
+        game.advance(2).unwrap();
+        original_cursor(&mut game, None);
+        roundtrip_pending(&mut game, 3);
+    }
+    game.load(&initial).unwrap();
+    game.move_pointer(100, 135);
+    game.advance(2).unwrap();
+    game.input("close").unwrap();
+    game.advance(2).unwrap();
+    original_cursor(&mut game, None);
+    game.input("pockets").unwrap();
+    game.advance(24).unwrap();
+    assert_eq!(game.engine.active_inventory(), Some(2));
+    let window = game.engine.declarations.windows[2].as_ref().unwrap();
+    assert_eq!(window.min, window.max);
+    let [x, y] = window.position;
+    game.move_pointer(x, y + 25);
+    game.advance(2).unwrap();
+    // Normal cursor is animated too: 28 ticks since close restored its script.
+    original_cursor_phase(&mut game, None, 28);
+    for (name, reel) in [
+        ("DISCWORLD_TEST_HOVER_ARROW", Some(24)),
+        ("DISCWORLD_TEST_HOVER_CORNER", Some(27)),
+        ("DISCWORLD_TEST_HOVER_NORMAL", None),
+    ] {
+        if let Some(path) = std::env::var_os(name) {
+            game.load(&std::fs::read(path).unwrap()).unwrap();
+            original_cursor(&mut game, reel);
+            roundtrip_pending(&mut game, 3);
+        }
+    }
+}

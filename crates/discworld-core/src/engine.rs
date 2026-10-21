@@ -1219,6 +1219,76 @@ impl Engine {
         self.inventory_drag.is_some()
     }
 
+    fn update_inventory_cursor(&mut self, resources: &Resources<'_>) -> Result<(), Error> {
+        if self.inventory_drag.is_some() || self.control.hidden {
+            return Ok(());
+        }
+        let Some(cursor) = &self.cursor_animation else {
+            return Ok(());
+        };
+        let Some(parts) = self.declarations.window_parts else {
+            return Ok(());
+        };
+        let film = Film::read(resources, parts)?;
+        // V1 window-parts reels: left/right, up/down, rising/falling diagonal.
+        let scripts = [24, 25, 26, 27].map(|index| film.reels.get(index).map(|r| r.script));
+        let custom = scripts
+            .iter()
+            .flatten()
+            .any(|script| cursor.uses_script(*script));
+        let target = self.active_inventory.and_then(|slot| {
+            if self.conversation.hidden {
+                return None;
+            }
+            let window = self.declarations.windows.get(slot as usize)?.as_ref()?;
+            if window.min[0] == window.max[0] || window.min[1] == window.max[1] {
+                return None;
+            }
+            use crate::conversation_window::Area;
+            let area = self
+                .inventory_display
+                .as_ref()?
+                .0
+                .layout
+                .inventory_area_at(self.control.cursor);
+            let index = match area {
+                Area::Left | Area::Right => 0,
+                Area::Top | Area::Bottom => 1,
+                Area::TopRight | Area::BottomLeft => 2,
+                Area::TopLeft | Area::BottomRight => 3,
+                _ => return None,
+            };
+            scripts[index]
+        });
+        if let Some(script) = target {
+            if !cursor.uses_script(script) {
+                let cursor = self.cursor_animation.as_mut().unwrap();
+                cursor.set_script(script, 2)?;
+                cursor.flip_x = false;
+                cursor.flip_y = false;
+            }
+        } else if custom {
+            let (_, normal) = self
+                .declarations
+                .cursor
+                .as_ref()
+                .ok_or(Error("missing normal cursor film"))?;
+            let script = normal
+                .reels
+                .first()
+                .ok_or(Error("empty normal cursor film"))?
+                .script;
+            let cursor = self.cursor_animation.as_mut().unwrap();
+            cursor.set_script(script, 24 / normal.rate as u32)?;
+            cursor.flip_x = false;
+            cursor.flip_y = false;
+            // RestoreMainCursor steps immediately; SetTempCursor waits until
+            // the next AnimateProcess. Preserve that asymmetry.
+            cursor.tick(resources)?;
+        }
+        Ok(())
+    }
+
     fn toggle_inventory_maximized(&mut self, resources: &Resources<'_>) -> Result<(), Error> {
         let Some(slot @ (1 | 2)) = self.active_inventory else {
             return Ok(());
@@ -2829,6 +2899,7 @@ impl Engine {
         if let Some(cursor) = &mut self.held_cursor {
             cursor.animation.tick(resources)?;
         }
+        self.update_inventory_cursor(resources)?;
         if let Some(bg) = &mut self.background {
             if bg.tick(resources)? == Tick::Finished {
                 return Err(Error("background animation ended"));
