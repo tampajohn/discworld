@@ -35,7 +35,7 @@ cargo run --release -p discworld-native -- \
 
 Press **F5** to save and **F9** to load `discworld-save.dws` in the working directory. Choose a destination with `--save-file PATH`; its parent directory must exist. Relaunch with `--load PATH` to restore the engine and synthesizer together. Use the same ISO and SoundFont. These development saves are not compatible with ScummVM.
 
-Separate-process tests reproduce engine/DSP state, frames, and speech PCM exactly, including an open Luggage inventory with its background. The native hotkeys and window handoff still need visual validation. Browser persistence remains unfinished.
+Separate-process tests reproduce engine/DSP state, frames, and mixed speech/music PCM exactly, including an open Luggage inventory with its background. Native startup load, F5 save, and F9 reload are visually verified at the ending credits; broader in-game and failure-recovery checks remain. Browser persistence remains unfinished.
 
 ### Watch the development playthrough
 
@@ -89,7 +89,7 @@ Point at the Luggage and use Action to open its inventory. Inventory actions exe
 | Scripts | Original bytecode, library calls, cooperative scheduling, dialogue, inventory and scene transitions exercised by the recorded start-to-credits route; unsupported behavior stops explicitly |
 | Audio | Original samples and XMIDI music through a local software synth; original hardware and native/browser fidelity are not established |
 | Gameplay | Acts I–III completed in replay, including the altered-book theft, temple escape and Act III climax; Act III spell, Shades item, birthmark, moustache, upgraded sword and eye verified (6 of 6), including the sailor exchange, palette-changing birthmark animation and cart/beggar sequence; Act IV fuels, final showdown, ending, scrolling credits and restart verified in headless replay |
-| State | In-memory scene save/restore and script-driven restart; [versioned snapshots](docs/save-state.md) audited across the full route, with core restoration tested across the full route; combined engine/DSP files pass separate-process opening and inventory tests; native controls await visual validation |
+| State | In-memory scene save/restore and script-driven restart; [versioned snapshots](docs/save-state.md) audited across the full route, with core restoration tested across the full route; combined engine/DSP files pass separate-process opening and inventory tests; native startup load and F5/F9 visually verified at credits |
 | macOS | Runnable native window/audio host with interactive and replay modes |
 | Browser/iPad | Portable core compiles for `wasm32-unknown-unknown`; browser presentation, audio, storage, touch input and device testing remain to be built |
 
@@ -158,7 +158,7 @@ These are actual 320×200 runtime captures from the supplied release, included t
 
 ## Roadmap and reference material
 
-The full objective remains start-to-credits gameplay, complete interaction and save/load behavior, tested native and browser hosts, and landscape iPad touch play. Upcoming work includes native ending and save/load visual validation, browser integration, touch controls, reference comparisons, and coverage of interactions outside the completed route. No release date is promised.
+The full objective remains start-to-credits gameplay, complete interaction and save/load behavior, tested native and browser hosts, and landscape iPad touch play. Upcoming work includes broader native save/load validation, browser integration, touch controls, reference comparisons, and coverage of interactions outside the completed route. No release date is promised.
 
 - [Goal and milestones](docs/goal.md)
 - [Resource formats](docs/resource-format.md), [script runtime](docs/script-runtime.md), [scheduling](docs/scheduling.md)

@@ -78,7 +78,7 @@ identities and sample bounds before installing into a separately constructed
 synthesizer. Reverb cursors may equal the buffer length because wrapping occurs
 on the next process call; a dedicated vendored unit test covers this boundary.
 This is not a complete hostile-file/allocation audit or cross-platform floating
-point equivalence claim. Native device handoff needs visual validation; browser persistence remains.
+point equivalence claim. Native device handoff is visually verified at credits; broader recovery and browser persistence remain.
 
 Core tests exercise exact encode/decode equality and deterministic continuation
 of a suspended wait, inventory interaction after a reordered/scrolled window,
@@ -158,20 +158,48 @@ directory sync. Failed decoding leaves the running session intact.
 F5 saves; F9 loads. `--save-file PATH` selects the file, defaulting to the
 `--load PATH` source or `discworld-save.dws`. Startup `--load` cannot combine with
 `--room` or `--from-tick`. Mute, speed and pause are host preferences preserved
-when loading. Native hotkeys and device/window handoff are not visually accepted yet.
+when loading. Native hotkeys and device/window handoff are visually verified at credits; broader interaction and failure cases remain.
 
 `scripts/check-save-relaunch.py ISO SOUNDFONT TRACE OUTPUTDIR` runs separate
 baseline, save, and resumed processes. The default 10,000-to-12,000 opening test
 passed with a 335,749-byte save. A second run with `--checkpoint 33200 --end 33400`
 passed with a 332,019-byte save and open Luggage inventory. Both produce exactly
-identical final engine/DSP files, rendered PNGs, and speech PCM continuation;
+identical final engine/DSP files, rendered PNGs, and mixed speech/music PCM continuation;
 both reject a clock mismatch despite repaired checksums. The inventory frame
 was inspected: its original dark patterned background and gold border are present.
 Evidence: `evidence/save-relaunch-opening/verification.json` and
-`evidence/save-relaunch-inventory/verification.json`. Speech WAV comparison does
-not include synthesized music; DSP state equality and the audio continuation
-tests cover that component separately.
+`evidence/save-relaunch-inventory/verification.json`. The WAV includes speech and synthesized music mixed to mono. Earlier report
+files call this `speech_pcm_equal`; that label understated what was compared.
+New reports use `mixed_pcm_equal`.
 
 Remaining gates include decoder allocation limits and deeper hostile-state
-validation, native controls and failure recovery, more dialogue/movement/cutaway
+validation, broader native controls and failure recovery, more dialogue/movement/cutaway
 relaunch checkpoints, browser persistence, and real iPad interruption/relaunch.
+
+### Native credits checkpoint and restart continuation
+
+The recovered native window successfully saved at tick 2,604,072 using F5;
+the 329,430-byte file was produced while paused on visibly rendered credits.
+A fresh headless process loaded that native file and reached tick 2,630,000,
+Running with restart true and a PNG byte-identical to the full-route title frame
+(`evidence/native-credits-save-relaunch.json`).
+
+The relaunch harness now accepts `--initial-save PATH --start-tick N` to verify
+late-game continuations without rebuilding the entire route. WAV capture limits
+apply to elapsed capture duration, not the absolute final tick. Using the native
+credits save, saving again at 2,604,200, and finishing at 2,605,000 passed exact
+engine/DSP bytes, PNG, and mixed PCM comparisons, including script-driven restart.
+The final frame is the title's credits attract scene, inspected visually.
+The deliberately mismatched clock was rejected again. Evidence:
+`evidence/save-relaunch-credits-restart/verification.json` (329,431-byte save).
+
+Native GUI validation also passed: a fresh process loaded the 2,604,072 save
+with `--paused --mute`, immediately displayed the same credits, saved with F5
+to a separate path, and reloaded with F9. The saved files are byte-identical
+(SHA-256 `0f1902f3c97ca2de27e56d367dc6e73ddf2aff5b9ae01b53db435ad9ae209012`).
+Screenshots `assets/previews/credits-fresh-load-native.png` and
+`assets/previews/credits-f9-reload-native.png` show actual game pixels; the latter
+was independently inspected. `assets/logs/credits-load-validation-visible.log`
+records the startup load, F5 save and F9 reload at the same tick. The visible
+session remains paused and muted. This does not yet verify failed native loads
+or every interactive save location.

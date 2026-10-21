@@ -13,11 +13,15 @@ parser.add_argument("iso")
 parser.add_argument("soundfont")
 parser.add_argument("trace")
 parser.add_argument("output", type=Path)
+parser.add_argument("--initial-save", type=Path)
+parser.add_argument("--start-tick", type=int, default=0)
 parser.add_argument("--checkpoint", type=int, default=10000)
 parser.add_argument("--end", type=int, default=12000)
 args = parser.parse_args()
-if not 0 < args.checkpoint < args.end <= 100000:
-    parser.error("require 0 < checkpoint < end <= 100000 (speech WAV capture limit)")
+if not 0 <= args.start_tick < args.checkpoint < args.end or args.end - args.start_tick > 100000:
+    parser.error("require 0 <= start < checkpoint < end and at most 100000 elapsed ticks")
+if (args.initial_save is not None) != (args.start_tick > 0):
+    parser.error("--initial-save and a positive --start-tick must be supplied together")
 args.output.mkdir(parents=True, exist_ok=False)
 inputs = json.loads(Path(args.trace).read_text())
 for name, end in [("checkpoint", args.checkpoint), ("final", args.end)]:
@@ -32,15 +36,17 @@ def run(name, end, trace, extra, audio=True, expected=0):
     if result.returncode != expected:
         raise RuntimeError(f"{name}: exit {result.returncode}; see its log")
 
-run("baseline", args.end, "final", ["--save", args.output / "baseline.dws"])
-run("checkpoint", args.checkpoint, "checkpoint", ["--save", args.output / "checkpoint.dws"], audio=False)
+initial = ["--load", args.initial_save] if args.initial_save else []
+run("baseline", args.end, "final", [*initial, "--save", args.output / "baseline.dws"])
+assert json.loads((args.output / "baseline.json").read_text())["start_tick"] == args.start_tick, "incorrect initial tick"
+run("checkpoint", args.checkpoint, "checkpoint", [*initial, "--save", args.output / "checkpoint.dws"], audio=False)
 run("resumed", args.end, "final", ["--load", args.output / "checkpoint.dws", "--save", args.output / "resumed.dws"])
 assert (args.output / "baseline.dws").read_bytes() == (args.output / "resumed.dws").read_bytes(), "engine/DSP state differs"
 assert (args.output / "baseline.png").read_bytes() == (args.output / "resumed.png").read_bytes(), "frame differs"
 with wave.open(str(args.output / "baseline.wav"), "rb") as baseline, wave.open(str(args.output / "resumed.wav"), "rb") as resumed:
     assert baseline.getnchannels() == resumed.getnchannels() == 1
-    baseline.setpos(args.checkpoint * baseline.getframerate() // 24)
-    assert baseline.readframes(baseline.getnframes()) == resumed.readframes(resumed.getnframes()), "speech PCM differs"
+    baseline.setpos(args.checkpoint * baseline.getframerate() // 24 - args.start_tick * baseline.getframerate() // 24)
+    assert baseline.readframes(baseline.getnframes()) == resumed.readframes(resumed.getnframes()), "mixed speech/music PCM differs"
 
 # Repair both checksums after changing only the DSP cursor: clock validation must reject it.
 bad = bytearray((args.output / "checkpoint.dws").read_bytes())
@@ -53,9 +59,9 @@ bad[20:52] = hashlib.sha256(bad[:20] + bad[52:]).digest()
 (args.output / "mismatched.dws").write_bytes(bad)
 run("mismatched", args.end, "final", ["--load", args.output / "mismatched.dws"], audio=False, expected=1)
 assert "saved engine and audio clocks disagree" in (args.output / "mismatched.log").read_text()
-report = {"checkpoint_tick": args.checkpoint, "final_tick": args.end,
+report = {"start_tick": args.start_tick, "checkpoint_tick": args.checkpoint, "final_tick": args.end,
           "separate_processes": True, "engine_and_dsp_bytes_equal": True,
-          "frame_bytes_equal": True, "speech_pcm_equal": True, "mismatched_clocks_rejected": True,
+          "frame_bytes_equal": True, "mixed_pcm_equal": True, "mismatched_clocks_rejected": True,
           "save_bytes": (args.output / "checkpoint.dws").stat().st_size}
 (args.output / "verification.json").write_text(json.dumps(report, indent=2) + "\n")
 print(json.dumps(report, indent=2))
