@@ -166,6 +166,30 @@ pub fn headless(
                             format!("snapshot round trip failed at {}", engine.ticks).into()
                         );
                     }
+                    let restored = decoded.restore(&resources, &bank, &tracks)?;
+                    let mut continued = restored.clone();
+                    let mut uninterrupted = engine.clone();
+                    let a = continued.tick_content(
+                        &resources,
+                        Some(&bank),
+                        synth.as_ref().map(|_| tracks.as_slice()),
+                        Some(&strings),
+                    )?;
+                    let b = uninterrupted.tick_content(
+                        &resources,
+                        Some(&bank),
+                        synth.as_ref().map(|_| tracks.as_slice()),
+                        Some(&strings),
+                    )?;
+                    if a != b
+                        || continued != uninterrupted
+                        || continued.render(&resources)? != uninterrupted.render(&resources)?
+                    {
+                        return Err(
+                            format!("snapshot continuation differs at {}", engine.ticks).into()
+                        );
+                    }
+                    engine = restored;
                     snapshot_checks += 1;
                     snapshot_max_bytes = snapshot_max_bytes.max(bytes.len());
                 }

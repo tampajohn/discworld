@@ -1,6 +1,6 @@
 // SPDX-License-Identifier: GPL-3.0-or-later
-//! Versioned complete-runtime snapshot codec. Host persistence and validated
-//! activation are separate: reading a file does not replace a running engine.
+//! Versioned complete-runtime snapshots with explicit validation and restoration.
+//! Host persistence is separate: decoding does not replace a running engine.
 use crate::{engine::Engine, iso::Error};
 use sha2::{Digest, Sha256};
 
@@ -55,6 +55,22 @@ impl Snapshot {
         resources: &crate::graphics::Resources<'_>,
     ) -> Result<crate::compositor::Surface, Error> {
         self.state.snapshot_preview(resources)
+    }
+
+    /// Construct a restored engine after validating its current scripts, audio,
+    /// navigation geometry and drawable resources. The caller replaces its live
+    /// engine only after this succeeds and its host audio is prepared.
+    pub fn restore(
+        self,
+        resources: &crate::graphics::Resources<'_>,
+        bank: &crate::audio::SampleBank<'_>,
+        tracks: &[crate::music::Track<'_>],
+    ) -> Result<Engine, Error> {
+        self.verify_scripts(resources)?;
+        self.verify_audio(bank, tracks)?;
+        self.state.validate_snapshot_polygons(resources)?;
+        self.preview(resources)?;
+        Ok(self.state)
     }
 
     pub fn to_bytes(&self) -> Result<Vec<u8>, Error> {

@@ -5,9 +5,11 @@ at a tick boundary, including suspended scripts, scheduler order, scene and
 cutaway state, inventory, animation, random state, timers, and PCM/music timing.
 External game archives and the host synthesizer/device are not serialized.
 
-This is groundwork for durable player saves. There is no public activation API,
-native save/load control, filesystem persistence, or browser persistence yet.
-Decoding a snapshot never replaces a running engine.
+This is groundwork for durable player saves. `Snapshot::restore` returns an
+engine after script, audio, polygon, animation and preview checks; the caller
+commits that replacement only after preparing host state. There is no native
+save/load control, filesystem persistence, or browser persistence yet. Decoding
+a snapshot never replaces a running engine.
 
 ## Envelope version 1
 
@@ -62,7 +64,9 @@ Append `--snapshot-audit` after the interaction-trace argument to `run-headless`
 to check exact snapshot round trips every 1000 ticks, at scene changes, after
 recorded inputs, and at the final tick. Reports include `snapshot_checks` and
 `snapshot_max_bytes`. The audit hashes the supplied ISO as the asset identity;
-it does not activate the decoded state or establish process-relaunch equivalence.
+it restores the decoded engine at each checkpoint and compares a trial next tick
+against uninterrupted execution, including full state, PCM, and rendered surface.
+This does not establish host synthesizer or process-relaunch equivalence.
 The audit also invokes `verify_scripts` and `verify_audio`. The 10,000-tick opening prefix of
 `evidence/act4-ending-input.json` passed 40 checks with a maximum encoded snapshot
 of 36,973 bytes (`evidence/headless-snapshot-scripts-room.json`); its final
@@ -79,8 +83,14 @@ checkpoints through all 1,652 recorded inputs, the ending, restart, and title at
 tick 2,630,000. Maximum encoded size was 47,409 bytes. Evidence:
 `evidence/headless-ending-snapshot-audit.json`, exit 0, final title frame inspected.
 This run predates script-resource, audio-resource, and preview validation. A
-second full run checks script references; combined validation is being tested
-separately. Neither run activates a decoded state or verifies host relaunch.
+second full run at `1bf9525` passed the same 5,048 checkpoints with script-reference
+validation (`evidence/headless-ending-snapshot-scripts-audit.json`, exit 0, title
+at 2,630,000). Combined validation is being tested separately. Neither of these
+two earlier runs activates a decoded state or verifies host relaunch.
+
+The restore-enabled opening audit passed 40 replacements and continuation checks
+through tick 10,000 (`evidence/headless-snapshot-restore-room.json`). Tests also
+reject invalid inventory, fade, and transition indices before restoration.
 
 Before exposing load, validate decoded invariants and resource references, with
 atomic failure preserving the current session. Bound decoder allocations as

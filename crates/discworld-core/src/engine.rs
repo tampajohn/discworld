@@ -314,6 +314,39 @@ impl Engine {
     }
 
     pub(crate) fn validate_snapshot_structure(&self) -> Result<(), Error> {
+        if self
+            .active_inventory
+            .is_some_and(|slot| !(0..=2).contains(&slot))
+            || self.fade_in_step.is_some_and(|step| step >= 7)
+            || self
+                .pending_scene
+                .is_some_and(|(_, _, _, left)| left.is_some_and(|n| !(1..=6).contains(&n)))
+            || self
+                .scene_restore
+                .as_ref()
+                .is_some_and(|r| r.remaining > 11)
+        {
+            return Err(Error("invalid snapshot inventory or transition index"));
+        }
+        for window in self.declarations.windows.iter().flatten() {
+            if !(1..=10).contains(&window.size[0])
+                || !(1..=6).contains(&window.size[1])
+                || window.contents.len() > 150
+                || window.first_display > 150
+            {
+                return Err(Error("invalid snapshot inventory dimensions"));
+            }
+        }
+        for mover in self.movers.values() {
+            if !(1..=10).contains(&mover.placement.scale)
+                || mover
+                    .placement
+                    .path
+                    .is_some_and(|p| p >= self.polygons.active.len())
+            {
+                return Err(Error("invalid snapshot mover scale or path"));
+            }
+        }
         for animation in self.snapshot_animations() {
             animation.validate_snapshot_structure()?;
         }
@@ -394,6 +427,32 @@ impl Engine {
             }
         }
         self.render(resources)
+    }
+
+    pub(crate) fn validate_snapshot_polygons(
+        &self,
+        resources: &Resources<'_>,
+    ) -> Result<(), Error> {
+        let scene = scene::read(resources, self.scene.resource())?;
+        let expected = if let Some(scene) = scene {
+            crate::polygon::Polygons::new(
+                crate::polygon::read(resources, scene.polygons, scene.polygon_count)?,
+                self.polygons.default_refer,
+            )
+        } else {
+            crate::polygon::Polygons::default()
+        };
+        if self.polygons.active.len() != expected.active.len()
+            || self
+                .polygons
+                .active
+                .iter()
+                .zip(&expected.active)
+                .any(|(a, b)| a.definition != b.definition || a.adjacent != b.adjacent)
+        {
+            return Err(Error("snapshot polygons do not match original scene"));
+        }
+        Ok(())
     }
 
     /// Original HASRESTARTED state, set only after a committed game reset.
@@ -6988,12 +7047,36 @@ mod tests {
         assert_eq!(decoded, snapshot);
         assert_eq!(decoded.tick(), engine.ticks);
         assert_eq!(decoded.to_bytes().unwrap(), bytes);
-        let mut restored = decoded.state().clone();
+        let bank = SampleBank::new(&[0; 4], &[]).unwrap();
+        let mut restored = decoded.restore(&resources, &bank, &[]).unwrap();
         assert_eq!(restored.tick(&resources).unwrap(), Status::Running);
         assert_eq!(restored.tick(&resources).unwrap(), Status::Halted);
         engine.tick(&resources).unwrap();
         engine.tick(&resources).unwrap();
         assert_eq!(restored, engine);
+    }
+    #[test]
+    fn snapshot_restore_rejects_invalid_indices_without_changing_live_engine() {
+        let (master, scene) = fixtures();
+        let resources = Resources(vec![&master, &scene]);
+        let bank = SampleBank::new(&[0; 4], &[]).unwrap();
+        let engine = Engine::bootstrap(&resources).unwrap();
+        let before = engine.clone();
+        for field in 0..4 {
+            let mut invalid = engine.clone();
+            match field {
+                0 => invalid.active_inventory = Some(3),
+                1 => invalid.fade_in_step = Some(7),
+                2 => invalid.pending_scene = Some((invalid.scene, 0, 0, Some(0))),
+                _ => invalid.pending_scene = Some((invalid.scene, 0, 0, Some(7))),
+            }
+            assert!(
+                crate::save::Snapshot::capture(&invalid, [7; 32])
+                    .restore(&resources, &bank, &[])
+                    .is_err()
+            );
+            assert_eq!(engine, before);
+        }
     }
     #[test]
     fn snapshot_script_validation_includes_saved_cutaways_and_host_waits() {
