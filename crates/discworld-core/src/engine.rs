@@ -189,6 +189,8 @@ pub struct Engine {
     saved_scenes: Vec<SceneSnapshot>,
     scene_restore: Option<SceneRestore>,
     master_stopped: bool,
+    restart_pending: bool,
+    has_restarted: bool,
     pub conversation: crate::conversation::Conversation,
     inventory_display: Option<(
         crate::conversation_window::Frame,
@@ -1110,6 +1112,13 @@ impl Engine {
     }
 
     pub fn bootstrap(resources: &Resources<'_>) -> Result<Self, Error> {
+        Self::bootstrap_after_restart(resources, false)
+    }
+
+    fn bootstrap_after_restart(
+        resources: &Resources<'_>,
+        has_restarted: bool,
+    ) -> Result<Self, Error> {
         let master = resources
             .0
             .first()
@@ -1137,6 +1146,8 @@ impl Engine {
             saved_scenes: Vec::new(),
             scene_restore: None,
             master_stopped: false,
+            restart_pending: false,
+            has_restarted,
             conversation: crate::conversation::Conversation::default(),
             scene_hooks: crate::scene_hook::Hooks::default(),
             inventory_display: None,
@@ -1202,6 +1213,10 @@ impl Engine {
                 Step::Continue => {}
                 Step::Halted => return Err(Error("master did not request a scene")),
                 Step::Library(call) => {
+                    if call.id == 120 {
+                        vm.complete_library(call, 0, Some(i32::from(has_restarted)))?;
+                        continue;
+                    }
                     if engine.declarations.apply(&mut vm, call, resources)? {
                         if call.id == 24 {
                             let lead = engine.declarations.lead.as_ref().unwrap();
@@ -1246,6 +1261,16 @@ impl Engine {
                 continue;
             }
             match call.id {
+                114 => {
+                    self.music.stop();
+                    self.sample_player.stop();
+                    self.restart_pending = true;
+                    self.master.complete_library(call, 0, None)?;
+                }
+                120 => {
+                    self.master
+                        .complete_library(call, 0, Some(i32::from(self.has_restarted)))?;
+                }
                 68 => {
                     let a = args(&self.master, 4)?;
                     self.timers.start(a[0], a[1], a[2] != 0, a[3] != 0)?;
@@ -1823,7 +1848,21 @@ impl Engine {
         strings: Option<&crate::text::Strings<'_>>,
     ) -> Result<Status, Error> {
         let mut next = self.clone();
-        let status = next.advance(resources, bank, tracks, strings)?;
+        let mut status = next.advance(resources, bank, tracks, strings)?;
+        if next.restart_pending && !matches!(status, Status::Unsupported(_)) {
+            // Pinned V1 resets after the game cycle, outside script dispatch.
+            // Keep host-facing time, settings and the RNG stream continuous.
+            let mut fresh = Self::bootstrap_after_restart(resources, true)?;
+            fresh.ticks = next.ticks;
+            fresh.subtitles = next.subtitles;
+            fresh.random = next.random;
+            next.music.stop();
+            fresh.music = next.music;
+            fresh.music_frame = next.music_frame;
+            fresh.scene_calls = next.scene_calls;
+            next = fresh;
+            status = Status::Running;
+        }
         *self = next;
         Ok(status)
     }
@@ -2319,6 +2358,17 @@ impl Engine {
                 continue;
             }
             match call.id {
+                114 => {
+                    self.music.stop();
+                    self.sample_player.stop();
+                    self.restart_pending = true;
+                    process.vm.complete_library(call, 0, None)?;
+                }
+                120 => {
+                    process
+                        .vm
+                        .complete_library(call, 0, Some(i32::from(self.has_restarted)))?;
+                }
                 68 => {
                     let a = args(&process.vm, 4)?;
                     self.timers.start(a[0], a[1], a[2] != 0, a[3] != 0)?;
@@ -3612,6 +3662,100 @@ mod tests {
         put(&mut scene, 112, 1);
         (master, scene)
     }
+    #[test]
+    fn restart_reboots_game_state_preserves_host_clock_and_reports_restart() {
+        let (master, mut scene) = fixtures();
+        // Startup asks HASRESTARTED and writes its result to global zero.
+        scene[8..13].copy_from_slice(&[0x4e, 120, 0x4c, 0, 0]);
+        let restart = [0x0a, 0x00, 0x34, 0x33, 0, 0, 0, 0, 0x4e, 114, 0];
+        let resources = Resources(vec![&master, &scene, &restart]);
+        let mut engine = Engine::bootstrap(&resources).unwrap();
+        engine.tick(&resources).unwrap();
+        assert_eq!(engine.globals, [0]);
+        assert!(!engine.has_restarted);
+        engine.globals[0] = 99;
+        engine.held_object = 260;
+        engine.menu_enabled = true;
+        engine.no_blocking = true;
+        engine.subtitles = false;
+        engine.random.range(0, 100, 0);
+        let random = engine.random.clone();
+        let tracks = [crate::music::Track {
+            offset: 4,
+            events: &[0x90, 60, 100, 30, 40, 0xff, 0x2f, 0],
+        }];
+        engine.music.play(&tracks, 4, false).unwrap();
+        engine.sample_player.id = Some(5);
+        engine.timers.start(1, 12, false, false).unwrap();
+        engine.scene_calls = Some(std::collections::VecDeque::new());
+        engine
+            .processes
+            .spawn(None, ScriptProcess::new(Handle((2 << 23) | 8)))
+            .unwrap();
+        let tick = engine.ticks;
+        assert_eq!(engine.tick(&resources).unwrap(), Status::Running);
+        assert_eq!(engine.ticks, tick + 1);
+        assert!(engine.has_restarted);
+        assert!(!engine.restart_pending);
+        assert!(!engine.subtitles);
+        assert_eq!(engine.held_object, -1);
+        assert_eq!(engine.random, random);
+        assert!(!engine.music.playing());
+        assert_eq!(engine.sample_player.id, None);
+        assert_eq!(engine.globals, [0]);
+        assert!(!engine.menu_enabled);
+        assert!(!engine.no_blocking);
+        assert_eq!(engine.timers, crate::timers::Timers::default());
+        assert!(
+            engine
+                .scene_calls
+                .as_ref()
+                .unwrap()
+                .iter()
+                .any(|c| c.call.id == 114)
+        );
+        // Compare all game state, including scheduler, scene hooks, actors and
+        // inventory definitions, against a fresh startup at the same host time.
+        let mut fresh = Engine::bootstrap_after_restart(&resources, true).unwrap();
+        fresh.ticks = engine.ticks;
+        fresh.subtitles = false;
+        fresh.random = random;
+        fresh.music = engine.music.clone();
+        fresh.music_frame = engine.music_frame.clone();
+        fresh.scene_calls = engine.scene_calls.clone();
+        assert_eq!(engine, fresh);
+        engine.tick(&resources).unwrap();
+        assert_eq!(engine.globals, [1]);
+        assert!(engine.music_frame.iter().any(|m| m.status == 0x80));
+        assert!(
+            engine
+                .music_frame
+                .iter()
+                .any(|m| m.status == 0xb0 && m.data == [123, 0])
+        );
+    }
+
+    #[test]
+    fn failed_restart_bootstrap_does_not_commit_partial_reset() {
+        let (master, scene) = fixtures();
+        let restart = [0x0a, 0x00, 0x34, 0x33, 0, 0, 0, 0, 0x4e, 114, 0];
+        let resources = Resources(vec![&master, &scene, &restart]);
+        let mut engine = Engine::bootstrap(&resources).unwrap();
+        engine
+            .processes
+            .spawn(None, ScriptProcess::new(Handle((2 << 23) | 8)))
+            .unwrap();
+        let before = engine.clone();
+        let mut bad_master = master.clone();
+        bad_master[8..12].copy_from_slice(&65537u32.to_le_bytes());
+        let bad_resources = Resources(vec![&bad_master, &scene, &restart]);
+        assert_eq!(
+            engine.tick(&bad_resources),
+            Err(Error("global allocation limit"))
+        );
+        assert_eq!(engine, before);
+    }
+
     #[test]
     fn setpalette_recolors_live_background_preserves_stack_and_retains_unwritten_colors() {
         let (master, scene) = fixtures();

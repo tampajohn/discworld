@@ -9360,6 +9360,12 @@
     "event": "close_inventory"
   },
   {
+    "tick": 2553000,
+    "scene": "dragcage.scn",
+    "event": "action",
+    "polygon": 30
+  },
+  {
     "tick": 2553500,
     "scene": "dragcage.scn",
     "event": "walkto",
