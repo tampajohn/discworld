@@ -1,0 +1,27 @@
+{
+  "schema": 1,
+  "runtime_revision": "385634613152da529467abf4a1f6ede48e7d7607",
+  "route": "evidence/act4-ending-input.json",
+  "route_sha256": "30c227553695638a78495f4cf56731f841e89188c8faa75821e50c164ddf4ddb",
+  "local_artifacts": "assets/validation/stationary-reel-3856346",
+  "native": {
+    "ticks": 2630000,
+    "status": "Running",
+    "scene_name": "title.scn",
+    "has_restarted": true,
+    "snapshot_checks": 5048,
+    "audio_snapshot_checks": 5048,
+    "snapshot_max_bytes": 47635,
+    "audio_snapshot_max_bytes": 317221,
+    "accepted_inputs": 1652,
+    "core_sha256": "62570b31e8aca0793e461792be622810dbcb8c3d980db53513cb2f474d374d64",
+    "core_matches_fa77914": true,
+    "report_sha256": "5c58ce4bb16282c6e19d2c7d18083d2d747f34be2fc55fa5d592355876d10a14"
+  },
+  "scope": [
+    "Native accelerated full route with engine and DSP snapshot audits.",
+    "Stationary/overlapping TALK migration has separate tick-by-tick synthetic and original-asset tests.",
+    "This run predates custom WALK/WALKED film support and the short-distance WALKED result correction.",
+    "No new full browser replay or physical-device acceptance is established by this native run."
+  ]
+}

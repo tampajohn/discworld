@@ -3940,13 +3940,25 @@ impl Engine {
                 if mover.placement.path.is_none() {
                     return Err(Error("WALKED mover is outside paths"));
                 }
-                wait.serial = Some(mover.begin_walk(
+                // The delayed call retains its original film argument on the
+                // VM stack, including across legacy snapshot restoration.
+                let film = Handle(args(&process.vm, 4)?[3] as u32);
+                let target = destination.unwrap_or(mover.placement.position);
+                // V1 SetActorDest increments walkNumber but returns zero for
+                // GotThere's early completion, before node projection. WALKED
+                // compares that returned number and must report false here.
+                let early = (i64::from(target[0]) - i64::from(mover.placement.position[0])).abs()
+                    < 4
+                    && (i64::from(target[1]) - i64::from(mover.placement.position[1])).abs() < 2;
+                let serial = mover.begin_walk_film(
                     resources,
                     &self.declarations,
                     &self.polygons,
-                    destination.unwrap_or(mover.placement.position),
+                    target,
                     cursor,
-                )?);
+                    film,
+                )?;
+                wait.serial = Some(if early { 0 } else { serial });
                 wait.delay = 0;
                 self.scroll.follow_cursor = false;
                 self.reel_owners.remove(&wait.actor);
@@ -4570,9 +4582,6 @@ impl Engine {
                 }
                 88 => {
                     let a = args(&process.vm, 4)?;
-                    if a[3] != 0 {
-                        return Ok(Status::Unsupported(call));
-                    }
                     let actor = if a[0] == -2 {
                         self.declarations
                             .lead
@@ -4596,9 +4605,6 @@ impl Engine {
                 }
                 87 => {
                     let a = args(&process.vm, 5)?;
-                    if a[3] != 0 {
-                        return Ok(Status::Unsupported(call));
-                    }
                     let actor = if a[0] == -2 {
                         self.declarations
                             .lead
@@ -4633,12 +4639,13 @@ impl Engine {
                         .movers
                         .get_mut(&actor)
                         .ok_or(Error("WALK actor has no mover"))?;
-                    let serial = mover.begin_walk(
+                    let serial = mover.begin_walk_film(
                         resources,
                         &self.declarations,
                         &self.polygons,
                         destination.unwrap_or(mover.placement.position),
                         cursor,
+                        Handle(a[3] as u32),
                     )?;
                     let moving = mover.walk_target.is_some();
                     self.scroll.follow_cursor = false;
@@ -7908,6 +7915,173 @@ mod tests {
             mover.placement.position = position;
             completed.tick(&resources).unwrap();
             assert_eq!(completed.globals, [expected, 77]);
+        }
+    }
+
+    #[test]
+    fn scripted_custom_walk_films_preserve_delay_hold_and_snapshot_continuation() {
+        use crate::save::Snapshot;
+        for node in [false, true] {
+            for (call, hold) in [(87, 0), (87, 1), (87, 2), (88, 0)] {
+                for (target_x, stop, custom) in [
+                    (80, false, true),
+                    (80, true, true),
+                    (50, false, true),
+                    (50, false, false),
+                    (80, false, false),
+                ] {
+                    let (master, mut scene) = fixtures();
+                    let base = 2u32 << 23;
+                    let mut code = vec![3, 0x41, target_x, 0x41, 70, 1];
+                    code.extend_from_slice(&(if custom { base + 64 } else { 0 }).to_le_bytes());
+                    if call == 87 {
+                        code.extend([0x41, hold]);
+                    }
+                    code.extend([0x4e, call]);
+                    if call == 88 {
+                        code.extend([0x4c, 1]);
+                    }
+                    code.extend([0x41, 77, 0x4c, 0, 0]);
+                    scene[8..8 + code.len()].copy_from_slice(&code);
+                    let mut film = vec![0; 400];
+                    for (at, value) in [
+                        (0, 24u32),
+                        (4, 1),
+                        (8, base + 32),
+                        (12, base + 256),
+                        (32, base + 200),
+                        (40, 1),
+                        (64, 12),
+                        (68, 1),
+                        (72, base + 32),
+                        (76, base + 320),
+                        (200, base + 220),
+                        (220, 8 | (16 << 16)),
+                        (256, base + 200),
+                        (260, 1),
+                        (264, (-2i32) as u32),
+                        (320, base + 200),
+                    ] {
+                        film[at..at + 4].copy_from_slice(&value.to_le_bytes());
+                    }
+                    let resources = Resources(vec![&master, &scene, &film]);
+                    let mut engine = Engine::bootstrap(&resources).unwrap();
+                    engine.globals.resize(2, 0);
+                    engine.actors = crate::actor::Actors::new(1).unwrap();
+                    engine.no_blocking = true;
+                    engine
+                        .declarations
+                        .movers
+                        .insert(1, [[Handle(base); 12]; 10]);
+                    engine.polygons = crate::polygon::Polygons::new(
+                        vec![crate::polygon::Polygon {
+                            kind: if node {
+                                crate::polygon::Kind::NodePath
+                            } else {
+                                crate::polygon::Kind::Path
+                            },
+                            corners: [[0, 0], [100, 0], [100, 100], [0, 100]],
+                            tag_position: [0; 2],
+                            tag_text: Handle(0),
+                            node_position: [0; 2],
+                            film: Handle(0),
+                            refer_type: 0,
+                            id: 1,
+                            scales: [1, 0],
+                            reel: 0,
+                            z_factor: 0,
+                            nodes: if node {
+                                vec![[50, 70], [80, 70]]
+                            } else {
+                                vec![]
+                            },
+                            lines: if node {
+                                vec![[0, 30, -2100, 0, 0, 0, 0, 0, 0, 0]]
+                            } else {
+                                vec![]
+                            },
+                            script: Handle(0),
+                        }],
+                        0,
+                    );
+                    let placement = crate::mover::Placement::initial(
+                        &engine.declarations,
+                        &engine.polygons,
+                        1,
+                        [50, 70],
+                        Handle(base),
+                    )
+                    .unwrap();
+                    engine
+                        .movers
+                        .insert(1, crate::mover::Mover::new(&resources, placement).unwrap());
+                    let mut saw_custom = false;
+                    let mut stopped_at = None;
+                    for tick in 0..80 {
+                        if stop
+                            && stopped_at.is_none()
+                            && engine.movers[&1].placement.position[0] > 50
+                        {
+                            stopped_at = Some(engine.movers[&1].placement.position);
+                            engine.movers.get_mut(&1).unwrap().stop_requested = true;
+                        }
+                        let bytes = Snapshot::capture(&engine, [7; 32]).to_bytes().unwrap();
+                        let decoded = Snapshot::from_bytes(&bytes, [7; 32]).unwrap();
+                        assert_eq!(decoded.to_bytes().unwrap(), bytes);
+                        let mut restored = decoded.state().clone();
+                        let a = engine.tick(&resources).unwrap();
+                        let b = restored.tick(&resources).unwrap();
+                        assert_eq!(a, b);
+                        assert_eq!(
+                            engine, restored,
+                            "call={call},hold={hold},node={node},tick={tick}"
+                        );
+                        let mover = &engine.movers[&1];
+                        saw_custom |= mover.last_film == Handle(base + 64);
+                        if call == 88 && tick < 24 {
+                            assert_eq!(mover.placement.position, [50, 70]);
+                            assert_eq!(mover.last_film, Handle(base));
+                            assert_eq!(mover.walk_serial, 0);
+                        }
+                        if call == 87 && hold == 2 {
+                            assert_eq!(engine.globals[0], 77);
+                        }
+                        if call == 87 && hold != 2 && mover.walk_target.is_some() {
+                            assert_eq!(engine.globals[0], 0, "blocking WALK must not return early");
+                        }
+                        if mover.walk_serial > 0
+                            && mover.walk_target.is_none()
+                            && engine.processes.is_empty()
+                        {
+                            break;
+                        }
+                    }
+                    let mover = &engine.movers[&1];
+                    assert_eq!(saw_custom, custom && target_x != 50);
+                    assert_eq!(mover.walk_target, None);
+                    assert_eq!(
+                        mover.placement.position,
+                        stopped_at.unwrap_or([i32::from(target_x), 70])
+                    );
+                    assert_eq!(mover.last_film, Handle(base));
+                    assert_eq!(mover.walk_serial, 1 + u64::from(stop));
+                    assert_eq!(
+                        engine.globals[0],
+                        if stop && call == 87 && hold != 2 {
+                            0
+                        } else {
+                            77
+                        }
+                    );
+                    if call == 88 {
+                        assert_eq!(
+                            engine.globals[1],
+                            i32::from(!stop && target_x != 50),
+                            "SetActorDest returns zero when no walk was needed"
+                        );
+                    }
+                }
+            }
         }
     }
 

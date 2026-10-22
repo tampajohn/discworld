@@ -3,7 +3,7 @@
 Status: reference-derived transition model implemented in `mover_reel.rs`;
 transactional mover animation application and snapshot storage are implemented.
 Walking and new stationary speech use explicit reel state; old active talk
-waits migrate at the first tick. Custom WALK/WALKED/SWALK film arguments remain
+waits migrate at the first tick. Custom WALK/WALKED films are implemented; SWALK/WALKTAG overrides remain
 guarded. Ambiguous legacy overlapping slots require further compatibility work. Reference revision:
 `96b42d42bc8533953bdd701db059cc33c839a9ff`. This applies to V1; later-version
 branches in the same functions must not be imported implicitly.
@@ -256,8 +256,38 @@ both passed, for 34 browser cases exercised across Chrome/WebKit. Those cases
 verify exact imported pixels and unchanged save export. Logs use the
 `assets/logs/stationary-reel-*` prefix.
 
-A fresh full native route with engine/DSP snapshot audits is running for runtime
-3856346 under `assets/validation/stationary-reel-3856346/native`; its terminal
-result and final report must be checked before claiming this later revision
-passed the full route. The completed cross-host route evidence above remains
+The full native route with engine/DSP snapshot audits passes for runtime
+3856346: 2,630,000 ticks, all 1,652 inputs accepted, ending/credits/restart reached,
+and 5,048 engine plus 5,048 DSP audits. The final engine state matches fa77914.
+See [native validation](validation/stationary-reel-3856346.json). The completed cross-host route evidence above remains
 pinned to fa77914.
+
+
+## Scripted custom WALK and WALKED
+
+WALK (87) and WALKED (88) now accept explicit walking films. The mover installs
+reel zero before route selection, retaining its persistent object and deferring
+the first animation step. Destination/resource failures leave the mover intact.
+Zero-film calls retain the existing normal walking path. WALKED recovers its
+film from the suspended VM stack after the original 24-tick delay; the wait
+payload and older snapshot encodings need no new field.
+
+The new regression exposed an independent V1 return-value quirk: SetActorDest
+increments the walk number but returns zero when it calls GotThere before
+starting a walk (distance less than four horizontal and two vertical pixels).
+WALKED compares that returned value, so it returns false even at an exact
+already-reached destination. The engine now preserves that zero result before
+node projection instead of reporting success merely from coordinate equality.
+A zero-film and a custom-film call share this correction.
+
+The synthetic bytecode regression covers ordinary/node paths, WALK holds 0/1/2,
+WALKED's delayed start, interrupted versus successful arrival, finite custom
+film completion and no-motion return, with snapshot/re-encode and next-tick
+continuation at every step. The original-asset regression starts an actual
+custom-film walk in unseen.scn, rejects a bad film atomically, preserves the
+selected film/direction while moving, restores standing at arrival, and compares
+full engine/DSP saves, frames and audio through the production session codec.
+Workspace tests (298 core), Clippy, WASM checking and all 17 original-asset web
+tests pass; logs use `assets/logs/custom-walk-*`. The completed 3856346 replay
+predates these changes, so it is not full-route evidence for this later build.
+SWALK custom films and WALKTAG film overrides remain separate compatibility work.

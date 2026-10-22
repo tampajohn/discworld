@@ -1031,6 +1031,33 @@ impl Mover {
         self.constrained_walk = true;
         Ok(serial)
     }
+    /// SetActorDest's optional explicit walking film is installed before route
+    /// selection. Zero retains the normal walk path, including special-reel
+    /// restoration. Failed resource or route validation leaves the mover intact.
+    pub fn begin_walk_film(
+        &mut self,
+        resources: &crate::graphics::Resources<'_>,
+        declarations: &Declarations,
+        polygons: &Polygons,
+        target: [i32; 2],
+        cursor: [i32; 2],
+        film: Handle,
+    ) -> Result<u64, Error> {
+        if film.0 == 0 {
+            return self.begin_walk(resources, declarations, polygons, target, cursor);
+        }
+        let mut next = self.clone();
+        next.alter_reel(
+            resources,
+            declarations,
+            crate::mover_reel::State::default(),
+            crate::mover_reel::Operation::Walk(film),
+        )?;
+        let serial = next.begin_walk(resources, declarations, polygons, target, cursor)?;
+        *self = next;
+        Ok(serial)
+    }
+
     /// Normal WALK's short-distance completion keeps position and faces the
     /// cursor. Callers supply world coordinates, not screen coordinates.
     pub fn begin_walk(

@@ -2140,3 +2140,82 @@ fn original_walking_talk_reel_preserves_route_and_full_session() {
     assert_eq!(game.engine.movers[&actor].walk_serial, serial);
     roundtrip_pending(&mut game, 3);
 }
+
+#[test]
+#[ignore = "requires DISCWORLD_TEST_ISO, DISCWORLD_TEST_SOUNDFONT and DISCWORLD_TEST_NODE_EXIT_SAVE"]
+fn original_custom_walk_film_restores_exact_frames_and_full_sessions() {
+    use discworld_core::graphics::Handle;
+    let read = |name| std::fs::read(std::env::var_os(name).expect(name)).unwrap();
+    let mut game =
+        BrowserGame::new(read("DISCWORLD_TEST_ISO"), read("DISCWORLD_TEST_SOUNDFONT")).unwrap();
+    game.load(&read("DISCWORLD_TEST_NODE_EXIT_SAVE")).unwrap();
+    while game.tick() < 133800 {
+        game.advance((133800 - game.tick()).min(24) as u32).unwrap();
+    }
+    let actor = game.engine.declarations.lead.as_ref().unwrap().id;
+    let initial = game.engine.movers[&actor].clone();
+    let start = initial.placement.position;
+    let film = game.engine.declarations.movers[&actor][initial.placement.scale - 1][0];
+    let resources = game.assets.resources();
+    let mut invalid = initial.clone();
+    assert!(
+        invalid
+            .begin_walk_film(
+                &resources,
+                &game.engine.declarations,
+                &game.engine.polygons,
+                start,
+                start,
+                Handle(u32::MAX)
+            )
+            .is_err()
+    );
+    assert_eq!(invalid, initial);
+    let mut selected = None;
+    for delta in [[-40, 0], [40, 0], [0, -20], [0, 20]] {
+        let target = [start[0] + delta[0], start[1] + delta[1]];
+        let mut mover = initial.clone();
+        if mover
+            .begin_walk_film(
+                &resources,
+                &game.engine.declarations,
+                &game.engine.polygons,
+                target,
+                target,
+                film,
+            )
+            .is_ok()
+            && mover.walk_target.is_some()
+        {
+            selected = Some(mover);
+            break;
+        }
+    }
+    let mover = selected.expect("nontrivial original custom-film walk");
+    let target = mover.walk_target.unwrap();
+    let serial = mover.walk_serial;
+    assert_eq!(mover.last_film, film);
+    assert_eq!(mover.animation.steps, 0);
+    game.engine.movers.insert(actor, mover);
+    for _ in 0..100 {
+        if game.engine.movers[&actor].walk_target.is_none() {
+            break;
+        }
+        assert_eq!(game.engine.movers[&actor].last_film, film);
+        assert_eq!(
+            game.engine.movers[&actor].placement.direction,
+            initial.placement.direction
+        );
+        roundtrip_pending(&mut game, 1);
+    }
+    assert_eq!(game.engine.movers[&actor].walk_target, None);
+    assert_eq!(game.engine.movers[&actor].placement.position, target);
+    assert_eq!(game.engine.movers[&actor].walk_serial, serial);
+    let mover = &game.engine.movers[&actor];
+    assert_eq!(
+        mover.last_film,
+        game.engine.declarations.movers[&actor][mover.placement.scale - 1]
+            [4 + mover.placement.direction.index()]
+    );
+    roundtrip_pending(&mut game, 3);
+}
