@@ -2040,3 +2040,34 @@ fn right_click_while_leaving_unseen_stairs_preserves_leg_and_recovers() {
     assert!(game.engine.movers.values().all(|m| m.walk_target.is_none()));
     roundtrip_pending(&mut game, 5);
 }
+
+#[test]
+#[ignore = "requires DISCWORLD_TEST_ISO and DISCWORLD_TEST_SOUNDFONT"]
+fn disabled_voice_plays_original_intro_with_text_and_restorable_timing() {
+    let read = |name| std::fs::read(std::env::var_os(name).expect(name)).unwrap();
+    let mut game =
+        BrowserGame::new(read("DISCWORLD_TEST_ISO"), read("DISCWORLD_TEST_SOUNDFONT")).unwrap();
+    game.menu_preferences(r#"{"volumes":[255,255,0],"double_click":10,"swap_buttons":false,"text_speed":0,"subtitles":false,"flipped":false}"#).unwrap();
+    let mut saw_speech_wait = false;
+    while game.tick() < 8500 {
+        if game.tick() == 500 {
+            game.input("start").unwrap();
+        }
+        game.advance(1).unwrap();
+        assert!(!game.engine.sample_player.is_speech());
+        assert!(!game.engine.subtitles);
+        saw_speech_wait |= game
+            .engine
+            .pending_calls()
+            .iter()
+            .any(|(_, call, _)| matches!(call.id, 53 | 54 | 77 | 98 | 104));
+        if game.tick() % 1000 == 0 {
+            assert_eq!(game.frame().unwrap().len(), 320 * 200 * 4);
+            roundtrip_pending(&mut game, 1);
+        }
+    }
+    assert!(
+        saw_speech_wait,
+        "the original intro must exercise speech calls"
+    );
+}

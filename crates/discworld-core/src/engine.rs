@@ -3172,6 +3172,11 @@ impl Engine {
         }
         Ok(())
     }
+    fn voice_enabled(&self) -> bool {
+        self.configuration
+            .as_ref()
+            .is_none_or(|menu| menu.settings().volumes[2] != 0)
+    }
     fn text_speed(&self) -> u16 {
         self.configuration
             .as_ref()
@@ -4386,7 +4391,7 @@ impl Engine {
                     }
                     let text_id = a[1];
                     let text = strings.get(text_id as u32)?.to_vec();
-                    let sample = if bank.sample(text_id)?.is_some() {
+                    let sample = if self.voice_enabled() && bank.sample(text_id)?.is_some() {
                         self.sample_player.play_speech(bank, text_id)?;
                         Some(self.sample_player.serial)
                     } else {
@@ -4988,7 +4993,7 @@ impl Engine {
                         return Ok(Status::Running);
                     };
                     let bytes = strings.get(text as u32)?;
-                    let speech = bank.sample(text)?.is_some();
+                    let speech = self.voice_enabled() && bank.sample(text)?.is_some();
                     let layout = if self.subtitles || !speech {
                         let font = crate::text::Font::read(
                             resources,
@@ -5047,7 +5052,7 @@ impl Engine {
                         return Err(Error("negative print time"));
                     }
                     let bytes = strings.get(text)?;
-                    let speech = bank.sample(text as i32)?.is_some();
+                    let speech = self.voice_enabled() && bank.sample(text as i32)?.is_some();
                     if let Some(actor) = actor {
                         if actor != -1 {
                             self.actors.get_mut(
@@ -9030,6 +9035,80 @@ mod tests {
             assert_eq!(engine.control.enabled, initially_enabled);
             assert!(!engine.control.tags_enabled);
             assert_eq!(engine.sample_player.id, None);
+        }
+    }
+
+    #[test]
+    fn zero_voice_volume_uses_text_timing_and_does_not_replace_effects() {
+        let (master, mut scene) = fixtures();
+        scene[8..18].copy_from_slice(&[2, 2, 2, 3, 2, 0x41, 2, 0x4e, 53, 0]);
+        let base = 2u32 << 23;
+        let mut font = vec![0; 1120];
+        font[24..28].copy_from_slice(&1u32.to_le_bytes());
+        let glyph = 44 + usize::from(b'W') * 4;
+        font[glyph..glyph + 4].copy_from_slice(&(base + 1100).to_le_bytes());
+        font[1100..1108].copy_from_slice(&[4, 0, 6, 0, 0, 0, 0, 0]);
+        let resources = Resources(vec![&master, &scene, &font]);
+        let strings = crate::text::Strings::new(&[1, 0, 52, 51, 0, 0, 0, 0, 0, 1, b'W']).unwrap();
+        let index = [0, 0, 0, 0, 4, 0, 0, 0];
+        let mut samples = vec![0; 8];
+        samples[4..8].copy_from_slice(&1000u32.to_le_bytes());
+        samples.extend([129; 1000]);
+        let bank = SampleBank::new(&index, &samples).unwrap();
+        for volume in [0, 255] {
+            let mut engine = Engine::bootstrap(&resources).unwrap();
+            engine.subtitles = false;
+            engine.declarations.talk_font = Some(Handle(base));
+            engine.configuration = Some(
+                crate::menu_controller::Controller::new(crate::menu_controller::Settings {
+                    volumes: [255, 255, volume],
+                    double_click: 10,
+                    swap_buttons: false,
+                    text_speed: 0,
+                    subtitles: false,
+                    flipped: false,
+                })
+                .unwrap(),
+            );
+            if volume == 0 {
+                let mut ambient = engine.clone();
+                ambient.sample_player.play(&bank, 1).unwrap();
+                ambient
+                    .tick_content(&resources, Some(&bank), None, Some(&strings))
+                    .unwrap();
+                assert_eq!(ambient.sample_player.serial, 1);
+                assert_eq!(ambient.sample_player.position, 918);
+                assert!(!ambient.sample_player.is_speech());
+            }
+            assert_eq!(
+                engine
+                    .tick_content(&resources, Some(&bank), None, Some(&strings))
+                    .unwrap(),
+                Status::Running
+            );
+            let wait = engine
+                .processes
+                .states()
+                .find_map(|p| p.print_wait.as_ref())
+                .unwrap();
+            assert_eq!(
+                wait.layout.is_some(),
+                volume == 0,
+                "disabled voice forces text even with subtitles off"
+            );
+            assert_eq!(wait.sample_serial.is_some(), volume != 0);
+            assert_eq!(engine.sample_player.is_speech(), volume != 0);
+            let mut status = Status::Running;
+            for _ in 0..30 {
+                status = engine
+                    .tick_content(&resources, Some(&bank), None, Some(&strings))
+                    .unwrap();
+                if status == Status::Halted {
+                    break;
+                }
+            }
+            assert_eq!(status, Status::Halted);
+            assert_eq!(engine.ticks, if volume == 0 { 27 } else { 3 });
         }
     }
 

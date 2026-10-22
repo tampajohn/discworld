@@ -1498,3 +1498,12 @@ pointer ownership. Unowned lostpointercapture cannot repeat an already-issued
 release. Swapped right-button and ordinary left-button active drag exports,
 reloads and releases pass in Chrome/WebKit; wrong-button release is explicitly
 checked. No save-format or game-script change was needed.
+
+Reference investigation corrected zero voice-volume startup. All three speech
+call families now skip the sample when the voice slider is zero, fall back to
+text display/timing, and preserve any active effects sample. This supersedes
+prior blanket statements that all zero-volume settings preserve dialogue timing:
+that statement applies to host master mute and scaling existing samples, not
+Tinsel's voice-disabled mode. Synthetic and original-intro save/load tests pass.
+The ongoing full-route jobs continue validating their original 00a6b38 binaries;
+no running job or visible session was restarted during this correction.

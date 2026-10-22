@@ -80,7 +80,8 @@ The marker belongs to playback rather than to a waiting script, so terminating
 a script cannot misclassify a still-playing sample. Each engine tick applies
 the selected controller volume (effects index 1, speech index 2) with integer
 linear scaling by volume/255. With no controller, output remains full volume.
-Clocks, sample cursors and completion proceed unchanged at zero gain.
+Gain does not change an already-playing sample's clock or cursor. Starting new
+speech with voice volume zero has separate reference behavior described below.
 
 DWRSAVE v12 preserves active speech classification. For older snapshots, a live
 TALK/PRINT wait with the same sample serial recovers the speech category before
@@ -94,3 +95,21 @@ continuation. Workspace tests, all 14 original-asset web integration tests,
 Clippy, web WASM checking and native release build pass. Logs use the
 assets/logs/sample-volume-* prefix. No new physical-device listening or original
 hardware gain-curve equivalence is claimed.
+
+
+Reference correction for voice volume zero: pinned tinlib.cpp guards speech
+startup in PRINT, inventory descriptions and TALK/TALKAT with `_voiceVolume != 0`.
+The engine now follows that guard. New dialogue does not start a sample at zero
+voice volume; text is displayed even when the subtitle preference is off, and
+text duration controls completion. Skipping speech leaves an existing effect
+sample untouched. This differs intentionally from the host M/Sound-off control,
+which only silences presentation and keeps ordinary voiced timing.
+
+A synthetic regression verifies forced text, exact text-vs-sample completion and
+preservation of an existing effect. The opt-in original-asset browser-core test
+`disabled_voice_plays_original_intro_with_text_and_restorable_timing` runs 8,500
+intro ticks with zero voice volume and subtitles off, renders frames and checks
+periodic save/load continuation. Workspace tests, the original-asset regression,
+Clippy, web WASM checks and rebuilt native/browser packages pass; logs use
+assets/logs/voice-disable-*.log. Full-route checks launched earlier remain pinned
+to runtime 00a6b38 and use default volume; they do not test this zero-volume path.
