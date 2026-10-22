@@ -424,3 +424,31 @@ reels, control ownership, outside-path entry, collision detours, and exact
 snapshot continuation. Existing `walk::Leg` tests only establish coordinate
 stepping and overshoot behavior, not completion or coroutine semantics. The
 runtime guard remains until that integration and validation are complete.
+
+## Disabled-axis integration
+
+Direct walks and SWALK now retain raw -1 destinations instead of rejecting
+them. Inert active targets return before stop handling, while enabled-axis
+arrival still uses the existing raw-coordinate NotMoving checks. No save
+format change is needed: ultimate and active-leg targets already serialize.
+The structural save validator does not prohibit these coordinates.
+
+The mover regression exercises all six source-derived cases above across
+eight updates, including per-update serialized continuation and stop handling.
+The script regression adds persistent disabled-horizontal SWALK and Escape
+cases for normal/custom films, ordinary/node paths, and control initially on
+or off, with complete engine snapshot decode/re-encode and continuation at
+every tick. V1 Stand with a sentinel coordinate and film zero is a no-op;
+Walk still returns after invoking it on Escape. The engine now completes that
+call and restores SWALK-owned control even if the mover remains active.
+
+These tests do not establish every disabled-axis collision detour or
+outside-path entrance combination. The existing generic Stop/superseded-walk
+coroutine behavior also warrants a separate V1 reference audit: the reference
+Walk loop waits on bMoving, whereas the current engine checks its saved walk
+serial before returning from a pending call. That pre-existing behavior was
+not changed by disabled-axis support. Logs use `assets/logs/disabled-axis-*`.
+
+Validation: workspace tests, all 20 original-asset web integration tests,
+workspace Clippy and wasm32 checking pass. The cbb7d6b full-route evidence
+predates this change; no new full-route or physical-device result is claimed.

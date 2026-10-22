@@ -74,7 +74,7 @@ command-line development archives have been tested outside their source
 folders; native Finder app packaging and physical iPad acceptance remain.
 
 
-Next engine compatibility work: [mover reel modes and walking speech](mover-reel-compatibility.md). Walking TALK now pauses movement and resumes the existing route, with versioned reel state and interruption/save-continuation tests. New stationary speech also uses the shared reel slot; old active waits migrate at the next tick without rewriting imported bytes. WALK, WALKED, WALKTAG and SWALK accept custom films; disabled-axis direct walks and ambiguous historical overlapping slots remain. [Script escape cancellation](script-escape-compatibility.md), intro routing and host Escape input now have focused coverage; broader reference comparisons remain.
+Next engine compatibility work: [mover reel modes and walking speech](mover-reel-compatibility.md). Walking TALK now pauses movement and resumes the existing route, with versioned reel state and interruption/save-continuation tests. New stationary speech also uses the shared reel slot; old active waits migrate at the next tick without rewriting imported bytes. WALK, WALKED, WALKTAG and SWALK accept custom films; disabled-axis direct walks now retain sentinel destinations and have mover/script continuation tests; ambiguous historical overlapping slots remain. [Script escape cancellation](script-escape-compatibility.md), intro routing and host Escape input now have focused coverage; broader reference comparisons remain.
 
 Runtime revision `00a6b38` has runnable native and browser hosts, original menus,
 named save/load, original-font name editing, independently controlled music/
@@ -113,7 +113,8 @@ The full objective remains incomplete. Remaining acceptance work includes:
   programmatic tests do not substitute for SDL click/typing/device validation.
 - Broader alternate interaction orders and reference comparisons. Custom walking
   films and moving-actor TALK are implemented with focused tests. Disabled-axis
-  direct walks and ambiguous historical overlapping speech slots remain;
+  direct-walk collision/entrance combinations and ambiguous historical overlapping
+  speech slots need further coverage;
   one recorded route cannot establish every supported-game path.
 - Full-route checks of packaged hosts, native Finder application delivery, and
   a final requirement-by-requirement audit, including reference

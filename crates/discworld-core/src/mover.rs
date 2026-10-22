@@ -951,9 +951,6 @@ impl Mover {
             .path
             .ok_or(Error("walking mover has no current path"))?;
         let p = &polygons.active[path];
-        if target.contains(&-1) {
-            return Err(Error("unsupported direct walk disabled axis"));
-        }
         next.stop_requested = false;
         next.walk_serial = next
             .walk_serial
@@ -1175,6 +1172,16 @@ impl Mover {
         polygons: &Polygons,
         others: &[crate::walk::Footprint],
     ) -> Result<(), Error> {
+        // V1 MoveActor returns before processing bStop when both active axes
+        // are disabled, even though bMoving and the script wait remain set.
+        if !self.constrained_walk
+            && self.node_walk.is_none()
+            && self
+                .walk_target
+                .is_some_and(|target| self.direct_leg.map_or(target, |leg| leg.target) == [-1; 2])
+        {
+            return Ok(());
+        }
         if self.walk_target.is_some() && self.stop_requested {
             let mut next = self.clone();
             next.finish_walk(resources, declarations)?;
@@ -2138,6 +2145,51 @@ mod tests {
             }],
             0,
         );
+        // Raw -1 destinations are retained: arrival on the enabled axis
+        // need not satisfy V1's raw-coordinate NotMoving completion check.
+        for (start, target, positions, completes) in [
+            ([100, 50], [-1, 54], [[100, 52], [100, 54]], false),
+            ([0, 50], [-1, 54], [[0, 52], [0, 54]], true),
+            ([100, 50], [108, -1], [[104, 50], [108, 50]], false),
+            ([100, 0], [108, -1], [[104, 0], [108, 0]], true),
+            ([100, 50], [-1, -1], [[100, 50], [100, 50]], false),
+            ([0, 0], [-1, -1], [[0, 0], [0, 0]], true),
+        ] {
+            let mut axis = mover.clone();
+            axis.stand(&resources, &declarations, &polygons, start, Handle(0))
+                .unwrap();
+            let serial = axis
+                .begin_direct_walk(&resources, &declarations, &polygons, target, start)
+                .unwrap();
+            for tick in 0..8 {
+                let bytes = postcard::to_allocvec(&axis).unwrap();
+                let mut restored: Mover = postcard::from_bytes(&bytes).unwrap();
+                for m in [&mut axis, &mut restored] {
+                    m.advance_direct_walk(&resources, &declarations, &polygons, &[])
+                        .unwrap();
+                    assert_eq!(m.placement.position, positions[tick.min(1)]);
+                    if tick >= 2 {
+                        assert_eq!(m.walk_target.is_none(), completes);
+                    }
+                    assert_eq!(m.walk_serial, serial);
+                }
+                assert_eq!(axis, restored);
+            }
+            if !completes {
+                axis.stop_requested = true;
+                axis.advance_direct_walk(&resources, &declarations, &polygons, &[])
+                    .unwrap();
+                if target == [-1; 2] {
+                    assert!(axis.stop_requested);
+                    assert_eq!(axis.walk_target, Some(target));
+                    assert_eq!(axis.walk_serial, serial);
+                } else {
+                    assert!(!axis.stop_requested);
+                    assert_eq!(axis.walk_target, None);
+                    assert_eq!(axis.walk_serial, serial + 1);
+                }
+            }
+        }
         mover
             .stand(&resources, &declarations, &polygons, [200, 178], Handle(0))
             .unwrap();

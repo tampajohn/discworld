@@ -4382,8 +4382,7 @@ impl Engine {
                     [a[3], a[4]]
                 };
                 self.stand_mover(resources, actor, target, Handle(0))?;
-            }
-            if self.movers[&actor].walk_target.is_some() {
+            } else if self.movers[&actor].walk_target.is_some() {
                 return Ok(Status::Running);
             }
             if restore_control {
@@ -5243,7 +5242,7 @@ impl Engine {
                     } else {
                         start
                     };
-                    if placement.path.is_none() || target.contains(&-1) {
+                    if placement.path.is_none() {
                         return Ok(Status::Unsupported(call));
                     }
                     self.actors.get(actor as u32)?;
@@ -8688,7 +8687,15 @@ mod tests {
                     (80, 3, true),
                     (80, 2, false),
                     (80, 4, true),
+                    (255, 0, true), // signed byte -1 disables horizontal movement
+                    (255, 0, false),
+                    (255, 2, true),
+                    (255, 2, false),
                 ] {
+                    let disabled_axis = target_x == 255;
+                    if disabled_axis && (call != 75 || start_x != 50) {
+                        continue;
+                    }
                     if interrupt == 4 && call != 88 {
                         continue;
                     }
@@ -8828,7 +8835,8 @@ mod tests {
                         if interrupt == 2
                             && !escaped
                             && tick > 0
-                            && engine.movers[&1].placement.position[0] != i32::from(start_x)
+                            && (engine.movers[&1].placement.position[0] != i32::from(start_x)
+                                || (disabled_axis && tick == 5))
                             && engine.movers[&1].walk_target.is_some()
                         {
                             engine.script_escape_event().unwrap();
@@ -8837,7 +8845,8 @@ mod tests {
                         if stop
                             && stopped_at.is_none()
                             && tick > 0
-                            && engine.movers[&1].placement.position[0] != i32::from(start_x)
+                            && (engine.movers[&1].placement.position[0] != i32::from(start_x)
+                                || (disabled_axis && tick == 5))
                         {
                             stopped_at = Some(engine.movers[&1].placement.position);
                             engine.movers.get_mut(&1).unwrap().stop_requested = true;
@@ -8863,11 +8872,13 @@ mod tests {
                         if call == 87 && hold == 2 {
                             assert_eq!(engine.globals[0], 77);
                         }
-                        if call == 75 && mover.walk_target.is_some() {
+                        if call == 75 && mover.walk_target.is_some() && !(disabled_axis && escaped)
+                        {
                             assert!(!engine.control.enabled, "SWALK holds lead control");
                         }
                         if ((call == 87 && hold != 2) || call == 91 || call == 75)
                             && mover.walk_target.is_some()
+                            && !(disabled_axis && escaped)
                         {
                             assert_eq!(engine.globals[0], 0, "blocking WALK must not return early");
                         }
@@ -8876,6 +8887,21 @@ mod tests {
                         }
                     }
                     let mover = &engine.movers[&1];
+                    if disabled_axis {
+                        assert_eq!(mover.placement.position, [50, 70]);
+                        assert_eq!(mover.walk_target, if stop { None } else { Some([-1, 70]) });
+                        assert_eq!(mover.walk_serial, 1 + u64::from(stop));
+                        assert_eq!(engine.globals[0], if escaped { 77 } else { 0 });
+                        assert_eq!(engine.control.enabled, escaped && hold == 1);
+                        if !stop {
+                            assert_eq!(
+                                mover.last_film,
+                                Handle(if custom { base + 64 } else { base })
+                            );
+                            assert_eq!(engine.processes.is_empty(), escaped);
+                        }
+                        continue;
+                    }
                     assert_eq!(
                         saw_custom,
                         custom && target_x != start_x && !matches!(interrupt, 3 | 4)
