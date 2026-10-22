@@ -184,12 +184,15 @@ and script custom walking films. The earlier transition-model tests cover single
 PUSH/POP decisions but do not establish all those engine interactions.
 
 
-A fresh 2,630,000-tick replay of the complete original-input route is in progress
-for runtime fa77914 in native, Chrome and WebKit. Local artifacts are under
-`assets/validation/walking-talk-fa77914`; inspect terminal results and reports
-before treating this run as successful. The native run enables engine and DSP
-snapshot audits. Browser runs generate audio in a module worker; they do not
-prove physical-device playback or full touch-only interaction.
+The complete 2,630,000-tick route passes for runtime fa77914 in native, Chrome
+and WebKit: all 1,652 inputs accepted, ending/credits/restart reached, final
+engine bytes and RGBA equal across hosts. Native passed 5,048 engine snapshot
+and 5,048 DSP audits. Both browsers generated 4,832,625,000 finite samples with
+zero nonfinite values; combined DSP saves still differ. See the tracked
+[validation summary](validation/walking-talk-fa77914.json). Local artifacts are
+under `assets/validation/walking-talk-fa77914`. Browser worker audio is not sent
+through Web Audio during this run; it does not establish physical playback or
+complete touch-only interaction.
 
 
 ## Custom walking film readiness
