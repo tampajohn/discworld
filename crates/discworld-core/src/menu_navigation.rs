@@ -6,7 +6,7 @@ use crate::configuration_menu::{
     Action, ButtonImage, ButtonPress, Choice, ConfirmationMenu, MainMenu,
 };
 
-#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+#[derive(serde::Serialize, serde::Deserialize, Debug, Clone, Copy, PartialEq, Eq)]
 pub enum Page {
     Main,
     Load,
@@ -52,7 +52,7 @@ pub struct Outcome {
     pub request: Option<Request>,
 }
 
-#[derive(Debug, Clone, PartialEq, Eq, Default)]
+#[derive(serde::Serialize, serde::Deserialize, Debug, Clone, PartialEq, Eq, Default)]
 pub struct Navigation {
     page: Option<Page>,
     text_action: Option<Action>,
@@ -61,6 +61,20 @@ pub struct Navigation {
 }
 
 impl Navigation {
+    /// Validate before activating a decoded menu state. A queued function may
+    /// belong to a closed or different page: killInventory does not cancel it.
+    pub fn validate_snapshot(&self) -> Result<(), crate::iso::Error> {
+        self.graphic.validate_snapshot()?;
+        if self.graphic.pending() != self.graphic_page.is_some()
+            || (self.graphic.pending() && self.text_action.is_some())
+            || self.graphic_page.is_some_and(|page| {
+                !matches!(page, Page::Restart | Page::Quit | Page::Save | Page::Load)
+            })
+        {
+            return Err(crate::iso::Error("invalid queued menu function"));
+        }
+        Ok(())
+    }
     pub fn page(&self) -> Option<Page> {
         self.page
     }
@@ -228,6 +242,80 @@ impl Navigation {
 #[cfg(test)]
 mod tests {
     use super::*;
+    fn restored(nav: &Navigation) -> Navigation {
+        nav.validate_snapshot().unwrap();
+        let bytes = postcard::to_allocvec(nav).unwrap();
+        let copy: Navigation = postcard::from_bytes(&bytes).unwrap();
+        copy.validate_snapshot().unwrap();
+        assert_eq!(*nav, copy);
+        copy
+    }
+    #[test]
+    fn pending_menu_functions_resume_at_every_coroutine_boundary() {
+        for (page, point) in [
+            (Page::Restart, [170, 85]),
+            (Page::Quit, [170, 85]),
+            (Page::Save, [262, 69]),
+            (Page::Load, [262, 69]),
+            (Page::Restart, [130, 85]),
+            (Page::Save, [262, 116]),
+        ] {
+            for age in 0..=4 {
+                for closure in 0..3 {
+                    let mut original = Navigation::default();
+                    original.open(page, true);
+                    assert!(original.click_button(point));
+                    for _ in 0..age {
+                        original.step(true);
+                    }
+                    match closure {
+                        1 => {
+                            original.close();
+                        }
+                        2 => {
+                            original.escape();
+                        }
+                        _ => {}
+                    }
+                    let mut copy = restored(&original);
+                    for overlay in [closure == 0, false, true, true, true, true] {
+                        assert_eq!(copy.button_image(), original.button_image());
+                        assert_eq!(copy.step(overlay), original.step(overlay));
+                        assert_eq!(copy, original);
+                        copy = restored(&copy);
+                    }
+                    assert!(!copy.graphic.pending());
+                }
+            }
+        }
+        let mut original = Navigation::default();
+        original.open(Page::Main, true);
+        assert!(original.click_button([90, 44])); // queued OPENLOAD
+        original.close();
+        let mut copy = restored(&original);
+        assert_eq!(copy.step(false), original.step(false));
+        assert_eq!(copy.page(), Some(Page::Load));
+    }
+    #[test]
+    fn malformed_menu_coroutines_are_rejected_before_activation() {
+        // Postcard struct fields serialize as this tuple. Exercise malformed
+        // persisted bytes, including an age that would otherwise overflow.
+        for (text, pending, origin) in [
+            (None, Some((Choice::Accept, 255u8)), Some(Page::Restart)),
+            (None, Some((Choice::Accept, 0)), None),
+            (None, None, Some(Page::Restart)),
+            (None, Some((Choice::Accept, 0)), Some(Page::Main)),
+            (
+                Some(Action::Save),
+                Some((Choice::Accept, 0)),
+                Some(Page::Quit),
+            ),
+        ] {
+            let bytes = postcard::to_allocvec(&(Some(Page::Main), text, pending, origin)).unwrap();
+            let invalid: Navigation = postcard::from_bytes(&bytes).unwrap();
+            assert!(invalid.validate_snapshot().is_err());
+        }
+    }
     #[test]
     fn save_tick_resolves_current_selection_and_double_load_is_immediate() {
         use crate::save_menu::{Entry, List, Mode, Target};

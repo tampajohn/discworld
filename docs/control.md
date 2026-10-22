@@ -1012,3 +1012,17 @@ Evidence: assets/logs/browser-audio-continuity.log; original-game host tests in
 assets/logs/browser-audio-full-tests.log. Physical iPad listening remains open.
 The full browser run passed24 Chrome/WebKit cases plus four Node audio/clock
 tests, including original-game playback, mute, interruption/resume and save/load.
+
+Menu navigation now has a serializable logical state for subsequent engine-save
+integration: page, queued text function, graphic coroutine choice/age, and the
+queued graphic function's originating page. validate_snapshot rejects ages>4,
+missing/orphan origins, impossible graphic function origins, and simultaneous
+text/graphic functions. It intentionally accepts an origin different from the
+current page or a pending function with no open page: killInventory removes the
+window but InventoryProcess still calls the queued function. Tests roundtrip
+every age0..4 for Restart/Quit/Save/Load and cancel effects, continue through
+overlay removal, close and Escape-to-Main, compare every subsequent outcome and
+image state, and reject malformed serialized state. A queued OPENLOAD also
+survives a closed Main window. This is the navigation component only; it is not
+yet included in DWRSAVE, and does not change the current save format or host UI.
+Evidence: assets/logs/menu-navigation-snapshot-{tests,workspace,clippy}.log.

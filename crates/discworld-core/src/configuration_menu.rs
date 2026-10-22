@@ -18,7 +18,7 @@ pub enum Confirmation {
     Quit,
 }
 
-#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+#[derive(serde::Serialize, serde::Deserialize, Debug, Clone, Copy, PartialEq, Eq)]
 pub enum Choice {
     Accept,
     Cancel,
@@ -35,11 +35,17 @@ pub enum ButtonImage {
 /// installs normal, then sleeps 1/2/1 ticks before dispatching the choice.
 /// Removing HL1 ends the coroutine early after its first or second sleep;
 /// InventoryProcess still calls the queued function. Only a full reset cancels it.
-#[derive(Debug, Clone, PartialEq, Eq, Default)]
+#[derive(serde::Serialize, serde::Deserialize, Debug, Clone, PartialEq, Eq, Default)]
 pub struct ButtonPress {
     pending: Option<(Choice, u8)>,
 }
 impl ButtonPress {
+    pub(crate) fn validate_snapshot(&self) -> Result<(), Error> {
+        if self.pending.is_some_and(|(_, age)| age > 4) {
+            return Err(Error("invalid menu button coroutine age"));
+        }
+        Ok(())
+    }
     pub fn start(&mut self, choice: Choice) -> bool {
         if self.pending.is_some() {
             return false;
@@ -188,7 +194,7 @@ impl ConfirmationMenu {
     }
 }
 
-#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+#[derive(serde::Serialize, serde::Deserialize, Debug, Clone, Copy, PartialEq, Eq)]
 pub enum Action {
     Load,
     Save,
