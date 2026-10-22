@@ -335,3 +335,11 @@ Validation: workspace tests, Clippy with warnings denied, web WASM checking
 and all 17 opt-in original-asset tests pass (`assets/logs/swalk-film-*`).
 The ongoing full-route run is pinned to 6a519c6 and predates both WALKTAG and
 SWALK custom-film integration.
+
+
+SWALK entrance coverage now also starts at x=110 outside the synthetic path
+(x=0..100), with targets inside it. Ordinary and node-path variants exercise
+the destination-first standing setup, zero/custom films, control initially on
+or off, successful arrival and interruption. Every tick still checks exact
+snapshot continuation. These cases pass without a runtime change; the focused
+regression and core Clippy pass (`assets/logs/swalk-entry-*`).

@@ -7928,14 +7928,16 @@ mod tests {
     fn scripted_custom_walk_films_preserve_delay_hold_and_snapshot_continuation() {
         use crate::save::Snapshot;
         for node in [false, true] {
-            for (call, hold) in [
-                (87, 0),
-                (87, 1),
-                (87, 2),
-                (88, 0),
-                (91, 0),
-                (75, 0),
-                (75, 1),
+            for (call, hold, start_x) in [
+                (87, 0, 50),
+                (87, 1, 50),
+                (87, 2, 50),
+                (88, 0, 50),
+                (91, 0, 50),
+                (75, 0, 50),
+                (75, 1, 50),
+                (75, 0, 110),
+                (75, 1, 110),
             ] {
                 for (target_x, stop, custom) in [
                     (80, false, true),
@@ -7947,7 +7949,7 @@ mod tests {
                     let (master, mut scene) = fixtures();
                     let base = 2u32 << 23;
                     let mut code = if call == 75 {
-                        vec![3, 0x41, 50, 0x41, 70, 0x41, target_x, 0x41, 70, 1]
+                        vec![3, 0x41, start_x, 0x41, 70, 0x41, target_x, 0x41, 70, 1]
                     } else if call == 91 {
                         vec![3, 1]
                     } else {
@@ -8063,7 +8065,8 @@ mod tests {
                     for tick in 0..80 {
                         if stop
                             && stopped_at.is_none()
-                            && engine.movers[&1].placement.position[0] > 50
+                            && tick > 0
+                            && engine.movers[&1].placement.position[0] != i32::from(start_x)
                         {
                             stopped_at = Some(engine.movers[&1].placement.position);
                             engine.movers.get_mut(&1).unwrap().stop_requested = true;
@@ -8105,7 +8108,7 @@ mod tests {
                         }
                     }
                     let mover = &engine.movers[&1];
-                    assert_eq!(saw_custom, custom && target_x != 50);
+                    assert_eq!(saw_custom, custom && target_x != start_x);
                     assert_eq!(mover.walk_target, None);
                     assert_eq!(
                         mover.placement.position,
