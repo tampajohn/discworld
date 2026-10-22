@@ -20,6 +20,7 @@ mod inventory_resize;
 mod inventory_slider;
 pub mod iso;
 pub mod library;
+pub mod menu_controller;
 pub mod menu_navigation;
 pub mod menu_slider;
 pub mod menu_toggle;

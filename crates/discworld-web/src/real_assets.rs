@@ -3,6 +3,120 @@ use super::BrowserGame;
 
 #[test]
 #[ignore = "requires DISCWORLD_TEST_ISO and DISCWORLD_TEST_SOUNDFONT"]
+fn original_menu_controller_transitions_render_and_resolve_live_selection() {
+    use discworld_core::{
+        menu_controller::{Assets, Controller, Settings},
+        menu_navigation::{Page, Request},
+        save_menu::{Entry, Target},
+        text::Strings,
+    };
+    let read = |name| std::fs::read(std::env::var_os(name).expect(name)).unwrap();
+    let mut game =
+        BrowserGame::new(read("DISCWORLD_TEST_ISO"), read("DISCWORLD_TEST_SOUNDFONT")).unwrap();
+    while game.tick() < 500 {
+        game.advance((500 - game.tick()).min(24) as u32).unwrap();
+    }
+    let resources = game.assets.resources();
+    let strings = Strings::new(&game.assets.iso[game.assets.text.clone()]).unwrap();
+    let saves = [Entry {
+        id: 7,
+        description: b"Library".to_vec(),
+    }];
+    let assets = Assets {
+        resources: &resources,
+        strings: &strings,
+        declarations: &game.engine.declarations,
+        saves: &saves,
+    };
+    let settings = Settings {
+        volumes: [255, 128, 0],
+        double_click: 10,
+        swap_buttons: false,
+        text_speed: 50,
+        subtitles: true,
+        flipped: false,
+    };
+    let baseline = game.engine.render(&resources).unwrap();
+    for (row, page) in [
+        Some(Page::Load),
+        Some(Page::Save),
+        Some(Page::Restart),
+        Some(Page::Sound),
+        Some(Page::Controls),
+        Some(Page::Subtitles),
+        Some(Page::Quit),
+        None,
+    ]
+    .into_iter()
+    .enumerate()
+    {
+        let mut menu = Controller::new(settings.clone()).unwrap();
+        assert!(menu.open(Page::Main, &assets).unwrap());
+        assert!(menu.click_button([90, 44 + row as i32 * 15]));
+        menu.step(&assets, true).unwrap();
+        assert_eq!(menu.page(), page);
+        let mut surface = baseline.clone();
+        menu.draw(&resources, &mut surface, None).unwrap();
+        assert_eq!(surface.rgba == baseline.rgba, page.is_none());
+    }
+    let mut menu = Controller::new(settings).unwrap();
+    menu.open(Page::Save, &assets).unwrap();
+    assert!(menu.click_button([262, 69]));
+    menu.step(&assets, true).unwrap();
+    menu.click_row([50, 63], false).unwrap();
+    for _ in 0..3 {
+        assert_eq!(menu.step(&assets, true).unwrap().outcome.request, None);
+    }
+    let result = menu.step(&assets, true).unwrap();
+    assert_eq!(result.outcome.request, Some(Request::Save));
+    assert_eq!(
+        result.selection,
+        Some((Target::Existing(7), b"Library".to_vec()))
+    );
+    assert_eq!(menu.page(), None);
+
+    // Reopening Main resets the shared selBox. The old queued function still
+    // runs, but it must not accidentally save to a stale slot from its old page.
+    menu.open(Page::Save, &assets).unwrap();
+    menu.click_row([50, 63], false).unwrap();
+    menu.click_button([262, 69]);
+    menu.step(&assets, true).unwrap();
+    assert!(menu.escape(&assets).unwrap().write_settings);
+    let result = menu.step(&assets, false).unwrap();
+    assert_eq!(result.outcome.request, Some(Request::Save));
+    assert_eq!(result.selection, None);
+
+    menu.open(Page::Controls, &assets).unwrap();
+    let view = menu.settings_mut().unwrap();
+    assert!(view.click([163, 72], true));
+    assert!(view.click([176, 112], false));
+    for _ in 0..3 {
+        view.step_toggle(true, true);
+    }
+    menu.escape(&assets).unwrap();
+    assert!(menu.settings().swap_buttons && menu.settings().flipped);
+    menu.close();
+    menu.open(Page::Controls, &assets).unwrap();
+    assert!(menu.settings_mut().unwrap().enabled());
+
+    // Failed resource construction must preserve both navigation and view.
+    menu.close();
+    menu.open(Page::Main, &assets).unwrap();
+    menu.click_button([90, 44]);
+    let before = menu.clone();
+    let invalid = discworld_core::startup::Declarations::default();
+    let bad_assets = Assets {
+        declarations: &invalid,
+        ..assets
+    };
+    assert!(menu.step(&bad_assets, true).is_err());
+    assert_eq!(menu, before);
+    menu.step(&assets, true).unwrap();
+    assert_eq!(menu.page(), Some(Page::Load));
+}
+
+#[test]
+#[ignore = "requires DISCWORLD_TEST_ISO and DISCWORLD_TEST_SOUNDFONT"]
 fn startup_menu_key_restores_original_cursor_and_resumes_deterministically() {
     use discworld_core::menu_navigation::Key;
     let read = |name| std::fs::read(std::env::var_os(name).expect(name)).unwrap();

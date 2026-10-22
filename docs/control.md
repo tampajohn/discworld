@@ -1026,3 +1026,22 @@ image state, and reject malformed serialized state. A queued OPENLOAD also
 survives a closed Main window. This is the navigation component only; it is not
 yet included in DWRSAVE, and does not change the current save format or host UI.
 Evidence: assets/logs/menu-navigation-snapshot-{tests,workspace,clippy}.log.
+
+menu_controller::Controller now binds Navigation to all original page views and
+the current save list. Main actions build Load/Save/Restart/Sound/Controls/
+Subtitles/Quit from the original declarations, strings, fonts and window film;
+Resume removes the display. Opening/rebuilding is transactional on resource
+errors. Settings widgets expose their current values through settings(), which
+retains edits across close/reopen. Save/Load Dispatch resolves target and draft
+at function execution, before removing graphics. Closing retains the list, but
+opening a new page clears it as popUpInventory resets selBox; a queued SAVEGAME
+that survives Escape-to-Main therefore emits no stale selection. Hosts must
+honor a missing selection rather than inventing a target. Original-ISO tests
+draw each destination, check Resume removes the overlay, change selection after
+pressing Save, exercise the Escape stale-selection case, retain Controls edits,
+and verify failed page construction preserves the queued action and display.
+Evidence: assets/logs/menu-controller-{original-assets,workspace,clippy}.log.
+This shared controller is not yet attached to Engine or live hosts. Engine
+tags/held-cursor lifecycle, cursor warps, widget event routing/coroutine ownership,
+complete controller snapshots, actual settings application and host persistence
+dispatch remain integration work; the current user session is unchanged.
