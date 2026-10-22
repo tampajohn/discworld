@@ -465,11 +465,10 @@ impl BrowserGame {
                 }
             }
             "escape" => {
-                engine.user_event().map_err(error)?;
                 let strings =
                     Strings::new(&self.assets.iso[self.assets.text.clone()]).map_err(error)?;
                 let outcome = engine
-                    .escape_configuration(&resources, &strings, &self.menu_entries)
+                    .escape_input(&resources, &strings, &self.menu_entries)
                     .map_err(error)?;
                 if outcome.request.is_some() || outcome.write_settings {
                     self.menu_requests

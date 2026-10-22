@@ -7,8 +7,9 @@ guards. Fresh native/browser/tool startup activates detected DOS pre-title
 policy. DWRSAVE v17 preserves that state, and user loads end intro mode while
 exact runtime restoration retains it.
 
-Host keyboard/touch Escape is not yet connected to the shared script event
-API. Complete user-facing skipping remains unverified. The sections below
+Native keyboard and browser keyboard/touch Escape now route through a shared
+player event dispatcher. Complete user-facing skipping across every game
+sequence remains unverified. The sections below
 record implementation stages chronologically; earlier pending items may have
 been resolved by later sections.
 
@@ -468,3 +469,31 @@ and WASM checking passed. Both hosts rebuilt; Chrome/WebKit cold-start cases
 passed, and a 30-frame native dummy-video smoke run exited normally at tick 15
 in psygnosi.scn. Logs use `assets/logs/intro-startup-*`. Dummy-video smoke is
 not visible-window or physical-device acceptance.
+
+## Host Escape dispatch
+
+`Engine::escape_input` atomically increments escape, user and left-event
+counters before the control gate, matching PlayerEvent. With control enabled,
+it delegates active configuration menus to their existing escape navigation,
+closes visible personal inventories, and schedules a visible conversation's
+close/postamble. Hidden inventories and control-disabled windows remain intact.
+
+Native manual Escape and BrowserGame's `escape` command use this method. The
+browser adds an Escape touch button; repeated keyboard keydown events are
+ignored. The separate Continue/Close controls retain their existing meanings.
+A core regression checks one increment per event, control-disabled delivery,
+hidden-inventory preservation and overflow atomicity. The original intro test
+now injects via BrowserGame.input rather than the internal script API.
+
+Host validation: workspace tests (320 core tests), all 20 original-asset web
+tests, Clippy, WASM checking and release rebuilds passed. Added conversation
+postamble/atomic-failure coverage passed, and the original-menu gate/warp/
+atomicity regression passed through escape_input. Chrome and WebKit each
+passed keyboard and touch pre-title skipping (four browser cases). Logs use
+`assets/logs/escape-host-*`. This does not establish physical iPad acceptance
+or every post-title cutscene/order. The full-route job remains pinned to
+1ac8f90 with no Escape inputs, predating this dispatcher.
+
+Both Chrome/WebKit native-menu-v10 import/export cases also passed, preserving
+exact pixels and unchanged historical save bytes. The visible manual session
+was not restarted.

@@ -1400,6 +1400,39 @@ impl Engine {
         Ok(outcome)
     }
 
+    /// V1 player Escape: account for the event before the control gate, then
+    /// route active menus/inventories. Commit only a valid complete transition.
+    pub fn escape_input(
+        &mut self,
+        resources: &Resources<'_>,
+        strings: &crate::text::Strings<'_>,
+        saves: &[crate::save_menu::Entry],
+    ) -> Result<crate::menu_navigation::Outcome, Error> {
+        let mut next = self.clone();
+        next.script_escape_event()?;
+        let mut outcome = crate::menu_navigation::Outcome::default();
+        if next.control.enabled {
+            if next
+                .configuration
+                .as_ref()
+                .is_some_and(|menu| menu.page().is_some())
+            {
+                outcome = next.escape_configuration(resources, strings, saves)?;
+            } else if !next.conversation.hidden {
+                if next.active_inventory == Some(0) {
+                    if let Some(polygon) = next.conversation.close_input() {
+                        next.close_conversation();
+                        next.queue_converse(resources, polygon)?;
+                    }
+                } else if next.active_inventory.is_some() || next.top_window.is_some() {
+                    next.close_inventory();
+                }
+            }
+        }
+        *self = next;
+        Ok(outcome)
+    }
+
     /// One InventoryProcess update, including effects retained after closure.
     /// The caller must consume Save/Load/Restart/Quit dispatches at this boundary.
     pub fn advance_configuration(
@@ -6579,6 +6612,83 @@ mod tests {
         let legacy = Engine::bootstrap(&resources).unwrap();
         let fallback = Engine::bootstrap_with_title(&resources, None).unwrap();
         assert_eq!(legacy, fallback);
+    }
+
+    #[test]
+    fn player_escape_counts_once_before_control_gate_and_preserves_hidden_inventory() {
+        let (master, scene) = fixtures();
+        let resources = Resources(vec![&master, &scene]);
+        let strings = crate::text::Strings::new(&[1, 0, 52, 51, 0, 0, 0, 0, 0, 1, b'W']).unwrap();
+        for enabled in [false, true] {
+            for hidden in [false, true] {
+                let mut engine = Engine::bootstrap(&resources).unwrap();
+                engine.control.enabled = enabled;
+                engine.active_inventory = Some(2);
+                engine.conversation.hidden = hidden;
+                let before = (engine.user_events, engine.left_events);
+                engine.escape_input(&resources, &strings, &[]).unwrap();
+                assert_eq!(engine.escape_events, Some(2));
+                assert_eq!(
+                    (engine.user_events, engine.left_events),
+                    (before.0 + 1, before.1 + 1)
+                );
+                assert_eq!(
+                    engine.active_inventory,
+                    if enabled && !hidden { None } else { Some(2) }
+                );
+                assert_eq!(engine.control.enabled, enabled);
+            }
+        }
+        let mut conversation = Engine::bootstrap(&resources).unwrap();
+        conversation.control.enabled = true;
+        conversation.active_inventory = Some(0);
+        conversation.conversation.polygon = Some(0);
+        let before = conversation.clone();
+        assert!(
+            conversation
+                .escape_input(&resources, &strings, &[])
+                .is_err()
+        );
+        assert_eq!(
+            conversation, before,
+            "bad postamble must not partially close"
+        );
+        conversation.polygons = crate::polygon::Polygons::new(
+            vec![crate::polygon::Polygon {
+                kind: crate::polygon::Kind::Tag,
+                corners: [[0, 0], [10, 0], [10, 10], [0, 10]],
+                tag_position: [0; 2],
+                tag_text: Handle(0),
+                node_position: [0; 2],
+                film: Handle(0),
+                refer_type: 0,
+                id: 1,
+                scales: [0; 2],
+                reel: 0,
+                z_factor: 0,
+                nodes: vec![],
+                lines: vec![],
+                script: Handle((1 << 23) | 8),
+            }],
+            0,
+        );
+        conversation
+            .escape_input(&resources, &strings, &[])
+            .unwrap();
+        assert_eq!(conversation.active_inventory, None);
+        assert_eq!(conversation.conversation.icon, -1);
+        assert_eq!(conversation.conversation.polygon, None);
+        assert!(
+            conversation
+                .processes
+                .states()
+                .any(|p| p.event == 7 && p.polygon == Some(0))
+        );
+        let mut overflow = Engine::bootstrap(&resources).unwrap();
+        overflow.left_events = u64::MAX;
+        let before = overflow.clone();
+        assert!(overflow.escape_input(&resources, &strings, &[]).is_err());
+        assert_eq!(overflow, before);
     }
 
     #[test]

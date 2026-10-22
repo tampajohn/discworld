@@ -757,22 +757,18 @@ fn engine_menu_opening_preserves_gates_warps_and_atomicity() {
     let before_escape = engine.clone();
     assert!(
         engine
-            .escape_configuration(&discworld_core::graphics::Resources(vec![]), &strings, &[])
+            .escape_input(&discworld_core::graphics::Resources(vec![]), &strings, &[])
             .is_err()
     );
     assert_eq!(engine, before_escape);
-    let escaped = engine
-        .escape_configuration(&resources, &strings, &[])
-        .unwrap();
+    let escaped = engine.escape_input(&resources, &strings, &[]).unwrap();
     assert!(escaped.changed && escaped.write_settings);
     assert!(!engine.control.tags_enabled);
     assert_eq!(
         engine.configuration.as_ref().unwrap().page(),
         Some(discworld_core::menu_navigation::Page::Main)
     );
-    let escaped = engine
-        .escape_configuration(&resources, &strings, &[])
-        .unwrap();
+    let escaped = engine.escape_input(&resources, &strings, &[]).unwrap();
     assert!(escaped.changed && !escaped.write_settings);
     assert!(engine.control.tags_enabled);
     assert!(engine.configuration.as_ref().unwrap().page().is_none());
@@ -2278,7 +2274,7 @@ fn original_intro_escape_reaches_title_with_exact_session_continuation() {
     assert!(game.engine.intro_active());
     game.advance(1).unwrap();
     assert_ne!(game.engine.scene, title, "test must escape before title");
-    game.engine.script_escape_event().unwrap();
+    game.input("escape").unwrap();
     for _ in 0..500 {
         roundtrip_pending(&mut game, 24);
         if game.engine.scene == title {

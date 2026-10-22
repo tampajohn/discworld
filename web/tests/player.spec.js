@@ -478,3 +478,19 @@ test('swapped-button inventory drag restores its physical release button', async
   await expect(canvas).toHaveAttribute('data-dragging', 'false');
   await expect(canvas).toHaveAttribute('data-drag-button', '');
 });
+
+for (const source of ['keyboard', 'touch']) {
+  test(`Escape from ${source} skips pre-title sequence`, async ({ page }) => {
+    await page.goto('/');
+    await open(page, false);
+    await expect(page.locator('#game')).toHaveAttribute('data-tick', '0');
+    await page.locator('#pause').click();
+    await expect(page.locator('#pause')).toHaveText('Pause');
+    if (source === 'keyboard') await page.keyboard.press('Escape');
+    else await page.locator('[data-input="escape"]').tap();
+    await expect(page.locator('#game')).toHaveAttribute('data-scene', 'title.scn', { timeout: 15000 });
+    await page.locator('#pause').click();
+    expect(Number(await page.locator('#game').getAttribute('data-tick'))).toBeLessThan(390);
+    await expect(page.locator('#status')).not.toHaveAttribute('data-error', 'true');
+  });
+}

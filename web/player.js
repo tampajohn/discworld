@@ -209,7 +209,7 @@ document.onkeydown = event => {
   const key = event.key.toLowerCase();
   const page = { f1: 'main', f5: 'save', f7: 'load' }[key];
   if (page) { event.preventDefault(); if (!paused) rpc('menu', { page }).then(draw).catch(error => status(error.message, true)); return; }
-  if (key === 'escape') { event.preventDefault(); input('escape'); return; }
+  if (key === 'escape') { event.preventDefault(); if (!event.repeat) input('escape'); return; }
   if (menuActive) {
     const scroll = { arrowup: 'up', arrowdown: 'down', pageup: 'page-up', pagedown: 'page-down', home: 'home', end: 'end' }[key];
     if (scroll) { event.preventDefault(); input(scroll); return; }

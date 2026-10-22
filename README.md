@@ -52,7 +52,7 @@ See [native distribution validation](docs/native-distribution.md).
 Press **F6** to quick-save and **F9** to quick-load `discworld-save.dws` in the working directory. Choose a destination with `--save-file PATH`; its parent directory must exist. Relaunch with `--load PATH` to restore the engine and synthesizer together. Use the same ISO and SoundFont. These development saves are not compatible with ScummVM.
 
 The native and browser hosts support the original menus: **F1** opens options, **F5**
-opens Save, and **F7** opens Load. Use Escape to close a menu. The browser also offers an Options button.
+opens Save, and **F7** opens Load. Use Escape to skip an escapable sequence or close a menu/inventory. The browser also offers Options and Escape buttons.
 Close the native window to exit manual play. Native named slots are stored beside the quick-save path in
 a directory with the `.slots` extension (default `discworld-save.slots`). Save
 names use the original game font. Chrome and WebKit tests cover typing a named save and reloading through the
@@ -79,7 +79,7 @@ Open [the local player](http://127.0.0.1:8765), select your ISO and SoundFont,
 and optionally import a `.dws` save. Press **Play**; sound starts off.
 Game files are read locally. The browser uses the original engine-rendered
 image, fonts and overlays. Choose Walk/select, Action or Look before tapping.
-Pockets, Continue and Close also have touch buttons.
+Pockets, Continue, Escape and Close also have touch buttons.
 
 **Save on device** replaces one IndexedDB slot for this browser origin.
 **Export save** downloads a portable file; clearing browser data can erase the

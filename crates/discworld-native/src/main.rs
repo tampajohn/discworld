@@ -276,7 +276,7 @@ fn run() -> Result<(), Box<dyn std::error::Error>> {
         );
     } else {
         eprintln!(
-            "Mouse moves cursor. Single left click walks/selects, double left click acts, right click looks. Space or click during speech advances dialogue. I: pockets. Click inventory cells to pick up/put down. Point at an actor/tag and press A: action, W: walk to, L: look. P: pause. F1: options, F5: save menu, F7: load menu. Escape: close menu. Close window to exit. Click conversation icons to select; Backspace closes the menu. Drag inventory title bars to move windows, scrollbar thumbs to scroll, or edges/corners to resize. Double-click a title bar to maximize/restore. Complete input compatibility remains unfinished."
+            "Mouse moves cursor. Single left click walks/selects, double left click acts, right click looks. Space or click during speech advances dialogue. I: pockets. Click inventory cells to pick up/put down. Point at an actor/tag and press A: action, W: walk to, L: look. P: pause. F1: options, F5: save menu, F7: load menu. Escape: skip sequence or close menu/inventory. Close window to exit. Click conversation icons to select; Backspace closes the menu. Drag inventory title bars to move windows, scrollbar thumbs to scroll, or edges/corners to resize. Double-click a title bar to maximize/restore. Complete input compatibility remains unfinished."
         );
         eprintln!(
             "M: mute/unmute sound. Inventory: wheel or Up/Down scrolls rows; Page Up/Page Down, Home/End navigate; click scrollbar arrows or track."
@@ -326,12 +326,8 @@ fn run() -> Result<(), Box<dyn std::error::Error>> {
                 {
                     use discworld_core::menu_navigation::Key as MenuKey;
                     if key == Key::Escape {
-                        engine.user_event()?;
-                        let outcome = engine.escape_configuration(
-                            &resources,
-                            &strings,
-                            &menus.catalog.entries,
-                        )?;
+                        let outcome =
+                            engine.escape_input(&resources, &strings, &menus.catalog.entries)?;
                         menu_requests.push_back(discworld_core::menu_controller::Dispatch {
                             outcome,
                             selection: None,
