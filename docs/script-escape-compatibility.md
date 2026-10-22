@@ -336,3 +336,24 @@ and TALKATTR's color guard. Intro detection and host routing remain separate.
 Validation: workspace tests (313 core tests), all 18 original-asset web tests,
 Clippy, WASM checking and native/browser release rebuilds passed. Logs use
 `assets/logs/escape-invtext-*`.
+
+## Remaining waits and speech color
+
+WAITFRAME (100) now breaks its frame-step polling loop for a stale enabled
+escape context. It retains argument validation and does not change actor step
+counters. WAITKEY (85) skips at entry for a stale context; a suspended wait
+already observes Escape through the ordinary input event, including ESCOFF.
+The regression covers entry/suspended waits, enabled/disabled capture and
+exact save/load continuation.
+
+TALKATTR (78), previously unsupported, now updates the shared text color unless
+the context has escaped. This targets the supplied English V1 edition. It
+matches the reference upper clamp at 255 and TINSEL_RGB conversions, including
+the historical 16-bit green cast and its overlap into blue for negative input.
+Tests cover ordinary values, upper clamp, signed conversion, skipped updates,
+stack consumption and saved color. Existing actor-specific color declarations
+and font rasterization are separate paths.
+
+Validation: workspace tests (315 core tests), all 18 original-asset web tests,
+Clippy, WASM checking and native/browser release rebuilds passed. Logs use
+`assets/logs/escape-waits-*`. Intro state and host routing remain incomplete.

@@ -4738,6 +4738,19 @@ impl Engine {
                     )?;
                     process.vm.complete_library(call, 1, None)?;
                 }
+                78 => {
+                    let a = args(&process.vm, 3)?;
+                    if !self.escaped(&process.vm) {
+                        // Match V1's upper clamp and TINSEL_RGB casts, including
+                        // the historical 16-bit green component conversion.
+                        let packed = u32::from(a[0].min(255) as u8)
+                            | (u32::from(a[1].min(255) as u16) << 8)
+                            | (u32::from(a[2].min(255) as u8) << 16);
+                        self.talk_color =
+                            Some([packed as u8, (packed >> 8) as u8, (packed >> 16) as u8]);
+                    }
+                    process.vm.complete_library(call, 3, None)?;
+                }
                 77 => {
                     if self.escaped(&process.vm) {
                         args(&process.vm, 2)?;
@@ -5579,6 +5592,10 @@ impl Engine {
                     self.menu_enabled = true;
                 }
                 85 => {
+                    if self.escaped(&process.vm) {
+                        process.vm.complete_library(call, 0, None)?;
+                        continue;
+                    }
                     process.key_wait = Some(KeyWait {
                         call,
                         events: self.user_events,
@@ -5631,7 +5648,9 @@ impl Engine {
                     if a[0] <= 0 || a[1] < 0 {
                         return Err(Error("invalid WAITFRAME arguments"));
                     }
-                    if self.actor_steps.get(&a[0]).copied().unwrap_or(0) < a[1] as u32 {
+                    if self.actor_steps.get(&a[0]).copied().unwrap_or(0) < a[1] as u32
+                        && !self.escaped(&process.vm)
+                    {
                         return Ok(Status::Running);
                     }
                     process.vm.complete_library(call, 2, None)?;
@@ -9518,6 +9537,95 @@ mod tests {
         assert_eq!(engine.tick(&resources).unwrap(), Status::Halted);
         assert_eq!(engine.globals, [6]);
     }
+    #[test]
+    fn escaped_frame_and_key_waits_complete_at_entry_and_after_restore() {
+        for opcode in [85, 100] {
+            for at_entry in [false, true] {
+                for enabled in [false, true] {
+                    let (master, mut scene) = fixtures();
+                    let mut code = vec![0x41, 77];
+                    if opcode == 100 {
+                        code.extend([3, 0x41, 20]);
+                    }
+                    code.extend([0x4e, opcode, 0x4c, 0, 0]);
+                    scene[8..8 + code.len()].copy_from_slice(&code);
+                    let resources = Resources(vec![&master, &scene]);
+                    let mut engine = Engine::bootstrap(&resources).unwrap();
+                    engine.escape_events = Some(1);
+                    for vm in engine.escape_contexts_mut() {
+                        vm.escape_enabled = enabled;
+                        vm.escape_generation = enabled.then_some(1);
+                    }
+                    if at_entry {
+                        engine.script_escape_event().unwrap();
+                    }
+                    engine.tick(&resources).unwrap();
+                    assert_eq!(engine.globals[0], if at_entry && enabled { 77 } else { 0 });
+                    if !at_entry {
+                        engine.script_escape_event().unwrap();
+                    }
+                    let bytes = crate::save::Snapshot::capture(&engine, [7; 32])
+                        .to_bytes()
+                        .unwrap();
+                    let snapshot = crate::save::Snapshot::from_bytes(&bytes, [7; 32]).unwrap();
+                    assert_eq!(snapshot.to_bytes().unwrap(), bytes);
+                    let mut restored = snapshot.state().clone();
+                    engine.tick(&resources).unwrap();
+                    restored.tick(&resources).unwrap();
+                    assert_eq!(engine, restored);
+                    // Suspended WAITKEY observes Escape as an ordinary input
+                    // even with ESCOFF. WAITFRAME requires an enabled capture.
+                    let done = enabled || (opcode == 85 && !at_entry);
+                    assert_eq!(engine.globals[0], if done { 77 } else { 0 });
+                    assert!(engine.actor_steps.is_empty());
+                }
+            }
+        }
+    }
+
+    #[test]
+    fn talkattr_matches_v1_color_casts_and_escape_guard() {
+        for (rgb, expected) in [
+            ([12i32, 34, 56], [12, 34, 56]),
+            ([300, 17, 32], [255, 17, 32]),
+            ([-1, -2, 0], [255, 254, 255]),
+        ] {
+            for escaped in [false, true] {
+                let (master, mut scene) = fixtures();
+                let mut code = vec![0x41, 77];
+                for component in rgb {
+                    code.push(1);
+                    code.extend(component.to_le_bytes());
+                }
+                code.extend([0x4e, 78, 0x4c, 0, 0]);
+                scene[8..8 + code.len()].copy_from_slice(&code);
+                let resources = Resources(vec![&master, &scene]);
+                let mut engine = Engine::bootstrap(&resources).unwrap();
+                engine.talk_color = Some([9, 8, 7]);
+                engine.escape_events = Some(1);
+                for vm in engine.escape_contexts_mut() {
+                    vm.escape_enabled = true;
+                    vm.escape_generation = Some(1);
+                }
+                if escaped {
+                    engine.script_escape_event().unwrap();
+                }
+                engine.tick(&resources).unwrap();
+                assert_eq!(engine.globals[0], 77);
+                assert_eq!(
+                    engine.talk_color,
+                    Some(if escaped { [9, 8, 7] } else { expected })
+                );
+                let bytes = crate::save::Snapshot::capture(&engine, [7; 32])
+                    .to_bytes()
+                    .unwrap();
+                let loaded = crate::save::Snapshot::from_bytes(&bytes, [7; 32]).unwrap();
+                assert_eq!(loaded.state(), &engine);
+                assert_eq!(loaded.to_bytes().unwrap(), bytes);
+            }
+        }
+    }
+
     #[test]
     fn waitkey_yields_until_new_input_or_cursor_movement() {
         let (master, mut scene) = fixtures();
