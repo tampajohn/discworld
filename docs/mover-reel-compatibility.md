@@ -538,3 +538,29 @@ snapshot continuation of the suspended call. Saved pending calls must retain
 polygon context and remain structurally validated. This is a source-derived
 contract; no WALKPOLY runtime support or reference-process comparison is yet
 claimed.
+
+### WALKPOLY runtime integration
+
+Library call 90 is now handled with the V1 three-argument stack contract.
+It shares routing and saved tag-walk state, but returns on polygon entry or
+movement completion without adopting the tag pose or stopping the remaining
+walk. Its containment check uses animation-object coordinates. After a yielded
+tick it checks Escape before polygon entry, invokes StandTag and returns.
+Immediate competing-walk/STOPWALK cancellation also recognizes its pending
+owner. Unlike WALKTAG's historical fallback, WALKPOLY does not kill its caller
+merely because a raw mover stop changed the walk number.
+
+A new matrix covers initially inside, crossing before final arrival, movement
+ending without entry, Escape before/after startup, raw stop, scripted STOPWALK
+and competing WALK, with normal/custom films and lead/non-lead actors. It
+checks lower-stack preservation, absence of normal tag-pose adoption, no
+post-call execution by killed owners, and exact snapshot continuation each
+tick. A malformed pending WALKPOLY without polygon context is rejected;
+structural validation also requires a valid polygon index and an existing
+mover. No new snapshot format is required.
+
+The recorded full route does not exercise this newly supported call. These
+are focused reference-derived cases, not proof of all polygon/path shapes or
+live ScummVM equivalence. Logs: `assets/logs/walkpoly-*`.
+Validation passes: workspace tests (321 core tests passed, one ignored), all
+20 original-asset web integration tests, workspace Clippy and wasm32 checking.

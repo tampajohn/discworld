@@ -700,6 +700,16 @@ impl Engine {
             }
             process.vm.validate_snapshot_structure()?;
             process.validate_snapshot_waits()?;
+            if let Some((call, actor, _, _)) = process.tag_walk_wait {
+                if call.id == 90
+                    && (!self.movers.contains_key(&actor)
+                        || process
+                            .polygon
+                            .is_none_or(|index| index >= self.polygons.active.len()))
+                {
+                    return Err(Error("invalid WALKPOLY snapshot context"));
+                }
+            }
         }
         if self
             .master_wait
@@ -4422,10 +4432,23 @@ impl Engine {
             let Some(mover) = self.movers.get_mut(&actor) else {
                 return Ok(Status::Halted);
             };
-            if mover.walk_serial != serial {
+            if call.id == 90 {
+                let polygon = process
+                    .polygon
+                    .and_then(|index| self.polygons.active.get(index))
+                    .ok_or(Error("WALKPOLY requires valid polygon context"))?;
+                // V1 checks Escape after the yielded tick, before rechecking
+                // polygon entry. It never adopts the tag pose on normal return.
+                if escaped {
+                    self.escape_stand_tag(resources, actor, process.polygon)?;
+                } else if mover.walk_target.is_some()
+                    && !polygon.contains([mover.animation.object.x, mover.animation.object.y])
+                {
+                    return Ok(Status::Running);
+                }
+            } else if mover.walk_serial != serial {
                 return Ok(Status::Halted);
-            }
-            if mover.walk_target.is_some() {
+            } else if mover.walk_target.is_some() {
                 if escaped {
                     self.escape_stand_tag(resources, actor, process.polygon)?;
                 } else {
@@ -5153,7 +5176,9 @@ impl Engine {
                     }
                     process.vm.complete_library(call, 5, None)?;
                 }
-                91 => {
+                90 | 91 => {
+                    // Both V1 calls consume three operands, including the
+                    // otherwise unused third WALKPOLY operand.
                     let a = args(&process.vm, 3)?;
                     let Some(polygon) = process.polygon else {
                         return Err(Error("WALKTAG requires polygon context"));
@@ -5215,14 +5240,17 @@ impl Engine {
                     )?;
                     let moving = mover.walk_target.is_some();
                     self.scroll.follow_cursor = true;
-                    if !moving {
+                    let entered = call.id == 90
+                        && self.polygons.active[polygon]
+                            .contains([mover.animation.object.x, mover.animation.object.y]);
+                    if !moving && call.id == 91 {
                         mover.adopt_tag_pose(resources, &self.declarations, film)?;
                     }
                     self.acquire_walk_token(actor)?;
                     self.reel_owners.remove(&actor);
                     self.reel_escape.remove(&actor);
                     self.films.retain(|a| a.object.id != actor);
-                    if moving {
+                    if moving && !entered {
                         process.tag_walk_wait = Some((call, actor, serial, film));
                         return Ok(Status::Running);
                     }
@@ -8430,6 +8458,176 @@ mod tests {
                         .run_process(&resources, None, None, None, &mut query)
                         .unwrap();
                     assert_eq!(engine.globals[0], expected);
+                }
+            }
+        }
+    }
+
+    #[test]
+    fn walkpoly_returns_on_entry_without_stopping_and_restores_pending_context() {
+        use crate::save::Snapshot;
+        // inside, crossing, never entering, Escape before/after start, stopped.
+        for mode in 0..8 {
+            for custom in [false, true] {
+                for lead in [false, true] {
+                    let (master, mut scene) = fixtures();
+                    scene[8] = 0;
+                    scene[16..27]
+                        .copy_from_slice(&[3, 0x41, 20, 0x41, 70, 2, 0x41, 2, 0x4e, 87, 0]);
+                    scene[56..60].copy_from_slice(&[3, 0x4e, 74, 0]);
+                    let base = 2u32 << 23;
+                    let mut code = vec![0x41, 77, 3, 1];
+                    code.extend_from_slice(&(if custom { base } else { 0 }).to_le_bytes());
+                    code.extend([0x41, 99, 0x4e, 90, 0x4c, 0, 0]);
+                    scene[32..32 + code.len()].copy_from_slice(&code);
+                    let mut film = vec![0; 300];
+                    for (at, value) in [
+                        (0, 24u32),
+                        (4, 1),
+                        (8, base + 32),
+                        (12, base + 256),
+                        (32, base + 200),
+                        (40, 1),
+                        (200, base + 220),
+                        (220, 8 | (16 << 16)),
+                        (256, base + 200),
+                        (260, 1),
+                        (264, (-2i32) as u32),
+                    ] {
+                        film[at..at + 4].copy_from_slice(&value.to_le_bytes());
+                    }
+                    let resources = Resources(vec![&master, &scene, &film]);
+                    let mut engine = Engine::bootstrap(&resources).unwrap();
+                    engine.actors = crate::actor::Actors::new(1).unwrap();
+                    if lead {
+                        engine.declarations.lead = Some(crate::startup::Lead {
+                            id: 1,
+                            text: Handle(0),
+                            tagged: false,
+                        });
+                    }
+                    engine
+                        .declarations
+                        .movers
+                        .insert(1, [[Handle(base); 12]; 10]);
+                    let path = crate::polygon::Polygon {
+                        kind: crate::polygon::Kind::Path,
+                        corners: [[0, 0], [100, 0], [100, 100], [0, 100]],
+                        tag_position: [0; 2],
+                        tag_text: Handle(0),
+                        node_position: [0; 2],
+                        film: Handle(0),
+                        refer_type: 0,
+                        id: 1,
+                        scales: [1, 0],
+                        reel: 0,
+                        z_factor: 0,
+                        nodes: vec![],
+                        lines: vec![],
+                        script: Handle(0),
+                    };
+                    let mut polygon = path.clone();
+                    polygon.kind = crate::polygon::Kind::Tag;
+                    let left = match mode {
+                        0 => 40,
+                        2 => 90,
+                        _ => 60,
+                    };
+                    polygon.corners = [[left, 60], [100, 60], [100, 80], [left, 80]];
+                    polygon.node_position = [80, 70];
+                    polygon.film = Handle(1); // normal WALKPOLY must not adopt this pose
+                    engine.polygons = crate::polygon::Polygons::new(vec![path, polygon], 0);
+                    let placement = crate::mover::Placement::initial(
+                        &engine.declarations,
+                        &engine.polygons,
+                        1,
+                        [50, 70],
+                        Handle(base),
+                    )
+                    .unwrap();
+                    engine
+                        .movers
+                        .insert(1, crate::mover::Mover::new(&resources, placement).unwrap());
+                    let mut process = ScriptProcess::new(Handle((1 << 23) | 32));
+                    process.polygon = Some(1);
+                    engine.escape_events = Some(1);
+                    process.vm.escape_enabled = true;
+                    process.vm.escape_generation = Some(1);
+                    if mode == 3 {
+                        engine.script_escape_event().unwrap();
+                    }
+                    let status = engine
+                        .run_process(&resources, None, None, None, &mut process)
+                        .unwrap();
+                    if matches!(mode, 0 | 3) {
+                        assert_eq!(status, Status::Halted);
+                        assert_eq!(engine.globals[0], 77);
+                    } else {
+                        assert_eq!(status, Status::Running);
+                        engine.processes.spawn(None, process).unwrap();
+                        let mut invalid = engine.clone();
+                        for p in invalid.processes.states_mut() {
+                            if p.tag_walk_wait.is_some() {
+                                p.polygon = None;
+                            }
+                        }
+                        assert!(Snapshot::capture(&invalid, [7; 32]).to_bytes().is_err());
+                    }
+                    let mut returned_while_moving = mode == 0;
+                    for tick in 0..30 {
+                        if tick == 1 && mode == 4 {
+                            engine.script_escape_event().unwrap();
+                        }
+                        if tick == 1 && mode == 5 {
+                            engine.movers.get_mut(&1).unwrap().stop_requested = true;
+                        }
+                        if tick == 1 && mode >= 6 {
+                            let mut competitor = ScriptProcess::new(Handle(
+                                (1 << 23) | if mode == 6 { 56 } else { 16 },
+                            ));
+                            engine
+                                .run_process(&resources, None, None, None, &mut competitor)
+                                .unwrap();
+                            assert!(engine.processes.states().all(|p| p.tag_walk_wait.is_none()));
+                        }
+                        let bytes = Snapshot::capture(&engine, [7; 32]).to_bytes().unwrap();
+                        let decoded = Snapshot::from_bytes(&bytes, [7; 32]).unwrap();
+                        assert_eq!(decoded.to_bytes().unwrap(), bytes);
+                        let mut restored = decoded.state().clone();
+                        engine.tick(&resources).unwrap();
+                        restored.tick(&resources).unwrap();
+                        assert_eq!(engine, restored);
+                        let mover = &engine.movers[&1];
+                        if engine.globals[0] == 77 && mover.walk_target.is_some() {
+                            returned_while_moving = true;
+                            assert!(
+                                engine.polygons.active[1]
+                                    .contains([mover.animation.object.x, mover.animation.object.y])
+                            );
+                        }
+                    }
+                    assert_eq!(
+                        engine.globals[0],
+                        if mode >= 6 { 0 } else { 77 },
+                        "all three arguments consumed; killed owners must not continue"
+                    );
+                    assert_eq!(returned_while_moving, matches!(mode, 0 | 1));
+                    assert!(engine.movers[&1].walk_target.is_none());
+                    if mode == 7 {
+                        assert_eq!(engine.movers[&1].placement.position, [20, 70]);
+                    } else if !matches!(mode, 5 | 6) {
+                        assert_eq!(engine.movers[&1].placement.position, [80, 70]);
+                    }
+                    if matches!(mode, 0..=2) {
+                        assert_eq!(
+                            engine.movers[&1].placement.direction,
+                            if custom {
+                                crate::mover::Direction::Forward
+                            } else {
+                                crate::mover::Direction::Right
+                            }
+                        );
+                    }
                 }
             }
         }

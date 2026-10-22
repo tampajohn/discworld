@@ -1,0 +1,68 @@
+{
+  "runtime_revision": "27d9924bbdb69bf671016a09d0b46fb9a6f205a4",
+  "route": "evidence/act4-ending-input.json",
+  "route_sha256": "30c227553695638a78495f4cf56731f841e89188c8faa75821e50c164ddf4ddb",
+  "artifact_sha256": {
+    "target/release/discworld-tools": "5a7edab5fe47018f4724057782d5039c2a3e9c77bc375b75db4b53c432aae7d0",
+    "web/replay-pkg/discworld_web_bg.wasm": "1eb911bb909580fff03359f0bcaf5a9ffd8462a5cba36074842c782e04620a99",
+    "web/tests/replay-worker.js": "2f5109458e6d2efc656c693177556bb6bbe46a6185f80cd5e8efc8da22385511",
+    "scripts/run-browser-replay.cjs": "a6b7c566bc7565d3bfb50df7e5b79adf498e38ea74b9a98ea23aab56c11c1498"
+  },
+  "schema": 1,
+  "local_artifacts": "assets/validation/walk-token-27d9924",
+  "native": {
+    "ticks": 2630000,
+    "status": "Running",
+    "scene_name": "title.scn",
+    "has_restarted": true,
+    "snapshot_checks": 5048,
+    "audio_snapshot_checks": 5048,
+    "snapshot_max_bytes": 48155,
+    "audio_snapshot_max_bytes": 317221,
+    "accepted_inputs": 1652,
+    "report_sha256": "0d56aa96e4af901e4e12f18a7bf4dffb9e83a33f571eb0649a81f03aec7a8763"
+  },
+  "browsers": {
+    "chrome": {
+      "browser_version": "156.0.8078.47",
+      "ticks": 2630000,
+      "scene": "title.scn",
+      "has_restarted": true,
+      "accepted_inputs": 1652,
+      "audio_samples": 4832625000,
+      "nonfinite_audio_samples": 0,
+      "elapsed_seconds": 646.496599999994,
+      "rgba_sha256": "8833cac8d0cc20ebbfa5e7158676914ad7d9a82222812a3a91568cbb5a6e8978",
+      "core_sha256": "d4a60d7dd6637c3c8f5cd5131b29868e40afd06f45559e7cd8dafa42711de4eb",
+      "engine_bytes_equal": true,
+      "rgba_equal": true,
+      "combined_save_equal": false,
+      "report_sha256": "9c21c113199fce3e0c0ddfeb0bab663b89f90d0b1ea8af1a8a3fd2a4ea8ae713",
+      "comparison_sha256": "24331961401614107274e82733b35bda5a5bc3b0ea4fb193a07be093d03d60e4"
+    },
+    "webkit": {
+      "browser_version": "27.2",
+      "ticks": 2630000,
+      "scene": "title.scn",
+      "has_restarted": true,
+      "accepted_inputs": 1652,
+      "audio_samples": 4832625000,
+      "nonfinite_audio_samples": 0,
+      "elapsed_seconds": 662.991,
+      "rgba_sha256": "8833cac8d0cc20ebbfa5e7158676914ad7d9a82222812a3a91568cbb5a6e8978",
+      "core_sha256": "d4a60d7dd6637c3c8f5cd5131b29868e40afd06f45559e7cd8dafa42711de4eb",
+      "engine_bytes_equal": true,
+      "rgba_equal": true,
+      "combined_save_equal": false,
+      "report_sha256": "b4026dc631d718b1515c4f0bb68346cda8c11ba1c882880891cac576ecbdc724",
+      "comparison_sha256": "24331961401614107274e82733b35bda5a5bc3b0ea4fb193a07be093d03d60e4"
+    }
+  },
+  "scope": [
+    "Recorded full semantic-input route, not manual UI or touch playthrough.",
+    "Includes disabled-axis walking and immediate competing-walk acquisition; no new inputs exercising those variants were added.",
+    "Final native image visually inspected; browser engine bytes and final RGBA match exactly.",
+    "Browser audio checked for finite generated samples, not played through WebAudio; combined DSP saves differ across hosts.",
+    "Predates WALKPOLY integration and browser lifecycle/viewport updates; no physical iPad acceptance."
+  ]
+}

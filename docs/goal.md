@@ -48,8 +48,12 @@ The disabled-axis runtime at `a1eaead` completed the native recorded route:
 all 1,652 inputs accepted, 5,048 engine and 5,048 DSP snapshot checks, and
 restart/title at tick 2,630,000. See [native evidence](validation/disabled-axis-a1eaead.json).
 It predates immediate competing-walk cancellation at `27d9924`; that revision's
-same-build native/Chrome/WebKit audit is running separately. No additional
-disabled-axis inputs were added to the recorded route.
+same-build native/Chrome/WebKit audit is complete with identical final engine
+bytes and RGBA on all hosts. All accepted 1,652 inputs and reached restart/title
+at tick 2,630,000; native passed 5,048 engine and 5,048 DSP checks. See
+[cross-host evidence](validation/walk-token-27d9924.json). No additional
+disabled-axis inputs were added to the recorded route. This evidence predates
+WALKPOLY support, which has separate focused tests.
 
 The intro-aware native runtime at `1ac8f90` completed the recorded route:
 2,630,000 ticks, all 1,652 inputs accepted, restart committed and final

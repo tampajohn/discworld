@@ -464,3 +464,10 @@ No layout change was needed. Logs: `assets/logs/tablet-rotation.log` (two
 browser cases). This does not simulate physical safe-area insets, browser
 chrome, keyboard appearance or operating-system rotation events; those remain
 part of real-iPad acceptance.
+
+The complete current browser suite passed: four Node clock/audio tests and all
+44 Playwright cases across Chrome/WebKit, including lifecycle, tablet viewport,
+menus, original saves, audio interruption and storage. Log:
+`assets/logs/browser-full-current.log`. The run used the 27d9924 engine with
+a2b6513 lifecycle changes and cc0fcfa viewport tests; it predates WALKPOLY
+runtime integration. Physical-device acceptance remains outstanding.
