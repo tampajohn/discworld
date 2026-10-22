@@ -357,3 +357,32 @@ and font rasterization are separate paths.
 Validation: workspace tests (315 core tests), all 18 original-asset web tests,
 Clippy, WASM checking and native/browser release rebuilds passed. Logs use
 `assets/logs/escape-waits-*`. Intro state and host routing remain incomplete.
+
+## Intro policy and resource detection (integration pending)
+
+`intro.rs` now isolates the DOS reference policy. It detects the first
+case-insensitive `title.` resource prefix, disables detection for handle zero
+or a missing name, and rejects handle overflow. It does not use PSX's different
+`turtle.` rule. `inspect-resources` reports `dos_intro_title_handle`.
+
+The policy captures one initial escape generation at the first scene script
+and supplies the current generation to subsequent non-title scene scripts.
+A changed initial generation redirects the next scene request to the detected
+title, entrance 1, transition 0, after hook interception. Reaching the title
+ends intro mode; game restart clears its baseline. This is a scene-boundary
+redirect, not an immediate jump from the input handler.
+
+Policy tests cover detection/fallback, title code offsets, generations across
+multiple scenes, serialized continuation, restart/end and invalid checkpoints.
+The module is not yet installed in Engine or its snapshot envelope. Next steps:
+pass detected metadata at bootstrap, preserve policy across restart and runtime
+snapshots, arm scene interpreters, suppress both ESCON and ESCOFF mutations
+during intro, and apply redirect after hook processing. User game-load must
+end intro mode, while deterministic snapshot audit restoration must preserve
+it; these are distinct operations. No host intro-skipping behavior is claimed.
+
+Validation: workspace tests (318 core tests), Clippy and WASM checking passed.
+The original ISO resource inspection identifies `title.scn` at index
+11, handle `0x05800000`, among 149 resources. Logs use
+`assets/logs/intro-policy-*`. This is metadata/policy validation, not a
+playthrough or host Escape test.

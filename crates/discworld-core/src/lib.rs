@@ -13,6 +13,7 @@ pub mod engine;
 pub mod film;
 pub mod graphics;
 pub mod indexed_surface;
+pub mod intro;
 pub mod inventory;
 mod inventory_geometry;
 pub mod inventory_hover;

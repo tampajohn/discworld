@@ -424,7 +424,7 @@ fn run() -> Result<(), Box<dyn std::error::Error>> {
         println!(
             "{}",
             serde_json::to_string_pretty(
-                &json!({"schema_version":1,"resource_count":resources.len(),"resources":resources})
+                &json!({"schema_version":1,"resource_count":resources.len(),"dos_intro_title_handle":discworld_core::intro::title_scene(&index)?.map(|h| h.0),"resources":resources})
             )?
         );
         return Ok(());
