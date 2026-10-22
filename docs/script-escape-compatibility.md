@@ -6,7 +6,7 @@ escape generations and handles WAITTIME, scripted walking and PLAY/TOPPLAY
 cancellation plus sample-call entry and suspended cancellation, with DWRSAVE
 v16 state.
 Native/browser Escape still handles configuration/inventory UI; the shared
-script event API is not connected to hosts. Inventory/conversation and other
+script event API is not connected to hosts. Scroll, palette and remaining
 escape-sensitive library branches still need auditing; the special intro skip
 path remains pending.
 
@@ -265,3 +265,27 @@ Validation: workspace tests (309 core tests), all 18 original-asset web tests,
 Clippy, WASM checking and native/browser release rebuilds passed. Logs use
 `assets/logs/escape-talk-*`. Host Escape remains disconnected pending the
 remaining library audit and intro routing.
+
+## Inventory/conversation entry and sample polling
+
+INVENTORY skips stale contexts before validating the slot or accessing window
+assets, matching the reference guard before its assertion. CONVERSATION keeps
+its polygon-context requirement, skips only open modes (default/bottom/top),
+and still executes END after escape. Existing windows and tags remain intact
+when opening is skipped. Tests cover no window, a conversation, and a personal
+inventory, including END and an invalid INVENTORY slot in the skipped branch.
+
+SAMPLEPLAYING returns false for a stale enabled context without stopping or
+consuming audio. This lets the original sample-polling loops terminate after
+escape. Its regression covers idle, live, partially consumed and ended samples,
+disabled/enabled escape, return-slot behavior and preserved audio state.
+
+Remaining reference audit: ScrollScreen checks escape before replacement
+identity on wake and jumps to Offset, unlike ordinary superseded-scroll
+cancellation. SetPalette skips before resources. PRINTOBJ has a V2-only early
+guard but a shared substring-loop guard after POINT/non-POINT arbitration;
+do not add a blanket V1 entry skip without preserving that ordering.
+
+Validation: workspace tests (310 core tests), all 18 original-asset web tests,
+Clippy, WASM checking and native/browser release rebuilds passed. Logs use
+`assets/logs/escape-dialog-*`. No host input integration is claimed.

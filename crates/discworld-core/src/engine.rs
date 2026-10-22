@@ -4502,6 +4502,10 @@ impl Engine {
                 }
                 37 => {
                     let slot = args(&process.vm, 1)?[0];
+                    if self.escaped(&process.vm) {
+                        process.vm.complete_library(call, 1, None)?;
+                        continue;
+                    }
                     if !(1..=2).contains(&slot) {
                         return Err(Error("invalid inventory slot"));
                     }
@@ -4525,6 +4529,10 @@ impl Engine {
                     let polygon = process
                         .polygon
                         .ok_or(Error("CONVERSATION requires polygon context"))?;
+                    if matches!(mode, 0 | 1 | 3) && self.escaped(&process.vm) {
+                        process.vm.complete_library(call, 1, None)?;
+                        continue;
+                    }
                     if mode == 2 {
                         self.close_conversation();
                     } else if self.active_inventory.is_none() {
@@ -5613,7 +5621,9 @@ impl Engine {
                     process.vm.complete_library(
                         call,
                         1,
-                        Some(i32::from(self.sample_player.id.is_some())),
+                        Some(i32::from(
+                            self.sample_player.id.is_some() && !self.escaped(&process.vm),
+                        )),
                     )?;
                 }
                 51 | 112 => {
@@ -7126,6 +7136,46 @@ mod tests {
                 .unwrap();
         }
         assert_eq!(restored, engine);
+    }
+
+    #[test]
+    fn escaped_inventory_and_conversation_open_skip_but_end_still_closes() {
+        for (opcode, modes) in [(37, vec![1, 2, 99]), (15, vec![0, 1, 2, 3])] {
+            for mode in modes {
+                for active in [None, Some(0), Some(1)] {
+                    let (master, mut scene) = fixtures();
+                    scene[8] = 0;
+                    let code = [0x41, 77, 0x41, mode, 0x4e, opcode, 0x4c, 0, 0];
+                    scene[32..32 + code.len()].copy_from_slice(&code);
+                    let resources = Resources(vec![&master, &scene]);
+                    let mut engine = Engine::bootstrap(&resources).unwrap();
+                    engine.active_inventory = active;
+                    engine.control.tags_enabled = false;
+                    if active == Some(0) {
+                        engine.conversation.polygon = Some(40);
+                    }
+                    engine.escape_events = Some(2);
+                    let mut process = ScriptProcess::new(Handle((1 << 23) | 32));
+                    process.polygon = Some(40);
+                    process.vm.escape_enabled = true;
+                    process.vm.escape_generation = Some(1);
+                    let before = engine.clone();
+                    assert_eq!(
+                        engine
+                            .run_process(&resources, None, None, None, &mut process)
+                            .unwrap(),
+                        Status::Halted
+                    );
+                    assert_eq!(engine.globals[0], 77);
+                    let mut expected = before;
+                    if opcode == 15 && mode == 2 {
+                        expected.close_conversation();
+                    }
+                    expected.globals[0] = 77;
+                    assert_eq!(engine, expected);
+                }
+            }
+        }
     }
 
     #[test]
@@ -11765,6 +11815,23 @@ mod tests {
             );
             assert_eq!(engine.globals, [i32::from(matches!(phase, 1 | 2)), 77]);
             assert_eq!(engine.sample_player, before);
+            for enabled in [false, true] {
+                engine.escape_events = Some(2);
+                let mut escaped = ScriptProcess::new(Handle((1 << 23) | 32));
+                escaped.vm.escape_enabled = enabled;
+                escaped.vm.escape_generation = enabled.then_some(1);
+                assert_eq!(
+                    engine
+                        .run_process(&resources, None, None, None, &mut escaped)
+                        .unwrap(),
+                    Status::Halted
+                );
+                assert_eq!(
+                    engine.globals,
+                    [i32::from(!enabled && matches!(phase, 1 | 2)), 77]
+                );
+                assert_eq!(engine.sample_player, before);
+            }
         }
     }
     #[test]
