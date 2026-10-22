@@ -235,7 +235,7 @@ fn run() -> Result<(), Box<dyn std::error::Error>> {
             }
         }
     }
-    menu::Menu::initialize(&mut engine)?;
+    menus.initialize(&mut engine)?;
     let mut stream = rodio::OutputStreamBuilder::open_default_stream()?;
     stream.log_on_drop(false);
     let mut sink = audio_output::connect(stream.mixer());
@@ -320,11 +320,15 @@ fn run() -> Result<(), Box<dyn std::error::Error>> {
                     use discworld_core::menu_navigation::Key as MenuKey;
                     if key == Key::Escape {
                         engine.user_event()?;
-                        engine.escape_configuration(
+                        let outcome = engine.escape_configuration(
                             &resources,
                             &strings,
                             &menus.catalog.entries,
                         )?;
+                        menu_requests.push_back(discworld_core::menu_controller::Dispatch {
+                            outcome,
+                            selection: None,
+                        });
                     } else {
                         let key = match key {
                             Key::F5 => MenuKey::Save,
@@ -405,7 +409,7 @@ fn run() -> Result<(), Box<dyn std::error::Error>> {
                         Ok(restored) => {
                             replace_audio_sink(&mut sink, stream.mixer(), paused);
                             engine = restored.engine;
-                            menu::Menu::initialize(&mut engine)?;
+                            menus.initialize(&mut engine)?;
                             synth = restored.audio;
                             stopped = false;
                             menu_requests.clear();
@@ -646,7 +650,7 @@ fn run() -> Result<(), Box<dyn std::error::Error>> {
                     replace_audio_sink(&mut sink, stream.mixer(), paused);
                     engine = restored.engine;
                     synth = restored.audio;
-                    menu::Menu::initialize(&mut engine)?;
+                    menus.initialize(&mut engine)?;
                     stopped = false;
                     buttons = input::Buttons::restored_engine(&engine);
                     sdl.mouse().capture(buttons.any());

@@ -1433,3 +1433,24 @@ Visible click/typing automation was unavailable (`orca: command not found`).
 Independent channel volume application, settings-file persistence, complete
 keyboard parity and browser menu wiring remain unfinished. No full interactive
 menu or physical iPad acceptance is claimed.
+
+Native preference persistence: menu write_settings outcomes now reach the host,
+including the Escape path that was previously discarded. Following the pinned
+menu lifecycle, Escape from a submenu returns to Main and requests a write;
+clicking outside a menu does not silently invent that request. Settings are
+written to the quick-save stem with `.settings.json`, beside the slot directory.
+The tools reader caps files at 4096 bytes and validates controller ranges before
+acceptance; the writer validates before atomic sibling-file replacement. Missing
+preferences use current defaults. Invalid/unreadable preferences produce a notice
+and leave the file untouched. A restored controller takes precedence over disk
+preferences, preserving checkpoint continuation. A fresh controller uses disk
+preferences and synchronizes the engine subtitle setting immediately.
+
+Tests cover missing files, exact nondefault preference roundtrips, oversized and
+malformed input, invalid ranges without replacing good files, host reinitialization
+with saved preferences, and byte-identical restored engine/DSP state despite
+conflicting preferences. Workspace tests, original-asset native integration,
+Clippy and release build pass (assets/logs/native-settings-*.log). The existing
+visible session remains on its running binary to preserve unsaved progress;
+the rebuilt executable reads preferences on its next launch. Separate audio
+channel gain application and browser menu/preferences integration remain open.

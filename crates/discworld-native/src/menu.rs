@@ -13,6 +13,8 @@ pub struct Menu<'a, 'data> {
     pub assets: Assets<'a, 'data>,
     pub catalog: Catalog,
     root: PathBuf,
+    settings_path: PathBuf,
+    preferences: Option<Settings>,
 }
 
 pub enum Effect {
@@ -25,23 +27,38 @@ pub enum Effect {
 impl<'a, 'data> Menu<'a, 'data> {
     pub fn new(root: PathBuf, assets: Assets<'a, 'data>) -> Result<Self> {
         let catalog = menu_sessions::catalog(&root, &assets)?;
+        let settings_path = root.with_extension("settings.json");
+        let preferences = match discworld_tools::settings_file::read(&settings_path) {
+            Ok(settings) => settings,
+            Err(error) => {
+                eprintln!(
+                    "Ignoring unreadable preferences {}: {error}",
+                    settings_path.display()
+                );
+                None
+            }
+        };
         Ok(Self {
+            settings_path,
+            preferences,
             assets,
             catalog,
             root,
         })
     }
 
-    pub fn initialize(engine: &mut Engine) -> Result<()> {
+    pub fn initialize(&self, engine: &mut Engine) -> Result<()> {
         if engine.configuration.is_none() {
-            engine.configuration = Some(Controller::new(Settings {
+            let settings = self.preferences.clone().unwrap_or(Settings {
                 volumes: [255; 3],
                 double_click: 10,
                 swap_buttons: false,
                 text_speed: 0,
                 subtitles: engine.subtitles,
                 flipped: false,
-            })?);
+            });
+            engine.subtitles = settings.subtitles;
+            engine.configuration = Some(Controller::new(settings)?);
         }
         Ok(())
     }
@@ -56,7 +73,7 @@ impl<'a, 'data> Menu<'a, 'data> {
     pub fn open(&mut self, engine: &mut Engine, key: Key) -> Result<()> {
         // Refresh before opening: another instance may have changed the slots.
         self.catalog = menu_sessions::catalog(&self.root, &self.assets)?;
-        Self::initialize(engine)?;
+        self.initialize(engine)?;
         engine.open_configuration(
             self.assets.resources,
             self.assets.strings,
@@ -72,6 +89,15 @@ impl<'a, 'data> Menu<'a, 'data> {
         engine: &Engine,
         audio: &discworld_audio::MusicOutput,
     ) -> Result<Effect> {
+        if dispatch.outcome.write_settings {
+            let settings = engine
+                .configuration
+                .as_ref()
+                .ok_or("settings controller missing")?
+                .settings();
+            discworld_tools::settings_file::write(&self.settings_path, &settings)?;
+            self.preferences = Some(settings);
+        }
         match dispatch.outcome.request {
             Some(Request::Quit) => Ok(Effect::Quit),
             Some(Request::Load) => Ok(
@@ -176,7 +202,7 @@ mod tests {
             },
         )
         .unwrap();
-        Menu::initialize(&mut engine).unwrap();
+        menu.initialize(&mut engine).unwrap();
         let settings = engine.configuration.as_ref().unwrap().settings();
         assert_eq!(settings.subtitles, engine.subtitles);
         menu.open(&mut engine, Key::Main).unwrap();
@@ -219,6 +245,39 @@ mod tests {
             discworld_audio::session::encode(&engine, &audio, identity).unwrap(),
             before
         );
+        let preferred = Settings {
+            text_speed: 75,
+            double_click: 17,
+            swap_buttons: true,
+            subtitles: !settings.subtitles,
+            ..settings.clone()
+        };
+        engine.configuration = Some(Controller::new(preferred.clone()).unwrap());
+        let write = Dispatch {
+            outcome: Outcome {
+                write_settings: true,
+                ..Outcome::default()
+            },
+            selection: None,
+        };
+        assert!(matches!(
+            menu.dispatch(&write, &engine, &audio).unwrap(),
+            Effect::None
+        ));
+        let settings_path = menu.settings_path.clone();
+        let reopened = Menu::new(root.clone(), menu.assets).unwrap();
+        let mut fresh = Engine::bootstrap(&resources).unwrap();
+        reopened.initialize(&mut fresh).unwrap();
+        assert_eq!(fresh.configuration.as_ref().unwrap().settings(), preferred);
+        assert_eq!(fresh.subtitles, preferred.subtitles);
+        let mut restored = restored;
+        reopened.initialize(&mut restored.engine).unwrap();
+        assert_eq!(
+            discworld_audio::session::encode(&restored.engine, &restored.audio, identity).unwrap(),
+            before,
+            "preferences must not rewrite settings in a restored checkpoint"
+        );
+        std::fs::remove_file(settings_path).unwrap();
         std::fs::remove_dir_all(root).unwrap();
     }
 }
