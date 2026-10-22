@@ -34,7 +34,16 @@ cargo run --release -p discworld-native -- \
 
 ### Save and reload
 
-Press **F5** to save and **F9** to load `discworld-save.dws` in the working directory. Choose a destination with `--save-file PATH`; its parent directory must exist. Relaunch with `--load PATH` to restore the engine and synthesizer together. Use the same ISO and SoundFont. These development saves are not compatible with ScummVM.
+Press **F6** to quick-save and **F9** to quick-load `discworld-save.dws` in the working directory. Choose a destination with `--save-file PATH`; its parent directory must exist. Relaunch with `--load PATH` to restore the engine and synthesizer together. Use the same ISO and SoundFont. These development saves are not compatible with ScummVM.
+
+The native host also supports the original menus: **F1** opens options, **F5**
+opens Save, and **F7** opens Load. Use Escape to close a menu and the window close
+button to exit manual play. Named slots are stored beside the quick-save path in
+a directory with the `.slots` extension (default `discworld-save.slots`). Save
+names use the original game font. Menu service tests pass with original assets;
+automated end-to-end SDL click/typing validation is still pending. Independent
+music/speech/effects volume application and settings-file persistence remain
+unfinished; **M** still mutes the whole output when a menu is closed.
 
 Separate-process tests reproduce engine/DSP state, frames, and mixed speech/music PCM exactly, including an open Luggage inventory with its background. Native startup load, F5 save, and F9 reload are visually verified at the ending credits; broader in-game and failure-recovery checks remain. Browser manual saves support import/export and IndexedDB; automatic asset persistence and autosave remain unfinished.
 
@@ -79,7 +88,7 @@ Double-click **Watch Discworld.command** to replay the recorded route from Rince
 | **M** | Toggle sound |
 | **P** | Pause/resume |
 | **F** | Cycle 1×, 4×, and 16× speed |
-| **F5**, **F9** | Save, load |
+| **F6**, **F9** | Quick-save, quick-load |
 | **Esc** | Exit |
 
 Accelerated replay is silent; returning to normal speed restores the selected sound setting. Manual game inputs are disabled during replay to preserve its recorded route. Seek to a different tick by reconstructing the preceding game state:

@@ -1408,3 +1408,28 @@ host integration or a new start-to-credits replay result.
 Validation: workspace tests, Clippy all targets with warnings denied, core
 wasm32-unknown-unknown check and the original-asset menu-opening integration test
 pass. Logs: assets/logs/text-speed-{workspace,clippy,wasm,assets}.log.
+
+Native original-menu integration: the SDL host now initializes a dormant
+controller (preserving loaded settings and the existing subtitle preference),
+uses tick_with_configuration, and routes physical menu clicks/drags, wheel/page
+scrolling, Escape and ASCII text input. F1 opens Main; F5 and F7 open Save/Load.
+Development quick-save moved to F6; F9 still quick-loads. Manual Escape no longer
+exits the app; the window close button remains available. Text input is handled
+before development letter shortcuts while a menu is active.
+
+Menu slot dispatch uses menu_sessions: snapshots include synchronized DSP state;
+loads validate both states before activation and replace queued device audio.
+Slots live at the quick-save path with extension `.slots`. Catalogs refresh on
+opening and after saving. Storage failures remain nonfatal notices. Restart is
+already executed by the shared tick; Quit exits the host. Saved menu drags restore
+physical button ownership with the configured swap setting.
+
+Workspace tests, Clippy, release build and the original-asset native service test
+pass. The service test opens/renders Main, dismisses it, saves a named slot and
+checks exact restored engine/DSP bytes without mutating the current session.
+A 30-frame native smoke run from rightclick-node-exit-stopped.dws completes at
+133119 in unseen.scn without stopping. Logs: assets/logs/native-menu-*.log.
+Visible click/typing automation was unavailable (`orca: command not found`).
+Independent channel volume application, settings-file persistence, complete
+keyboard parity and browser menu wiring remain unfinished. No full interactive
+menu or physical iPad acceptance is claimed.

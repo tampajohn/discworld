@@ -6,8 +6,11 @@ use sdl2::mouse::MouseButton;
 pub struct Buttons([bool; 2]);
 
 impl Buttons {
-    pub fn restored_drag(dragging: bool) -> Self {
-        Self([dragging, false])
+    pub fn restored_engine(engine: &discworld_core::engine::Engine) -> Self {
+        let menu = engine.configuration.as_ref();
+        let dragging = engine.inventory_dragging() || menu.is_some_and(|menu| menu.dragging());
+        let swapped = menu.is_some_and(|menu| menu.settings().swap_buttons);
+        Self([dragging && !swapped, dragging && swapped])
     }
     fn mapped(button: MouseButton) -> Option<(usize, Button)> {
         match button {

@@ -403,7 +403,8 @@ uses `DISCWORLD_TEST_ISO`, `DISCWORLD_TEST_SOUNDFONT` and `DISCWORLD_TEST_SAVE`.
 It verifies exact session bytes after preparation, rejection of corrupt and
 wrong-ISO slots, unchanged current state, and allocation around rejected IDs.
 Run with `cargo test --release -p discworld-tools menu_slots_validate_assets_and_prepare_exact_session_replacement -- --ignored`.
-Native SDL menu activation and dispatch consumption still require wiring.
+Native SDL menu activation and dispatch consumption are now wired; see
+`docs/control.md` for validation and remaining settings limitations.
 
 ## Speech animation phase (v11)
 

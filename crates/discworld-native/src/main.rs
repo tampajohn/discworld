@@ -16,6 +16,7 @@ use sdl2::{
 };
 mod audio_output;
 mod input;
+mod menu;
 use std::time::{Duration, Instant};
 
 fn replace_audio_sink(sink: &mut rodio::Sink, mixer: &rodio::mixer::Mixer, paused: bool) {
@@ -146,10 +147,26 @@ fn run() -> Result<(), Box<dyn std::error::Error>> {
         });
         eprintln!("Loaded {} at tick {}", path.display(), engine.ticks);
     }
+    let menu_root = save_path.with_extension("slots");
+    let mut menus = menu::Menu::new(
+        menu_root,
+        discworld_tools::menu_sessions::Assets {
+            identity: asset_id,
+            resources: &resources,
+            bank: &bank,
+            tracks: &tracks,
+            strings: &strings,
+            soundfont: &soundfont_bytes,
+        },
+    )?;
     let step = |engine: &mut Engine,
                 synth: &mut discworld_audio::MusicOutput,
-                replay_position: &mut usize|
-     -> Result<(Status, Vec<f32>), Box<dyn std::error::Error>> {
+                replay_position: &mut usize,
+                saves: &[discworld_core::save_menu::Entry]|
+     -> Result<
+        (Status, Vec<f32>, discworld_core::menu_controller::Dispatch),
+        Box<dyn std::error::Error>,
+    > {
         if let Some(inputs) = &replay {
             if engine.ticks == 500 {
                 engine.user_event()?;
@@ -166,7 +183,13 @@ fn run() -> Result<(), Box<dyn std::error::Error>> {
                 *replay_position += 1;
             }
         }
-        let status = engine.tick_content(&resources, Some(&bank), Some(&tracks), Some(&strings))?;
+        let (status, dispatch) = engine.tick_with_configuration(
+            &resources,
+            Some(&bank),
+            Some(&tracks),
+            &strings,
+            saves,
+        )?;
         let mut output = synth.render(engine.music.clock, &engine.music_frame)?;
         if output.len() != engine.audio_frame.len() * 2 {
             return Err("audio clock mismatch".into());
@@ -176,7 +199,7 @@ fn run() -> Result<(), Box<dyn std::error::Error>> {
                 *sample = (*sample + f32::from(*speech) / 32768.0).clamp(-1.0, 1.0);
             }
         }
-        Ok((status, output))
+        Ok((status, output, dispatch))
     };
     if room {
         eprintln!("Replaying startup to Rincewind's room…");
@@ -184,7 +207,12 @@ fn run() -> Result<(), Box<dyn std::error::Error>> {
             if tick == 500 {
                 engine.user_event()?;
             }
-            let (status, _) = step(&mut engine, &mut synth, &mut replay_position)?;
+            let (status, _, _) = step(
+                &mut engine,
+                &mut synth,
+                &mut replay_position,
+                &menus.catalog.entries,
+            )?;
             if status != Status::Running {
                 return Err(format!("startup stopped: {status:?}").into());
             }
@@ -196,12 +224,18 @@ fn run() -> Result<(), Box<dyn std::error::Error>> {
         }
         eprintln!("Preparing replay at tick {from_tick}…");
         while engine.ticks < from_tick {
-            let (status, _) = step(&mut engine, &mut synth, &mut replay_position)?;
+            let (status, _, _) = step(
+                &mut engine,
+                &mut synth,
+                &mut replay_position,
+                &menus.catalog.entries,
+            )?;
             if status != Status::Running {
                 return Err(format!("replay preparation stopped: {status:?}").into());
             }
         }
     }
+    menu::Menu::initialize(&mut engine)?;
     let mut stream = rodio::OutputStreamBuilder::open_default_stream()?;
     stream.log_on_drop(false);
     let mut sink = audio_output::connect(stream.mixer());
@@ -224,7 +258,9 @@ fn run() -> Result<(), Box<dyn std::error::Error>> {
     let creator = canvas.texture_creator();
     let mut texture = creator.create_texture_streaming(PixelFormatEnum::RGBA32, 320, 200)?;
     let mut events = sdl.event_pump()?;
-    let mut buttons = input::Buttons::restored_drag(engine.inventory_dragging());
+    video.text_input().start();
+    let mut menu_requests = std::collections::VecDeque::new();
+    let mut buttons = input::Buttons::restored_engine(&engine);
     sdl.mouse().capture(buttons.any());
     sdl.mouse().show_cursor(false);
     if replay.is_some() {
@@ -233,7 +269,7 @@ fn run() -> Result<(), Box<dyn std::error::Error>> {
         );
     } else {
         eprintln!(
-            "Mouse moves cursor. Single left click walks/selects, double left click acts, right click looks. Space or click during speech advances dialogue. I: pockets. Click inventory cells to pick up/put down. Point at an actor/tag and press A: action, W: walk to, L: look. P: pause. Esc: exit. Click conversation icons to select; Backspace closes the menu. Drag inventory title bars to move windows, scrollbar thumbs to scroll, or edges/corners to resize. Double-click a title bar to maximize/restore. Complete input compatibility remains unfinished."
+            "Mouse moves cursor. Single left click walks/selects, double left click acts, right click looks. Space or click during speech advances dialogue. I: pockets. Click inventory cells to pick up/put down. Point at an actor/tag and press A: action, W: walk to, L: look. P: pause. F1: options, F5: save menu, F7: load menu. Escape: close menu. Close window to exit. Click conversation icons to select; Backspace closes the menu. Drag inventory title bars to move windows, scrollbar thumbs to scroll, or edges/corners to resize. Double-click a title bar to maximize/restore. Complete input compatibility remains unfinished."
         );
         eprintln!(
             "M: mute/unmute sound. Inventory: wheel or Up/Down scrolls rows; Page Up/Page Down, Home/End navigate; click scrollbar arrows or track."
@@ -249,7 +285,10 @@ fn run() -> Result<(), Box<dyn std::error::Error>> {
     let mut stopped = false;
     let mut frames = 0u64;
     let mut save_notice = String::new();
-    eprintln!("F5: save. F9: load. Save file: {}", save_path.display());
+    eprintln!(
+        "F6: quick-save. F9: load. Save file: {}",
+        save_path.display()
+    );
     'running: while frame_limit.is_none_or(|limit| frames < limit) {
         let frame_started = Instant::now();
         let now = Instant::now();
@@ -258,13 +297,76 @@ fn run() -> Result<(), Box<dyn std::error::Error>> {
         for event in events.poll_iter() {
             let manual = (replay.is_none() || replay_end.is_none()) && !stopped;
             match event {
-                Event::Quit { .. }
-                | Event::KeyDown {
+                Event::Quit { .. } => break 'running,
+                Event::TextInput { text, .. }
+                    if manual && !paused && menu::Menu::active(&engine) =>
+                {
+                    // Original English font indices are byte values, not UTF-8.
+                    for character in text
+                        .chars()
+                        .filter(|c| c.is_ascii() && !c.is_ascii_control())
+                    {
+                        engine.edit_configuration(&resources, character as u8, false)?;
+                    }
+                }
+                Event::KeyDown {
+                    keycode: Some(key),
+                    repeat: false,
+                    ..
+                } if manual
+                    && !paused
+                    && matches!(key, Key::F1 | Key::F5 | Key::F7 | Key::Escape) =>
+                {
+                    use discworld_core::menu_navigation::Key as MenuKey;
+                    if key == Key::Escape {
+                        engine.user_event()?;
+                        engine.escape_configuration(
+                            &resources,
+                            &strings,
+                            &menus.catalog.entries,
+                        )?;
+                    } else {
+                        let key = match key {
+                            Key::F5 => MenuKey::Save,
+                            Key::F7 => MenuKey::Load,
+                            _ => MenuKey::Main,
+                        };
+                        if let Err(error) = menus.open(&mut engine, key) {
+                            save_notice = format!("menu failed: {error}");
+                            eprintln!("{save_notice}");
+                        }
+                    }
+                }
+                Event::KeyDown {
+                    keycode: Some(key), ..
+                } if manual
+                    && !paused
+                    && menu::Menu::active(&engine)
+                    && !matches!(key, Key::F6 | Key::F9) =>
+                {
+                    use discworld_core::save_menu::Scroll;
+                    let scroll = match key {
+                        Key::Up => Some(Scroll::RowUp),
+                        Key::Down => Some(Scroll::RowDown),
+                        Key::PageUp => Some(Scroll::PageUp),
+                        Key::PageDown => Some(Scroll::PageDown),
+                        Key::Home => Some(Scroll::Home),
+                        Key::End => Some(Scroll::End),
+                        _ => None,
+                    };
+                    if key == Key::Backspace {
+                        engine.edit_configuration(&resources, 0, true)?;
+                    }
+                    if let Some(scroll) = scroll {
+                        engine.scroll_configuration(scroll)?;
+                    }
+                }
+                Event::KeyDown {
                     keycode: Some(Key::Escape),
                     ..
-                } => break 'running,
+                } if !manual => break 'running,
                 Event::KeyDown {
-                    keycode: Some(Key::F5),
+                    keycode: Some(Key::F6),
                     repeat: false,
                     ..
                 } => {
@@ -303,9 +405,11 @@ fn run() -> Result<(), Box<dyn std::error::Error>> {
                         Ok(restored) => {
                             replace_audio_sink(&mut sink, stream.mixer(), paused);
                             engine = restored.engine;
+                            menu::Menu::initialize(&mut engine)?;
                             synth = restored.audio;
                             stopped = false;
-                            buttons = input::Buttons::restored_drag(engine.inventory_dragging());
+                            menu_requests.clear();
+                            buttons = input::Buttons::restored_engine(&engine);
                             sdl.mouse().capture(buttons.any());
                             replay_position = replay.as_ref().map_or(0, |inputs| {
                                 inputs.partition_point(|i| u64::from(i.tick) < engine.ticks)
@@ -354,13 +458,17 @@ fn run() -> Result<(), Box<dyn std::error::Error>> {
                         sink.play();
                     }
                 }
-                Event::MouseMotion { x, y, .. } if manual && !paused => engine.move_cursor([x, y]),
+                Event::MouseMotion { x, y, .. } if manual && !paused => {
+                    engine.move_cursor_with_configuration([x, y])?
+                }
                 Event::MouseButtonDown {
                     mouse_btn, x, y, ..
                 } if manual && !paused => {
                     if let Some(button) = buttons.press(mouse_btn) {
-                        engine.move_cursor([x, y]);
-                        engine.mouse_button(&resources, button, true)?;
+                        engine.move_cursor_with_configuration([x, y])?;
+                        menu_requests.push_back(
+                            engine.mouse_button_with_configuration(&resources, button, true)?,
+                        );
                         sdl.mouse().capture(true);
                     }
                 }
@@ -369,9 +477,11 @@ fn run() -> Result<(), Box<dyn std::error::Error>> {
                 } if manual => {
                     if let Some(button) = buttons.release(mouse_btn) {
                         if !paused {
-                            engine.move_cursor([x, y]);
+                            engine.move_cursor_with_configuration([x, y])?;
                         }
-                        engine.mouse_button(&resources, button, false)?;
+                        menu_requests.push_back(
+                            engine.mouse_button_with_configuration(&resources, button, false)?,
+                        );
                         sdl.mouse().capture(buttons.any());
                     }
                 }
@@ -381,7 +491,10 @@ fn run() -> Result<(), Box<dyn std::error::Error>> {
                 } => {
                     for button in buttons.release_all() {
                         if manual {
-                            engine.mouse_button(&resources, button, false)?;
+                            menu_requests.push_back(
+                                engine
+                                    .mouse_button_with_configuration(&resources, button, false)?,
+                            );
                         }
                     }
                     sdl.mouse().capture(false);
@@ -391,7 +504,16 @@ fn run() -> Result<(), Box<dyn std::error::Error>> {
                     use sdl2::mouse::MouseWheelDirection;
                     let up = (y > 0) != (direction == MouseWheelDirection::Flipped);
                     if y != 0 {
-                        engine.scroll_inventory(if up { Scroll::Up } else { Scroll::Down });
+                        if menu::Menu::active(&engine) {
+                            use discworld_core::save_menu::Scroll as MenuScroll;
+                            engine.scroll_configuration(if up {
+                                MenuScroll::RowUp
+                            } else {
+                                MenuScroll::RowDown
+                            })?;
+                        } else {
+                            engine.scroll_inventory(if up { Scroll::Up } else { Scroll::Down });
+                        }
                     }
                 }
                 Event::KeyDown {
@@ -455,10 +577,22 @@ fn run() -> Result<(), Box<dyn std::error::Error>> {
         }
         if !paused && !stopped {
             let playback_interval = interval / speed;
-            while elapsed >= playback_interval && (speed > 1 || sink.len() < 6) {
+            while elapsed >= playback_interval
+                && (speed > 1 || sink.len() < 6)
+                && !menu_requests
+                    .iter()
+                    .any(|dispatch| dispatch.outcome.request.is_some())
+            {
                 elapsed -= playback_interval;
-                match step(&mut engine, &mut synth, &mut replay_position) {
-                    Ok((Status::Running, audio)) => {
+                match step(
+                    &mut engine,
+                    &mut synth,
+                    &mut replay_position,
+                    &menus.catalog.entries,
+                ) {
+                    Ok((Status::Running, audio, dispatch)) => {
+                        let has_request = dispatch.outcome.request.is_some();
+                        menu_requests.push_back(dispatch);
                         if speed == 1 {
                             sink.append(rodio::buffer::SamplesBuffer::new(2, 22050, audio));
                         }
@@ -477,10 +611,13 @@ fn run() -> Result<(), Box<dyn std::error::Error>> {
                             elapsed = Duration::ZERO;
                             break;
                         }
+                        if has_request {
+                            break;
+                        }
                     }
                     result => {
                         let reason = match result {
-                            Ok((status, _)) => format!("{status:?}"),
+                            Ok((status, _, _)) => format!("{status:?}"),
                             Err(error) => error.to_string(),
                         };
                         eprintln!(
@@ -500,9 +637,40 @@ fn run() -> Result<(), Box<dyn std::error::Error>> {
         } else {
             elapsed = Duration::ZERO;
         }
+        while let Some(dispatch) = menu_requests.pop_front() {
+            match menus.dispatch(&dispatch, &engine, &synth) {
+                Ok(menu::Effect::None) => continue,
+                Ok(menu::Effect::Quit) => break 'running,
+                Ok(menu::Effect::Saved(id)) => save_notice = format!("saved slot {id}"),
+                Ok(menu::Effect::Loaded(restored)) => {
+                    replace_audio_sink(&mut sink, stream.mixer(), paused);
+                    engine = restored.engine;
+                    synth = restored.audio;
+                    menu::Menu::initialize(&mut engine)?;
+                    stopped = false;
+                    buttons = input::Buttons::restored_engine(&engine);
+                    sdl.mouse().capture(buttons.any());
+                    replay_position = replay.as_ref().map_or(0, |inputs| {
+                        inputs.partition_point(|i| u64::from(i.tick) < engine.ticks)
+                    });
+                    replay_end = replay
+                        .as_ref()
+                        .and_then(|v| v.last())
+                        .map(|i| u64::from(i.tick) + 2400);
+                    save_notice = format!("loaded tick {}", engine.ticks);
+                    menu_requests.clear();
+                }
+                Err(error) => {
+                    save_notice = format!("menu failed: {error}");
+                    eprintln!("{save_notice}");
+                }
+            }
+            elapsed = Duration::ZERO;
+            previous = Instant::now();
+        }
         if !stopped {
             canvas.window_mut().set_title(&format!(
-                "Discworld Rust — {} — {} — {} — M sound — F5 save/F9 load {}",
+                "Discworld Rust — {} — {} — {} — F1 menu — M sound — F6 quick-save/F9 quick-load {}",
                 index[engine.scene.resource()].name,
                 if paused && replay.is_some() && replay_end.is_none() {
                     "recorded route finished (P continues)"
