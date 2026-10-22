@@ -2694,6 +2694,11 @@ impl Engine {
         self.movers.clear();
         self.actor_effects.clear();
         self.no_blocking = false;
+        // EndScene calls killInventory before CONTROL_STARTOFF. The constant
+        // InventoryProcess survives scene changes, including pending effects.
+        if let Some(menu) = &mut self.configuration {
+            menu.close();
+        }
         self.control.apply_at(4, false, self.world_origin)?;
         self.menu_enabled = false;
         if let Some(slot) = self.active_inventory {

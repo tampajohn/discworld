@@ -685,7 +685,24 @@ fn engine_menu_opening_preserves_gates_warps_and_atomicity() {
             .unwrap()
             .click_button([262, 69])
     );
+    let mut scene_changed = engine.clone();
+    let scene = scene_changed.capture_scene().unwrap();
+    let tracks =
+        discworld_core::music::archive(&game.assets.iso[game.assets.music.clone()]).unwrap();
+    scene_changed
+        .rebuild_scene(&resources, &tracks, &scene)
+        .unwrap();
+    assert!(
+        scene_changed
+            .configuration
+            .as_ref()
+            .unwrap()
+            .page()
+            .is_none()
+    );
+    assert!(scene_changed.control.tags_enabled);
     engine.close_inventory();
+    assert_eq!(scene_changed.configuration, engine.configuration);
     let mut requests = Vec::new();
     for _ in 0..6 {
         let snapshot = discworld_core::save::Snapshot::capture(&engine, game.assets.identity)
@@ -705,6 +722,13 @@ fn engine_menu_opening_preserves_gates_warps_and_atomicity() {
         let dispatch = engine
             .advance_configuration(&resources, &strings, &[])
             .unwrap();
+        assert_eq!(
+            scene_changed
+                .advance_configuration(&resources, &strings, &[])
+                .unwrap(),
+            dispatch
+        );
+        assert_eq!(scene_changed.configuration, engine.configuration);
         assert_eq!(
             restored
                 .advance_configuration(&resources, &strings, &[])

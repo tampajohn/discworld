@@ -1218,3 +1218,15 @@ window closure. Checkpointing at every retained-effect stage yields identical
 subsequent engines and dispatches, with exactly one Save request. This follows
 the pinned dialogs.cpp InventoryProcess and PLR_ESCAPE handlers. Workspace and
 Clippy evidence: assets/logs/menu-engine-transition-{workspace,clippy}.log.
+
+Scene entry now closes configuration graphics before applying CONTROL_STARTOFF,
+matching EndScene::killInventory in the pinned scene.cpp. It deliberately keeps
+the controller and pending button/toggle process: CreateConstProcesses makes
+InventoryProcess survive scene changes, while EndScene only kills destructible
+processes. Player settings and a pending save target survive this closure. The
+original-asset engine test rebuilds the current scene with a pending Save button,
+checks that its window closes, and compares each subsequent controller state and
+dispatch against explicit CLOSEINVENTORY. Both produce exactly one Save request.
+Existing scene/restart tests and Clippy pass (assets/logs/menu-scene-lifecycle-
+{workspace,clippy}.log). Full restart has a different scheduler lifetime and
+still needs menu integration; host key routing and automatic scheduling remain.
