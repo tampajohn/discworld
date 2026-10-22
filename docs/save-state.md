@@ -383,3 +383,24 @@ npx playwright test tests/menu-save.spec.js
 This verifies persistence and rendering, not live menu operation. F1 opening,
 input routing, menu scheduling, lifecycle transitions and settings application
 still require integration. Normal hosts do not yet create this controller.
+
+## Native menu session storage
+
+`discworld_tools::menu_sessions` bridges a menu `Dispatch` to the atomic slot
+store. `save` encodes a synchronized engine/DSP session only for a Save request
+with a resolved target. `prepare_load` validates and reconstructs both engine
+and synthesizer without mutating the running instance. The caller commits both
+together, then resets queued device audio. Empty selections are no-ops; a Load
+request cannot invent a new slot.
+
+The catalog validates complete sessions against the original resources, asset
+identity and SoundFont before offering them. Corrupt or incompatible IDs are
+reported separately and remain reserved by the allocator. A selected load is
+validated again, since files may have changed after the catalog was built.
+
+The opt-in test `menu_slots_validate_assets_and_prepare_exact_session_replacement`
+uses `DISCWORLD_TEST_ISO`, `DISCWORLD_TEST_SOUNDFONT` and `DISCWORLD_TEST_SAVE`.
+It verifies exact session bytes after preparation, rejection of corrupt and
+wrong-ISO slots, unchanged current state, and allocation around rejected IDs.
+Run with `cargo test --release -p discworld-tools menu_slots_validate_assets_and_prepare_exact_session_replacement -- --ignored`.
+Native SDL menu activation and dispatch consumption still require wiring.

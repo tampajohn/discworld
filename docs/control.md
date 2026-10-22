@@ -1347,3 +1347,16 @@ missing-resource rollback, length limiting, Load immutability, page scrolling,
 checkpoint reconstruction and exact engine counter behavior. Evidence:
 assets/logs/menu-edit-{assets,core-assets,workspace,clippy}.log. Native SDL key
 routing, F1 activation and host request handling remain unconnected.
+
+discworld-tools::menu_sessions now connects resolved menu requests to native
+slot storage. Save writes a synchronized engine/DSP session atomically; Load
+returns a fully validated replacement without mutating the running instance.
+Empty selections do nothing and Load requires an existing stable ID. Catalogs
+perform full session/resource/SoundFont validation, exclude incompatible records,
+and report rejected IDs while the allocator continues reserving their files.
+Activation revalidates the selected file rather than trusting the prior catalog.
+An original-asset test using the version10 open-menu fixture verifies exact
+session-byte restoration, wrong-asset/corrupt rejection and allocation around
+reserved IDs. Evidence: assets/logs/menu-session-{assets,workspace,clippy}.log;
+reproduction is in docs/save-state.md. Native event-loop activation and device
+handoff remain required; the storage bridge alone does not enable F1.
