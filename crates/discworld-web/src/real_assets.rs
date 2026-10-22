@@ -2290,3 +2290,36 @@ fn original_intro_escape_reaches_title_with_exact_session_continuation() {
     assert_eq!(game.engine.scene, title);
     roundtrip_pending(&mut game, 24);
 }
+
+#[test]
+#[ignore = "requires DISCWORLD_TEST_ISO and DISCWORLD_TEST_SOUNDFONT"]
+fn user_load_ends_intro_but_exact_restore_retains_it_atomically() {
+    use discworld_core::{engine::Engine, iso::Iso, resource::parse_index};
+    let read = |name| std::fs::read(std::env::var_os(name).expect(name)).unwrap();
+    let bytes = read("DISCWORLD_TEST_ISO");
+    let iso = Iso::parse(&bytes).unwrap();
+    let index = parse_index(iso.file("/DISCWLD/INDEX").unwrap()).unwrap();
+    let title = discworld_core::intro::title_scene(&index).unwrap().unwrap();
+    let mut game = BrowserGame::new(bytes, read("DISCWORLD_TEST_SOUNDFONT")).unwrap();
+    game.engine = Engine::bootstrap_with_title(&game.assets.resources(), Some(title)).unwrap();
+    game.advance(1).unwrap();
+    let saved = game.save().unwrap();
+    assert!(game.engine.intro_active());
+    game.load(&saved).unwrap();
+    assert_eq!(game.save().unwrap(), saved);
+    let audio = game.audio.checkpoint_bytes().unwrap();
+    let tick = game.tick();
+    let frame = game.frame().unwrap();
+    game.load_game(&saved).unwrap();
+    let loaded = game.save().unwrap();
+    assert!(!game.engine.intro_active());
+    assert_eq!(game.tick(), tick);
+    assert_eq!(game.frame().unwrap(), frame);
+    assert_eq!(game.audio.checkpoint_bytes().unwrap(), audio);
+    let mut invalid = saved.clone();
+    invalid.pop();
+    assert!(game.load_game(&invalid).is_err());
+    assert_eq!(game.save().unwrap(), loaded);
+    game.load(&saved).unwrap();
+    assert!(game.engine.intro_active());
+}

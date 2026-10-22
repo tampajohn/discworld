@@ -420,3 +420,29 @@ Validation: workspace tests (319 core tests), all 19 original-asset web tests,
 Clippy and WASM checking passed. Native/browser release builds include the
 opt-in API. Logs use `assets/logs/intro-engine-*`. Host activation remains
 pending; no visible-session update is claimed.
+
+## User loads versus exact restoration
+
+BrowserGame now exposes `load_game` for user-facing loads while `load` remains
+exact session restoration. The worker uses `load_game` for imported files and
+original menu slots. Both decode/validate the complete replacement before
+committing engine and DSP; only the user-load path calls `end_intro`. Native
+quick-load and menu-load actions also end intro mode, as does a startup load
+without a replay trace. Startup loads with recorded replay retain exact state.
+
+The original-asset regression imports an active pre-title v17 snapshot through
+both APIs. It verifies that only user loading ends intro mode, frame/tick/DSP
+remain unchanged, invalid input is atomic, and an exact restore can recover
+the original active policy. Historical saves without intro metadata retain
+their existing representation. Default host startup activation and Escape
+routing are still pending.
+
+User-load validation: workspace tests, all 20 original-asset web tests,
+Clippy, WASM checking and native/browser release builds passed. Logs use
+`assets/logs/user-load-*`. The original save-import/export player cases
+exercise historical saves without intro metadata; the new Rust original-asset
+regression separately covers active v17 policy.
+
+All 20 Chrome/WebKit player cases passed (10 per browser), covering import/
+export, cold startup, audio pause/resume and active inventory interactions.
+See `assets/logs/user-load-browser.log`. This is not physical iPad acceptance.

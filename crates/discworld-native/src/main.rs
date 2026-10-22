@@ -144,6 +144,9 @@ fn run() -> Result<(), Box<dyn std::error::Error>> {
             &strings,
         )?;
         engine = restored.engine;
+        if replay.is_none() {
+            engine.end_intro();
+        }
         synth = restored.audio;
         replay_position = replay.as_ref().map_or(0, |inputs| {
             inputs.partition_point(|i| u64::from(i.tick) < engine.ticks)
@@ -412,6 +415,7 @@ fn run() -> Result<(), Box<dyn std::error::Error>> {
                         Ok(restored) => {
                             replace_audio_sink(&mut sink, stream.mixer(), paused);
                             engine = restored.engine;
+                            engine.end_intro();
                             menus.initialize(&mut engine)?;
                             synth = restored.audio;
                             stopped = false;
@@ -652,6 +656,7 @@ fn run() -> Result<(), Box<dyn std::error::Error>> {
                 Ok(menu::Effect::Loaded(restored)) => {
                     replace_audio_sink(&mut sink, stream.mixer(), paused);
                     engine = restored.engine;
+                    engine.end_intro();
                     synth = restored.audio;
                     menus.initialize(&mut engine)?;
                     stopped = false;

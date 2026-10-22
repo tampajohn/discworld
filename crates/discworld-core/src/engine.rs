@@ -2781,7 +2781,7 @@ impl Engine {
         }
     }
 
-    fn intro_active(&self) -> bool {
+    pub fn intro_active(&self) -> bool {
         self.intro.as_ref().is_some_and(crate::intro::Intro::active)
     }
 

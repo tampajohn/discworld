@@ -22,7 +22,7 @@ async function consumeMenu() {
       effects.notice = 'Game saved on this device.';
     } else if (request === 'load' && selection) {
       if (selection.id === null) throw new Error('Load requires an existing slot');
-      game.load((await readSlot(selection.id)).session);
+      game.load_game((await readSlot(selection.id)).session);
       effects.resetAudio = true;
       effects.resetPointers = true;
       effects.changed = true;
@@ -54,7 +54,7 @@ async function handle({ id, type, ...data }) {
           prepared = complete.finish(font);
         } finally { if (upload) upload.free(); }
         try {
-          if (data.save) prepared.load(new Uint8Array(await data.save.arrayBuffer()));
+          if (data.save) prepared.load_game(new Uint8Array(await data.save.arrayBuffer()));
           game = prepared;
           let notice;
           try {
@@ -83,7 +83,7 @@ async function handle({ id, type, ...data }) {
         break;
       case 'pointer': game.move_pointer_checked(...data.point); result = snapshot(); break;
       case 'save': result = { bytes: game.save(), tick: game.tick().toString() }; break;
-      case 'load': game.load(new Uint8Array(data.bytes)); result = { ...snapshot(), resetPointers: true }; break;
+      case 'load': game.load_game(new Uint8Array(data.bytes)); result = { ...snapshot(), resetPointers: true }; break;
       default: throw new Error('Unknown worker request');
     }
     const effects = await consumeMenu();

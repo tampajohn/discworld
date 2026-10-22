@@ -480,4 +480,6 @@ entrance 1. Snapshots without configured intro policy retain prior encoding.
 Runtime snapshot restoration retains intro state exactly. A host's explicit
 user-load operation must separately call `Engine::end_intro`, matching the
 reference's distinction between game-load and live interpreter continuation.
-Host integration of this user-load rule remains pending.
+Browser worker loads and native user-load actions now apply this rule. The
+exact browser `load` API and native recorded-replay startup loads preserve
+policy state for deterministic continuation.

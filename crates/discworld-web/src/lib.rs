@@ -566,10 +566,19 @@ impl BrowserGame {
     /// Prepare both components before replacing the live session. A rejected
     /// file leaves engine, DSP and existing fault state unchanged.
     pub fn load(&mut self, bytes: &[u8]) -> Result<()> {
+        self.restore_session(bytes, false)
+    }
+
+    /// User save loading ends pre-title intro mode, unlike exact runtime replay.
+    pub fn load_game(&mut self, bytes: &[u8]) -> Result<()> {
+        self.restore_session(bytes, true)
+    }
+
+    fn restore_session(&mut self, bytes: &[u8], user_load: bool) -> Result<()> {
         let resources = self.assets.resources();
         let bank = self.assets.bank()?;
         let tracks = music::archive(&self.assets.iso[self.assets.music.clone()]).map_err(error)?;
-        let restored = session::decode(
+        let mut restored = session::decode(
             bytes,
             self.assets.identity,
             &resources,
@@ -579,6 +588,9 @@ impl BrowserGame {
             &Strings::new(&self.assets.iso[self.assets.text.clone()]).map_err(error)?,
         )
         .map_err(error)?;
+        if user_load {
+            restored.engine.end_intro();
+        }
         self.engine = restored.engine;
         self.audio = restored.audio;
         self.fault = None;
