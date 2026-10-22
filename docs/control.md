@@ -1245,3 +1245,19 @@ closed. It verifies control is restored in both cases and labels only in the
 closed case. Run with DISCWORLD_TEST_ISO and `cargo test --release -p
 discworld-core original_menu_blocks_scripted_control_on_tag_restoration --
 --ignored`. Evidence: assets/logs/menu-control-{assets,workspace,clippy}.log.
+
+World gesture dispatch now treats configuration pages as active inventory for
+actor, polygon and bare-ground interactions. The development primary-click path
+also stops at the menu; raw mouse events still update input history/counters but
+cannot enqueue world actions behind it. Actual menu click routing remains to be
+connected. Engine pointer movement and the cursor-monitoring pass update menu
+hover from the effective cursor position (including frozen-cursor behavior).
+Opening a page and page transitions refresh hover after any original cursor warp,
+as openMenu's invCursor call does. Ordinary button-animation updates do not run
+an extra hover pass after drawing their effect. Closed-page retained effects are
+left alone by cursor monitoring.
+The original-asset core test compares menu hover state/rendering, frozen motion,
+cursor monitoring, and unchanged world-process queues after resolved gestures,
+raw left/right edges and development primary clicks. The menu transition test
+also passes with initial hover enabled. Evidence:
+assets/logs/menu-pointer-{core-assets,web-assets,workspace,clippy}.log.

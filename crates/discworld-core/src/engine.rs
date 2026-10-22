@@ -1111,6 +1111,7 @@ impl Engine {
             if let Some(position) = menu.take_cursor_warp() {
                 next.control.move_cursor(position);
             }
+            menu.point_at(Some(next.control.cursor));
         }
         *self = next;
         Ok(opened)
@@ -1135,7 +1136,7 @@ impl Engine {
             declarations: &next.declarations,
             saves,
         })?;
-        next.finish_configuration_transition(was_active);
+        next.finish_configuration_transition(was_active, outcome.changed);
         *self = next;
         Ok(outcome)
     }
@@ -1162,12 +1163,12 @@ impl Engine {
             declarations: &next.declarations,
             saves,
         })?;
-        next.finish_configuration_transition(was_active);
+        next.finish_configuration_transition(was_active, dispatch.outcome.changed);
         *self = next;
         Ok(dispatch)
     }
 
-    fn finish_configuration_transition(&mut self, was_active: bool) {
+    fn finish_configuration_transition(&mut self, was_active: bool, refresh_pointer: bool) {
         if let Some(menu) = &mut self.configuration {
             let active = menu.page().is_some();
             if was_active || active {
@@ -1175,6 +1176,9 @@ impl Engine {
             }
             if let Some(position) = menu.take_cursor_warp() {
                 self.control.move_cursor(position);
+            }
+            if active && refresh_pointer {
+                menu.point_at(Some(self.control.cursor));
             }
         }
     }
@@ -1373,7 +1377,13 @@ impl Engine {
     /// not implement the original single/double-click delay and cancellation.
     pub fn primary_click(&mut self, resources: &Resources<'_>) -> Result<(), Error> {
         let point = self.control.cursor;
-        if self.conversation.polygon.is_some() && !self.conversation.hidden {
+        if self
+            .configuration
+            .as_ref()
+            .is_some_and(|menu| menu.page().is_some())
+        {
+            self.left_event()?;
+        } else if self.conversation.polygon.is_some() && !self.conversation.hidden {
             if let Some(topic) = self.conversation_topic_at(point) {
                 self.interact_conversation(resources, Some(topic))?;
             }
@@ -1416,6 +1426,15 @@ impl Engine {
                 }
             }
             self.control.user_event(self.ticks);
+        }
+        self.update_configuration_hover();
+    }
+
+    fn update_configuration_hover(&mut self) {
+        if let Some(menu) = &mut self.configuration {
+            if menu.page().is_some() {
+                menu.point_at(Some(self.control.cursor));
+            }
         }
     }
 
@@ -1715,7 +1734,7 @@ impl Engine {
             return Err(Error("interaction target is not a tag or exit"));
         }
         if !self.control.enabled
-            || self.active_inventory.is_some()
+            || self.control_inventory_active()
             || !polygon.enabled
             || self.last_interaction_tick == Some(self.ticks)
         {
@@ -1743,7 +1762,7 @@ impl Engine {
         event: PolygonInteraction,
     ) -> Result<bool, Error> {
         if !self.control.enabled
-            || self.active_inventory.is_some()
+            || self.control_inventory_active()
             || self.last_interaction_tick == Some(self.ticks)
         {
             return Ok(false);
@@ -1870,7 +1889,7 @@ impl Engine {
     ) -> Result<bool, Error> {
         let actor = self.actors.get(id)?;
         if !self.control.enabled
-            || self.active_inventory.is_some()
+            || self.control_inventory_active()
             || !actor.alive
             || actor.hidden
             || actor.script.0 == 0
@@ -3186,6 +3205,7 @@ impl Engine {
             cursor.animation.tick(resources)?;
         }
         self.update_inventory_cursor(resources)?;
+        self.update_configuration_hover();
         self.update_inventory_hover(resources)?;
         if let Some(bg) = &mut self.background {
             if bg.tick(resources)? == Tick::Finished {
@@ -5452,6 +5472,40 @@ mod tests {
         engine
             .open_configuration(&resources, &strings, &[], crate::menu_navigation::Key::Main)
             .unwrap();
+        let mut input = engine.clone();
+        let processes = input.processes.clone();
+        let before = input.render(&resources).unwrap();
+        input.move_cursor([90, 59]);
+        let mut expected_menu = engine.configuration.clone().unwrap();
+        expected_menu.point_at(Some([90, 59]));
+        assert_eq!(input.configuration.as_ref(), Some(&expected_menu));
+        assert_ne!(input.render(&resources).unwrap(), before);
+        input.control.frozen = true;
+        input.move_cursor([200, 100]);
+        assert_eq!(input.control.cursor, [90, 59]);
+        assert_eq!(input.configuration.as_ref(), Some(&expected_menu));
+        input.control.frozen = false;
+        for event in [
+            PolygonInteraction::WalkTo,
+            PolygonInteraction::Look,
+            PolygonInteraction::Action,
+        ] {
+            assert!(!input.interact_world(&resources, [200, 100], event).unwrap());
+            assert!(!input.world_click(&resources, [200, 100], event).unwrap());
+        }
+        input.primary_click(&resources).unwrap();
+        for button in [crate::mouse::Button::Left, crate::mouse::Button::Right] {
+            input.mouse_button(&resources, button, true).unwrap();
+            input.mouse_button(&resources, button, false).unwrap();
+        }
+        assert_eq!(input.processes, processes);
+        // Cursor monitoring also sees changes made without host move_cursor.
+        input.control.cursor = [200, 100];
+        expected_menu.point_at(Some([200, 100]));
+        input
+            .tick_content(&resources, Some(&bank), Some(&tracks), Some(&strings))
+            .unwrap();
+        assert_eq!(input.configuration.as_ref(), Some(&expected_menu));
         // Execute an actual CONTROL_ON bytecode call alongside original menu resources.
         let code = [0x0a, 0x00, 0x34, 0x33, 0, 0, 0, 0, 3, 0x4e, 14, 0];
         let handle = Handle(((resources.0.len() as u32) << 23) | 8);
