@@ -3982,7 +3982,9 @@ impl Engine {
         let mover_ids: Vec<_> = self.movers.keys().copied().collect();
         for actor in mover_ids {
             if self.reel_owners.contains_key(&actor) {
-                continue;
+                // Older snapshots predate independent mover visibility. PLAY
+                // hides its mover but does not suspend ordinary walking.
+                self.movers.get_mut(&actor).unwrap().hidden = true;
             }
             let special = self.movers[&actor].special_reel();
             if special && self.movers[&actor].hidden {
@@ -4004,7 +4006,16 @@ impl Engine {
                     &self.polygons,
                     &footprints,
                 )?;
-                self.actors.get_mut(actor as u32)?.position = mover.placement.position;
+                // SetMoverWalkReel clears PLAY ownership when a new walking
+                // reel reveals the mover. Otherwise keep the film's stored
+                // actor position distinct from the underlying moving object.
+                if !mover.hidden {
+                    self.reel_owners.remove(&actor);
+                    self.reel_escape.remove(&actor);
+                }
+                if !self.reel_owners.contains_key(&actor) {
+                    self.actors.get_mut(actor as u32)?.position = mover.placement.position;
+                }
             } else if special || self.movers[&actor].reel_state.is_none() {
                 self.movers
                     .get_mut(&actor)
@@ -8883,6 +8894,83 @@ mod tests {
                             assert_eq!(walking, comparable);
                         }
                         assert_ne!(walking.placement.position, [50, 70]);
+                        // PLAY covers the mover without suspending its route.
+                        // Retain separate film coordinates until walking selects
+                        // a new reel (here a path scale change).
+                        for blocking in [false, true] {
+                            for legacy in [false, true] {
+                                let mut play_scene = scene.clone();
+                                let mut code = vec![0x41, 77, 1];
+                                code.extend(base.to_le_bytes());
+                                code.extend([
+                                    0x41,
+                                    10,
+                                    0x41,
+                                    10,
+                                    2,
+                                    2,
+                                    if blocking { 3 } else { 2 },
+                                    0x4e,
+                                    49,
+                                    0x4c,
+                                    0,
+                                    0,
+                                ]);
+                                play_scene[32..32 + code.len()].copy_from_slice(&code);
+                                let play_resources = Resources(vec![&master, &play_scene, &film]);
+                                let mut playing = engine.clone();
+                                playing.processes = Scheduler::default();
+                                playing.master_stopped = true;
+                                playing.movers.insert(1, walking.clone());
+                                let mut process = ScriptProcess::new(Handle((1 << 23) | 32));
+                                let status = playing
+                                    .run_process(&play_resources, None, None, None, &mut process)
+                                    .unwrap();
+                                assert_eq!(
+                                    status,
+                                    if blocking {
+                                        Status::Running
+                                    } else {
+                                        Status::Halted
+                                    }
+                                );
+                                let reel = if blocking {
+                                    let reel = process.play_wait.as_ref().unwrap().1.clone();
+                                    playing.processes.spawn(None, process).unwrap();
+                                    reel
+                                } else {
+                                    playing.films[0].clone()
+                                };
+                                if legacy {
+                                    playing.movers.get_mut(&1).unwrap().hidden = false;
+                                }
+                                let start = playing.movers[&1].placement.position;
+                                for _ in 0..2 {
+                                    let bytes =
+                                        Snapshot::capture(&playing, [7; 32]).to_bytes().unwrap();
+                                    let decoded = Snapshot::from_bytes(&bytes, [7; 32]).unwrap();
+                                    assert_eq!(decoded.to_bytes().unwrap(), bytes);
+                                    let mut restored = decoded.state().clone();
+                                    playing.tick(&play_resources).unwrap();
+                                    restored.tick(&play_resources).unwrap();
+                                    assert_eq!(playing, restored);
+                                    assert!(playing.movers[&1].hidden);
+                                    assert!(playing.owns_reel(&reel));
+                                    assert_eq!(playing.actors.get(1).unwrap().position, [10, 10]);
+                                }
+                                assert_ne!(playing.movers[&1].placement.position, start);
+                                playing.polygons.active[0].definition.scales = [2, 0];
+                                playing.tick(&play_resources).unwrap();
+                                assert!(!playing.movers[&1].hidden);
+                                assert!(!playing.owns_reel(&reel));
+                                assert_eq!(playing.movers[&1].placement.scale, 2);
+                                assert_eq!(playing.globals[0], 77);
+                                assert_eq!(
+                                    playing.actors.get(1).unwrap().position,
+                                    playing.movers[&1].placement.position
+                                );
+                            }
+                        }
                         let mut scene_restore = engine.clone();
                         scene_restore.movers.get_mut(&1).unwrap().hidden = true;
                         let saved = scene_restore.capture_scene_movers();

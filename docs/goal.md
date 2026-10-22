@@ -49,7 +49,11 @@ restart at tick 2,630,000, accepting all 1,652 inputs and passing 5,048 engine
 and 5,048 audio snapshot checks. See [route evidence](validation/walkpoly-b692a3b.json).
 HIDEACTOR integration at `fdbdae2` subsequently added separate mover visibility,
 background ordering, ownership-aware unhide, and exact save continuation. Its
-focused and original-asset tests pass; its full-route audit is still pending.
+focused and original-asset tests pass; its recorded native full-route audit
+also completed: all 1,652 inputs accepted, 5,048 engine and 5,048 audio
+continuation checks, and restart/title at tick 2,630,000. See
+[HIDEACTOR route evidence](validation/hideactor-fdbdae2.json). This run predates
+PAUSE, FADEMIDI, and continued movement under PLAY.
 The visible manual session has not yet been refreshed.
 
 The disabled-axis runtime at `a1eaead` completed the native recorded route:

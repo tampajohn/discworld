@@ -1,0 +1,26 @@
+{
+  "runtime_revision": "fdbdae25256bf9ab82b64b9be92abe83717686c6",
+  "route": "evidence/act4-ending-input.json",
+  "route_sha256": "30c227553695638a78495f4cf56731f841e89188c8faa75821e50c164ddf4ddb",
+  "binary_sha256": "2e07e0943a6367705fe309ea1c86a0a183a3e5452816081439854ba52cba3dc8",
+  "schema": 1,
+  "local_artifacts": "assets/validation/hideactor-fdbdae2",
+  "native": {
+    "ticks": 2630000,
+    "status": "Running",
+    "scene_name": "title.scn",
+    "has_restarted": true,
+    "snapshot_checks": 5048,
+    "audio_snapshot_checks": 5048,
+    "snapshot_max_bytes": 48155,
+    "audio_snapshot_max_bytes": 317221,
+    "accepted_inputs": 1652,
+    "core_sha256": "d4a60d7dd6637c3c8f5cd5131b29868e40afd06f45559e7cd8dafa42711de4eb",
+    "report_sha256": "0d56aa96e4af901e4e12f18a7bf4dffb9e83a33f571eb0649a81f03aec7a8763"
+  },
+  "scope": [
+    "Recorded native full route; no new HIDEACTOR inputs.",
+    "Includes HIDEACTOR integration; predates PAUSE and FADEMIDI additions.",
+    "Final title image inspected. Not manual UI, browser or physical iPad acceptance."
+  ]
+}

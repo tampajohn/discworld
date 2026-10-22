@@ -635,12 +635,21 @@ actor zero; other events pass the calling actor. SPlay checks stale Escape
 before calling Play, unlike direct PLAY's null-film check before Escape.
 
 T1MoverProcess continues normal DoMoveActor while a PLAY reel hides its mover.
-Only a hidden special mover reel freezes. The current Rust engine skips all
-movers with reel owners, so ordinary walking under PLAY is still suspended.
-Removing that skip alone is insufficient: mover updates must not overwrite
-the actor position stored by the active film, and walking-reel selection may
-clear actor reel ownership and reveal the mover. These transitions need tests
-against the reference, including route turns, scale changes, and arrival.
+Only a hidden special mover reel freezes. The earlier Rust engine skipped all
+movers with reel owners, suspending ordinary walking under PLAY. The runtime
+now continues that movement while retaining the active film's stored actor
+position. When walking-reel selection reveals a mover, it clears reel ownership
+and its Escape capture. Render and script continuation then treat the old reel
+as replaced. Older snapshots with reel ownership but no independent hidden flag
+acquire that flag at the next mover update; import/re-export remains exact.
+
+Regression coverage runs actual blocking and nonblocking PLAY calls over an
+existing normal walk. Both preserve the film's actor position while mover
+coordinates advance, round-trip exact saves, and terminate film ownership when
+a path scale change selects a new walking reel. Legacy visibility state is
+covered separately. Special hidden TALK behavior retains its existing tests.
+Route turns, arrival combinations, and live reference comparisons need broader
+coverage; SPLAY coordinate restoration remains unimplemented.
 
 MoveActor applies a global hidden-movement counter before stepping, comparing
 it with the mover's SlowFactor. However the pinned PlayFilm/PlayFilmc APIs
@@ -657,3 +666,8 @@ remaining ultimate target using the old ignore-path setting. Full implementation
 needs ownership-aware continuation, saved SPLAY state, coordinate restoration,
 walk-token implications, and tests for replacement, Escape, completion and
 blocking/nonblocking primary/secondary reels.
+
+Continued movement under PLAY passes the workspace suite (324 core tests),
+all 20 original-asset web tests, Clippy, WASM checks, and native/browser release
+builds. Logs use assets/logs/play-movement-*. Full-route acceptance of this
+change is separate from the completed HIDEACTOR audit.
