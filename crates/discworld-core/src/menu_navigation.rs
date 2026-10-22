@@ -18,6 +18,25 @@ pub enum Page {
     Quit,
 }
 
+/// Menu-opening keys from ProcessKeyEvent, distinct from internal navigation.
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub enum Key {
+    Main,
+    Save,
+    Load,
+    Quit,
+}
+impl Key {
+    pub fn page(self) -> Page {
+        match self {
+            Self::Main => Page::Main,
+            Self::Save => Page::Save,
+            Self::Load => Page::Load,
+            Self::Quit => Page::Quit,
+        }
+    }
+}
+
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub enum Request {
     Restart,

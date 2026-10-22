@@ -1021,6 +1021,40 @@ impl Engine {
         self.control.user_event(self.ticks);
         Ok(())
     }
+    /// ProcessKeyEvent/openMenu's gate only. A true result lets the shared menu
+    /// controller open key.page(); activation/rendering are a separate step.
+    /// Ordinary rejected keys still count as user events, while ENABLEMENU's
+    /// startup F1 path applies CONTROL_ON without waking WAITKEY via the counter.
+    pub fn configuration_key(
+        &mut self,
+        resources: &Resources<'_>,
+        key: crate::menu_navigation::Key,
+        configuration_active: bool,
+    ) -> Result<bool, Error> {
+        let mut next = self.clone();
+        if next.menu_enabled && key == crate::menu_navigation::Key::Main {
+            next.control.apply_at(
+                1,
+                next.active_inventory.is_some() || configuration_active,
+                next.world_origin,
+            )?;
+            if let Some((handle, _)) = &next.declarations.cursor {
+                next.cursor_animation = Self::start_film(resources, *handle, true)?.pop();
+                if let Some(cursor) = &mut next.cursor_animation {
+                    cursor.tick(resources)?;
+                }
+            }
+            next.menu_enabled = false;
+        } else {
+            next.user_event()?;
+        }
+        let permitted = next.control.enabled
+            && next.active_inventory.is_none()
+            && next.top_window.is_none()
+            && !configuration_active;
+        *self = next;
+        Ok(permitted)
+    }
     pub fn left_event(&mut self) -> Result<(), Error> {
         let next = self
             .left_events
@@ -5248,6 +5282,81 @@ mod tests {
         put(&mut scene, 104, 0x3334000b);
         put(&mut scene, 112, 1);
         (master, scene)
+    }
+    #[test]
+    fn startup_menu_key_enables_control_without_incrementing_waitkey_counter() {
+        use crate::menu_navigation::Key;
+        let (master, scene) = fixtures();
+        let resources = Resources(vec![&master, &scene]);
+        let mut engine = Engine::bootstrap(&resources).unwrap();
+        engine.control.enabled = false;
+        engine.menu_enabled = true;
+        let before = (engine.user_events, engine.left_events);
+        assert!(
+            engine
+                .configuration_key(&resources, Key::Main, false)
+                .unwrap()
+        );
+        assert!(engine.control.enabled && !engine.control.hidden);
+        assert!(!engine.menu_enabled);
+        assert_eq!((engine.user_events, engine.left_events), before);
+        assert!(
+            !engine
+                .configuration_key(&resources, Key::Main, true)
+                .unwrap()
+        );
+        assert_eq!(engine.user_events, before.0 + 1);
+        assert_eq!(engine.left_events, before.1);
+        for key in [Key::Save, Key::Load, Key::Quit] {
+            engine.control.enabled = false;
+            engine.menu_enabled = true;
+            let count = engine.user_events;
+            assert!(!engine.configuration_key(&resources, key, false).unwrap());
+            assert_eq!(engine.user_events, count + 1);
+            assert!(engine.menu_enabled); // only Main uses the startup exception
+        }
+        for slot in [0, 1, 2] {
+            engine.active_inventory = Some(slot);
+            engine.control.enabled = false;
+            engine.menu_enabled = true;
+            assert!(
+                !engine
+                    .configuration_key(&resources, Key::Main, false)
+                    .unwrap()
+            );
+            assert!(engine.control.enabled); // control gate precedes inventory gate
+            assert!(!engine.menu_enabled);
+        }
+    }
+    #[test]
+    fn menu_key_failures_do_not_partially_change_engine_state() {
+        use crate::menu_navigation::Key;
+        let (master, scene) = fixtures();
+        let resources = Resources(vec![&master, &scene]);
+        let mut engine = Engine::bootstrap(&resources).unwrap();
+        engine.user_events = u64::MAX;
+        let before = engine.clone();
+        assert!(
+            engine
+                .configuration_key(&resources, Key::Save, false)
+                .is_err()
+        );
+        assert_eq!(engine, before);
+        engine.menu_enabled = true;
+        engine.declarations.cursor = Some((
+            Handle(u32::MAX),
+            crate::film::Film {
+                rate: 1,
+                reels: vec![],
+            },
+        ));
+        let before = engine.clone();
+        assert!(
+            engine
+                .configuration_key(&resources, Key::Main, false)
+                .is_err()
+        );
+        assert_eq!(engine, before);
     }
     #[test]
     fn primary_click_during_hidden_conversation_wakes_waits_without_world_dispatch() {

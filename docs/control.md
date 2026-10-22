@@ -958,3 +958,19 @@ callFunction. Host keyboard behavior needs reference validation during wiring.
 assets/logs/save-menu-dispatch-{workspace,clippy}.log. Engine scene lifecycle,
 input routing, menu snapshot state, live settings and native/browser integration
 remain required; this increment does not change the running session.
+
+Engine::configuration_key now implements the shared ProcessKeyEvent/openMenu
+permission gate for Main, Save, Load and Quit. ENABLEMENU plus Main applies
+CONTROL_ON and restarts the declared cursor without incrementing the WAITKEY
+user-event counter. Other menu keys count as user input even when rejected.
+Opening requires control on and no active inventory, top window or configuration
+window. The method is transactional on resource/counter errors and returns only
+permission; the caller must activate the selected page and its window lifecycle.
+Synthetic regressions cover startup, ordinary/rejected keys, inventory exclusion,
+counter overflow and invalid cursor resources. The original-asset regression
+starts the supplied ISO at tick500, exercises the actual declared cursor, repeats
+activation from a saved pre-key state, and verifies exact engine/pixel/audio
+continuation after another save/load. Evidence: menu-key-gate-workspace.log
+(286 enabled tests), menu-key-original-assets.log (one opt-in test), and
+menu-key-gate-clippy-final.log under assets/logs. Host F1 bindings, live window
+activation and menu snapshot state remain unfinished.

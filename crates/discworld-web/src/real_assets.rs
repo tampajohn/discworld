@@ -1,6 +1,39 @@
 //! Opt-in integration checks using locally supplied original assets.
 use super::BrowserGame;
 
+#[test]
+#[ignore = "requires DISCWORLD_TEST_ISO and DISCWORLD_TEST_SOUNDFONT"]
+fn startup_menu_key_restores_original_cursor_and_resumes_deterministically() {
+    use discworld_core::menu_navigation::Key;
+    let read = |name| std::fs::read(std::env::var_os(name).expect(name)).unwrap();
+    let mut game =
+        BrowserGame::new(read("DISCWORLD_TEST_ISO"), read("DISCWORLD_TEST_SOUNDFONT")).unwrap();
+    while game.tick() < 500 {
+        game.advance((500 - game.tick()).min(24) as u32).unwrap();
+    }
+    assert!(game.engine.menu_enabled);
+    assert!(game.engine.declarations.cursor.is_some());
+    let before = game.save().unwrap();
+    assert!(
+        game.engine
+            .configuration_key(&game.assets.resources(), Key::Main, false)
+            .unwrap()
+    );
+    assert!(game.engine.control.enabled);
+    assert!(!game.engine.menu_enabled);
+    let activated = game.save().unwrap();
+    let frame = game.frame().unwrap();
+    game.load(&before).unwrap();
+    assert!(
+        game.engine
+            .configuration_key(&game.assets.resources(), Key::Main, false)
+            .unwrap()
+    );
+    assert_eq!(game.save().unwrap(), activated);
+    assert_eq!(game.frame().unwrap(), frame);
+    roundtrip_pending(&mut game, 24);
+}
+
 fn roundtrip_pending(game: &mut BrowserGame, ticks: u32) {
     let pending = game.save().unwrap();
     game.load(&pending).unwrap();
