@@ -1,0 +1,61 @@
+{
+  "schema": 1,
+  "runtime_revision": "f776192aeeed940b10b9734ace824d4a9f6c49fa",
+  "route": "evidence/act4-ending-input.json",
+  "route_sha256": "30c227553695638a78495f4cf56731f841e89188c8faa75821e50c164ddf4ddb",
+  "local_artifacts": "assets/validation/custom-reels-f776192",
+  "native": {
+    "ticks": 2630000,
+    "status": "Running",
+    "scene_name": "title.scn",
+    "has_restarted": true,
+    "snapshot_checks": 5048,
+    "audio_snapshot_checks": 5048,
+    "snapshot_max_bytes": 47635,
+    "audio_snapshot_max_bytes": 317221,
+    "accepted_inputs": 1652,
+    "report_sha256": "5c58ce4bb16282c6e19d2c7d18083d2d747f34be2fc55fa5d592355876d10a14"
+  },
+  "browsers": {
+    "chrome": {
+      "browser_version": "156.0.8078.47",
+      "ticks": 2630000,
+      "scene": "title.scn",
+      "has_restarted": true,
+      "accepted_inputs": 1652,
+      "audio_samples": 4832625000,
+      "nonfinite_audio_samples": 0,
+      "elapsed_seconds": 592.074,
+      "rgba_sha256": "8833cac8d0cc20ebbfa5e7158676914ad7d9a82222812a3a91568cbb5a6e8978",
+      "core_sha256": "62570b31e8aca0793e461792be622810dbcb8c3d980db53513cb2f474d374d64",
+      "engine_bytes_equal": true,
+      "rgba_equal": true,
+      "combined_save_equal": false,
+      "report_sha256": "3ad0b9c13b5295de37f45191ea4b7ad21f389aa4d60d3b04a20a5f50a4024e64",
+      "comparison_sha256": "e331b43196ae2392b8ec66942acfaaa50a9cc8b4d32b37e952bd708207adf814"
+    },
+    "webkit": {
+      "browser_version": "27.2",
+      "ticks": 2630000,
+      "scene": "title.scn",
+      "has_restarted": true,
+      "accepted_inputs": 1652,
+      "audio_samples": 4832625000,
+      "nonfinite_audio_samples": 0,
+      "elapsed_seconds": 610.7,
+      "rgba_sha256": "8833cac8d0cc20ebbfa5e7158676914ad7d9a82222812a3a91568cbb5a6e8978",
+      "core_sha256": "62570b31e8aca0793e461792be622810dbcb8c3d980db53513cb2f474d374d64",
+      "engine_bytes_equal": true,
+      "rgba_equal": true,
+      "combined_save_equal": false,
+      "report_sha256": "e96bf63982bd3bdd88428b04246b3e74c061964c541bbc664e1797d68cb215aa",
+      "comparison_sha256": "e331b43196ae2392b8ec66942acfaaa50a9cc8b4d32b37e952bd708207adf814"
+    }
+  },
+  "scope": [
+    "Accelerated recorded route, not complete manual UI or physical iPad acceptance.",
+    "Includes custom WALK/WALKED/WALKTAG/SWALK runtime support; alternate cases have separate targeted tests.",
+    "Predates optional audio headroom; original mixer used.",
+    "Exact engine and final pixels compared; cross-platform DSP equality not claimed."
+  ]
+}

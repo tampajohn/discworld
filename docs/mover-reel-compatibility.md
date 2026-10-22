@@ -360,3 +360,12 @@ active targets equal -1. Replacing -1 with the starting coordinate would change
 those decisions. The existing guard remains until the complete destination,
 completion and pending-coroutine behavior is modeled and tested; direction or
 single-step support alone is insufficient evidence to remove it.
+
+
+The f776192 native/Chrome/WebKit full-route audits are complete. All hosts
+accepted 1,652 inputs and reached restart/title at tick 2,630,000. Native
+performed 5,048 engine and 5,048 DSP save/load audits. Both browsers produced
+finite audio throughout and match native final engine bytes and RGBA exactly;
+combined DSP saves differ across hosts. See
+[cross-host results](validation/custom-reels-f776192.json). These runs use the
+original mixer and predate optional audio headroom.
