@@ -67,3 +67,35 @@ integrated. This change alone does not enable cutscene skipping.
 Interpreter-boundary validation: workspace tests, Clippy with warnings denied
 and the browser WASM check pass (`assets/logs/escape-opcode-*`). No cancellation
 behavior or new save-state generation fields are claimed by these checks.
+
+
+## Escape snapshot extension (DWRSAVE v14)
+
+The engine now has an optional escape-event generation and each Machine has
+an optional captured generation. These fields are excluded from the legacy
+postcard layout. Version 14 wraps an ordinary v1-v13 envelope with the global
+generation and captured values in deterministic context order: master, scheduler
+order, saved-scene stack/context order, then pending scene restoration. Decoding
+requires exactly one value per context, a nonzero global generation, and only
+nonzero captured generations no greater than the global value. A disabled
+context cannot have a capture. Enabled contexts with no capture remain explicitly
+unmigrated; legacy saves did not record the missing value.
+
+The inner version is checked before decoding, so v14 cannot nest itself.
+Existing mover/menu/speech extensions remain inside the older envelope. An
+engine without escape state continues to emit its previous save format; old
+imports are not rewritten merely by decoding them. Repeated ESCON/ESCOFF clears
+the old capture before emitting the transition, ready for the caller to record
+the current generation.
+
+The regression covers master/live/saved/restoring contexts, exact byte round
+trips, next-tick continuation, unchanged inner legacy bytes, invalid counts,
+zero/future generations, captures on disabled contexts, nested-v14 rejection
+and atomic failure of explicit restoration. These are storage prerequisites:
+the engine does not yet initialize/capture the global counter or route Escape
+input, and no cancellation behavior is enabled by this extension alone.
+
+Storage validation: workspace tests, Clippy with warnings denied, WASM checking
+and all 18 original-asset integration tests pass (`assets/logs/escape-save-*`).
+The original-asset cases exercise legacy/current imports; synthetic tests above
+exercise populated v14 escape state.

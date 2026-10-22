@@ -280,6 +280,8 @@ pub struct Engine {
     pub scene: Handle,
     pub ticks: u64,
     timers: crate::timers::Timers,
+    #[serde(skip)]
+    escape_events: Option<u64>,
     user_events: u64,
     left_events: u64,
     pub subtitles: bool,
@@ -315,6 +317,70 @@ fn args(vm: &Machine, n: usize) -> Result<&[i32], Error> {
     .ok_or(Error("engine argument underflow"))
 }
 impl Engine {
+    fn escape_contexts(&self) -> impl Iterator<Item = &Machine> {
+        std::iter::once(&self.master)
+            .chain(self.processes.states().map(|p| &p.vm))
+            .chain(
+                self.saved_scenes
+                    .iter()
+                    .flat_map(|s| s.scripts.contexts.iter().map(|c| &c.vm)),
+            )
+            .chain(
+                self.scene_restore
+                    .iter()
+                    .flat_map(|r| r.snapshot.scripts.contexts.iter().map(|c| &c.vm)),
+            )
+    }
+    fn escape_contexts_mut(&mut self) -> impl Iterator<Item = &mut Machine> {
+        std::iter::once(&mut self.master)
+            .chain(self.processes.states_mut().map(|p| &mut p.vm))
+            .chain(
+                self.saved_scenes
+                    .iter_mut()
+                    .flat_map(|s| s.scripts.contexts.iter_mut().map(|c| &mut c.vm)),
+            )
+            .chain(
+                self.scene_restore
+                    .iter_mut()
+                    .flat_map(|r| r.snapshot.scripts.contexts.iter_mut().map(|c| &mut c.vm)),
+            )
+    }
+    pub(crate) fn escape_checkpoint(&self) -> Option<(u64, Vec<Option<u64>>)> {
+        self.escape_events.map(|event| {
+            (
+                event,
+                self.escape_contexts()
+                    .map(|vm| vm.escape_generation)
+                    .collect(),
+            )
+        })
+    }
+    pub(crate) fn clear_escape_checkpoint(&mut self) {
+        self.escape_events = None;
+        for vm in self.escape_contexts_mut() {
+            vm.escape_generation = None;
+        }
+    }
+    pub(crate) fn restore_escape_checkpoint(
+        &mut self,
+        event: u64,
+        captures: &[Option<u64>],
+    ) -> Result<(), Error> {
+        if event == 0 || captures.len() != self.escape_contexts().count() {
+            return Err(Error("invalid escape checkpoint shape"));
+        }
+        for (vm, captured) in self.escape_contexts().zip(captures) {
+            if captured.is_some_and(|value| value == 0 || value > event || !vm.escape_enabled) {
+                return Err(Error("invalid captured escape generation"));
+            }
+        }
+        self.escape_events = Some(event);
+        for (vm, captured) in self.escape_contexts_mut().zip(captures) {
+            vm.escape_generation = *captured;
+        }
+        Ok(())
+    }
+
     fn snapshot_animations(&self) -> impl Iterator<Item = &Animation> {
         self.background
             .iter()
@@ -338,6 +404,18 @@ impl Engine {
     }
 
     pub(crate) fn validate_snapshot_structure(&self) -> Result<(), Error> {
+        if self.escape_events == Some(0)
+            || self.escape_contexts().any(|vm| {
+                vm.escape_generation.is_some_and(|value| {
+                    value == 0
+                        || !vm.escape_enabled
+                        || self.escape_events.is_none_or(|event| value > event)
+                })
+            })
+        {
+            return Err(Error("invalid snapshot escape generation"));
+        }
+
         for wait in self
             .processes
             .states()
@@ -2622,6 +2700,7 @@ impl Engine {
             inventory_resize: None,
             inventory_hover: Default::default(),
             inventory_geometry: crate::inventory_geometry::State::default(),
+            escape_events: None,
             user_events: 0,
             left_events: 0,
             subtitles: true,
@@ -10697,6 +10776,70 @@ mod tests {
             assert_eq!(engine, before);
         }
     }
+    #[test]
+    fn escape_snapshot_covers_master_live_saved_and_restoring_contexts() {
+        use crate::save::Snapshot;
+        use sha2::{Digest, Sha256};
+        let (master, scene) = fixtures();
+        let resources = Resources(vec![&master, &scene]);
+        let mut engine = Engine::bootstrap(&resources).unwrap();
+        engine.tick(&resources).unwrap();
+        let saved = engine.capture_scene().unwrap();
+        engine.saved_scenes.push(saved.clone());
+        engine.scene_restore = Some(SceneRestore {
+            snapshot: saved,
+            remaining: 5,
+            fade: false,
+        });
+        assert!(engine.escape_contexts().count() >= 4);
+        for vm in engine.escape_contexts_mut() {
+            vm.escape_enabled = true;
+        }
+        engine.master.escape_enabled = false;
+        let legacy = Snapshot::capture(&engine, [7; 32]).to_bytes().unwrap();
+        let count = engine.escape_contexts().count();
+        let mut captures = vec![Some(3); count];
+        captures[0] = None;
+        engine.restore_escape_checkpoint(5, &captures).unwrap();
+        let encoded = Snapshot::capture(&engine, [7; 32]).to_bytes().unwrap();
+        assert_eq!(u32::from_le_bytes(encoded[8..12].try_into().unwrap()), 14);
+        let decoded = Snapshot::from_bytes(&encoded, [7; 32]).unwrap();
+        assert_eq!(decoded.to_bytes().unwrap(), encoded);
+        assert_eq!(decoded.state(), &engine);
+        let mut resumed = decoded.state().clone();
+        engine.tick(&resources).unwrap();
+        resumed.tick(&resources).unwrap();
+        assert_eq!(engine, resumed);
+        let ((inner, event, stored), tail) =
+            postcard::take_from_bytes::<(Vec<u8>, u64, Vec<Option<u64>>)>(&encoded[80..]).unwrap();
+        assert!(tail.is_empty());
+        assert_eq!(inner, legacy);
+        assert_eq!(stored, captures);
+        let legacy_decoded = Snapshot::from_bytes(&legacy, [7; 32]).unwrap();
+        assert_eq!(legacy_decoded.to_bytes().unwrap(), legacy);
+        assert!(legacy_decoded.state().escape_checkpoint().is_none());
+        let wrap = |inner: Vec<u8>, event, captures: Vec<Option<u64>>| {
+            let payload = postcard::to_allocvec(&(inner, event, captures)).unwrap();
+            let mut bytes = encoded[..80].to_vec();
+            bytes[44..48].copy_from_slice(&(payload.len() as u32).to_le_bytes());
+            bytes[48..80].copy_from_slice(&Sha256::digest(&payload));
+            bytes.extend(payload);
+            bytes
+        };
+        for bad in [
+            wrap(inner.clone(), 0u64, captures.clone()),
+            wrap(inner.clone(), event, vec![]),
+            wrap(inner.clone(), event, vec![Some(6); count]),
+            wrap(inner.clone(), event, vec![Some(3); count]), // disabled master
+            wrap(encoded.clone(), event, captures.clone()),   // no nested v14
+        ] {
+            assert!(Snapshot::from_bytes(&bad, [7; 32]).is_err());
+        }
+        let before = engine.clone();
+        assert!(engine.restore_escape_checkpoint(0, &captures).is_err());
+        assert_eq!(engine, before);
+    }
+
     #[test]
     fn snapshot_script_validation_includes_saved_cutaways_and_host_waits() {
         let (master, scene) = fixtures();

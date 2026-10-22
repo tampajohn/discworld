@@ -432,3 +432,11 @@ SamplePlayer base serialization is unchanged, so versions 1–11 remain readable
 and byte-stable before stepping. Old live speech waits recover channel identity
 on the next tick. Explicit v12 ownership also survives after the script that
 started the sample has disappeared.
+
+
+DWRSAVE v14 reserves and validates escape-event state without changing legacy
+Machine/Engine postcard layouts. Its bounded wrapper contains a v1-v13 envelope,
+a nonzero global generation and captured values for every live/master/saved/
+restoring script context. No global escape state means unchanged legacy output.
+See [escape integration status](script-escape-compatibility.md); host input and
+cancellation integration remain pending.

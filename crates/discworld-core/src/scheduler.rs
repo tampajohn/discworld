@@ -66,6 +66,9 @@ impl<T> Scheduler<T> {
     pub fn entries(&self) -> impl Iterator<Item = (ProcessId, &T)> {
         self.processes.iter().map(|p| (p.id, &p.state))
     }
+    pub(crate) fn states_mut(&mut self) -> impl Iterator<Item = &mut T> {
+        self.processes.iter_mut().map(|p| &mut p.state)
+    }
     pub fn states(&self) -> impl Iterator<Item = &T> {
         self.processes.iter().map(|p| &p.state)
     }

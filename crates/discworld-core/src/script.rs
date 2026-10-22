@@ -89,6 +89,8 @@ pub struct Machine {
     pending: Option<LibraryCall>,
     scene_resume: SceneResume,
     pub escape_enabled: bool,
+    #[serde(skip)]
+    pub(crate) escape_generation: Option<u64>,
 }
 impl Default for Machine {
     fn default() -> Self {
@@ -101,6 +103,7 @@ impl Default for Machine {
             pending: None,
             scene_resume: SceneResume::Normal,
             escape_enabled: false,
+            escape_generation: None,
         }
     }
 }
@@ -349,6 +352,7 @@ impl Machine {
             }
             40 | 41 => {
                 self.escape_enabled = ins.opcode == 40;
+                self.escape_generation = None;
                 return Ok((Step::Escape(self.escape_enabled), None));
             }
             _ => return Err(Error("unsupported V1 opcode")),
