@@ -44,6 +44,8 @@ Keep the user's visible native session current with newly verified engine builds
 
 ## Current progress (2026-10-22)
 
+Next engine compatibility work: [mover reel modes and walking speech](mover-reel-compatibility.md). The pinned reference pauses movement during a special talk reel and resumes the existing route afterward. Current guards remain until reel-state, interruption and versioned save/load behavior are implemented and tested.
+
 Runtime revision `00a6b38` has runnable native and browser hosts, original menus,
 named save/load, original-font name editing, independently controlled music/
 speech/effects, and persistent preferences. DWRSAVE v12 preserves active speech
