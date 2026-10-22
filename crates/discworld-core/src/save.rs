@@ -17,6 +17,7 @@ const HOVER_VERSION: u32 = 9;
 const MENU_VERSION: u32 = 10;
 const TALK_PHASE_VERSION: u32 = 11;
 const SPEECH_CHANNEL_VERSION: u32 = 12;
+const MOVER_REEL_VERSION: u32 = 13;
 const HEADER: usize = 80;
 pub const MAX_SAVE_BYTES: usize = 16 * 1024 * 1024;
 
@@ -135,6 +136,33 @@ impl Snapshot {
 
     pub fn to_bytes(&self) -> Result<Vec<u8>, Error> {
         self.state.validate_snapshot_structure()?;
+        let reels: Vec<_> = self
+            .state
+            .movers
+            .iter()
+            .filter_map(|(&actor, mover)| mover.reel_state.map(|state| (actor, state)))
+            .collect();
+        if !reels.is_empty() {
+            // A bounded, non-recursive legacy envelope preserves all existing
+            // optional extensions and their exact encodings.
+            let mut legacy = self.clone();
+            for mover in legacy.state.movers.values_mut() {
+                mover.reel_state = None;
+            }
+            let payload = postcard::to_allocvec(&(legacy.to_bytes()?, reels))
+                .map_err(|_| Error("snapshot mover reel encode failed"))?;
+            if payload.len() > MAX_SAVE_BYTES - HEADER {
+                return Err(Error("save size limit"));
+            }
+            let mut bytes = Vec::with_capacity(HEADER + payload.len());
+            bytes.extend_from_slice(MAGIC);
+            bytes.extend_from_slice(&MOVER_REEL_VERSION.to_le_bytes());
+            bytes.extend_from_slice(&self.asset_id);
+            bytes.extend_from_slice(&(payload.len() as u32).to_le_bytes());
+            bytes.extend_from_slice(&Sha256::digest(&payload));
+            bytes.extend_from_slice(&payload);
+            return Ok(bytes);
+        }
         let extended = self.state.clicks != crate::click::State::default();
         let geometry = self.state.inventory_geometry != crate::inventory_geometry::State::default();
         let hover = self.state.inventory_hover != crate::inventory_hover::State::default();
@@ -279,6 +307,7 @@ impl Snapshot {
             MENU_VERSION,
             TALK_PHASE_VERSION,
             SPEECH_CHANNEL_VERSION,
+            MOVER_REEL_VERSION,
         ]
         .contains(&word(8))
         {
@@ -293,6 +322,38 @@ impl Snapshot {
         }
         if Sha256::digest(payload)[..] != bytes[48..80] {
             return Err(Error("save checksum mismatch"));
+        }
+        if word(8) == MOVER_REEL_VERSION {
+            let ((legacy, reels), remaining) = postcard::take_from_bytes::<(
+                Vec<u8>,
+                Vec<(i32, crate::mover_reel::State)>,
+            )>(payload)
+            .map_err(|_| Error("invalid snapshot mover reel payload"))?;
+            if !remaining.is_empty()
+                || reels.is_empty()
+                || legacy.len() < HEADER
+                || u32::from_le_bytes(legacy[8..12].try_into().unwrap()) > SPEECH_CHANNEL_VERSION
+            {
+                return Err(Error("invalid snapshot mover reel extension"));
+            }
+            // Check the inner version before invoking the legacy decoder:
+            // malicious nested v13 envelopes cannot recurse.
+            let mut snapshot = Self::from_bytes(&legacy, asset_id)?;
+            let mut previous = None;
+            for (actor, state) in reels {
+                if previous.is_some_and(|id| actor <= id) {
+                    return Err(Error("duplicate or unordered mover reel actor"));
+                }
+                let mover = snapshot
+                    .state
+                    .movers
+                    .get_mut(&actor)
+                    .ok_or(Error("unknown mover reel actor"))?;
+                mover.reel_state = Some(state);
+                previous = Some(actor);
+            }
+            snapshot.state.validate_snapshot_structure()?;
+            return Ok(snapshot);
         }
         let mut menu = None;
         let (state, remaining) = if matches!(word(8), TALK_PHASE_VERSION | SPEECH_CHANNEL_VERSION) {

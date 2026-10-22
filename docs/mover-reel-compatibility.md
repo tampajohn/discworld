@@ -1,7 +1,8 @@
 # V1 mover reel compatibility gap
 
 Status: reference-derived transition model implemented in `mover_reel.rs`;
-live mover/engine and snapshot integration remain pending. Reference revision:
+transactional mover animation application and snapshot storage are implemented.
+Live scheduling/call integration remains pending. Reference revision:
 `96b42d42bc8533953bdd701db059cc33c839a9ff`. This applies to V1; later-version
 branches in the same functions must not be imported implicitly.
 
@@ -107,3 +108,36 @@ and speech, and zero PUSH with state serialization/continuation. These test
 reel decisions only; displacement, hidden actor scheduling, resource validation
 and full engine snapshots remain acceptance gates. No unsupported runtime
 call has been enabled by this foundation alone.
+
+
+## Animation application and snapshot storage
+
+`Mover::alter_reel` applies the transition to a clone, validates the selected
+film/script, and commits animation and explicit reel state together. It retains
+the existing object, sprite capacity, position, route and walk serial. The
+shared reel installation routine is also used by legacy standing changes.
+Tests verify talk's immediate first step, custom walking's deferred first step,
+walking restoration, and rejection of a bad film without losing the pushed
+slot or altering the mover.
+
+DWRSAVE v13 stores a bounded v1–v12 envelope plus a strictly ordered, nonempty
+list of `(actor, reel state)` entries. The old mover payload is unchanged;
+without explicit reel state the previous format selection is unchanged. Inner
+v13 envelopes are rejected before decoding, so nesting cannot recurse. Unknown,
+duplicate or unordered actor entries and trailing data are rejected. Restore
+validates retained/pushed film references against the supplied resources before
+activation. The extension preserves the earlier menu, input, speech-channel
+and finished-talk extensions through its legacy envelope.
+
+A synthetic engine regression checks exact encode/decode/re-encode, full
+resource-validated restoration, subsequent PUSH/standing/POP/custom-walk state
+continuation and corruption rejection with valid outer checksums. It does not
+claim that live movement has been connected to the mode yet: ordinary gameplay
+still leaves the optional mode absent, and walking TALK remains guarded.
+The next change must migrate the mover tick, walking/standing replacements and
+speech completion together, then exercise interrupted routes and full saves.
+
+Validation: 296 core tests, workspace tests, Clippy, the web WASM build check,
+and all 15 opt-in original-asset web tests pass. Logs are under
+`assets/logs/mover-reel-integration-*.log`. The legacy fixture tests include
+native save import/export and exact original frame restoration.

@@ -3,7 +3,8 @@
 //!
 //! Selection is independent of movement/route state. The returned transition
 //! must be committed only after its animation operation succeeds. This module
-//! does not yet replace the legacy mover bookkeeping in the engine.
+//! is applied transactionally by Mover::alter_reel. Live speech/walk scheduling
+//! still uses legacy bookkeeping until its migration is complete.
 use crate::graphics::Handle;
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Default, serde::Serialize, serde::Deserialize)]

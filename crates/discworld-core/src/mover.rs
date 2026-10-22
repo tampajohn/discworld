@@ -128,6 +128,10 @@ impl Placement {
 /// Persistent mover object; standing changes only its animation script.
 #[derive(serde::Serialize, serde::Deserialize, Debug, Clone, PartialEq, Eq)]
 pub struct Mover {
+    /// Explicit V1 reel mode. None retains legacy bookkeeping until migrated.
+    /// Stored separately by the versioned snapshot codec.
+    #[serde(skip)]
+    pub(crate) reel_state: Option<crate::mover_reel::State>,
     /// V1 hLastFilm: last selected reel film, including walking and talking.
     pub last_film: Handle,
     pub node_travel: Option<crate::nodepath::Travel>,
@@ -155,6 +159,61 @@ pub struct NodeWalk {
     pub leg: crate::walk::Leg,
 }
 impl Mover {
+    /// Apply a V1 reel operation transactionally. The caller supplies the
+    /// initial state when migrating a legacy mover; later calls use its stored
+    /// state. Route, walk number and standing-film bookkeeping are preserved.
+    pub fn alter_reel(
+        &mut self,
+        resources: &crate::graphics::Resources<'_>,
+        declarations: &Declarations,
+        initial: crate::mover_reel::State,
+        operation: crate::mover_reel::Operation,
+    ) -> Result<(), Error> {
+        let transition = self
+            .reel_state
+            .unwrap_or(initial)
+            .transition(self.last_film, operation);
+        let mut next = self.clone();
+        match transition.animation {
+            crate::mover_reel::Animation::Keep => {}
+            crate::mover_reel::Animation::RestoreWalking => {
+                next.select_walk_reel(
+                    resources,
+                    declarations,
+                    next.placement.direction,
+                    next.placement.scale,
+                    true,
+                )?;
+            }
+            crate::mover_reel::Animation::Install { film, first_step } => {
+                next.install_reel(resources, film, first_step)?;
+            }
+        }
+        next.reel_state = Some(transition.state);
+        *self = next;
+        Ok(())
+    }
+
+    pub(crate) fn validate_reel_resources(
+        &self,
+        resources: &crate::graphics::Resources<'_>,
+    ) -> Result<(), Error> {
+        if let Some(state) = self.reel_state {
+            for handle in [self.last_film, state.pushed()] {
+                if handle.0 != 0 {
+                    let film = crate::film::Film::read(resources, handle)?;
+                    if film.rate > 24 {
+                        return Err(Error("invalid mover reel rate"));
+                    }
+                    resources.resolve(film.reels[0].script, 4)?;
+                }
+            }
+            if state.mode() != crate::mover_reel::Mode::Normal && self.last_film.0 == 0 {
+                return Err(Error("explicit mover mode requires a film"));
+            }
+        }
+        Ok(())
+    }
     fn accept_routed_steering(
         &mut self,
         walk: &mut NodeWalk,
@@ -781,6 +840,7 @@ impl Mover {
         let animation = crate::animation::Animation::new(resources, reel, 24 / base.rate as u32)?;
         let no_path = placement.path.is_none();
         let mut mover = Self {
+            reel_state: None,
             last_film: Handle(0),
             node_travel: placement.node.map(|line| crate::nodepath::Travel {
                 line,
@@ -1548,8 +1608,17 @@ impl Mover {
         Ok(())
     }
     fn apply_standing(&mut self, resources: &crate::graphics::Resources<'_>) -> Result<(), Error> {
-        let film = crate::film::Film::read(resources, self.placement.standing)?;
+        self.install_reel(resources, self.placement.standing, true)
+    }
+    fn install_reel(
+        &mut self,
+        resources: &crate::graphics::Resources<'_>,
+        handle: Handle,
+        first_step: bool,
+    ) -> Result<(), Error> {
+        let film = crate::film::Film::read(resources, handle)?;
         let reel = film.reels.first().ok_or(Error("empty standing film"))?;
+        resources.resolve(reel.script, 4)?;
         self.animation.object.x = self.placement.position[0];
         self.animation.object.y = self.placement.position[1];
         let factor = i64::from(self.placement.z_factor) - i64::from(self.placement.z_factor != 0);
@@ -1559,8 +1628,10 @@ impl Mover {
         self.animation
             .set_script(reel.script, 24 / film.rate as u32)?;
         self.step_phase = 0;
-        self.animation.tick(resources)?;
-        self.last_film = self.placement.standing;
+        if first_step {
+            self.animation.tick(resources)?;
+        }
+        self.last_film = handle;
         Ok(())
     }
     pub fn stand(
@@ -1805,6 +1876,81 @@ mod tests {
             },
         )
         .unwrap();
+        // Applying explicit reel state must not discard an interrupted route.
+        let mut talking = mover.clone();
+        talking.walk_target = Some([200, 178]);
+        talking.walk_serial = 17;
+        talking.step_phase = 4;
+        let initial = crate::mover_reel::State::default();
+        talking
+            .alter_reel(
+                &resources,
+                &declarations,
+                initial,
+                crate::mover_reel::Operation::Push(Handle(128)),
+            )
+            .unwrap();
+        assert_eq!(talking.walk_target, Some([200, 178]));
+        assert_eq!(talking.walk_serial, 17);
+        assert_eq!(talking.placement, mover.placement);
+        assert_eq!(talking.animation.object.id, mover.animation.object.id);
+        assert_eq!(talking.animation.capacity, mover.animation.capacity);
+        assert_eq!(talking.animation.steps, 1);
+        assert_eq!(talking.step_phase, 0);
+        assert_eq!(talking.reel_state.unwrap().pushed(), Handle(0));
+        let before_invalid = talking.clone();
+        assert!(
+            talking
+                .alter_reel(
+                    &resources,
+                    &declarations,
+                    initial,
+                    crate::mover_reel::Operation::Push(Handle(399))
+                )
+                .is_err()
+        );
+        assert_eq!(
+            talking, before_invalid,
+            "bad film must not change pushed slot or mover"
+        );
+        talking
+            .alter_reel(
+                &resources,
+                &declarations,
+                initial,
+                crate::mover_reel::Operation::Normal(Handle(64)),
+            )
+            .unwrap();
+        talking
+            .alter_reel(
+                &resources,
+                &declarations,
+                initial,
+                crate::mover_reel::Operation::Pop,
+            )
+            .unwrap();
+        assert_eq!(
+            talking.reel_state.unwrap().mode(),
+            crate::mover_reel::Mode::Normal
+        );
+        assert_eq!(talking.walk_target, Some([200, 178]));
+        assert_eq!(talking.walk_serial, 17);
+        assert_eq!(talking.animation.steps, 0);
+        talking
+            .alter_reel(
+                &resources,
+                &declarations,
+                initial,
+                crate::mover_reel::Operation::Walk(Handle(128)),
+            )
+            .unwrap();
+        assert_eq!(
+            talking.animation.steps, 0,
+            "custom walking must not step at installation"
+        );
+        assert_eq!(talking.last_film, Handle(128));
+        assert_eq!(talking.step_phase, 0);
+        assert_eq!(talking.walk_target, Some([200, 178]));
         mover
             .select_walk_reel(&resources, &declarations, Direction::Left, 1, true)
             .unwrap();

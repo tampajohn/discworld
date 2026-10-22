@@ -576,6 +576,9 @@ impl Engine {
 
     pub(crate) fn snapshot_preview(&self, resources: &Resources<'_>) -> Result<Surface, Error> {
         self.validate_snapshot_structure()?;
+        for mover in self.movers.values() {
+            mover.validate_reel_resources(resources)?;
+        }
         for animation in self.snapshot_animations() {
             animation.validate_snapshot_resources(resources)?;
         }
@@ -9847,6 +9850,135 @@ mod tests {
         }
         assert_eq!(engine, restored);
     }
+    #[test]
+    fn explicit_mover_reels_roundtrip_and_reject_invalid_extensions() {
+        use crate::mover_reel::{Operation, State as ReelState};
+        use crate::save::Snapshot;
+        use sha2::Digest;
+        let (master, scene) = fixtures();
+        let base = 2u32 << 23;
+        let mut film = vec![0; 88];
+        for (at, value) in [
+            (0, 24u32),
+            (4, 1),
+            (8, base + 32),
+            (12, base + 56),
+            (40, 1),
+            (56, 10),
+            (60, 1),
+            (64, (-2i32) as u32),
+        ] {
+            film[at..at + 4].copy_from_slice(&value.to_le_bytes());
+        }
+        let resources = Resources(vec![&master, &scene, &film]);
+        let bank = SampleBank::new(&[0; 4], &[0; 4]).unwrap();
+        let mut engine = Engine::bootstrap(&resources).unwrap();
+        engine.actors = crate::actor::Actors::new(1).unwrap();
+        engine
+            .declarations
+            .movers
+            .insert(1, [[Handle(base); 12]; 10]);
+        let mut mover = crate::mover::Mover::new(
+            &resources,
+            crate::mover::Placement {
+                actor: 1,
+                position: [10, 20],
+                direction: crate::mover::Direction::Left,
+                path: None,
+                node: None,
+                scale: 1,
+                standing: Handle(base),
+                base_walk: Handle(base),
+                z_factor: 0,
+            },
+        )
+        .unwrap();
+        mover.walk_target = Some([100, 20]);
+        mover.walk_serial = 7;
+        engine.movers.insert(1, mover);
+        let legacy = Snapshot::capture(&engine, [7; 32]).to_bytes().unwrap();
+        assert_eq!(
+            Snapshot::from_bytes(&legacy, [7; 32])
+                .unwrap()
+                .to_bytes()
+                .unwrap(),
+            legacy
+        );
+        engine
+            .movers
+            .get_mut(&1)
+            .unwrap()
+            .alter_reel(
+                &resources,
+                &engine.declarations,
+                ReelState::default(),
+                Operation::Push(Handle(base)),
+            )
+            .unwrap();
+        let bytes = Snapshot::capture(&engine, [7; 32]).to_bytes().unwrap();
+        assert_eq!(u32::from_le_bytes(bytes[8..12].try_into().unwrap()), 13);
+        let decoded = Snapshot::from_bytes(&bytes, [7; 32]).unwrap();
+        assert_eq!(decoded.to_bytes().unwrap(), bytes);
+        let mut resumed = decoded.restore(&resources, &bank, &[]).unwrap();
+        assert_eq!(resumed, engine);
+        for operation in [
+            Operation::Normal(Handle(base)),
+            Operation::Pop,
+            Operation::Walk(Handle(base)),
+        ] {
+            for instance in [&mut engine, &mut resumed] {
+                instance
+                    .movers
+                    .get_mut(&1)
+                    .unwrap()
+                    .alter_reel(
+                        &resources,
+                        &instance.declarations,
+                        ReelState::default(),
+                        operation,
+                    )
+                    .unwrap();
+            }
+            assert_eq!(engine, resumed);
+            assert_eq!(engine.movers[&1].walk_target, Some([100, 20]));
+            assert_eq!(engine.movers[&1].walk_serial, 7);
+            assert_eq!(
+                Snapshot::capture(&engine, [7; 32]).to_bytes().unwrap(),
+                Snapshot::capture(&resumed, [7; 32]).to_bytes().unwrap()
+            );
+        }
+        // Forge checksummed envelopes so failures exercise the extension
+        // validator, not merely the outer checksum.
+        let envelope = |inner: Vec<u8>, reels: Vec<(i32, ReelState)>| {
+            let payload = postcard::to_allocvec(&(inner, reels)).unwrap();
+            let mut result = bytes[..80].to_vec();
+            result[44..48].copy_from_slice(&(payload.len() as u32).to_le_bytes());
+            result[48..80].copy_from_slice(&sha2::Sha256::digest(&payload));
+            result.extend(payload);
+            result
+        };
+        let state = engine.movers[&1].reel_state.unwrap();
+        for invalid in [
+            envelope(legacy.clone(), vec![]),
+            envelope(legacy.clone(), vec![(1, state), (1, state)]),
+            envelope(legacy.clone(), vec![(2, state)]),
+            envelope(bytes.clone(), vec![(1, state)]),
+        ] {
+            assert!(Snapshot::from_bytes(&invalid, [7; 32]).is_err());
+        }
+        let bad = ReelState::default()
+            .transition(Handle(base + 87), Operation::Normal(Handle(base + 87)))
+            .state
+            .transition(Handle(base + 87), Operation::Push(Handle(base)))
+            .state;
+        let invalid = envelope(legacy, vec![(1, bad)]);
+        let prepared = Snapshot::from_bytes(&invalid, [7; 32]).unwrap();
+        assert!(
+            prepared.restore(&resources, &bank, &[]).is_err(),
+            "invalid pushed film must not activate"
+        );
+    }
+
     #[test]
     fn scene_wait_and_snapshot_resume() {
         let (master, scene) = fixtures();
