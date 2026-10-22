@@ -14,6 +14,7 @@ use sdl2::{
     keyboard::Keycode as Key,
     pixels::PixelFormatEnum,
 };
+mod audio_output;
 mod input;
 use std::time::{Duration, Instant};
 
@@ -21,7 +22,7 @@ fn replace_audio_sink(sink: &mut rodio::Sink, mixer: &rodio::mixer::Mixer, pause
     // clear() waits for the audio callback, which may be suspended after sleep
     // or a device interruption. Dropping a sink only signals its source to stop.
     // Use a fresh sink: appending to a stopped sink can also wait for that callback.
-    let replacement = rodio::Sink::connect_new(mixer);
+    let replacement = audio_output::connect(mixer);
     replacement.set_volume(sink.volume());
     if paused {
         replacement.pause();
@@ -202,7 +203,7 @@ fn run() -> Result<(), Box<dyn std::error::Error>> {
     }
     let mut stream = rodio::OutputStreamBuilder::open_default_stream()?;
     stream.log_on_drop(false);
-    let mut sink = rodio::Sink::connect_new(stream.mixer());
+    let mut sink = audio_output::connect(stream.mixer());
     sink.set_volume(if muted { 0.0 } else { 1.0 });
     let mut speed = 1u32;
     let mut replay_end = replay
@@ -570,7 +571,7 @@ mod tests {
         let (done, result) = std::sync::mpsc::channel();
         let worker = std::thread::spawn(move || {
             let (mixer, _undrained_output) = rodio::mixer::mixer(2, 22050);
-            let mut sink = rodio::Sink::connect_new(&mixer);
+            let mut sink = audio_output::connect(&mixer);
             for paused in [false, true, false] {
                 sink.set_volume(0.0);
                 sink.append(rodio::buffer::SamplesBuffer::new(2, 22050, vec![0.5; 100]));

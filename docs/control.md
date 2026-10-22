@@ -974,3 +974,22 @@ continuation after another save/load. Evidence: menu-key-gate-workspace.log
 (286 enabled tests), menu-key-original-assets.log (one opt-in test), and
 menu-key-gate-clippy-final.log under assets/logs. Host F1 bindings, live window
 activation and menu snapshot state remain unfinished.
+
+Speech/static investigation: original English DOS CD samples are unsigned 8-bit
+mono PCM at22050Hz (sound.cpp::playSample in the pinned reference). The core's
+conversion preserves those samples. The native host did introduce an additional
+artifact: rodio0.21.1 SourcesQueueOutput exposes each engine audio block as a
+separate span, and UniformSourceIterator reconstructs its sample-rate converter
+at span boundaries. A one-second997Hz stereo tone queued as24 engine blocks
+produced different output from the identical tone queued as one buffer at both
+44100Hz and48000Hz. The native queue now exposes its constant stereo22050Hz
+format as one continuous span, including silent filler. Conversion phase and
+interpolation history therefore survive engine-block boundaries. The regression
+compares exact device output for whole/partitioned input at both rates and
+demonstrates the old path fails that comparison. Native sink replacement still
+preserves mute/pause and does not wait for a device callback. Evidence:
+assets/logs/audio-block-continuity.log, audio-continuity-native-tests.log,
+audio-continuity-clippy.log and audio-continuity-build.log. This fixes a verified
+host artifact; it does not prove all reported noise has that cause. Original
+recording noise, mix clipping and physical device underruns are separate. No
+denoising or changes to original speech samples, engine clocks or saves are made.
