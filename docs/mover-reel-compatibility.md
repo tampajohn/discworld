@@ -3,7 +3,7 @@
 Status: reference-derived transition model implemented in `mover_reel.rs`;
 transactional mover animation application and snapshot storage are implemented.
 Walking and new stationary speech use explicit reel state; old active talk
-waits migrate at the first tick. Custom WALK/WALKED films are implemented; SWALK/WALKTAG overrides remain
+waits migrate at the first tick. Custom WALK/WALKED/WALKTAG films are implemented; SWALK overrides remain
 guarded. Ambiguous legacy overlapping slots require further compatibility work. Reference revision:
 `96b42d42bc8533953bdd701db059cc33c839a9ff`. This applies to V1; later-version
 branches in the same functions must not be imported implicitly.
@@ -291,3 +291,22 @@ Workspace tests (298 core), Clippy, WASM checking and all 17 original-asset web
 tests pass; logs use `assets/logs/custom-walk-*`. The completed 3856346 replay
 predates these changes, so it is not full-route evidence for this later build.
 SWALK custom films and WALKTAG film overrides remain separate compatibility work.
+
+
+## Custom WALKTAG walking films
+
+Pinned `tinlib.cpp::WalkTag` passes its explicit film to SetActorDest, then
+applies the polygon's separate final pose after walking. Call 91 now follows
+that distinction through `begin_walk_film`; it no longer rejects a nonzero
+walking film. The existing tag-wait payload continues to store the arrival
+pose, while the mover snapshot stores the active custom animation.
+
+The script regression now includes WALKTAG with zero/custom films on ordinary
+and node paths, successful/short-distance arrival and interrupted walks. It
+checks blocking completion, the polygon's final facing direction, custom film
+selection, and exact snapshot/next-tick continuation throughout. This does not
+add script escape cancellation or SWALK film overrides. The running full-route
+audit remains pinned to 6a519c6, which predates this WALKTAG change.
+
+Validation: workspace tests, Clippy with warnings denied, the web WASM check,
+and all 17 opt-in original-asset tests pass (`assets/logs/walktag-*`).

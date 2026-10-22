@@ -4662,9 +4662,6 @@ impl Engine {
                     let Some(polygon) = process.polygon else {
                         return Err(Error("WALKTAG requires polygon context"));
                     };
-                    if a[1] != 0 {
-                        return Ok(Status::Unsupported(call));
-                    }
                     let actor = if a[0] == -2 {
                         self.declarations
                             .lead
@@ -4707,12 +4704,13 @@ impl Engine {
                         .movers
                         .get_mut(&actor)
                         .ok_or(Error("WALKTAG actor has no mover"))?;
-                    let serial = mover.begin_walk(
+                    let serial = mover.begin_walk_film(
                         resources,
                         &self.declarations,
                         &self.polygons,
                         destination.unwrap_or(mover.placement.position),
                         cursor,
+                        Handle(a[1] as u32),
                     )?;
                     let moving = mover.walk_target.is_some();
                     self.scroll.follow_cursor = true;
@@ -7922,7 +7920,7 @@ mod tests {
     fn scripted_custom_walk_films_preserve_delay_hold_and_snapshot_continuation() {
         use crate::save::Snapshot;
         for node in [false, true] {
-            for (call, hold) in [(87, 0), (87, 1), (87, 2), (88, 0)] {
+            for (call, hold) in [(87, 0), (87, 1), (87, 2), (88, 0), (91, 0)] {
                 for (target_x, stop, custom) in [
                     (80, false, true),
                     (80, true, true),
@@ -7932,8 +7930,15 @@ mod tests {
                 ] {
                     let (master, mut scene) = fixtures();
                     let base = 2u32 << 23;
-                    let mut code = vec![3, 0x41, target_x, 0x41, 70, 1];
+                    let mut code = if call == 91 {
+                        vec![3, 1]
+                    } else {
+                        vec![3, 0x41, target_x, 0x41, 70, 1]
+                    };
                     code.extend_from_slice(&(if custom { base + 64 } else { 0 }).to_le_bytes());
+                    if call == 91 {
+                        code.push(3); // escape disabled
+                    }
                     if call == 87 {
                         code.extend([0x41, hold]);
                     }
@@ -8004,6 +8009,18 @@ mod tests {
                         }],
                         0,
                     );
+                    if call == 91 {
+                        let mut tag = engine.polygons.active[0].definition.clone();
+                        tag.kind = crate::polygon::Kind::Tag;
+                        tag.node_position = [i32::from(target_x), 70];
+                        tag.film = Handle(1); // face up after arrival
+                        let path = engine.polygons.active[0].definition.clone();
+                        engine.polygons = crate::polygon::Polygons::new(vec![path, tag], 0);
+                        let ids: Vec<_> = engine.processes.entries().map(|(id, _)| id).collect();
+                        for id in ids {
+                            engine.processes.state_mut(id).unwrap().polygon = Some(1);
+                        }
+                    }
                     let placement = crate::mover::Placement::initial(
                         &engine.declarations,
                         &engine.polygons,
@@ -8046,7 +8063,8 @@ mod tests {
                         if call == 87 && hold == 2 {
                             assert_eq!(engine.globals[0], 77);
                         }
-                        if call == 87 && hold != 2 && mover.walk_target.is_some() {
+                        if ((call == 87 && hold != 2) || call == 91) && mover.walk_target.is_some()
+                        {
                             assert_eq!(engine.globals[0], 0, "blocking WALK must not return early");
                         }
                         if mover.walk_serial > 0
@@ -8067,12 +8085,15 @@ mod tests {
                     assert_eq!(mover.walk_serial, 1 + u64::from(stop));
                     assert_eq!(
                         engine.globals[0],
-                        if stop && call == 87 && hold != 2 {
+                        if stop && ((call == 87 && hold != 2) || call == 91) {
                             0
                         } else {
                             77
                         }
                     );
+                    if call == 91 && !stop {
+                        assert_eq!(mover.placement.direction, crate::mover::Direction::Away);
+                    }
                     if call == 88 {
                         assert_eq!(
                             engine.globals[1],
