@@ -1524,3 +1524,28 @@ run used accelerated semantic inputs and no menu interactions; separate menu
 UI tests cover those paths. The later voice-disabled correction a6fc4a3 is
 validated by its targeted original-intro test, not these older running binaries.
 The dedicated temporary replay HTTP server was stopped after comparisons.
+
+
+## V1 PAUSE opcode
+
+The pinned tinlib.cpp DW1_CODES table maps operand 48 to PAUSE. The dispatcher
+labels its case “DW2 only,” but the V1 mapping reaches it: it invokes
+WaitTime(1, true, escOn, myEscape) and consumes zero stack arguments.
+WaitTime sleeps before its post-decrement test, so this takes two scheduler
+resumptions, not one, unless the Escape generation changes. An already stale
+escapable context completes immediately; a new Escape during the wait ends
+it on the next resumption. Disabled Escape does not shorten it.
+
+Both master and scene dispatchers now implement this behavior using the
+existing wait payload, with zero-argument completion for PAUSE and unchanged
+two-argument completion for WAITTIME and sample-related waits. No save format
+change is required. Regression coverage compares exact save/reload continuation
+before and during the wait in both contexts, checks a lower stack value survives,
+and covers ordinary, stale-entry Escape, pending Escape, and disabled Escape.
+This is source-derived behavior; the recorded full route does not establish
+coverage of PAUSE.
+
+Validation: 323 core tests and the workspace suite pass, all 20 original-asset
+web tests pass, Clippy and WASM checks pass, and native/browser release builds
+succeed. Local logs use assets/logs/pause-*. No visible-session or physical
+iPad acceptance is claimed for this change.

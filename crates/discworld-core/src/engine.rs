@@ -2997,7 +2997,8 @@ impl Engine {
                 self.master_wait = Some((call, left - 1));
                 return Ok(None);
             }
-            self.master.complete_library(call, 2, None)?;
+            self.master
+                .complete_library(call, if call.id == 48 { 0 } else { 2 }, None)?;
             self.master_wait = None;
         }
         let bytes = scene::script_bytes(resources, self.master_code)?;
@@ -3085,6 +3086,14 @@ impl Engine {
                 96 => {
                     let seconds = self.control.idle_seconds(self.ticks)?;
                     self.master.complete_library(call, 1, Some(seconds))?;
+                }
+                48 => {
+                    if self.escaped(&self.master) {
+                        self.master.complete_library(call, 0, None)?;
+                        continue;
+                    }
+                    self.master_wait = Some((call, 2));
+                    return Ok(None);
                 }
                 86 => {
                     let a = args(&self.master, 2)?;
@@ -4597,11 +4606,13 @@ impl Engine {
             process.sample_serial = None;
         }
         if let Some((call, left)) = process.wait {
-            if left > 1 && !(call.id == 86 && self.escaped(&process.vm)) {
+            if left > 1 && !(matches!(call.id, 48 | 86) && self.escaped(&process.vm)) {
                 process.wait = Some((call, left - 1));
                 return Ok(Status::Running);
             }
-            process.vm.complete_library(call, 2, None)?;
+            process
+                .vm
+                .complete_library(call, if call.id == 48 { 0 } else { 2 }, None)?;
             process.wait = None;
         }
         let bytes = scene::script_bytes(resources, process.code)?;
@@ -5989,6 +6000,14 @@ impl Engine {
                         self.release_reel(&primary);
                     }
                     process.vm.complete_library(call, 6, None)?;
+                }
+                48 => {
+                    if self.escaped(&process.vm) {
+                        process.vm.complete_library(call, 0, None)?;
+                        continue;
+                    }
+                    process.wait = Some((call, 2));
+                    return Ok(Status::Running);
                 }
                 86 => {
                     let a = args(&process.vm, 2)?;
@@ -10338,6 +10357,60 @@ mod tests {
             [284, 285]
         );
     }
+    #[test]
+    fn pause_preserves_stack_waits_two_resumptions_and_restores_escape() {
+        use crate::save::Snapshot;
+        let (master, mut scene) = fixtures();
+        scene[8..15].copy_from_slice(&[0x41, 77, 0x4e, 48, 0x4c, 0, 0]);
+        let resources = Resources(vec![&master, &scene]);
+        for master_context in [false, true] {
+            for scenario in 0..4 {
+                let mut engine = Engine::bootstrap(&resources).unwrap();
+                engine.processes = Scheduler::default();
+                engine.master_stopped = !master_context;
+                engine.escape_events = Some(1);
+                let mut process = ScriptProcess::new(Handle((1 << 23) | 8));
+                process.vm.escape_enabled = scenario != 3;
+                process.vm.escape_generation = (scenario != 3).then_some(1);
+                if master_context {
+                    engine.master = process.vm;
+                    engine.master_code = process.code;
+                } else {
+                    engine.processes.spawn(None, process).unwrap();
+                }
+                if scenario == 1 {
+                    engine.script_escape_event().unwrap();
+                }
+                let finished_at = match scenario {
+                    1 => 1,
+                    2 => 2,
+                    _ => 3,
+                };
+                for tick in 1..=3 {
+                    if tick == 2 && matches!(scenario, 2 | 3) {
+                        engine.script_escape_event().unwrap();
+                    }
+                    let bytes = Snapshot::capture(&engine, [7; 32]).to_bytes().unwrap();
+                    let decoded = Snapshot::from_bytes(&bytes, [7; 32]).unwrap();
+                    assert_eq!(decoded.to_bytes().unwrap(), bytes);
+                    let mut restored = decoded.state().clone();
+                    engine.tick(&resources).unwrap();
+                    restored.tick(&resources).unwrap();
+                    assert_eq!(engine, restored);
+                    assert_eq!(engine.globals[0], if tick >= finished_at { 77 } else { 0 });
+                    if tick == 1 && scenario != 1 {
+                        let pending = if master_context {
+                            engine.master_wait
+                        } else {
+                            engine.processes.states().next().unwrap().wait
+                        };
+                        assert_eq!(pending.map(|(call, left)| (call.id, left)), Some((48, 2)));
+                    }
+                }
+            }
+        }
+    }
+
     #[test]
     fn master_wait_keeps_empty_scene_scheduler_running() {
         let (mut master, mut scene) = fixtures();

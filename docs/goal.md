@@ -44,6 +44,14 @@ Keep the user's visible native session current with newly verified engine builds
 
 ## Current progress (2026-10-22)
 
+WALKPOLY runtime `b692a3b` completed the recorded native route through title
+restart at tick 2,630,000, accepting all 1,652 inputs and passing 5,048 engine
+and 5,048 audio snapshot checks. See [route evidence](validation/walkpoly-b692a3b.json).
+HIDEACTOR integration at `fdbdae2` subsequently added separate mover visibility,
+background ordering, ownership-aware unhide, and exact save continuation. Its
+focused and original-asset tests pass; its full-route audit is still pending.
+The visible manual session has not yet been refreshed.
+
 The disabled-axis runtime at `a1eaead` completed the native recorded route:
 all 1,652 inputs accepted, 5,048 engine and 5,048 DSP snapshot checks, and
 restart/title at tick 2,630,000. See [native evidence](validation/disabled-axis-a1eaead.json).
