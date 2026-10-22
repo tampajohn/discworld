@@ -246,3 +246,18 @@ migration of every historical state.
 The raw-mover unit fixture now carries the companion reel state when testing
 serialization; production persistence continues to use the validated DWRSAVE
 v13 extension. No legacy mover payload fields were added or reordered.
+
+
+Stationary migration validation: workspace tests (297 core tests), Clippy and
+web WASM checking pass, as do all 16 opt-in original-asset web tests. Native and
+normal browser hosts are rebuilt. The browser UI suite passes 32 cases; its two
+optional native-v10-menu import cases were then run with the saved fixture and
+both passed, for 34 browser cases exercised across Chrome/WebKit. Those cases
+verify exact imported pixels and unchanged save export. Logs use the
+`assets/logs/stationary-reel-*` prefix.
+
+A fresh full native route with engine/DSP snapshot audits is running for runtime
+3856346 under `assets/validation/stationary-reel-3856346/native`; its terminal
+result and final report must be checked before claiming this later revision
+passed the full route. The completed cross-host route evidence above remains
+pinned to fa77914.
