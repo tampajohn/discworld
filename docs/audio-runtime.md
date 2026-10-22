@@ -155,3 +155,17 @@ Validation passes: workspace tests, Clippy, WASM checking, all 18 original-asset
 web tests, Chrome/WebKit player UI cases, rebuilt native/browser hosts, and a
 10-frame native dummy-video smoke run with the new flag. Logs use
 `assets/logs/headroom-*`. The visible manual session has not been restarted.
+
+
+V1 sample priority correction: pinned `tinlib.cpp::PlaySample` returns
+immediately when a speech channel is active. PLAYSAMPLE now preserves that
+channel's identity, playback cursor and serial and completes its two arguments
+without yielding or scheduling a retry. TRYPLAYSAMPLE retains its distinct
+busy-channel one-tick yield. A bytecode regression covers both blocking modes,
+partially consumed speech, stack completion, and successful effect playback
+after speech ends. This prevents a later sound-effect request from replacing
+a spoken line; it does not change the source recording or mixing gain.
+
+Speech priority validation: workspace tests, Clippy, WASM checks and all 18
+original-asset tests pass (`assets/logs/speech-priority-*`). The completed
+f776192 full-route audit predates this correction.

@@ -5304,6 +5304,14 @@ impl Engine {
                         process.wait = Some((call, 1));
                         return Ok(Status::Running);
                     }
+                    // V1 PlaySample returns immediately while a speech
+                    // channel is active. TRYPLAYSAMPLE's busy-channel yield
+                    // above remains distinct from this speech-only guard.
+                    if self.sample_player.id.is_some() && self.sample_player.is_speech() {
+                        args(&process.vm, 2)?;
+                        process.vm.complete_library(call, 2, None)?;
+                        continue;
+                    }
                     let Some(bank) = bank else {
                         return Ok(Status::Unsupported(call));
                     };
@@ -10892,6 +10900,52 @@ mod tests {
         );
         assert_eq!(engine.sample_player.serial, 9);
         assert_eq!(engine.globals[0], 77);
+    }
+
+    #[test]
+    fn playsample_preserves_active_speech_without_yielding_or_retrying() {
+        for blocking in [0, 1] {
+            let (master, mut scene) = fixtures();
+            scene[8] = 0;
+            let code = [0x41, 77, 3, 0x41, blocking, 0x4e, 51, 0x4c, 0, 0];
+            scene[32..32 + code.len()].copy_from_slice(&code);
+            let resources = Resources(vec![&master, &scene]);
+            let index = [0, 0, 0, 0, 4, 0, 0, 0];
+            let mut data = vec![0; 8];
+            data[4..8].copy_from_slice(&1000u32.to_le_bytes());
+            data.extend(vec![129; 1000]);
+            let bank = SampleBank::new(&index, &data).unwrap();
+            let mut engine = Engine::bootstrap(&resources).unwrap();
+            engine.sample_player.play_speech(&bank, 1).unwrap();
+            engine.sample_player.tick(&bank).unwrap();
+            let speech = engine.sample_player.clone();
+            let mut process = ScriptProcess::new(Handle((1 << 23) | 32));
+            assert_eq!(
+                engine
+                    .run_process(&resources, Some(&bank), None, None, &mut process)
+                    .unwrap(),
+                Status::Halted
+            );
+            assert_eq!(engine.sample_player, speech);
+            assert_eq!(engine.globals[0], 77);
+            assert!(process.sample_wait.is_none() && process.wait.is_none());
+            engine.sample_player.stop();
+            let mut fresh = ScriptProcess::new(Handle((1 << 23) | 32));
+            let status = engine
+                .run_process(&resources, Some(&bank), None, None, &mut fresh)
+                .unwrap();
+            assert_eq!(
+                status,
+                if blocking == 1 {
+                    Status::Running
+                } else {
+                    Status::Halted
+                }
+            );
+            assert!(!engine.sample_player.is_speech());
+            assert_eq!(engine.sample_player.serial, speech.serial + 1);
+            assert_eq!(engine.sample_player.position, 0);
+        }
     }
 
     #[test]

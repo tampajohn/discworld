@@ -44,17 +44,17 @@ Keep the user's visible native session current with newly verified engine builds
 
 ## Current progress (2026-10-22)
 
-Latest complete-route validation: runtime `fa77914` passes 2,630,000 ticks in
+Latest complete-route validation: runtime `f776192` passes 2,630,000 ticks in
 native, Chrome and WebKit with exact final engine state and pixels. Native
 passes 5,048 engine snapshot and 5,048 DSP continuation audits. The new walking
 speech behavior has separate interruption, scene-reset and original-asset
 save/load tests; explicit mover reel state uses DWRSAVE v13. See
-[recorded evidence](validation/walking-talk-fa77914.json). Browser and native
+[recorded evidence](validation/custom-reels-f776192.json). Browser and native
 command-line development archives have been tested outside their source
 folders; native Finder app packaging and physical iPad acceptance remain.
 
 
-Next engine compatibility work: [mover reel modes and walking speech](mover-reel-compatibility.md). Walking TALK now pauses movement and resumes the existing route, with versioned reel state and interruption/save-continuation tests. New stationary speech also uses the shared reel slot; old active waits migrate at the next tick without rewriting imported bytes. WALK, WALKED, WALKTAG and SWALK accept custom films; disabled-axis direct walks, script escape cancellation and ambiguous historical overlapping slots remain.
+Next engine compatibility work: [mover reel modes and walking speech](mover-reel-compatibility.md). Walking TALK now pauses movement and resumes the existing route, with versioned reel state and interruption/save-continuation tests. New stationary speech also uses the shared reel slot; old active waits migrate at the next tick without rewriting imported bytes. WALK, WALKED, WALKTAG and SWALK accept custom films; disabled-axis direct walks, [script escape cancellation](script-escape-compatibility.md) and ambiguous historical overlapping slots remain.
 
 Runtime revision `00a6b38` has runnable native and browser hosts, original menus,
 named save/load, original-font name editing, independently controlled music/
