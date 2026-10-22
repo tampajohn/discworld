@@ -564,3 +564,45 @@ are focused reference-derived cases, not proof of all polygon/path shapes or
 live ScummVM equivalence. Logs: `assets/logs/walkpoly-*`.
 Validation passes: workspace tests (321 core tests passed, one ignored), all
 20 original-asset web integration tests, workspace Clippy and wasm32 checking.
+
+## HIDEACTOR audit: separate V1 visibility state (pending)
+
+V1 library ID 34 is still unsupported in the scene dispatcher. Pinned
+`tinlib.cpp::HideActorFn`/HIDEACTOR consumes one actor argument;
+`actors.cpp::HideActor` resolves a mover and calls `HideMover(mover, 0)`, or
+sets the non-mover actor's hidden flag through ToggleActor. Lead alias handling
+and actor-range validation must remain checked.
+
+Important version distinctions from the pinned source:
+
+- `movers.cpp::HideMover` sets **mover** bHidden and SlowFactor and places its
+  object at Z=-1. It deliberately avoids MultiHideObject because animation
+  stepping can undo that object's hidden flag. This is independent of
+  Actor::bHidden and of whether the actor is alive.
+- `T1MoverProcess` freezes a hidden special reel but continues DoMoveActor for
+  normal movement. HIDEACTOR passes SlowFactor zero, so the hidden-step gate
+  in MoveActor does not add delay. Hiding is not a stop or cancellation.
+- SetMoverZ leaves hidden depth alone; AlterMover restores Z=-1 after its
+  initial animation step. PositionMover/UnHideMover and normal completion of
+  an unreplaced t1PlayReel can make the mover visible again. A replaced reel
+  must not unhide the mover on behalf of its successor.
+- The loop responding to ActorHidden in `play.cpp` is **t2PlayReel**, not
+  t1PlayReel. V1 non-mover HIDEACTOR sets actor state, but copying V2's per-frame
+  reel hiding would add behavior absent from that V1 loop.
+- SaveMovers copies bHidden only for V2+. V1 scene-stack restoration therefore
+  must not acquire V2 hidden-state semantics. An exact runtime snapshot still
+  needs enough state to resume the current hidden mover deterministically.
+
+Current Rust Actor.hidden already affects pointing and special-reel stepping,
+while Mover has no separate persistent hidden state. The renderer draws the
+background before actor/mover animations, so assigning Z=-1 alone would still
+draw a hidden mover over it. Integration must handle the background depth
+ordering, separate mover/actor visibility, save compatibility, and unhide
+ownership together. Simply filtering every hidden actor's films would conflate
+V1 and V2 behavior and hide replacement reels incorrectly.
+
+Required tests: existing/uncreated declared mover, ordinary actor, lead alias,
+normal walking vs special-reel ticking while hidden, hiding during PLAY/TALK,
+replacement/unhide ownership, pointing, draw order, exact save continuation,
+and V1 scene-stack restoration. The audit is source-derived; no HIDEACTOR
+runtime support is claimed yet.
