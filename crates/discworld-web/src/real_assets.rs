@@ -97,6 +97,25 @@ fn original_menu_controller_transitions_render_and_resolve_live_selection() {
     let result = menu.step(&assets, false).unwrap();
     assert_eq!(result.outcome.request, Some(Request::Save));
     assert_eq!(result.selection, None);
+    menu.open(Page::Controls, &assets).unwrap();
+    let view = menu.settings_mut().unwrap();
+    view.point_at(Some([176, 112]));
+    view.click([176, 112], false);
+    view.step_toggle(true, true); // removes highlight
+    view.point_at(Some([163, 72])); // move to non-highlighted FLIP box
+    view.step_toggle(true, false); // installs depressed toggle graphic
+    let mut before = baseline.clone();
+    view.draw(&resources, &mut before).unwrap();
+    view.point_at(Some([163, 72])); // stationary FLIP must not remove that graphic
+    let mut after = baseline.clone();
+    view.draw(&resources, &mut after).unwrap();
+    assert_eq!(before.rgba, after.rgba);
+    view.point_at(None); // outside always deletes HL1
+    let mut outside = baseline.clone();
+    view.draw(&resources, &mut outside).unwrap();
+    assert_ne!(outside.rgba, after.rgba);
+    assert_eq!(view.step_toggle(true, false), None); // abort without changing value
+    menu.close();
     // A toggle retains its original setting pointer across Escape-to-Main.
     // It blocks new button functions until the inventory coroutine completes.
     menu.open(Page::Subtitles, &assets).unwrap();

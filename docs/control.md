@@ -1088,3 +1088,18 @@ Escape rather than assuming closure cancels it. Assets regression, workspace
 tests and Clippy pass in assets/logs/menu-retained-toggle-{assets,workspace,clippy}.log.
 Unified pointer/highlight ownership (including replacement by another hover),
 controller snapshots, engine lifecycle and live host binding remain unfinished.
+
+menu_highlight::State now models cd.pointBox separately from the single HL1
+owner (hover or coroutine). invBoxes leaves a stationary box's current graphic
+untouched, including a graphic installed while pointing at a non-highlighted
+FLIP/RGROUP box; moving to a different box replaces/removes it. Outside input
+deletes HL1 on every call, including repeated outside input after a coroutine
+installed another graphic. Snapshot validation rejects a hover owner inconsistent
+with pointBox. SettingsMenu uses this model instead of a toggle-only hovered
+boolean, fixing the Controls FLIP case. Original-ISO pixels verify that a
+depressed toggle graphic survives a stationary pointer on FLIP but disappears
+outside, causing the expected pre-flip abort. Model tests also cover hover
+replacement, coroutine ownership, removal without resetting pointBox, and
+serialization. Evidence: assets/logs/menu-highlight-{tests,assets,clippy}.log.
+Controller-wide hit testing and HL1 rendering still need to use this model for
+Main, confirmation, save/load and retained effects before live integration.

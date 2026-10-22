@@ -34,7 +34,7 @@ pub struct SettingsMenu {
     flipped: bool,
     drag: Option<menu_slider::Drag>,
     toggle: Toggle,
-    hovered: bool,
+    highlight: crate::menu_highlight::State,
     overlay: Option<usize>, // state offset, uses current enabled value
 }
 impl SettingsMenu {
@@ -123,7 +123,7 @@ impl SettingsMenu {
             flipped,
             drag: None,
             toggle: Toggle::default(),
-            hovered: false,
+            highlight: crate::menu_highlight::State::default(),
             overlay: None,
         })
     }
@@ -179,6 +179,15 @@ impl SettingsMenu {
     }
     pub(crate) fn clear_overlay(&mut self) {
         self.overlay = None;
+        self.highlight.remove();
+    }
+    fn effect_overlay(&mut self, image: Option<usize>) {
+        self.overlay = image;
+        if image.is_some() {
+            self.highlight.install_effect();
+        } else {
+            self.highlight.remove();
+        }
     }
     pub(crate) fn has_overlay(&self) -> bool {
         self.overlay.is_some()
@@ -211,19 +220,19 @@ impl SettingsMenu {
             return None;
         }
         match self.toggle.step(inventory_active, overlay_exists) {
-            Effect::Remove => self.overlay = None,
-            Effect::Down => self.overlay = Some(1),
+            Effect::Remove => self.effect_overlay(None),
+            Effect::Down => self.effect_overlay(Some(1)),
             Effect::FlipDown => {
                 self.enabled = !self.enabled;
-                self.overlay = Some(1);
+                self.effect_overlay(Some(1));
                 // addBoxes rebuilds the slider from its setting, too.
                 self.thumb.object.x = 170
                     + menu_slider::offset(self.value, self.maximum())
                         .expect("private validated setting");
                 return Some(self.enabled);
             }
-            Effect::Highlight => self.overlay = Some(2),
-            Effect::Finished => self.overlay = None,
+            Effect::Highlight => self.effect_overlay(Some(2)),
+            Effect::Finished => self.effect_overlay(None),
         }
         None
     }
@@ -262,13 +271,18 @@ impl SettingsMenu {
     }
     /// invBoxes owns the single HL1 overlay even while an effect is running.
     pub fn point_at(&mut self, point: Option<[i32; 2]>) {
-        let inside = point.is_some_and(|p| Self::contains(p, self.toggle_origin()));
-        if !inside {
-            self.overlay = None;
-        } else if !self.hovered {
-            self.overlay = Some(2);
+        let target = point.and_then(|p| {
+            if Self::contains(p, self.toggle_origin()) {
+                Some((if self.kind == Kind::Controls { 2 } else { 1 }, true))
+            } else if self.kind == Kind::Controls && Self::contains(p, [162, 71]) {
+                Some((1, false))
+            } else {
+                None
+            }
+        });
+        if self.highlight.point_at(target) {
+            self.overlay = target.filter(|(_, highlighted)| *highlighted).map(|_| 2);
         }
-        self.hovered = inside;
     }
     pub fn draw(&self, resources: &Resources<'_>, surface: &mut Surface) -> Result<(), Error> {
         self.frame.draw(resources, surface)?;
