@@ -1,0 +1,26 @@
+{
+  "runtime_revision": "99fe70ece3fad1be8df392e663e4183d3ca570d4",
+  "route": "evidence/act4-ending-input.json",
+  "route_sha256": "30c227553695638a78495f4cf56731f841e89188c8faa75821e50c164ddf4ddb",
+  "schema": 1,
+  "local_artifacts": "assets/validation/sample-owner-99fe70e",
+  "native": {
+    "ticks": 2630000,
+    "status": "Running",
+    "scene_name": "title.scn",
+    "has_restarted": true,
+    "snapshot_checks": 5048,
+    "audio_snapshot_checks": 5048,
+    "snapshot_max_bytes": 48064,
+    "audio_snapshot_max_bytes": 317221,
+    "accepted_inputs": 1652,
+    "core_sha256": "5fac0b810cd1794667c79b5eebf37d38181919e5b8345d0f2f01d388e02e35cf",
+    "report_sha256": "4c05f05a77b16b6c5b04d81a2c51782786b6c0b5874722aa208d4b69610dd3aa"
+  },
+  "scope": [
+    "Recorded native full route with engine/DSP snapshot audits.",
+    "Includes sample ownership and film/walking escape changes; no escape inputs.",
+    "Predates later text, TALK, inventory and scroll escape guards.",
+    "Not a browser, manual UI or physical iPad acceptance run."
+  ]
+}

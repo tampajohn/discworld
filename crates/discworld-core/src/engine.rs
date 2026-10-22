@@ -4314,7 +4314,11 @@ impl Engine {
             process.talk_wait = None;
         }
         if let Some((call, serial, target)) = process.scroll_wait {
-            if serial != self.scroll.serial {
+            // V1 applies escaped Offset before checking supersession.
+            if self.escaped(&process.vm) {
+                self.scroll.stop();
+                self.world_origin = target;
+            } else if serial != self.scroll.serial {
                 return Ok(Status::Halted);
             }
             if self.world_origin != target {
@@ -4817,6 +4821,13 @@ impl Engine {
                 61 => {
                     let a = args(&process.vm, 4)?;
                     let target = [a[0], a[1]];
+                    if self.escaped(&process.vm) {
+                        self.scroll.supersede()?;
+                        self.scroll.stop();
+                        self.world_origin = target;
+                        process.vm.complete_library(call, 4, None)?;
+                        continue;
+                    }
                     let serial = self.scroll.start(self.world_origin, target, a[2])?;
                     if a[3] != 0 {
                         process.scroll_wait = Some((call, serial, target));
@@ -5582,7 +5593,9 @@ impl Engine {
                 }
                 66 => {
                     let handle = args(&process.vm, 1)?[0];
-                    self.change_palette(resources, Handle(handle as u32))?;
+                    if !self.escaped(&process.vm) {
+                        self.change_palette(resources, Handle(handle as u32))?;
+                    }
                     process.vm.complete_library(call, 1, None)?;
                 }
                 82 => {
@@ -10599,6 +10612,83 @@ mod tests {
         engine.enter(&resources, Handle(1 << 23), 1, 1).unwrap();
         assert_eq!(engine.world_origin, [0, 0]);
     }
+    #[test]
+    fn escaped_scroll_offsets_before_supersession_and_roundtrips() {
+        for at_entry in [false, true] {
+            for blocking in [0, 1] {
+                for replaced in [false, true] {
+                    let (master, mut scene) = fixtures();
+                    // Raw target deliberately lies outside normal scroll limits.
+                    let code = [
+                        0x41, 77, 0x41, 20, 0x41, 30, 2, 0x41, blocking, 0x4e, 61, 0x4c, 0, 0,
+                    ];
+                    scene[8..8 + code.len()].copy_from_slice(&code);
+                    let resources = Resources(vec![&master, &scene]);
+                    let mut engine = Engine::bootstrap(&resources).unwrap();
+                    engine.control.cursor = [12, 34];
+                    engine.escape_events = Some(1);
+                    for vm in engine.escape_contexts_mut() {
+                        vm.escape_enabled = true;
+                        vm.escape_generation = Some(1);
+                    }
+                    if at_entry {
+                        engine.script_escape_event().unwrap();
+                    }
+                    engine.tick(&resources).unwrap();
+                    if at_entry {
+                        assert_eq!(engine.world_origin, [20, 30]);
+                        assert_eq!(engine.globals, [77]);
+                        assert_eq!(engine.scroll.serial, 1);
+                        assert!(!engine.scroll.is_scrolling());
+                        continue;
+                    }
+                    if replaced {
+                        engine.scroll.start([0, 0], [40, 50], 1).unwrap();
+                    }
+                    engine.script_escape_event().unwrap();
+                    let bytes = crate::save::Snapshot::capture(&engine, [7; 32])
+                        .to_bytes()
+                        .unwrap();
+                    let snapshot = crate::save::Snapshot::from_bytes(&bytes, [7; 32]).unwrap();
+                    assert_eq!(snapshot.to_bytes().unwrap(), bytes);
+                    let mut restored = snapshot.state().clone();
+                    engine.tick(&resources).unwrap();
+                    restored.tick(&resources).unwrap();
+                    assert_eq!(engine, restored);
+                    assert_eq!(engine.globals, [77]);
+                    assert_eq!(engine.control.cursor, [12, 34]);
+                    assert_eq!(engine.scroll.serial, if replaced { 2 } else { 1 });
+                    if blocking == 1 {
+                        assert_eq!(engine.world_origin, [20, 30]);
+                        assert!(!engine.scroll.is_scrolling());
+                    } else {
+                        // V1 does not add V2's asynchronous escape monitor.
+                        assert_eq!(engine.world_origin, [0, 0]);
+                        assert!(engine.scroll.is_scrolling());
+                    }
+                }
+            }
+        }
+    }
+
+    #[test]
+    fn escaped_setpalette_skips_resource_access() {
+        let (master, mut scene) = fixtures();
+        scene[8..19].copy_from_slice(&[1, 255, 255, 255, 255, 0x4e, 66, 0x41, 9, 0x4c, 0]);
+        scene[19] = 0;
+        let resources = Resources(vec![&master, &scene]);
+        let mut engine = Engine::bootstrap(&resources).unwrap();
+        engine.escape_events = Some(2);
+        for vm in engine.escape_contexts_mut() {
+            vm.escape_enabled = true;
+            vm.escape_generation = Some(1);
+        }
+        let palette = engine.background_palette.clone();
+        engine.tick(&resources).unwrap();
+        assert_eq!(engine.globals, [9]);
+        assert_eq!(engine.background_palette, palette);
+    }
+
     #[test]
     fn blocking_scroll_waits_for_target_and_superseding_request_ends_caller() {
         let (master, mut scene) = fixtures();

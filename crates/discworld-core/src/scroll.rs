@@ -125,17 +125,21 @@ impl Scroll {
         if speed < 0 {
             return Err(Error("negative scroll speed"));
         }
-        let serial = self
-            .serial
-            .checked_add(1)
-            .ok_or(Error("scroll serial overflow"))?;
-        self.serial = serial;
+        let serial = self.supersede()?;
         self.speed = [if speed == 0 { 8 } else { i64::from(speed) }; 2];
         self.remaining = [
             i64::from(target[0]) - i64::from(origin[0]),
             i64::from(target[1]) - i64::from(origin[1]),
         ];
         Ok(serial)
+    }
+    /// Every SCROLL request advances its identity, including instant escape.
+    pub fn supersede(&mut self) -> Result<u64, Error> {
+        self.serial = self
+            .serial
+            .checked_add(1)
+            .ok_or(Error("scroll serial overflow"))?;
+        Ok(self.serial)
     }
     /// OFFSET stops motion but does not supersede the waiting SCROLL number in V1.
     pub fn stop(&mut self) {

@@ -6,7 +6,7 @@ escape generations and handles WAITTIME, scripted walking and PLAY/TOPPLAY
 cancellation plus sample-call entry and suspended cancellation, with DWRSAVE
 v16 state.
 Native/browser Escape still handles configuration/inventory UI; the shared
-script event API is not connected to hosts. Scroll, palette and remaining
+script event API is not connected to hosts. PRINTOBJ and remaining
 escape-sensitive library branches still need auditing; the special intro skip
 path remains pending.
 
@@ -289,3 +289,26 @@ do not add a blanket V1 entry skip without preserving that ordering.
 Validation: workspace tests (310 core tests), all 18 original-asset web tests,
 Clippy, WASM checking and native/browser release rebuilds passed. Logs use
 `assets/logs/escape-dialog-*`. No host input integration is claimed.
+
+## Scroll and palette escape
+
+SCROLL increments its request identity even when already escaped, then applies
+OFFSET immediately without yielding. A suspended blocking SCROLL checks escape
+before supersession, stops current motion and jumps to its original raw target.
+Ordinary replaced scrolls still terminate their caller. Nonblocking V1 scrolls
+do not acquire V2's asynchronous escape monitor. Cursor position is unchanged;
+OFFSET's raw coordinates are not clamped to the scroll range.
+
+SETPALETTE skips resource access in a stale context. Regressions cover blocking
+and nonblocking scroll entry, suspended escape with and without replacement,
+raw targets outside scroll bounds, request identity and exact save continuation,
+plus skipped invalid palette resources.
+
+The native recorded route at sample-ownership revision 99fe70e completed with
+all 1,652 inputs accepted and 5,048 engine plus 5,048 DSP snapshot checks. See
+[validation report](validation/sample-owner-99fe70e.json). It contains no Escape
+inputs and predates these scroll changes.
+
+Validation: workspace tests (312 core tests), all 18 original-asset web tests,
+Clippy, WASM checking and native/browser release rebuilds passed. Logs use
+`assets/logs/escape-scroll-*`. Final route image was inspected at title.scn.
