@@ -527,3 +527,28 @@ for (const lifecycle of ['pagehide', 'visibilitychange']) test(`${lifecycle} rel
   await expect.poll(async () => Number(await canvas.getAttribute('data-tick'))).toBeGreaterThan(Number(tick));
   await expect(canvas).toHaveAttribute('data-dragging', 'false');
 });
+
+test('tablet rotation preserves the paused frame and keeps landscape controls visible', async ({ page }) => {
+  await page.goto('/');
+  await open(page);
+  for (const [width, height] of [[1024, 768], [768, 1024], [1133, 744], [1180, 820], [1024, 600]]) {
+    await page.setViewportSize({ width, height });
+    await expect(page.locator('#game')).toHaveAttribute('data-tick', '33200');
+    await matchesOriginalFrame(page);
+    const bounds = await page.locator('#game').boundingBox();
+    expect(bounds.x).toBeGreaterThanOrEqual(0);
+    expect(bounds.x + bounds.width).toBeLessThanOrEqual(width);
+    expect(bounds.width / bounds.height).toBeCloseTo(1.6, 2);
+    if (width > height) {
+      const controls = page.locator('nav.controls');
+      const box = await controls.boundingBox();
+      expect(box.y + box.height).toBeLessThanOrEqual(height);
+      for (const control of await controls.locator('button:visible, select:visible').all()) {
+        const target = await control.boundingBox();
+        expect(target.height).toBeGreaterThanOrEqual(44);
+        expect(target.x).toBeGreaterThanOrEqual(0);
+        expect(target.x + target.width).toBeLessThanOrEqual(width);
+      }
+    }
+  }
+});

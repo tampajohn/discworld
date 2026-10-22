@@ -451,3 +451,16 @@ Save-format versions and malformed input remain covered by core tests.
 Logs: `assets/logs/lifecycle-drag-*`.
 All six targeted Chrome/WebKit lifecycle and manual-pause/save cases pass
 (`lifecycle-drag-final.log`); JavaScript syntax and whitespace checks pass.
+
+
+## Desktop tablet-viewport rotation regression
+
+Chrome and WebKit pass the paused original-inventory viewport sequence
+1024x768 → 768x1024 → 1133x744 → 1180x820 → 1024x600. Every size preserves
+original framebuffer pixels, tick 33200, and the 8:5 canvas aspect ratio.
+Landscape checks place the complete game-control navigation inside the
+viewport and verify all visible control heights are at least 44 CSS pixels.
+No layout change was needed. Logs: `assets/logs/tablet-rotation.log` (two
+browser cases). This does not simulate physical safe-area insets, browser
+chrome, keyboard appearance or operating-system rotation events; those remain
+part of real-iPad acceptance.

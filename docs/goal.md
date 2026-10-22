@@ -44,6 +44,13 @@ Keep the user's visible native session current with newly verified engine builds
 
 ## Current progress (2026-10-22)
 
+The disabled-axis runtime at `a1eaead` completed the native recorded route:
+all 1,652 inputs accepted, 5,048 engine and 5,048 DSP snapshot checks, and
+restart/title at tick 2,630,000. See [native evidence](validation/disabled-axis-a1eaead.json).
+It predates immediate competing-walk cancellation at `27d9924`; that revision's
+same-build native/Chrome/WebKit audit is running separately. No additional
+disabled-axis inputs were added to the recorded route.
+
 The intro-aware native runtime at `1ac8f90` completed the recorded route:
 2,630,000 ticks, all 1,652 inputs accepted, restart committed and final
 `title.scn`. It passed 5,048 engine and 5,048 DSP snapshot audits; the final
