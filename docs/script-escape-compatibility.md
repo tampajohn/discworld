@@ -3,7 +3,7 @@
 Reference revision: 96b42d42bc8533953bdd701db059cc33c839a9ff.
 Current implementation is incomplete: the engine captures global/per-context
 escape generations and handles WAITTIME, scripted walking and PLAY/TOPPLAY
-cancellation, with DWRSAVE v15 state.
+cancellation plus already-escaped sample-call entry, with DWRSAVE v15 state.
 Native/browser Escape still handles configuration/inventory UI; the shared
 script event API is not connected to hosts. Speech cancellation
 and the special intro skip path remain pending.
@@ -178,3 +178,28 @@ Clippy and WASM checking; logs use `assets/logs/escape-film-*`. These focused
 checks do not establish complete host cutscene skipping. The recorded route
 on the earlier escape-counter revision is documented separately in
 [its validation report](validation/escape-counter-fb49b7e.json).
+
+## Already-escaped sample calls
+
+PLAYSAMPLE now stops current effects and completes immediately when its
+escape capture is stale. The speech guard precedes this branch, so active
+speech is preserved. TRYPLAYSAMPLE's busy-channel guard precedes both and
+retains its one-tick yield without stopping or retrying the existing sample.
+Escape is checked before the effects-volume and resource lookup branches: an
+escaped call does not yield merely because effects are muted or read a bank.
+
+The regression covers both calls, blocking/nonblocking arguments, idle/effect/
+speech channels and enabled/muted effects. It deliberately supplies no bank
+and verifies exact channel preservation or stopping, yield behavior and
+continuation without retry. No snapshot format changes are needed for entry.
+
+Suspended sample cancellation is still pending. The current sample wait stores
+only a library call, while the reference stores an Audio::SoundHandle. Before
+adding cancellation, persist the sample serial for each wait and validate its
+restoration, including replacement playback and historical-save migration.
+Stopping the current channel blindly would interrupt unrelated replacement
+audio. Speech/text cancellation requires a separate reference audit.
+
+Validation: workspace tests (306 core tests), all 18 original-asset web tests,
+Clippy, WASM checking and native/browser release rebuilds passed. Logs use
+`assets/logs/escape-sample-entry-*`. The visible session was not restarted.

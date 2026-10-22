@@ -5573,6 +5573,14 @@ impl Engine {
                         process.vm.complete_library(call, 2, None)?;
                         continue;
                     }
+                    // V1 tests speech priority first, then stops existing
+                    // effects for an already-escaped call, even at zero volume.
+                    if self.escaped(&process.vm) {
+                        args(&process.vm, 2)?;
+                        self.sample_player.stop();
+                        process.vm.complete_library(call, 2, None)?;
+                        continue;
+                    }
                     if self
                         .configuration
                         .as_ref()
@@ -11587,6 +11595,85 @@ mod tests {
             assert!(!engine.sample_player.is_speech());
             assert_eq!(engine.sample_player.serial, speech.serial + 1);
             assert_eq!(engine.sample_player.position, 0);
+        }
+    }
+
+    #[test]
+    fn escaped_sample_entry_preserves_speech_and_try_busy_priority() {
+        for opcode in [51, 112] {
+            for channel in 0..3 {
+                for blocking in [0, 1] {
+                    for muted in [false, true] {
+                        let (master, mut scene) = fixtures();
+                        scene[8] = 0;
+                        let code = [0x41, 77, 3, 0x41, blocking, 0x4e, opcode, 0x4c, 0, 0];
+                        scene[32..32 + code.len()].copy_from_slice(&code);
+                        let resources = Resources(vec![&master, &scene]);
+                        let index = [0, 0, 0, 0, 4, 0, 0, 0];
+                        let mut data = vec![0; 8];
+                        data[4..8].copy_from_slice(&1000u32.to_le_bytes());
+                        data.extend(vec![129; 1000]);
+                        let bank = SampleBank::new(&index, &data).unwrap();
+                        let mut engine = Engine::bootstrap(&resources).unwrap();
+                        if muted {
+                            let settings = crate::menu_controller::Settings {
+                                volumes: [255, 0, 255],
+                                double_click: 10,
+                                swap_buttons: false,
+                                text_speed: 0,
+                                subtitles: true,
+                                flipped: false,
+                            };
+                            engine.configuration =
+                                Some(crate::menu_controller::Controller::new(settings).unwrap());
+                        }
+                        if channel == 1 {
+                            engine.sample_player.play(&bank, 1).unwrap();
+                        } else if channel == 2 {
+                            engine.sample_player.play_speech(&bank, 1).unwrap();
+                        }
+                        engine.sample_player.tick(&bank).unwrap();
+                        let before = engine.sample_player.clone();
+                        engine.escape_events = Some(2);
+                        let mut process = ScriptProcess::new(Handle((1 << 23) | 32));
+                        process.vm.escape_enabled = true;
+                        process.vm.escape_generation = Some(1);
+                        // No sample bank: an escaped call must not access assets.
+                        let status = engine
+                            .run_process(&resources, None, None, None, &mut process)
+                            .unwrap();
+                        let busy_try = opcode == 112 && channel != 0;
+                        assert_eq!(
+                            status,
+                            if busy_try {
+                                Status::Running
+                            } else {
+                                Status::Halted
+                            }
+                        );
+                        assert!(process.sample_wait.is_none());
+                        assert_eq!(process.wait.is_some(), busy_try);
+                        if busy_try || channel == 2 {
+                            assert_eq!(engine.sample_player, before);
+                        } else {
+                            let mut stopped = before.clone();
+                            stopped.stop();
+                            assert_eq!(engine.sample_player, stopped);
+                        }
+                        if busy_try {
+                            assert_eq!(engine.globals[0], 0);
+                            assert_eq!(
+                                engine
+                                    .run_process(&resources, None, None, None, &mut process)
+                                    .unwrap(),
+                                Status::Halted
+                            );
+                            assert_eq!(engine.sample_player, before);
+                        }
+                        assert_eq!(engine.globals[0], 77);
+                    }
+                }
+            }
         }
     }
 
