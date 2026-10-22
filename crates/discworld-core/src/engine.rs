@@ -3443,6 +3443,7 @@ impl Engine {
         &mut self,
         resources: &Resources<'_>,
         wait: &mut TalkWait,
+        escaped: bool,
     ) -> Result<bool, Error> {
         if !wait.initialized {
             wait.initialized = true;
@@ -3505,7 +3506,7 @@ impl Engine {
         }
         wait.origin = self.world_origin;
         wait.timeout = wait.timeout.saturating_sub(1);
-        let cancelled = wait.timeout == 0 || wait.left_events != self.left_events;
+        let cancelled = escaped || wait.timeout == 0 || wait.left_events != self.left_events;
         let complete = if let Some(serial) = wait.sample {
             let ended = self.sample_player.serial != serial || self.sample_player.id.is_none();
             if ended && !cancelled && wait.layout.is_some() && self.text_speed() != 0 {
@@ -4304,8 +4305,9 @@ impl Engine {
             process.vm.complete_library(call, 3, None)?;
             process.tag_walk_wait = None;
         }
+        let talk_escaped = self.escaped(&process.vm);
         if let Some(wait) = &mut process.talk_wait {
-            if !self.advance_talk(resources, wait)? {
+            if !self.advance_talk(resources, wait, talk_escaped)? {
                 return Ok(Status::Running);
             }
             process.vm.complete_library(wait.call, 2, None)?;
@@ -4725,6 +4727,11 @@ impl Engine {
                     process.vm.complete_library(call, 1, None)?;
                 }
                 77 => {
+                    if self.escaped(&process.vm) {
+                        args(&process.vm, 2)?;
+                        process.vm.complete_library(call, 2, None)?;
+                        continue;
+                    }
                     let (Some(strings), Some(bank)) = (strings, bank) else {
                         return Ok(Status::Unsupported(call));
                     };
@@ -10830,8 +10837,17 @@ mod tests {
                     "cancelled TALK must not resume its script"
                 );
             }
-            for scenario in ["natural", "click", "stop", "replace", "hidden", "early"] {
+            for scenario in [
+                "natural", "click", "escape", "stop", "replace", "hidden", "early",
+            ] {
                 let mut live = engine.clone();
+                if scenario == "escape" {
+                    live.escape_events = Some(1);
+                    for vm in live.escape_contexts_mut() {
+                        vm.escape_enabled = true;
+                        vm.escape_generation = Some(1);
+                    }
+                }
                 if scenario == "stop" {
                     live.movers.get_mut(&1).unwrap().stop_requested = true;
                 }
@@ -10885,6 +10901,14 @@ mod tests {
                 for tick in 0..50 {
                     if scenario == "click" && tick == 3 {
                         live.left_event().unwrap();
+                    }
+                    if scenario == "escape" && tick == 3 {
+                        live.script_escape_event().unwrap();
+                        for p in live.processes.states_mut() {
+                            if let Some(wait) = &mut p.talk_wait {
+                                wait.left_events = live.left_events;
+                            }
+                        }
                     }
                     let bytes = Snapshot::capture(&live, [7; 32]).to_bytes().unwrap();
                     let decoded = Snapshot::from_bytes(&bytes, [7; 32]).unwrap();
@@ -10961,6 +10985,35 @@ mod tests {
                     serial + u64::from(matches!(scenario, "stop" | "replace"))
                 );
             }
+        }
+    }
+
+    #[test]
+    fn escaped_talk_entry_skips_resources_and_preserves_audio_control() {
+        let (master, mut scene) = fixtures();
+        scene[8..21].copy_from_slice(&[1, 255, 255, 255, 255, 3, 0x4e, 77, 0x41, 9, 0x4c, 0, 0]);
+        let resources = Resources(vec![&master, &scene]);
+        let index = [0, 0, 0, 0, 4, 0, 0, 0];
+        let mut samples = vec![0; 8];
+        samples[4..8].copy_from_slice(&1000u32.to_le_bytes());
+        samples.extend([128; 1000]);
+        let bank = SampleBank::new(&index, &samples).unwrap();
+        for control in [false, true] {
+            let mut engine = Engine::bootstrap(&resources).unwrap();
+            engine.control.enabled = control;
+            engine.sample_player.play_speech(&bank, 1).unwrap();
+            engine.escape_events = Some(2);
+            for vm in engine.escape_contexts_mut() {
+                vm.escape_enabled = true;
+                vm.escape_generation = Some(1);
+            }
+            let before = engine.sample_player.clone();
+            let controls = engine.control.clone();
+            engine.tick(&resources).unwrap();
+            assert_eq!(engine.globals, [9]);
+            assert_eq!(engine.control, controls);
+            assert_eq!(engine.sample_player, before);
+            assert!(engine.processes.states().all(|p| p.talk_wait.is_none()));
         }
     }
 
@@ -11099,6 +11152,48 @@ mod tests {
             invalid.restore_finished_talks(&[talk_id]).is_err(),
             "duplicate phase marker"
         );
+        for source in [&engine, &slow] {
+            for replacement in [false, true] {
+                let mut escaped = source.clone();
+                escaped.escape_events = Some(1);
+                for vm in escaped.escape_contexts_mut() {
+                    vm.escape_enabled = true;
+                    vm.escape_generation = Some(1);
+                }
+                if replacement {
+                    escaped.sample_player.play_speech(&bank, 1).unwrap();
+                }
+                let audio = escaped.sample_player.clone();
+                escaped.script_escape_event().unwrap();
+                // Isolate the generation test from TALK's click cancellation.
+                for p in escaped.processes.states_mut() {
+                    if let Some(wait) = &mut p.talk_wait {
+                        wait.left_events = escaped.left_events;
+                    }
+                }
+                let bytes = crate::save::Snapshot::capture(&escaped, [7; 32])
+                    .to_bytes()
+                    .unwrap();
+                let snapshot = crate::save::Snapshot::from_bytes(&bytes, [7; 32]).unwrap();
+                assert_eq!(snapshot.to_bytes().unwrap(), bytes);
+                let mut restored = snapshot
+                    .restore_with_strings(&resources, &bank, &[], &strings)
+                    .unwrap();
+                for instance in [&mut escaped, &mut restored] {
+                    instance.tick(&resources).unwrap();
+                    assert_eq!(instance.globals, [9]);
+                    assert!(instance.control.tags_enabled);
+                    assert!(instance.processes.states().all(|p| p.talk_wait.is_none()));
+                    assert_eq!(instance.films[0].reel, Some(Handle(base + 72)));
+                    if replacement {
+                        assert_eq!(instance.sample_player, audio);
+                    } else {
+                        assert!(instance.sample_player.id.is_none());
+                    }
+                }
+                assert_eq!(escaped, restored);
+            }
+        }
         let mut cancelled = slow.clone();
         cancelled.left_event().unwrap();
         assert_eq!(

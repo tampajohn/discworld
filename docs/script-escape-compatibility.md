@@ -6,8 +6,9 @@ escape generations and handles WAITTIME, scripted walking and PLAY/TOPPLAY
 cancellation plus sample-call entry and suspended cancellation, with DWRSAVE
 v16 state.
 Native/browser Escape still handles configuration/inventory UI; the shared
-script event API is not connected to hosts. Animated TALK cancellation
-and the special intro skip path remain pending.
+script event API is not connected to hosts. Inventory/conversation and other
+escape-sensitive library branches still need auditing; the special intro skip
+path remains pending.
 
 ## Observed reference contract
 
@@ -243,3 +244,24 @@ Validation: workspace tests (308 core tests), all 18 original-asset web tests,
 Clippy, WASM checking and native/browser release rebuilds passed. Logs use
 `assets/logs/escape-print-*`. The recorded sample-ownership route remains a
 separate run on revision 99fe70e, without escape inputs.
+
+## Animated TALK escape
+
+TALK (77) now skips an already-escaped context before accessing speech/film
+resources or taking control/tags. Suspended TALK passes its captured-generation
+comparison into the existing completion path, restoring the normal film or
+mover reel, stopping only its own sample and releasing owned control/tags.
+The initial subtitle setup retains its existing yield; cancellation uses the
+reference wait boundary. No save layout changes are needed.
+
+Tests isolate the escape-generation path by aligning the wait's left-event
+value after injecting Escape. They cover non-mover film restoration, the
+post-speech subtitle phase without duplicate reel cleanup, replacement speech,
+exact saved continuation, and moving TALK on ordinary/node paths followed by
+completion of the original route. Entry tests use invalid film resources and
+no strings/bank while preserving existing audio and enabled/disabled control.
+
+Validation: workspace tests (309 core tests), all 18 original-asset web tests,
+Clippy, WASM checking and native/browser release rebuilds passed. Logs use
+`assets/logs/escape-talk-*`. Host Escape remains disconnected pending the
+remaining library audit and intro routing.
