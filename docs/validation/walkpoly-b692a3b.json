@@ -1,0 +1,26 @@
+{
+  "runtime_revision": "b692a3bef71868cd267f70352bb6ec5b215b62c3",
+  "route": "evidence/act4-ending-input.json",
+  "route_sha256": "30c227553695638a78495f4cf56731f841e89188c8faa75821e50c164ddf4ddb",
+  "binary_sha256": "9e755dd52d663809c0dedf8f24366d4cc4fc2c309ddad05b2b4932b39d494e99",
+  "schema": 1,
+  "local_artifacts": "assets/validation/walkpoly-b692a3b",
+  "native": {
+    "ticks": 2630000,
+    "status": "Running",
+    "scene_name": "title.scn",
+    "has_restarted": true,
+    "snapshot_checks": 5048,
+    "audio_snapshot_checks": 5048,
+    "snapshot_max_bytes": 48155,
+    "audio_snapshot_max_bytes": 317221,
+    "accepted_inputs": 1652,
+    "core_sha256": "d4a60d7dd6637c3c8f5cd5131b29868e40afd06f45559e7cd8dafa42711de4eb",
+    "report_sha256": "0d56aa96e4af901e4e12f18a7bf4dffb9e83a33f571eb0649a81f03aec7a8763"
+  },
+  "scope": [
+    "Recorded native full route with exact engine and audio snapshot audits; no new WALKPOLY inputs.",
+    "Includes WALKPOLY support; predates HIDEACTOR runtime integration.",
+    "Final title image inspected. Not manual UI, browser or physical iPad acceptance."
+  ]
+}

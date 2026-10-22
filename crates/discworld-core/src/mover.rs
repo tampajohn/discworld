@@ -1617,6 +1617,9 @@ impl Mover {
             .reel_state
             .is_some_and(|state| state.suppresses_walk_selection())
         {
+            if force || self.placement.scale != scale || self.placement.direction != direction {
+                self.hidden = false;
+            }
             return Ok(());
         }
         if !(1..=10).contains(&scale) || self.step_phase >= 6 {
@@ -1659,6 +1662,7 @@ impl Mover {
         next.placement.scale = scale;
         next.placement.direction = direction;
         next.last_film = handle;
+        next.hidden = false;
         *self = next;
         Ok(())
     }
@@ -1745,6 +1749,9 @@ impl Mover {
             return Ok(());
         }
         let mut next = self.clone();
+        if position[0] != -1 && position[1] != -1 {
+            next.hidden = false;
+        }
         let position = if position[0] == -1 || position[1] == -1 {
             self.placement.position
         } else {

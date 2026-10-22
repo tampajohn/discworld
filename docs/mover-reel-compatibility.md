@@ -567,7 +567,7 @@ Validation passes: workspace tests (321 core tests passed, one ignored), all
 
 ## HIDEACTOR audit: separate V1 visibility state (pending)
 
-V1 library ID 34 is still unsupported in the scene dispatcher. Pinned
+V1 library ID 34 is now supported in the scene dispatcher. Pinned
 `tinlib.cpp::HideActorFn`/HIDEACTOR consumes one actor argument;
 `actors.cpp::HideActor` resolves a mover and calls `HideMover(mover, 0)`, or
 sets the non-mover actor's hidden flag through ToggleActor. Lead alias handling
@@ -593,21 +593,34 @@ Important version distinctions from the pinned source:
   must not acquire V2 hidden-state semantics. An exact runtime snapshot still
   needs enough state to resume the current hidden mover deterministically.
 
-Current Rust Actor.hidden already affects pointing and special-reel stepping,
-while Mover has no separate persistent hidden state. The renderer draws the
-background before actor/mover animations, so assigning Z=-1 alone would still
-draw a hidden mover over it. Integration must handle the background depth
-ordering, separate mover/actor visibility, save compatibility, and unhide
-ownership together. Simply filtering every hidden actor's films would conflate
-V1 and V2 behavior and hide replacement reels incorrectly.
+The runtime now keeps mover visibility separate from Actor.hidden. HIDEACTOR
+consumes one argument, resolves the lead alias, validates the actor, and hides
+an existing mover without changing its alive state. Ordinary actors retain
+V1 ToggleActor behavior. A declared mover that has not been created has no
+observable hidden object; creation initializes it as visible.
 
-Required tests: existing/uncreated declared mover, ordinary actor, lead alias,
-normal walking vs special-reel ticking while hidden, hiding during PLAY/TALK,
-replacement/unhide ownership, pointing, draw order, exact save continuation,
-and V1 scene-stack restoration. The audit is source-derived; no HIDEACTOR
-runtime support is claimed yet.
+Hidden mover animations draw before the background, with effective Z=-1;
+they remain drawable where no background covers them. Their stored animation
+is unchanged. Pointer hit testing and scroll monitoring use mover visibility.
+Normal movement continues; special-reel animation freezes while hidden.
+Explicit positioning and walking-reel selection reveal the mover. PLAY claims
+hide it, and only the current reel owner can reveal it on release.
 
-The first HIDEACTOR integration step adds independent Mover.hidden state and
-the [v18 exact-snapshot extension](save-state.md#version-18-independent-mover-visibility).
-Older saves retain their layout and default this state to visible. Rendering,
-script dispatch and mover lifecycle behavior are not connected yet.
+The [v18 exact-snapshot extension](save-state.md#version-18-independent-mover-visibility)
+preserves hidden state. Older saves retain their layout and default this state
+to visible. V1 scene-stack mover restoration remains distinct: it recreates
+visible standing movers, matching SaveMovers rather than an exact snapshot.
+
+Regression coverage includes the lead alias, existing and uncreated movers,
+ordinary actors, background ordering and background absence, pointer targeting,
+exact snapshot preview, stale/current reel release, same/forced walk selection,
+direction-only versus positional STAND, normal walking while hidden, special
+TALK freezing, and visible recreation from a V1 scene mover capture.
+Workspace tests, 20 original-asset tests, Clippy and WASM checks pass; logs are
+under assets/logs/hideactor-*. This does not establish live ScummVM comparison
+or full-route acceptance of these changes.
+
+The preceding WALKPOLY runtime completed the recorded native route through
+2,630,000 ticks, title restart, and 5,048 engine plus 5,048 audio continuation
+checks. See [route evidence](validation/walkpoly-b692a3b.json). That run predates
+HIDEACTOR integration and does not exercise additional WALKPOLY inputs.

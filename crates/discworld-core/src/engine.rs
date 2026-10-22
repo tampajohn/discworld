@@ -2255,7 +2255,12 @@ impl Engine {
         let world = std::array::from_fn(|i| i64::from(point[i]) + i64::from(self.world_origin[i]));
         for (&id, &(_, kind)) in &self.actor_tags {
             let actor = self.actors.get(id)?;
-            if actor.hidden || !actor.alive {
+            if self
+                .movers
+                .get(&(id as i32))
+                .map_or(actor.hidden, |m| m.hidden)
+                || !actor.alive
+            {
                 continue;
             }
             let animation = self
@@ -2298,7 +2303,10 @@ impl Engine {
         if !self.control.enabled
             || self.control_inventory_active()
             || !actor.alive
-            || actor.hidden
+            || self
+                .movers
+                .get(&(id as i32))
+                .map_or(actor.hidden, |m| m.hidden)
             || actor.script.0 == 0
             || self.last_interaction_tick == Some(self.ticks)
         {
@@ -3687,6 +3695,9 @@ impl Engine {
         if self.owns_reel(animation) {
             self.reel_owners.remove(&animation.object.id);
             self.reel_escape.remove(&animation.object.id);
+            if let Some(mover) = self.movers.get_mut(&animation.object.id) {
+                mover.hidden = false;
+            }
         }
     }
     /// A duplicate reel does not restart. Replacement gets a distinct generation.
@@ -3715,6 +3726,9 @@ impl Engine {
         self.reel_owners.insert(actor, (reel, animation.playback));
         self.reel_escape.remove(&actor);
         self.films.retain(|old| old.object.id != actor);
+        if let Some(mover) = self.movers.get_mut(&actor) {
+            mover.hidden = true;
+        }
         Ok(true)
     }
     fn disable_actor(&mut self, id: u32) -> Result<(), Error> {
@@ -3943,7 +3957,7 @@ impl Engine {
                 continue;
             }
             let special = self.movers[&actor].special_reel();
-            if special && self.actors.get(actor as u32)?.hidden {
+            if special && self.movers[&actor].hidden {
                 continue;
             }
             if self.movers[&actor].walk_target.is_some() && !special {
@@ -3979,9 +3993,7 @@ impl Engine {
         self.monitor_effects(resources, &effect_positions)?;
         if self.scroll_maximum != [0, 0] {
             if let Some(mover) = self.movers.get(&self.scroll.focus) {
-                if !self.reel_owners.contains_key(&self.scroll.focus)
-                    && !self.actors.get(self.scroll.focus as u32)?.hidden
-                {
+                if !self.reel_owners.contains_key(&self.scroll.focus) && !mover.hidden {
                     if let Some([_, top, _, bottom]) = mover.animation.bounds(resources)? {
                         self.scroll.monitor(
                             mover.placement.position,
@@ -4640,6 +4652,28 @@ impl Engine {
                 continue;
             }
             match call.id {
+                34 => {
+                    let requested = args(&process.vm, 1)?[0];
+                    let actor = if requested == -2 {
+                        self.declarations
+                            .lead
+                            .as_ref()
+                            .ok_or(Error("missing lead actor"))?
+                            .id
+                    } else {
+                        requested
+                    };
+                    let id = u32::try_from(actor).map_err(|_| Error("invalid hidden actor"))?;
+                    self.actors.get(id)?;
+                    if let Some(mover) = self.movers.get_mut(&actor) {
+                        mover.hidden = true;
+                    } else if !self.declarations.movers.contains_key(&actor) {
+                        self.actors.get_mut(id)?.hidden = true;
+                    }
+                    // A declared but uncreated V1 mover has no drawable object;
+                    // creation resets its hidden flag before any movement.
+                    process.vm.complete_library(call, 1, None)?;
+                }
                 114 => {
                     self.request_restart();
                     process.vm.complete_library(call, 0, None)?;
@@ -6014,6 +6048,19 @@ impl Engine {
             if let Some(palette) = &self.background_palette {
                 result.set_scene_palette(palette)?;
             }
+        }
+        let hidden: Vec<_> = self
+            .movers
+            .iter()
+            .filter(|(id, mover)| mover.hidden && !self.reel_owners.contains_key(id))
+            .map(|(_, mover)| {
+                let mut animation = mover.animation.clone();
+                animation.object.z = -1;
+                animation
+            })
+            .collect();
+        result.draw_animations_ordered(resources, hidden.iter(), self.world_origin)?;
+        if let Some(background) = &self.background {
             result.draw_animation_offset(resources, background, self.world_origin)?;
         }
         let mut films = self.films.iter().collect::<Vec<_>>();
@@ -6026,7 +6073,7 @@ impl Engine {
         films.extend(
             self.movers
                 .iter()
-                .filter(|(id, _)| !self.reel_owners.contains_key(id))
+                .filter(|(id, m)| !m.hidden && !self.reel_owners.contains_key(id))
                 .map(|(_, m)| &m.animation),
         );
         let (status_films, world_films): (Vec<_>, Vec<_>) =
@@ -6964,6 +7011,200 @@ mod tests {
             Err(Error("global allocation limit"))
         );
         assert_eq!(engine, before);
+    }
+
+    #[test]
+    fn hideactor_keeps_mover_separate_and_draws_it_behind_background() {
+        use crate::save::Snapshot;
+        let (master, mut scene) = fixtures();
+        scene[8] = 0;
+        scene[32..40].copy_from_slice(&[0x41, 77, 0x41, 254, 0x4e, 34, 0x4c, 0]);
+        scene[40] = 0;
+        let base = 2u32 << 23;
+        let mut art = vec![0; 256];
+        for (at, value) in [
+            (0, 24u32),
+            (4, 1),
+            (8, base + 32),
+            (12, base + 136),
+            (16, 116),
+            (32, base + 64),
+            (40, 1),
+            (44, 640),
+            (64, base + 80),
+            (80, 0x00040004),
+            (88, base + 96),
+            (92, base + 100),
+            (100, 2),
+            (136, 10),
+            (170, 1),
+            (200, base + 208),
+            (208, 0x00040004),
+            (216, base + 96),
+            (220, base + 170),
+        ] {
+            art[at..at + 4].copy_from_slice(&value.to_le_bytes());
+        }
+        art[104..107].copy_from_slice(&[90, 80, 70]);
+        art[108..111].copy_from_slice(&[20, 30, 40]);
+        art[116..132].fill(1);
+        art[174..177].copy_from_slice(&[60, 70, 80]);
+        let resources = Resources(vec![&master, &scene, &art]);
+        let mut engine = Engine::bootstrap(&resources).unwrap();
+        engine.actors = crate::actor::Actors::new(1).unwrap();
+        engine.declarations.lead = Some(crate::startup::Lead {
+            id: 1,
+            text: Handle(0),
+            tagged: false,
+        });
+        engine
+            .declarations
+            .movers
+            .insert(1, [[Handle(base); 12]; 10]);
+        let mut mover = crate::mover::Mover::new(
+            &resources,
+            crate::mover::Placement {
+                actor: 1,
+                position: [640, 0],
+                direction: crate::mover::Direction::Forward,
+                path: None,
+                node: None,
+                scale: 1,
+                standing: Handle(base),
+                base_walk: Handle(base),
+                z_factor: 0,
+            },
+        )
+        .unwrap();
+        mover.animation.frame = Handle(base + 200);
+        engine.movers.insert(1, mover);
+        engine.background = Some(
+            Animation::new(
+                &resources,
+                &crate::film::Reel {
+                    object: Handle(base + 32),
+                    script: Handle(base + 136),
+                },
+                1,
+            )
+            .unwrap(),
+        );
+        engine.world_origin = [640, 0];
+        engine.control.tags_enabled = true;
+        engine.actor_tags.insert(1, (Handle(0), 0));
+        assert_eq!(engine.actor_at(&resources, [1, 1]).unwrap(), Some(1));
+        assert_eq!(
+            &engine.render(&resources).unwrap().rgba[..4],
+            &[60, 70, 80, 255]
+        );
+        let before = engine.movers[&1].clone();
+        let mut process = ScriptProcess::new(Handle((1 << 23) | 32));
+        assert_eq!(
+            engine
+                .run_process(&resources, None, None, None, &mut process)
+                .unwrap(),
+            Status::Halted
+        );
+        assert_eq!(engine.globals[0], 77);
+        assert!(engine.movers[&1].hidden);
+        assert!(!engine.actors.get(1).unwrap().hidden);
+        assert_eq!(engine.actor_at(&resources, [1, 1]).unwrap(), None);
+        assert!(engine.actors.get(1).unwrap().alive);
+        assert_eq!(engine.movers[&1].animation, before.animation);
+        assert_eq!(
+            &engine.render(&resources).unwrap().rgba[..4],
+            &[90, 80, 70, 255]
+        );
+        let bytes = Snapshot::capture(&engine, [7; 32]).to_bytes().unwrap();
+        let restored = Snapshot::from_bytes(&bytes, [7; 32]).unwrap();
+        assert_eq!(restored.state(), &engine);
+        assert_eq!(
+            restored.preview(&resources).unwrap(),
+            engine.render(&resources).unwrap()
+        );
+        let background = engine.background.take();
+        assert_eq!(
+            &engine.render(&resources).unwrap().rgba[..4],
+            &[60, 70, 80, 255],
+            "hidden means behind background, not discarded"
+        );
+        engine.background = background;
+        // A replacement PLAY owns the hidden mover. Finishing the superseded
+        // reel must not expose it underneath the replacement.
+        let mut first = before.animation.clone();
+        first.reel = Some(Handle(base + 8));
+        engine.movers.get_mut(&1).unwrap().hidden = false;
+        assert!(engine.claim_reel(&mut first).unwrap());
+        assert!(engine.movers[&1].hidden);
+        let mut replacement = first.clone();
+        replacement.reel = Some(Handle(base + 16));
+        assert!(engine.claim_reel(&mut replacement).unwrap());
+        engine.release_reel(&first);
+        assert!(engine.movers[&1].hidden);
+        assert!(engine.owns_reel(&replacement));
+        engine.release_reel(&replacement);
+        assert!(!engine.movers[&1].hidden);
+        assert!(engine.reel_owners.is_empty());
+
+        // Continuing the same walk does not reveal a hidden mover. Explicitly
+        // selecting a new walking reel does, as does PositionMover via STAND.
+        let mover = engine.movers.get_mut(&1).unwrap();
+        mover.hidden = true;
+        mover
+            .select_walk_reel(
+                &resources,
+                &engine.declarations,
+                crate::mover::Direction::Forward,
+                1,
+                false,
+            )
+            .unwrap();
+        assert!(mover.hidden);
+        mover
+            .select_walk_reel(
+                &resources,
+                &engine.declarations,
+                crate::mover::Direction::Forward,
+                1,
+                true,
+            )
+            .unwrap();
+        assert!(!mover.hidden);
+        mover.hidden = true;
+        mover
+            .stand(
+                &resources,
+                &engine.declarations,
+                &engine.polygons,
+                [-1, -1],
+                Handle(2),
+            )
+            .unwrap();
+        assert!(mover.hidden, "direction-only STAND does not position mover");
+        mover
+            .stand(
+                &resources,
+                &engine.declarations,
+                &engine.polygons,
+                [640, 0],
+                Handle(2),
+            )
+            .unwrap();
+        assert!(!mover.hidden, "explicit STAND positions and reveals mover");
+        // An uncreated declared mover resets visibility on creation. Ordinary
+        // actors use their own flag; hiding never changes alive state.
+        engine.movers.clear();
+        for declared in [true, false] {
+            if !declared {
+                engine.declarations.movers.clear();
+            }
+            let mut process = ScriptProcess::new(Handle((1 << 23) | 32));
+            engine
+                .run_process(&resources, None, None, None, &mut process)
+                .unwrap();
+            assert_eq!(engine.actors.get(1).unwrap().hidden, !declared);
+            assert!(engine.actors.get(1).unwrap().alive);
+        }
     }
 
     #[test]
@@ -8558,6 +8799,42 @@ mod tests {
                         .insert(1, crate::mover::Mover::new(&resources, placement).unwrap());
                     if mode == 0 && !custom && !lead {
                         use sha2::{Digest, Sha256};
+                        let mut walking = engine.movers[&1].clone();
+                        walking
+                            .begin_direct_walk(
+                                &resources,
+                                &engine.declarations,
+                                &engine.polygons,
+                                [90, 70],
+                                [90, 70],
+                            )
+                            .unwrap();
+                        let mut hidden_walk = walking.clone();
+                        hidden_walk.hidden = true;
+                        for _ in 0..3 {
+                            for mover in [&mut walking, &mut hidden_walk] {
+                                mover
+                                    .advance_direct_walk(
+                                        &resources,
+                                        &engine.declarations,
+                                        &engine.polygons,
+                                        &[],
+                                    )
+                                    .unwrap();
+                            }
+                            assert!(hidden_walk.hidden);
+                            let mut comparable = hidden_walk.clone();
+                            comparable.hidden = false;
+                            assert_eq!(walking, comparable);
+                        }
+                        assert_ne!(walking.placement.position, [50, 70]);
+                        let mut scene_restore = engine.clone();
+                        scene_restore.movers.get_mut(&1).unwrap().hidden = true;
+                        let saved = scene_restore.capture_scene_movers();
+                        scene_restore
+                            .restore_scene_movers(&resources, &saved)
+                            .unwrap();
+                        assert!(!scene_restore.movers[&1].hidden);
                         let original = Snapshot::capture(&engine, [7; 32]).to_bytes().unwrap();
                         let mut hidden = engine.clone();
                         hidden.movers.get_mut(&1).unwrap().hidden = true;
@@ -11846,7 +12123,7 @@ mod tests {
                     assert!(!live.movers[&1].special_reel());
                 }
                 if scenario == "hidden" {
-                    live.actors.get_mut(1).unwrap().hidden = true;
+                    live.movers.get_mut(&1).unwrap().hidden = true;
                 }
                 if scenario == "early" {
                     live.configuration = Some(
