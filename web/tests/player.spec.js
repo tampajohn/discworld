@@ -37,7 +37,7 @@ test('real WASM canvas, native save import/export, audio controls and device per
     const start = AudioBufferSourceNode.prototype.start;
     AudioBufferSourceNode.prototype.start = function(...args) {
       const evidence = window.audioEvidence;
-      evidence.starts++; evidence.rate = this.buffer.sampleRate; evidence.channels = this.buffer.numberOfChannels;
+      evidence.starts++; evidence.rate = this.buffer.sampleRate; evidence.deviceRate = this.context.sampleRate; evidence.channels = this.buffer.numberOfChannels;
       for (let channel = 0; channel < this.buffer.numberOfChannels; channel++) {
         for (const sample of this.buffer.getChannelData(channel)) {
           if (sample !== 0) evidence.nonzero++;
@@ -63,7 +63,7 @@ test('real WASM canvas, native save import/export, audio controls and device per
   await expect.poll(async () => Number(await page.locator('#game').getAttribute('data-tick'))).toBeGreaterThan(33205);
   await expect.poll(() => page.evaluate(() => window.audioEvidence.starts)).toBeGreaterThan(0);
   const audio = await page.evaluate(() => window.audioEvidence);
-  expect(audio).toMatchObject({ finite: true, rate: 22050, channels: 2 });
+  expect(audio).toMatchObject({ finite: true, rate: audio.deviceRate, channels: 2 });
   expect(audio.nonzero).toBeGreaterThan(0);
   await page.locator('#pause').click();
   await page.waitForTimeout(150); // allow the already-submitted tick to settle

@@ -1,12 +1,13 @@
 import { deviceSave } from './storage.js';
 import { advanceClock } from './clock.js';
+import { AudioResampler } from './audio.js';
 const $ = id => document.getElementById(id);
 const canvas = $('game'), context = canvas.getContext('2d', { alpha: false });
 const worker = new Worker(new URL('./worker.js', import.meta.url), { type: 'module' });
 let serial = 0, ready = false, paused = true, muted = true, epoch = 0;
 let dragging = false;
 let busy = false, previous = performance.now(), elapsed = 0;
-let audioContext, gain, audioEnd = 0;
+let audioContext, gain, resampler, audioEnd = 0;
 const sources = new Set(), pending = new Map();
 function status(text, error = false) {
   $('status').textContent = text;
@@ -39,6 +40,7 @@ function draw(result) {
 function clearAudio() {
   for (const source of sources) { source.stop(); source.disconnect(); }
   sources.clear(); audioEnd = 0;
+  resampler?.reset();
 }
 function pause() {
   paused = true; epoch++; elapsed = 0;
@@ -48,6 +50,7 @@ function pause() {
 async function enableAudio() {
   if (!audioContext) {
     audioContext = new AudioContext();
+    resampler = new AudioResampler(audioContext.sampleRate);
     gain = audioContext.createGain(); gain.connect(audioContext.destination);
     gain.gain.value = muted ? 0 : 1;
     audioContext.onstatechange = () => {
@@ -60,14 +63,16 @@ async function enableAudio() {
 }
 function presentAudio(samples) {
   if (!samples?.length || !audioContext || audioContext.state !== 'running') return;
-  const buffer = audioContext.createBuffer(2, samples.length / 2, 22050);
+  const now = audioContext.currentTime;
+  // Bound presentation latency after a slow frame or device interruption.
+  if (audioEnd > now + .3) clearAudio();
+  samples = resampler.convert(samples);
+  if (!samples.length) return;
+  const buffer = audioContext.createBuffer(2, samples.length / 2, audioContext.sampleRate);
   for (let channel = 0; channel < 2; channel++) {
     const values = buffer.getChannelData(channel);
     for (let i = 0; i < values.length; i++) values[i] = samples[i * 2 + channel];
   }
-  const now = audioContext.currentTime;
-  // Bound presentation latency after a slow frame or device interruption.
-  if (audioEnd > now + .3) clearAudio();
   const start = Math.max(audioEnd, now + .04);
   const source = audioContext.createBufferSource();
   source.buffer = buffer; source.connect(gain); sources.add(source);

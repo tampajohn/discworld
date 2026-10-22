@@ -10,11 +10,36 @@ The core sample player tracks sample ID, playback position, and fractional outpu
 
 PLAYSAMPLE now starts real PCM output; blocking calls remain suspended until the sample is consumed. Missing samples defer the calling script for one tick, following tinlib.cpp. WAITFRAME uses animation step counts, including hidden frames, so the TWG sequence progresses beyond its sample call.
 
-The 150-tick run emits 137812 PCM samples, including 81415 nonzero samples. The local WAV is assets/previews/runtime-sound150.wav. A longer run reaches tick 155 before the next scene requires actor and polygon processes. No actual audio device is opened by the headless tool.
+The early 150-tick smoke run emits 137812 PCM samples, including 81415 nonzero samples. The local WAV is assets/previews/runtime-sound150.wav. This is historical smoke evidence; the runtime now completes the recorded game route. No actual audio device is opened by the headless tool.
+
+## Host presentation
+
+Native and browser hosts mix the original sample channel with SoundFont MIDI
+output. Both preserve continuous sample-rate conversion across engine blocks.
+Native `audio_output::connect` exposes the stereo22050Hz queue as one span so
+rodio does not restart interpolation at each buffer boundary. Browser
+`web/audio.js` retains one stereo frame and an integer conversion phase across
+worker replies, then schedules device-rate WebAudio buffers. Both use linear
+interpolation. Pause/load clears pending presentation audio; mute is a downstream
+gain and does not modify the game state or original sample data.
+
+Regression tests compare a continuous tone delivered as one buffer and as24
+engine blocks at44100Hz and48000Hz. Both old host paths produce different device
+output for those equivalent inputs; the corrected paths are partition invariant
+(native exact equality; browser OfflineAudioContext tolerance1e-6 in Chrome and
+WebKit). Details and local test evidence are in [control.md](control.md).
+This fixes a playback artifact, not the hiss or quantization in original8-bit
+recordings. No denoising is applied.
 
 ## Limits
 
-Speech priority, escape interruption, volume settings, MIDI music, output-device buffering, and browser audio activation remain unimplemented. Tick/audio ordering still needs comparison with a running reference. Snapshot tests cover deterministic PCM continuation in memory, not durable save-file compatibility.
+Live original-menu volume settings remain unfinished. Tick/audio ordering still
+needs comparison with a running reference, and physical iPad listening and
+device-interruption behavior require acceptance testing. Durable session files
+now preserve engine PCM position and complete SoundFont DSP state; original-asset
+tests verify continuation. Cross-platform DSP equality is not claimed. Continuous
+conversion does not by itself prove the absence of mix clipping, device underruns
+or noise in the source recordings.
 
 ## Commands
 

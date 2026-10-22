@@ -993,3 +993,22 @@ audio-continuity-clippy.log and audio-continuity-build.log. This fixes a verifie
 host artifact; it does not prove all reported noise has that cause. Original
 recording noise, mix clipping and physical device underruns are separate. No
 denoising or changes to original speech samples, engine clocks or saves are made.
+
+The browser had a related presentation artifact: separate22050Hz WebAudio buffer
+sources each interpolate their own fragment boundary. OfflineAudioContext tests
+in Chrome and WebKit compare one second of997Hz stereo audio as one buffer versus
+24 engine blocks:23 output samples differ at44100Hz and46 at48000Hz (left channel,
+absolute tolerance1e-6). web/audio.js now carries linear interpolation history
+and integer sample-clock phase across worker replies, then queues buffers at the
+AudioContext's device rate. This avoids per-source resampling. Pause/load/latency
+reset clears history; mute remains a downstream gain. It retains at most one
+input stereo frame, adding at most one input-frame lookahead, without changing
+engine samples or save state. Synthetic tests cover partition invariance, exact
+output count, reset, invalid-input atomicity and8000/22050/44100/48000/96000Hz.
+Actual Chrome/WebKit offline output has zero whole-versus-block differences at
+44100/48000Hz after conversion. This is continuous linear interpolation, not
+denoising, a bandlimited resampler, or proof of physical device underrun behavior.
+Evidence: assets/logs/browser-audio-continuity.log; original-game host tests in
+assets/logs/browser-audio-full-tests.log. Physical iPad listening remains open.
+The full browser run passed24 Chrome/WebKit cases plus four Node audio/clock
+tests, including original-game playback, mute, interruption/resume and save/load.
