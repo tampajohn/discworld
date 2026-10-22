@@ -1230,3 +1230,18 @@ dispatch against explicit CLOSEINVENTORY. Both produce exactly one Save request.
 Existing scene/restart tests and Clippy pass (assets/logs/menu-scene-lifecycle-
 {workspace,clippy}.log). Full restart has a different scheduler lifetime and
 still needs menu integration; host key routing and automatic scheduling remain.
+
+CONTROL_ON now includes an open configuration page in its inventoryActive
+check when restoring control after scripted CONTROL, speech/print completion,
+walking and conversation completion. A dormant controller does not suppress
+tags; the tutorial BOGUS_INV top window is also excluded, matching the pinned
+dialogs.cpp predicate. The menu-key gate likewise checks the engine-owned
+controller even if its caller does not separately report an active menu.
+Speech's separate bTookTags/EnableTags behavior remains unconditional, as in
+tinlib.cpp; this change does not impose a global rule forbidding tag restoration.
+An opt-in core test boots the supplied ISO to tick500, opens the original Main
+menu, and executes a diagnostic CONTROL_ON bytecode call with the menu open and
+closed. It verifies control is restored in both cases and labels only in the
+closed case. Run with DISCWORLD_TEST_ISO and `cargo test --release -p
+discworld-core original_menu_blocks_scripted_control_on_tag_restoration --
+--ignored`. Evidence: assets/logs/menu-control-{assets,workspace,clippy}.log.

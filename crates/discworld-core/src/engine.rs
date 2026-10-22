@@ -1033,6 +1033,15 @@ impl Engine {
         self.control.user_event(self.ticks);
         Ok(())
     }
+    /// V1 inventoryActive includes configuration pages, but excludes the
+    /// tutorial's BOGUS_INV top window. Used by CONTROL_ON's tag restoration.
+    fn control_inventory_active(&self) -> bool {
+        self.active_inventory.is_some()
+            || self
+                .configuration
+                .as_ref()
+                .is_some_and(|menu| menu.page().is_some())
+    }
     /// ProcessKeyEvent/openMenu's gate only. A true result lets the shared menu
     /// controller open key.page(); activation/rendering are a separate step.
     /// Ordinary rejected keys still count as user events, while ENABLEMENU's
@@ -1047,7 +1056,7 @@ impl Engine {
         if next.menu_enabled && key == crate::menu_navigation::Key::Main {
             next.control.apply_at(
                 1,
-                next.active_inventory.is_some() || configuration_active,
+                next.control_inventory_active() || configuration_active,
                 next.world_origin,
             )?;
             if let Some((handle, _)) = &next.declarations.cursor {
@@ -1061,7 +1070,7 @@ impl Engine {
             next.user_event()?;
         }
         let permitted = next.control.enabled
-            && next.active_inventory.is_none()
+            && !next.control_inventory_active()
             && next.top_window.is_none()
             && !configuration_active;
         *self = next;
@@ -3038,7 +3047,7 @@ impl Engine {
         }
         if wait.restore_control {
             self.control
-                .apply_at(1, self.active_inventory.is_some(), self.world_origin)?;
+                .apply_at(1, self.control_inventory_active(), self.world_origin)?;
         }
         if wait.restore_tags {
             self.control.tags_enabled = true;
@@ -3567,7 +3576,8 @@ impl Engine {
                 return Ok(Status::Running);
             }
             if restore_control {
-                self.control.apply_at(1, false, self.world_origin)?;
+                self.control
+                    .apply_at(1, self.control_inventory_active(), self.world_origin)?;
             }
             process
                 .vm
@@ -3645,7 +3655,7 @@ impl Engine {
             }
             if wait.restore_control {
                 self.control
-                    .apply_at(1, self.active_inventory.is_some(), self.world_origin)?;
+                    .apply_at(1, self.control_inventory_active(), self.world_origin)?;
             }
             process
                 .vm
@@ -3693,7 +3703,7 @@ impl Engine {
                         if process.conversation_took_control {
                             self.control.apply_at(
                                 1,
-                                self.active_inventory.is_some(),
+                                self.control_inventory_active(),
                                 self.world_origin,
                             )?;
                         }
@@ -4403,7 +4413,11 @@ impl Engine {
                         return Ok(Status::Running);
                     }
                     if restore_control {
-                        self.control.apply_at(1, false, self.world_origin)?;
+                        self.control.apply_at(
+                            1,
+                            self.control_inventory_active(),
+                            self.world_origin,
+                        )?;
                     }
                     process.vm.complete_library(call, 6, None)?;
                 }
@@ -4742,7 +4756,7 @@ impl Engine {
                     let mode = args(&process.vm, 1)?[0];
                     self.control.apply_at(
                         mode,
-                        self.active_inventory.is_some(),
+                        self.control_inventory_active(),
                         self.world_origin,
                     )?;
                     if mode == 1 {
@@ -5392,6 +5406,85 @@ mod tests {
             engine.declarations.windows[1].as_ref().unwrap().position,
             [100, 100]
         );
+    }
+
+    #[test]
+    #[ignore = "requires DISCWORLD_TEST_ISO"]
+    fn original_menu_blocks_scripted_control_on_tag_restoration() {
+        let data = std::fs::read(std::env::var_os("DISCWORLD_TEST_ISO").unwrap()).unwrap();
+        let iso = crate::iso::Iso::parse(&data).unwrap();
+        let file = |name: &str| {
+            let entry = iso
+                .entries
+                .iter()
+                .find(|entry| entry.path.eq_ignore_ascii_case(name))
+                .unwrap();
+            &data[entry.range.clone()]
+        };
+        let index = crate::resource::parse_index(file("/DISCWLD/INDEX")).unwrap();
+        let mut resources = Resources(
+            index
+                .iter()
+                .map(|entry| file(&format!("/DISCWLD/{}", entry.name)))
+                .collect(),
+        );
+        let strings = crate::text::Strings::new(file("/DISCWLD/ENGLISH.TXT")).unwrap();
+        let bank =
+            SampleBank::new(file("/DISCWLD/ENGLISH.IDX"), file("/DISCWLD/ENGLISH.SMP")).unwrap();
+        let tracks = crate::music::archive(file("/DISCWLD/MIDI.DAT")).unwrap();
+        let mut engine = Engine::bootstrap(&resources).unwrap();
+        while engine.ticks < 500 {
+            engine
+                .tick_content(&resources, Some(&bank), Some(&tracks), Some(&strings))
+                .unwrap();
+        }
+        engine.configuration = Some(
+            crate::menu_controller::Controller::new(crate::menu_controller::Settings {
+                volumes: [255; 3],
+                double_click: 10,
+                swap_buttons: false,
+                text_speed: 50,
+                subtitles: true,
+                flipped: false,
+            })
+            .unwrap(),
+        );
+        engine
+            .open_configuration(&resources, &strings, &[], crate::menu_navigation::Key::Main)
+            .unwrap();
+        // Execute an actual CONTROL_ON bytecode call alongside original menu resources.
+        let code = [0x0a, 0x00, 0x34, 0x33, 0, 0, 0, 0, 3, 0x4e, 14, 0];
+        let handle = Handle(((resources.0.len() as u32) << 23) | 8);
+        resources.0.push(&code);
+        for window_open in [true, false] {
+            let mut instance = engine.clone();
+            if !window_open {
+                instance.close_inventory();
+            }
+            instance
+                .control
+                .apply_at(0, window_open, instance.world_origin)
+                .unwrap();
+            let mut process = ScriptProcess::new(handle);
+            assert_eq!(
+                instance
+                    .run_process(
+                        &resources,
+                        Some(&bank),
+                        Some(&tracks),
+                        Some(&strings),
+                        &mut process
+                    )
+                    .unwrap(),
+                Status::Halted
+            );
+            assert!(instance.control.enabled);
+            assert_eq!(instance.control.tags_enabled, !window_open);
+            assert_eq!(
+                instance.configuration.as_ref().unwrap().page().is_some(),
+                window_open
+            );
+        }
     }
 
     fn fixtures() -> (Vec<u8>, Vec<u8>) {
