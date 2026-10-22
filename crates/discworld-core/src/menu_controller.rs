@@ -475,6 +475,48 @@ impl Controller {
         }
         self.navigation.click_button(point)
     }
+    /// V1 invWalkTo/invAction after physical single/double-click arbitration.
+    /// Right-click uses the single-click path for configuration windows.
+    pub fn click(&mut self, point: [i32; 2], double: bool) -> Result<Dispatch, Error> {
+        use crate::conversation_window::Area;
+        let frame = match self.display.as_ref() {
+            Some(Display::Main(view)) => &view.frame,
+            Some(Display::Confirmation(view)) => &view.frame,
+            Some(Display::Sound(view)) => &view.frame,
+            Some(Display::Settings(view)) => &view.frame,
+            Some(Display::Saves(view)) => &view.frame,
+            None => return Ok(self.dispatch(Outcome::default())),
+        };
+        match frame.layout.inventory_area_at(point) {
+            Area::Outside if !double => {
+                let outcome = self.close();
+                return Ok(self.dispatch(outcome));
+            }
+            Area::Body => {}
+            _ => return Ok(self.dispatch(Outcome::default())),
+        }
+        if self.list_mut().is_some() {
+            if List::row_at(point).is_some() {
+                return self.click_row(point, double);
+            }
+            let list = self.list_mut().unwrap();
+            use crate::save_menu::{Scroll, SliderHit};
+            let action = match list.slider_at(point) {
+                Some(SliderHit::Up) => Some(Scroll::RowUp),
+                Some(SliderHit::Down) => Some(Scroll::RowDown),
+                Some(SliderHit::PageUp) => Some(Scroll::PageUp),
+                Some(SliderHit::PageDown) => Some(Scroll::PageDown),
+                _ => None,
+            };
+            if let Some(action) = action {
+                list.scroll(action);
+                return Ok(self.dispatch(Outcome::default()));
+            }
+        }
+        self.click_settings(point, double);
+        self.click_button(point);
+        Ok(self.dispatch(Outcome::default()))
+    }
     pub fn click_settings(&mut self, point: [i32; 2], double: bool) -> bool {
         let allow_toggle = !self.navigation.busy()
             && !self

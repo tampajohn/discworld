@@ -1261,3 +1261,19 @@ cursor monitoring, and unchanged world-process queues after resolved gestures,
 raw left/right edges and development primary clicks. The menu transition test
 also passes with initial hover enabled. Evidence:
 assets/logs/menu-pointer-{core-assets,web-assets,workspace,clippy}.log.
+
+Controller::click now routes resolved single/double menu gestures through original
+frame hit testing: single outside closes, double outside and header/border clicks
+do nothing, body clicks dispatch rows, buttons, toggles and save-list arrow/page
+scrolls. Right-click is the single path. Engine::configuration_click wraps this
+with transactional event accounting, control gating, tag restoration and an
+explicit returned Dispatch. Save/Load row double actions resolve the already
+selected entry immediately, close the window, and return the request and draft;
+callers must consume this result before advancing. It does not write a save.
+Physical mouse classification, drag routing and host dispatch consumption remain
+unconnected; existing hosts do not yet call this API.
+Original-asset tests exercise the combined controller click path on every page,
+right-click Main navigation, immediate Save selection despite double-clicking a
+different row, no duplicate deferred request, list arrow clicks, outside single
+versus double, and disabled-control rejection. Evidence:
+assets/logs/menu-click-{assets,workspace,clippy}.log.

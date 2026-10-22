@@ -108,11 +108,7 @@ fn original_menu_controller_transitions_render_and_resolve_live_selection() {
         let mut original = Controller::new(settings.clone()).unwrap();
         original.open(page, &assets).unwrap();
         original.point_at(Some(point));
-        if matches!(page, Page::Controls | Page::Subtitles) {
-            original.click_settings(point, false);
-        } else {
-            original.click_button(point);
-        }
+        original.click(point, false).unwrap();
         if page == Page::Sound {
             original
                 .sound_mut()
@@ -629,10 +625,11 @@ fn engine_menu_opening_preserves_gates_warps_and_atomicity() {
         .unwrap();
     assert!(
         engine
-            .configuration
-            .as_mut()
+            .configuration_click([90, 59], discworld_core::engine::PolygonInteraction::Look)
             .unwrap()
-            .click_button([90, 59])
+            .outcome
+            .request
+            .is_none()
     );
     let pending = engine.clone();
     assert!(
@@ -749,6 +746,82 @@ fn engine_menu_opening_preserves_gates_warps_and_atomicity() {
         requests,
         vec![discworld_core::menu_navigation::Request::Save]
     );
+    use discworld_core::{
+        engine::PolygonInteraction as Gesture,
+        menu_navigation::{Page, Request},
+        save_menu::{Entry, Target},
+    };
+    let catalog = [Entry {
+        id: 7,
+        description: b"Library".to_vec(),
+    }];
+    engine
+        .open_configuration(&resources, &strings, &catalog, Key::Save)
+        .unwrap();
+    engine.configuration_click([50, 63], Gesture::Look).unwrap();
+    let save = engine
+        .configuration_click([50, 48], Gesture::Action)
+        .unwrap();
+    assert_eq!(save.outcome.request, Some(Request::Save));
+    assert_eq!(
+        save.selection,
+        Some((Target::Existing(7), b"Library".to_vec()))
+    );
+    assert!(engine.control.tags_enabled);
+    assert!(engine.configuration.as_ref().unwrap().page().is_none());
+    assert!(
+        engine
+            .advance_configuration(&resources, &strings, &catalog)
+            .unwrap()
+            .outcome
+            .request
+            .is_none()
+    );
+    engine
+        .open_configuration(&resources, &strings, &catalog, Key::Load)
+        .unwrap();
+    engine
+        .configuration_click([224, 181], Gesture::WalkTo)
+        .unwrap();
+    assert_eq!(
+        engine
+            .configuration
+            .as_mut()
+            .unwrap()
+            .list_mut()
+            .unwrap()
+            .first(),
+        1
+    );
+    engine
+        .configuration_click([224, 43], Gesture::Action)
+        .unwrap();
+    assert_eq!(
+        engine
+            .configuration
+            .as_mut()
+            .unwrap()
+            .list_mut()
+            .unwrap()
+            .first(),
+        0
+    );
+    engine.configuration_click([0, 0], Gesture::Action).unwrap();
+    assert_eq!(
+        engine.configuration.as_ref().unwrap().page(),
+        Some(Page::Load)
+    );
+    engine.control.enabled = false;
+    engine.configuration_click([0, 0], Gesture::Look).unwrap();
+    assert_eq!(
+        engine.configuration.as_ref().unwrap().page(),
+        Some(Page::Load)
+    );
+    engine.control.enabled = true;
+    let closed = engine.configuration_click([0, 0], Gesture::Look).unwrap();
+    assert!(closed.outcome.changed && !closed.outcome.write_settings);
+    assert!(engine.configuration.as_ref().unwrap().page().is_none());
+    assert!(engine.control.tags_enabled);
 }
 
 fn roundtrip_pending(game: &mut BrowserGame, ticks: u32) {

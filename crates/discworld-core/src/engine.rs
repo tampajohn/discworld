@@ -1117,6 +1117,31 @@ impl Engine {
         Ok(opened)
     }
 
+    /// Deliver a resolved menu gesture and return any immediate save/load
+    /// request. Hosts must consume the dispatch before advancing the game.
+    pub fn configuration_click(
+        &mut self,
+        point: [i32; 2],
+        interaction: PolygonInteraction,
+    ) -> Result<crate::menu_controller::Dispatch, Error> {
+        let mut next = self.clone();
+        next.left_event()?;
+        let mut dispatch = crate::menu_controller::Dispatch {
+            outcome: crate::menu_navigation::Outcome::default(),
+            selection: None,
+        };
+        if next.control.enabled {
+            if let Some(menu) = &mut next.configuration {
+                let before = menu.page();
+                dispatch = menu.click(point, interaction == PolygonInteraction::Action)?;
+                let changed_page = before != menu.page();
+                next.finish_configuration_transition(before.is_some(), changed_page);
+            }
+        }
+        *self = next;
+        Ok(dispatch)
+    }
+
     /// Escape closes Main, or returns a submenu to Main and requests that the
     /// host persist settings. Input event accounting belongs to the dispatcher.
     pub fn escape_configuration(

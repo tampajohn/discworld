@@ -61,7 +61,7 @@ pub struct List {
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub struct View {
     mode: Mode,
-    frame: crate::conversation_window::Frame,
+    pub(crate) frame: crate::conversation_window::Frame,
     extra: Vec<crate::animation::Animation>,
     thumb: crate::animation::Animation,
     buttons: Vec<crate::animation::Animation>,

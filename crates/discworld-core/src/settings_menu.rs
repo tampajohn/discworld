@@ -111,7 +111,7 @@ impl State {
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub struct SettingsMenu {
     kind: Kind,
-    frame: Frame,
+    pub(crate) frame: Frame,
     labels: Vec<Layout>,
     groove: Animation,
     thumb: Animation,

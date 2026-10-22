@@ -88,7 +88,7 @@ impl ButtonPress {
 /// Original graphic buttons have three distinct reels, not recolored text.
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub struct ConfirmationMenu {
-    frame: Frame,
+    pub(crate) frame: Frame,
     heading: Layout,
     buttons: [[Animation; 3]; 2],
 }
@@ -210,7 +210,7 @@ pub enum Action {
 /// are emitted by drag(), not performed by the presentation component.
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub struct SoundMenu {
-    frame: Frame,
+    pub(crate) frame: Frame,
     labels: Vec<Layout>,
     grooves: Vec<Animation>,
     thumbs: Vec<Animation>,
@@ -426,7 +426,7 @@ const ACTIONS: [Action; 8] = [
 
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub struct MainMenu {
-    frame: Frame,
+    pub(crate) frame: Frame,
     labels: Vec<Layout>,
 }
 
