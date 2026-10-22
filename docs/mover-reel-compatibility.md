@@ -369,3 +369,58 @@ finite audio throughout and match native final engine bytes and RGBA exactly;
 combined DSP saves differ across hosts. See
 [cross-host results](validation/custom-reels-f776192.json). These runs use the
 original mixer and predate optional audio headroom.
+
+## Disabled-axis direct walks: destination and completion contract
+
+Source audit against pinned ScummVM
+`96b42d42bc8533953bdd701db059cc33c839a9ff`, `engines/tinsel/move.cpp`:
+`SetActorDest` (1356), `SetNextDest` (727), `SetMoverDest` (683),
+`NewCoOrdinates` (1052), `NotMoving` (1484), `Move` (1609),
+`MoveActor` (1633), and `DoMoveActor` (1761).
+`movers.cpp::MoverMoving` (275) reads **bMoving** for V1, not whether either
+ultimate target coordinate is enabled. `tinlib.cpp::Walk` (3909) waits on
+that flag in V1; `Swalk` (3131) calls it with hold zero and ignore-path true.
+These findings are source-derived, not observations from a running ScummVM.
+
+The destination must retain its raw sentinel coordinates throughout the walk:
+
+- `SetActorDest` sets bMoving, increments the walk number and clears stop before
+  applying the raw short-distance check: `abs(x - target_x) < 4` and
+  `abs(y - target_y) < 2`. It does not substitute the current position for -1.
+- `SetNextDest` repeats the raw short-distance check. For ignore-path movement
+  it copies the intermediate target directly to the active target.
+- `NewCoOrdinates` makes no displacement on a disabled axis and marks that
+  axis reached. `Move` only updates position, depth, animation and step count;
+  reaching the active coordinates does not itself clear bMoving.
+- On a subsequent zero-displacement attempt, `MoveActor` retries with the
+  minor-axis adjustment, then calls `NotMoving`. That function clears the
+  active target, tests raw distance to the ultimate target, and otherwise
+  re-arms a nonempty intermediate/ultimate target through `SetNextDest`.
+- With both active coordinates -1, `MoveActor` returns **before** checking
+  bStop. A pending stop is therefore not equivalent to an immediate Stand.
+  `DoMoveActor` may retry a stalled active target once in the same update;
+  the both-disabled early return remains inert.
+
+Expected collision-free cases, with a valid current path and no path transition:
+
+| Start | Raw destination | Source-derived result |
+| --- | --- | --- |
+| [100, 50] | [-1, 54] | Positions advance to [100, 52], then [100, 54]; later stalled attempts re-arm the destination and bMoving remains true. |
+| [0, 50] | [-1, 54] | Same vertical displacement; the subsequent stalled attempt meets the raw short-distance check and completes. |
+| [100, 50] | [108, -1] | Positions advance to [104, 50], then [108, 50]; raw vertical distance prevents ordinary completion. |
+| [100, 0] | [108, -1] | Horizontal arrival is followed by completion on the stalled attempt. |
+| [100, 50] | [-1, -1] | No displacement; bMoving remains true, and MoveActor does not consume a stop request. |
+| [0, 0] | [-1, -1] | Initial raw short-distance check completes without setting off. |
+
+A blocking SWALK in a persistent case must remain suspended until an appropriate
+script event resolves it; silently completing it would change original script
+execution. Escape has its separate V1 Stand/owned-control restoration path.
+
+Implementation follow-through must retain both the raw ultimate destination
+and active-leg target, preserve the inert-target ordering relative to stop,
+and check the existing save validator before allowing these states. Extend
+mover and script tests for the cases above, both stop and Escape, custom/normal
+reels, control ownership, outside-path entry, collision detours, and exact
+snapshot continuation. Existing `walk::Leg` tests only establish coordinate
+stepping and overshoot behavior, not completion or coroutine semantics. The
+runtime guard remains until that integration and validation are complete.
