@@ -54,3 +54,20 @@ Render initial gameplay output and save PCM as WAV using new output paths:
 ```sh
 cargo run --release -p discworld-tools -- run-headless "Terry Pratchett's Discworld (1995)(Psygnosis).iso" 150 assets/previews/intro.png assets/previews/intro.wav
 ```
+
+Menu music volume is applied by `MusicOutput::render_engine_music` in the native,
+WASM and headless rendering paths. The controller's music value (0–255) becomes
+linear output gain after SoundFont synthesis and before sample PCM is mixed.
+Without a controller, gain remains unity. Even at zero gain every MIDI event and
+DSP sample is consumed; gain does not change the synth checkpoint or script clock.
+The full-volume branch preserves existing output without additional arithmetic.
+This supplies host mixer control; it does not claim an exact gain curve match to
+every ScummVM MIDI driver or original sound card. The pinned music.cpp volume
+setter updates both the music mixer category and the MIDI player.
+
+The SoundFont regression checks zero, intermediate and full gain against the
+same active notes, identical DSP checkpoints at each gain, uninterrupted unmute
+after checkpoint restoration, and invalid-volume rejection before mutation.
+Workspace tests, the opt-in SoundFont regression, Clippy and the web WASM check
+pass (assets/logs/music-volume-*.log). Separate speech/effects gain still needs
+persistent channel classification; the music slider never scales sample PCM.

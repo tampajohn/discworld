@@ -144,6 +144,40 @@ impl MusicOutput {
         self.render_to(end, &mut output);
         Ok(output)
     }
+    /// Apply the menu music gain after synthesis. Even at zero volume the DSP
+    /// must consume every event/sample so unmuting and saves remain continuous.
+    pub fn render_with_volume(
+        &mut self,
+        end_tick: u64,
+        messages: &[Message],
+        volume: u16,
+    ) -> Result<Vec<f32>, &'static str> {
+        if volume > 255 {
+            return Err("invalid music volume");
+        }
+        let mut output = self.render(end_tick, messages)?;
+        if volume != 255 {
+            let gain = f32::from(volume) / 255.0;
+            for sample in &mut output {
+                *sample *= gain;
+            }
+        }
+        Ok(output)
+    }
+
+    /// Render the committed engine tick with its current menu music setting.
+    /// Sample PCM is mixed separately; the music slider must not attenuate it.
+    pub fn render_engine_music(
+        &mut self,
+        engine: &discworld_core::engine::Engine,
+    ) -> Result<Vec<f32>, &'static str> {
+        let volume = engine
+            .configuration
+            .as_ref()
+            .map_or(255, |menu| menu.settings().volumes[0]);
+        self.render_with_volume(engine.music.clock, &engine.music_frame, volume)
+    }
+
     fn render_to(&mut self, end: u64, output: &mut Vec<f32>) {
         let count = (end - self.sample) as usize;
         if count == 0 {
@@ -179,6 +213,35 @@ mod tests {
             status,
             data: data.to_vec(),
         };
+        let initial = original.checkpoint_bytes().unwrap();
+        assert!(original.render_with_volume(7, &[], 256).is_err());
+        assert_eq!(original.checkpoint_bytes().unwrap(), initial);
+        let notes = [message(0, 0x90, &[60, 100])];
+        let mut full = original.clone();
+        let reference = full.render(7, &notes).unwrap();
+        assert!(reference.iter().any(|sample| sample.abs() > 0.00001));
+        for volume in [0, 128, 255] {
+            let mut scaled = original.clone();
+            let actual = scaled.render_with_volume(7, &notes, volume).unwrap();
+            let expected: Vec<_> = reference
+                .iter()
+                .map(|sample| sample * (f32::from(volume) / 255.0))
+                .collect();
+            assert_eq!(actual, expected);
+            assert_eq!(
+                scaled.checkpoint_bytes().unwrap(),
+                full.checkpoint_bytes().unwrap(),
+                "gain must not modify DSP continuation"
+            );
+            let mut resumed =
+                MusicOutput::from_checkpoint(&font, &scaled.checkpoint_bytes().unwrap()).unwrap();
+            let mut control = full.clone();
+            assert_eq!(
+                resumed.render_with_volume(12, &[], 255).unwrap(),
+                control.render(12, &[]).unwrap(),
+                "unmuting resumes at the same sample"
+            );
+        }
         let first = original
             .render(
                 7,

@@ -207,7 +207,7 @@ impl BrowserGame {
                     .map_err(error)?;
                 let mut audio = self
                     .audio
-                    .render(self.engine.music.clock, &self.engine.music_frame)
+                    .render_engine_music(&self.engine)
                     .map_err(error)?;
                 if audio.len() != self.engine.audio_frame.len() * 2 {
                     return Err("audio clock mismatch".into());

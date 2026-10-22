@@ -190,7 +190,7 @@ fn run() -> Result<(), Box<dyn std::error::Error>> {
             &strings,
             saves,
         )?;
-        let mut output = synth.render(engine.music.clock, &engine.music_frame)?;
+        let mut output = synth.render_engine_music(engine)?;
         if output.len() != engine.audio_frame.len() * 2 {
             return Err("audio clock mismatch".into());
         }

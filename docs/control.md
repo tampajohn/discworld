@@ -1454,3 +1454,11 @@ Clippy and release build pass (assets/logs/native-settings-*.log). The existing
 visible session remains on its running binary to preserve unsaved progress;
 the rebuilt executable reads preferences on its next launch. Separate audio
 channel gain application and browser menu/preferences integration remain open.
+
+Music slider application now uses the same post-synthesis gain path in native,
+browser/WASM and headless audio. A controller-free engine retains full volume.
+Zero music gain does not stop DSP advancement, change script waits or alter the
+synth checkpoint. Tests compare active-note output and exact continuation at
+0/128/255 gain. Speech/effects slider separation remains pending, as does browser
+menu UI wiring. This change has not been live-reloaded into the existing native
+process; preserving its unsaved state takes precedence over restarting it.

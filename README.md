@@ -43,7 +43,7 @@ a directory with the `.slots` extension (default `discworld-save.slots`). Save
 names use the original game font. Menu service tests pass with original assets;
 automated end-to-end SDL click/typing validation is still pending. Preferences are atomically stored in `<save-stem>.settings.json` when Escape
 returns from a submenu. A restored game retains its checkpoint settings.
-Independent music/speech/effects volume application remains unfinished; **M** still mutes the whole output when a menu is closed.
+Music volume is applied independently. Separate speech/effects volume application remains unfinished; **M** still mutes the whole output when a menu is closed.
 
 Separate-process tests reproduce engine/DSP state, frames, and mixed speech/music PCM exactly, including an open Luggage inventory with its background. Native startup load, F5 save, and F9 reload are visually verified at the ending credits; broader in-game and failure-recovery checks remain. Browser manual saves support import/export and IndexedDB; automatic asset persistence and autosave remain unfinished.
 

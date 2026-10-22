@@ -298,7 +298,7 @@ pub fn headless(
                     text_calls.push_back(serde_json::json!({"tick":entry.tick,"scene":index[engine.scene.resource()].name,"script":entry.script.0,"instruction":entry.call.instruction,"operation":discworld_core::library::name(entry.call.id),"operands":entry.operands}));
                 }
                 if let Some(synth) = &mut synth {
-                    let music = synth.render(engine.music.clock, &engine.music_frame)?;
+                    let music = synth.render_engine_music(&engine)?;
                     midi_count += engine.music_frame.len();
                     if music.len() != engine.audio_frame.len() * 2 {
                         return Err("audio clock mismatch".into());
