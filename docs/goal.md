@@ -49,8 +49,14 @@ The intro-aware native runtime at `1ac8f90` completed the recorded route:
 `title.scn`. It passed 5,048 engine and 5,048 DSP snapshot audits; the final
 image was inspected. See [native audit](validation/intro-startup-1ac8f90.json).
 This route contains no Escape inputs. The subsequent `cbb7d6b` host Escape
-routing has focused keyboard/touch tests; its full cross-host audit remains
-pending and is not covered by this native result.
+routing has focused keyboard/touch tests. Its separate full cross-host audit
+is now complete: native, Chrome and WebKit each reached restart/title at
+2,630,000 ticks with all 1,652 inputs accepted. Both browsers match native
+final core bytes and RGBA exactly. Native passed 5,048 engine and 5,048 DSP
+snapshot checks; browser generated audio remained finite. Combined DSP saves
+differ across platforms. See [cross-host evidence](validation/escape-host-cbb7d6b.json).
+This audit predates the later null-film validation correction and contains
+no Escape inputs; the focused Escape tests remain separate evidence.
 
 Current development archives at `cbb7d6b` passed extracted-package startup
 checks on native macOS, Chrome and WebKit, including the optional audio
@@ -58,7 +64,7 @@ headroom control. See [package evidence](validation/packages-cbb7d6b.json).
 These checks do not establish full-route or physical-device acceptance.
 
 
-Latest completed cross-host route validation: runtime `f776192` passes 2,630,000 ticks in
+Earlier completed cross-host route validation: runtime `f776192` passes 2,630,000 ticks in
 native, Chrome and WebKit with exact final engine state and pixels. Native
 passes 5,048 engine snapshot and 5,048 DSP continuation audits. The new walking
 speech behavior has separate interruption, scene-reset and original-asset

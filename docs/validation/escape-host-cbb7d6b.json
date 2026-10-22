@@ -1,0 +1,69 @@
+{
+  "runtime_revision": "cbb7d6b46cfe176207a534ca3add241b3c17fec6",
+  "route": "evidence/act4-ending-input.json",
+  "route_sha256": "30c227553695638a78495f4cf56731f841e89188c8faa75821e50c164ddf4ddb",
+  "schema": 1,
+  "local_artifacts": "assets/validation/escape-host-cbb7d6b",
+  "artifact_sha256": {
+    "target/release/discworld-tools": "96f86dae09e560bce6d0731e6014fba1471804aa2b681a3472b159490a5eae8c",
+    "web/replay-pkg/discworld_web_bg.wasm": "d1dc98a8a636376ec5724d1cc80ba0aaf1414f3b4e7b5104fcc520a7394cbc1a",
+    "web/tests/replay-worker.js": "2f5109458e6d2efc656c693177556bb6bbe46a6185f80cd5e8efc8da22385511",
+    "scripts/run-browser-replay.cjs": "a6b7c566bc7565d3bfb50df7e5b79adf498e38ea74b9a98ea23aab56c11c1498"
+  },
+  "native": {
+    "ticks": 2630000,
+    "status": "Running",
+    "scene_name": "title.scn",
+    "has_restarted": true,
+    "snapshot_checks": 5048,
+    "audio_snapshot_checks": 5048,
+    "snapshot_max_bytes": 48155,
+    "audio_snapshot_max_bytes": 317221,
+    "accepted_inputs": 1652,
+    "report_sha256": "0d56aa96e4af901e4e12f18a7bf4dffb9e83a33f571eb0649a81f03aec7a8763"
+  },
+  "browsers": {
+    "chrome": {
+      "browser_version": "156.0.8078.47",
+      "ticks": 2630000,
+      "scene": "title.scn",
+      "has_restarted": true,
+      "accepted_inputs": 1652,
+      "audio_samples": 4832625000,
+      "nonfinite_audio_samples": 0,
+      "elapsed_seconds": 598.890599999994,
+      "rgba_sha256": "8833cac8d0cc20ebbfa5e7158676914ad7d9a82222812a3a91568cbb5a6e8978",
+      "core_sha256": "d4a60d7dd6637c3c8f5cd5131b29868e40afd06f45559e7cd8dafa42711de4eb",
+      "engine_bytes_equal": true,
+      "rgba_equal": true,
+      "combined_save_equal": false,
+      "report_sha256": "038b76bd295b631fb43c971f4d352ea2574cf9411b1f854fd327334b67b04b56",
+      "comparison_sha256": "24331961401614107274e82733b35bda5a5bc3b0ea4fb193a07be093d03d60e4"
+    },
+    "webkit": {
+      "browser_version": "27.2",
+      "ticks": 2630000,
+      "scene": "title.scn",
+      "has_restarted": true,
+      "accepted_inputs": 1652,
+      "audio_samples": 4832625000,
+      "nonfinite_audio_samples": 0,
+      "elapsed_seconds": 618.344,
+      "rgba_sha256": "8833cac8d0cc20ebbfa5e7158676914ad7d9a82222812a3a91568cbb5a6e8978",
+      "core_sha256": "d4a60d7dd6637c3c8f5cd5131b29868e40afd06f45559e7cd8dafa42711de4eb",
+      "engine_bytes_equal": true,
+      "rgba_equal": true,
+      "combined_save_equal": false,
+      "report_sha256": "b1a15b04606ecedde2b6f5b5d21f82a14720ac4b84be6a586149d056ef8f025a",
+      "comparison_sha256": "24331961401614107274e82733b35bda5a5bc3b0ea4fb193a07be093d03d60e4"
+    }
+  },
+  "scope": [
+    "Accelerated recorded full route with original assets and semantic inputs; not a complete manual UI or touch playthrough.",
+    "Includes intro-aware startup and host Escape routing, but the route contains no Escape inputs.",
+    "Final native image visually inspected; browser final RGBA and core bytes exactly match native.",
+    "Native engine/DSP snapshot continuations audited; browser generated audio checked for finite samples but not sent through WebAudio.",
+    "Combined DSP saves differ across platforms; identical audio output is not established.",
+    "Predates b7ab619 null-film validation correction. Physical iPad acceptance remains outstanding."
+  ]
+}
