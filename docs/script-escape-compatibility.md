@@ -2,9 +2,10 @@
 
 Reference revision: 96b42d42bc8533953bdd701db059cc33c839a9ff.
 Current implementation is incomplete: the engine captures global/per-context
-escape generations and handles WAITTIME cancellation, with DWRSAVE v14 state.
+escape generations and handles WAITTIME plus scripted-walking cancellation,
+with DWRSAVE v14 state.
 Native/browser Escape still handles configuration/inventory UI; the shared
-script event API is not connected to hosts. Movement/film/speech cancellation
+script event API is not connected to hosts. Film/speech cancellation
 and the special intro skip path remain pending.
 
 ## Observed reference contract
@@ -127,3 +128,31 @@ handlers, intro exception or host routing are implemented.
 Counter validation: workspace tests, Clippy, WASM checking and all 18
 original-asset tests pass (`assets/logs/escape-counter-*`). The additional
 master/legacy migration case passes in the focused escape regression run.
+
+
+## Scripted walking cancellation
+
+WALK now uses the original requested coordinates on stale escape at entry or
+while suspended, then completes its call. It does not resolve them as a new
+mouse click. WALKED returns true on its escape path; an event during its initial
+24-tick V1 sleep is checked after that sleep and movement startup, preserving
+the reference's ordering. A newer walk serial still supersedes an old waiter.
+
+WALKTAG uses the polygon node and V1 StandTag pose on escape. Only the lead actor
+uses the polygon film in this escape path; ordinary completion retains its
+separate arrival-pose behavior. SWALK that is already escaped at entry returns
+without standing or taking control in V1. A suspended SWALK uses Walk's escape
+standing behavior and restores control if that invocation took it. Existing
+STAND and cancellation share the same checked mover-placement implementation.
+
+The walking bytecode regression now includes escape before entry, escape during
+movement and escape during WALKED's initial delay, in addition to normal/stop
+cases. It covers custom/zero films, ordinary/node paths, outside-path SWALK
+entrances, control initially enabled/disabled, WALK hold modes, return values,
+arrival poses and exact save/load continuation each tick. Host Escape remains
+disconnected while film/speech and pre-title intro cancellation are unfinished.
+
+Walking cancellation validation: workspace tests, Clippy, WASM checking and
+all 18 original-asset tests pass (`assets/logs/escape-walk-*`). The original
+assets run without host escape input; explicit cancellation is covered by the
+synthetic script cases above. The running fb49b7e route predates this change.

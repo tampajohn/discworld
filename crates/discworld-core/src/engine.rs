@@ -3942,6 +3942,62 @@ impl Engine {
         Ok(())
     }
 
+    fn stand_mover(
+        &mut self,
+        resources: &Resources<'_>,
+        actor: i32,
+        position: [i32; 2],
+        film: Handle,
+    ) -> Result<(), Error> {
+        let id = u32::try_from(actor).map_err(|_| Error("invalid mover actor"))?;
+        self.actors.get(id)?;
+        if let Some(mover) = self.movers.get_mut(&actor) {
+            mover.stand(
+                resources,
+                &self.declarations,
+                &self.polygons,
+                position,
+                film,
+            )?;
+        } else {
+            let placement = crate::mover::Placement::initial(
+                &self.declarations,
+                &self.polygons,
+                actor,
+                position,
+                film,
+            )?;
+            self.movers
+                .insert(actor, crate::mover::Mover::new(resources, placement)?);
+        }
+        self.actors.get_mut(id)?.position = self.movers[&actor].placement.position;
+        Ok(())
+    }
+    fn escape_stand_tag(
+        &mut self,
+        resources: &Resources<'_>,
+        actor: i32,
+        polygon: Option<usize>,
+    ) -> Result<(), Error> {
+        let tag = &self
+            .polygons
+            .active
+            .get(polygon.ok_or(Error("WALKTAG requires polygon context"))?)
+            .ok_or(Error("invalid WALKTAG polygon"))?
+            .definition;
+        let film = if self
+            .declarations
+            .lead
+            .as_ref()
+            .is_some_and(|lead| lead.id == actor)
+        {
+            tag.film
+        } else {
+            Handle(0)
+        };
+        self.stand_mover(resources, actor, tag.node_position, film)
+    }
+
     fn run_process(
         &mut self,
         resources: &Resources<'_>,
@@ -3950,6 +4006,7 @@ impl Engine {
         strings: Option<&crate::text::Strings<'_>>,
         process: &mut ScriptProcess,
     ) -> Result<Status, Error> {
+        Self::migrate_escape(&mut self.escape_events, &mut process.vm);
         if let Some(index) = self
             .inventory_hover
             .waits
@@ -4107,14 +4164,20 @@ impl Engine {
                 .get(&wait.actor)
                 .ok_or(Error("WALKED mover disappeared"))?;
             if wait.serial == Some(mover.walk_serial) && mover.walk_target.is_some() {
-                process.walked_wait = Some(wait);
-                return Ok(Status::Running);
+                if self.escaped(&process.vm) {
+                    self.stand_mover(resources, wait.actor, wait.target, Handle(0))?;
+                    process.vm.complete_library(wait.call, 4, Some(1))?;
+                } else {
+                    process.walked_wait = Some(wait);
+                    return Ok(Status::Running);
+                }
+            } else {
+                let reached = wait.serial == Some(mover.walk_serial)
+                    && mover.placement.position == wait.target;
+                process
+                    .vm
+                    .complete_library(wait.call, 4, Some(i32::from(reached)))?;
             }
-            let reached =
-                wait.serial == Some(mover.walk_serial) && mover.placement.position == wait.target;
-            process
-                .vm
-                .complete_library(wait.call, 4, Some(i32::from(reached)))?;
         }
         if let Some((call, actor, serial, restore_control)) = process.walk_wait {
             let Some(mover) = self.movers.get(&actor) else {
@@ -4123,7 +4186,16 @@ impl Engine {
             if mover.walk_serial != serial {
                 return Ok(Status::Halted);
             }
-            if mover.walk_target.is_some() {
+            if self.escaped(&process.vm) {
+                let a = args(&process.vm, if call.id == 87 { 5 } else { 6 })?;
+                let target = if call.id == 87 {
+                    [a[1], a[2]]
+                } else {
+                    [a[3], a[4]]
+                };
+                self.stand_mover(resources, actor, target, Handle(0))?;
+            }
+            if self.movers[&actor].walk_target.is_some() {
                 return Ok(Status::Running);
             }
             if restore_control {
@@ -4136,6 +4208,7 @@ impl Engine {
             process.walk_wait = None;
         }
         if let Some((call, actor, serial, film)) = process.tag_walk_wait {
+            let escaped = self.escaped(&process.vm);
             let Some(mover) = self.movers.get_mut(&actor) else {
                 return Ok(Status::Halted);
             };
@@ -4143,9 +4216,14 @@ impl Engine {
                 return Ok(Status::Halted);
             }
             if mover.walk_target.is_some() {
-                return Ok(Status::Running);
+                if escaped {
+                    self.escape_stand_tag(resources, actor, process.polygon)?;
+                } else {
+                    return Ok(Status::Running);
+                }
+            } else {
+                mover.adopt_tag_pose(resources, &self.declarations, film)?;
             }
-            mover.adopt_tag_pose(resources, &self.declarations, film)?;
             process.vm.complete_library(call, 3, None)?;
             process.tag_walk_wait = None;
         }
@@ -4249,7 +4327,6 @@ impl Engine {
             process.vm.complete_library(call, 2, None)?;
             process.sample_wait = None;
         }
-        Self::migrate_escape(&mut self.escape_events, &mut process.vm);
         if let Some((call, left)) = process.wait {
             if left > 1 && !(call.id == 86 && self.escaped(&process.vm)) {
                 process.wait = Some((call, left - 1));
@@ -4734,6 +4811,11 @@ impl Engine {
                     } else {
                         a[0]
                     };
+                    if self.escaped(&process.vm) {
+                        self.stand_mover(resources, actor, [a[1], a[2]], Handle(0))?;
+                        process.vm.complete_library(call, 4, Some(1))?;
+                        continue;
+                    }
                     if !self.movers.contains_key(&actor) {
                         return Err(Error("WALKED actor has no mover"));
                     }
@@ -4757,6 +4839,11 @@ impl Engine {
                     } else {
                         a[0]
                     };
+                    if self.escaped(&process.vm) {
+                        self.stand_mover(resources, actor, [a[1], a[2]], Handle(0))?;
+                        process.vm.complete_library(call, 5, None)?;
+                        continue;
+                    }
                     let cursor = [
                         self.control.cursor[0]
                             .checked_add(self.world_origin[0])
@@ -4814,6 +4901,11 @@ impl Engine {
                     } else {
                         a[0]
                     };
+                    if self.escaped(&process.vm) {
+                        self.escape_stand_tag(resources, actor, Some(polygon))?;
+                        process.vm.complete_library(call, 3, None)?;
+                        continue;
+                    }
                     let definition = &self
                         .polygons
                         .active
@@ -4870,6 +4962,10 @@ impl Engine {
                 }
                 75 => {
                     let a = args(&process.vm, 6)?;
+                    if self.escaped(&process.vm) {
+                        process.vm.complete_library(call, 6, None)?;
+                        continue;
+                    }
                     let actor = if a[0] == -2 {
                         self.declarations
                             .lead
@@ -5060,28 +5156,7 @@ impl Engine {
                     if !self.declarations.movers.contains_key(&actor) {
                         return Ok(Status::Unsupported(call));
                     }
-                    let id = u32::try_from(actor).map_err(|_| Error("invalid mover actor"))?;
-                    self.actors.get(id)?;
-                    if let Some(mover) = self.movers.get_mut(&actor) {
-                        mover.stand(
-                            resources,
-                            &self.declarations,
-                            &self.polygons,
-                            [a[1], a[2]],
-                            Handle(a[3] as u32),
-                        )?;
-                    } else {
-                        let placement = crate::mover::Placement::initial(
-                            &self.declarations,
-                            &self.polygons,
-                            actor,
-                            [a[1], a[2]],
-                            Handle(a[3] as u32),
-                        )?;
-                        let mover = crate::mover::Mover::new(resources, placement)?;
-                        self.movers.insert(actor, mover);
-                    }
-                    self.actors.get_mut(id)?.position = self.movers[&actor].placement.position;
+                    self.stand_mover(resources, actor, [a[1], a[2]], Handle(a[3] as u32))?;
                     process.vm.complete_library(call, consumed, None)?;
                 }
                 38 => {
@@ -8103,13 +8178,21 @@ mod tests {
                 (75, 0, 110),
                 (75, 1, 110),
             ] {
-                for (target_x, stop, custom) in [
-                    (80, false, true),
-                    (80, true, true),
-                    (50, false, true),
-                    (50, false, false),
-                    (80, false, false),
+                for (target_x, interrupt, custom) in [
+                    (80, 0, true),
+                    (80, 1, true),
+                    (50, 0, true),
+                    (50, 0, false),
+                    (80, 0, false),
+                    (80, 2, true),
+                    (80, 3, true),
+                    (80, 2, false),
+                    (80, 4, true),
                 ] {
+                    if interrupt == 4 && call != 88 {
+                        continue;
+                    }
+                    let stop = interrupt == 1;
                     let (master, mut scene) = fixtures();
                     let base = 2u32 << 23;
                     let mut code = if call == 75 {
@@ -8158,7 +8241,7 @@ mod tests {
                     engine.globals.resize(2, 0);
                     engine.actors = crate::actor::Actors::new(1).unwrap();
                     engine.no_blocking = true;
-                    if call == 75 {
+                    if call == 75 || (call == 91 && interrupt >= 2) {
                         engine.declarations.lead = Some(crate::startup::Lead {
                             id: 1,
                             text: Handle(0),
@@ -8224,9 +8307,33 @@ mod tests {
                     engine
                         .movers
                         .insert(1, crate::mover::Mover::new(&resources, placement).unwrap());
+                    if interrupt >= 2 {
+                        engine.escape_events = Some(1);
+                        for vm in engine.escape_contexts_mut() {
+                            vm.escape_enabled = true;
+                            vm.escape_generation = Some(1);
+                        }
+                        if interrupt == 3 {
+                            engine.script_escape_event().unwrap();
+                        }
+                    }
+                    let mut escaped = interrupt == 3;
                     let mut saw_custom = false;
                     let mut stopped_at = None;
                     for tick in 0..80 {
+                        if interrupt == 4 && tick == 1 {
+                            engine.script_escape_event().unwrap();
+                            escaped = true;
+                        }
+                        if interrupt == 2
+                            && !escaped
+                            && tick > 0
+                            && engine.movers[&1].placement.position[0] != i32::from(start_x)
+                            && engine.movers[&1].walk_target.is_some()
+                        {
+                            engine.script_escape_event().unwrap();
+                            escaped = true;
+                        }
                         if stop
                             && stopped_at.is_none()
                             && tick > 0
@@ -8248,7 +8355,7 @@ mod tests {
                         );
                         let mover = &engine.movers[&1];
                         saw_custom |= mover.last_film == Handle(base + 64);
-                        if call == 88 && tick < 24 {
+                        if call == 88 && tick < 24 && interrupt != 3 {
                             assert_eq!(mover.placement.position, [50, 70]);
                             assert_eq!(mover.last_film, Handle(base));
                             assert_eq!(mover.walk_serial, 0);
@@ -8264,22 +8371,33 @@ mod tests {
                         {
                             assert_eq!(engine.globals[0], 0, "blocking WALK must not return early");
                         }
-                        if mover.walk_serial > 0
-                            && mover.walk_target.is_none()
-                            && engine.processes.is_empty()
-                        {
+                        if mover.walk_target.is_none() && engine.processes.is_empty() {
                             break;
                         }
                     }
                     let mover = &engine.movers[&1];
-                    assert_eq!(saw_custom, custom && target_x != start_x);
+                    assert_eq!(
+                        saw_custom,
+                        custom && target_x != start_x && !matches!(interrupt, 3 | 4)
+                    );
                     assert_eq!(mover.walk_target, None);
                     assert_eq!(
                         mover.placement.position,
-                        stopped_at.unwrap_or([i32::from(target_x), 70])
+                        if call == 75 && interrupt == 3 {
+                            [50, 70]
+                        } else {
+                            stopped_at.unwrap_or([i32::from(target_x), 70])
+                        }
                     );
                     assert_eq!(mover.last_film, Handle(base));
-                    assert_eq!(mover.walk_serial, 1 + u64::from(stop));
+                    assert_eq!(
+                        mover.walk_serial,
+                        if interrupt == 3 {
+                            0
+                        } else {
+                            1 + u64::from(stop)
+                        }
+                    );
                     assert_eq!(
                         engine.globals[0],
                         if stop && ((call == 87 && hold != 2) || call == 91 || call == 75) {
