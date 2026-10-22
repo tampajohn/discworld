@@ -22,13 +22,13 @@
 <section id="player" hidden aria-label="Discworld player">
 <div class="screen"><canvas id="game" width="320" height="200" tabindex="0" aria-label="Game scene"></canvas></div>
 <nav class="controls" aria-label="Game controls">
-<button id="pause">Play</button><button id="mute" aria-pressed="true">Sound off</button>
+<button id="pause">Play</button><button id="options">Options</button><button id="mute" aria-pressed="true">Sound off</button>
 <select id="action" aria-label="Tap action"><option value="click">Walk / select</option><option value="action">Action</option><option value="look">Look</option></select>
 <button data-input="continue">Continue</button><button data-input="pockets">Pockets</button><button data-input="close">Close</button><button data-input="up" aria-label="Scroll inventory up">↑</button><button data-input="down" aria-label="Scroll inventory down">↓</button>
 </nav>
 <details><summary>Saved games &amp; controls</summary>
 <div class="controls"><button id="save-local">Save on device</button><button id="load-local">Load device save</button><button id="export">Export save</button><label class="file-button">Import save <input id="import" type="file" accept=".dws"></label></div>
-<p class="note">Mouse or touch selects a location. Choose Action or Look before tapping. Keyboard: W walk, A action, L look, I pockets, Backspace close, Space continue, P pause, M sound. Saving on device replaces its previous slot. Export a copy to keep it.</p>
+<p class="note">Mouse or touch selects a location. Choose Action or Look before tapping. Keyboard: F1 options, F5 save menu, F7 load menu, Escape leave menu; W walk, A action, L look, I pockets, Backspace close, Space continue, P pause, M sound. Saving on device replaces its previous slot. Export a copy to keep it.</p>
 </details>
 </section>
 <p id="status" role="status" aria-live="polite">Choose your game files to begin.</p>

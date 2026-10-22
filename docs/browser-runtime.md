@@ -328,3 +328,37 @@ the record and optionally exports the unchanged session with no-replace atomic
 publication. Browser manual-save behavior remains available; original F1/menu
 integration, settings persistence, catalog asset filtering and physical iPad
 acceptance are still unfinished.
+
+Original menus are now connected to the browser worker. F1 or the Options button
+opens Main; F5/F7 open Save/Load; Escape returns from submenus. Physical mouse
+edges, drag motion, touch actions, wheel/page scrolling and ASCII keyboard text
+entry use the shared controller and original fonts. The worker advances menu
+coroutines with the game and handles requests before accepting the next queued
+command. Save/load requests resolve stable IndexedDB slot IDs; the catalog checks
+complete sessions against the current ISO/SoundFont before displaying them and
+loads validate again before replacing engine/DSP. Invalid slots remain reserved.
+Loading/restarting clears queued presentation audio. Quit pauses the browser
+player rather than attempting to close the tab.
+
+Escape-generated settings writes use IndexedDB preferences. Startup validates
+preferences before applying them to an engine without a saved controller; saved
+controllers keep their own settings. Storage initialization failures leave play
+and file export available, with a visible notice. Existing manual device saves
+and file import/export remain separate from the named menu slots.
+
+`web/tests/menu-live.spec.js` drives the actual UI in Chrome and WebKit: it opens
+Save with F5, types a name, activates the original confirmation button, checks
+the stored description, and reloads through F7. Captures are
+assets/previews/browser-{chrome,webkit}-save-name.png. This verifies desktop
+keyboard/mouse menu operation; virtual-keyboard name entry and physical landscape
+iPad acceptance are still pending. No new full start-to-credits run is claimed.
+
+Validation for this integration: workspace tests, Clippy, WASM build and all 14
+original-asset Rust web tests pass. The full browser run passed all 24 existing
+cases and skipped two opt-in native-menu-checkpoint cases. Its new WebKit menu
+case exposed an unnecessary test click on the already-selected new-save row,
+which could trigger the preserved double-click save shortcut before typing.
+After removing that extra click, the new case passed three repetitions in each
+browser (six passes). Logs: assets/logs/browser-menu-{workspace,clippy,build,
+assets,browser-suite,live}.log. The test also waits for audio startup before
+sending menu keys, so a key cannot be dropped while the host is still paused.

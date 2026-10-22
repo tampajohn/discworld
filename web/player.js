@@ -5,7 +5,7 @@ const $ = id => document.getElementById(id);
 const canvas = $('game'), context = canvas.getContext('2d', { alpha: false });
 const worker = new Worker(new URL('./worker.js', import.meta.url), { type: 'module' });
 let serial = 0, ready = false, paused = true, muted = true, epoch = 0;
-let dragging = false;
+let dragging = false, menuActive = false;
 let busy = false, previous = performance.now(), elapsed = 0;
 let audioContext, gain, resampler, audioEnd = 0;
 const sources = new Set(), pending = new Map();
@@ -33,6 +33,10 @@ worker.onerror = event => {
   status(`Player stopped: ${event.message}`, true);
 };
 function draw(result) {
+  if (result.resetAudio) clearAudio();
+  if (result.menu !== undefined) { menuActive = result.menu; canvas.dataset.menu = String(menuActive); }
+  if (result.quit) { pause(); status('Game stopped. Press Play to continue or close this tab.'); }
+  else if (result.notice) status(result.notice);
   if (result.dragging !== undefined) { dragging = result.dragging; canvas.dataset.dragging = String(dragging); }
   if (result.frame) context.putImageData(new ImageData(new Uint8ClampedArray(result.frame), 320, 200), 0, 0);
   if (result.tick !== undefined) { canvas.dataset.tick = result.tick; canvas.dataset.scene = result.scene; }
@@ -104,9 +108,10 @@ $('open-game').onsubmit = async event => {
   try {
     const save = $('initial-save').files[0];
     if (save && save.size > 24 * 1024 * 1024 + 52) throw new Error('Save exceeds the size limit');
-    draw(await rpc('open', { iso: $('iso').files[0], font: $('font').files[0], save }));
+    const opened = await rpc('open', { iso: $('iso').files[0], font: $('font').files[0], save });
+    draw(opened);
     ready = true; $('setup').hidden = true; $('player').hidden = false;
-    status('Ready. Press Play to begin; sound is off.');
+    status(opened.notice || 'Ready. Press Play to begin; sound is off.');
   } catch (error) { status(error.message, true); $('open').disabled = false; }
 };
 $('pause').onclick = async () => {
@@ -162,10 +167,23 @@ canvas.onpointermove = async event => {
   finally { pointerPending = false; }
 };
 canvas.onwheel = event => { event.preventDefault(); input(event.deltaY < 0 ? 'up' : 'down'); };
-for (const button of document.querySelectorAll('[data-input]')) button.onclick = () => input(button.dataset.input);
+for (const button of document.querySelectorAll('[data-input]')) button.onclick = () => input(menuActive && button.dataset.input === 'close' ? 'escape' : button.dataset.input);
+$('options').onclick = () => { if (ready && !paused) rpc('menu', { page: 'main' }).then(draw).catch(error => status(error.message, true)); };
 document.onkeydown = event => {
   if (!ready || /^(INPUT|SELECT|TEXTAREA)$/.test(event.target.tagName)) return;
   const key = event.key.toLowerCase();
+  const page = { f1: 'main', f5: 'save', f7: 'load' }[key];
+  if (page) { event.preventDefault(); if (!paused) rpc('menu', { page }).then(draw).catch(error => status(error.message, true)); return; }
+  if (key === 'escape') { event.preventDefault(); input('escape'); return; }
+  if (menuActive) {
+    const scroll = { arrowup: 'up', arrowdown: 'down', pageup: 'page-up', pagedown: 'page-down', home: 'home', end: 'end' }[key];
+    if (scroll) { event.preventDefault(); input(scroll); return; }
+    if (key === 'backspace' || (event.key.length === 1 && /^[ -~]$/.test(event.key) && !event.metaKey && !event.ctrlKey)) {
+      event.preventDefault();
+      if (!paused) rpc('edit-menu', { text: key === 'backspace' ? '' : event.key, backspace: key === 'backspace' }).then(draw).catch(error => status(error.message, true));
+    }
+    return;
+  }
   if (key === 'p') { event.preventDefault(); $('pause').click(); return; }
   if (key === 'm') { event.preventDefault(); $('mute').click(); return; }
   const command = { w: 'walk', a: 'action', l: 'look', i: 'pockets', backspace: 'close', ' ': 'continue', arrowup: 'up', arrowdown: 'down' }[key];

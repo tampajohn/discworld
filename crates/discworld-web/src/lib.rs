@@ -163,6 +163,8 @@ pub struct BrowserGame {
     engine: Engine,
     audio: MusicOutput,
     fault: Option<String>,
+    menu_entries: Vec<discworld_core::save_menu::Entry>,
+    menu_requests: std::collections::VecDeque<discworld_core::menu_controller::Dispatch>,
 }
 
 #[wasm_bindgen]
@@ -182,6 +184,8 @@ impl BrowserGame {
             engine,
             audio,
             fault: None,
+            menu_entries: Vec::new(),
+            menu_requests: std::collections::VecDeque::new(),
         })
     }
 
@@ -201,10 +205,22 @@ impl BrowserGame {
         let result = (|| {
             let mut output = Vec::new();
             for _ in 0..ticks {
-                let status = self
+                if !self.menu_requests.is_empty() {
+                    break;
+                }
+                let (status, dispatch) = self
                     .engine
-                    .tick_content(&resources, Some(&bank), Some(&tracks), Some(&strings))
+                    .tick_with_configuration(
+                        &resources,
+                        Some(&bank),
+                        Some(&tracks),
+                        &strings,
+                        &self.menu_entries,
+                    )
                     .map_err(error)?;
+                if dispatch.outcome.request.is_some() || dispatch.outcome.write_settings {
+                    self.menu_requests.push_back(dispatch);
+                }
                 let mut audio = self
                     .audio
                     .render_engine_music(&self.engine)
@@ -246,16 +262,152 @@ impl BrowserGame {
     pub fn move_pointer(&mut self, x: i32, y: i32) {
         self.engine.move_cursor([x.clamp(0, 319), y.clamp(0, 199)]);
     }
+    pub fn move_pointer_checked(&mut self, x: i32, y: i32) -> Result<()> {
+        self.engine
+            .move_cursor_with_configuration([x.clamp(0, 319), y.clamp(0, 199)])
+            .map_err(error)
+    }
     pub fn inventory_dragging(&self) -> bool {
         self.engine.inventory_dragging()
+            || self
+                .engine
+                .configuration
+                .as_ref()
+                .is_some_and(|menu| menu.dragging())
     }
-    /// Development input vocabulary shared with the native host. Touch UI maps
-    /// explicit walk/action/look controls here; original double-click timing is
-    /// not claimed by this interface.
+    pub fn menu_active(&self) -> bool {
+        self.engine
+            .configuration
+            .as_ref()
+            .is_some_and(|menu| menu.page().is_some())
+    }
+    pub fn clear_menu_catalog(&mut self) {
+        self.menu_entries.clear();
+    }
+    pub fn add_menu_slot(&mut self, bytes: &[u8]) -> Result<()> {
+        let slot = discworld_audio::slot::decode(bytes).map_err(error)?;
+        if self.menu_entries.iter().any(|entry| entry.id == slot.id) {
+            return Err("duplicate menu slot".into());
+        }
+        if self.menu_entries.len() >= 100 {
+            return Err("menu slot capacity".into());
+        }
+        // Validate the entire session against this game's assets before offering it.
+        let resources = self.assets.resources();
+        let bank = self.assets.bank()?;
+        let tracks = music::archive(&self.assets.iso[self.assets.music.clone()]).map_err(error)?;
+        let strings = Strings::new(&self.assets.iso[self.assets.text.clone()]).map_err(error)?;
+        session::decode(
+            slot.session,
+            self.assets.identity,
+            &resources,
+            &bank,
+            &tracks,
+            &self.font,
+            &strings,
+        )
+        .map_err(error)?;
+        self.menu_entries.push(discworld_core::save_menu::Entry {
+            id: slot.id,
+            description: slot.description.to_vec(),
+        });
+        Ok(())
+    }
+    pub fn menu_preferences(&mut self, json: &str) -> Result<()> {
+        if json.len() > 4096 {
+            return Err("preferences size limit".into());
+        }
+        let settings: discworld_core::menu_controller::Settings =
+            serde_json::from_str(json).map_err(error)?;
+        let menu =
+            discworld_core::menu_controller::Controller::new(settings.clone()).map_err(error)?;
+        if self.engine.configuration.is_none() {
+            self.engine.subtitles = settings.subtitles;
+            self.engine.configuration = Some(menu);
+        }
+        Ok(())
+    }
+    pub fn open_menu(&mut self, page: &str) -> Result<()> {
+        use discworld_core::{
+            menu_controller::{Controller, Settings},
+            menu_navigation::Key,
+        };
+        let key = match page {
+            "main" => Key::Main,
+            "save" => Key::Save,
+            "load" => Key::Load,
+            "quit" => Key::Quit,
+            _ => return Err("unknown menu".into()),
+        };
+        if self.engine.configuration.is_none() {
+            self.engine.configuration = Some(
+                Controller::new(Settings {
+                    volumes: [255; 3],
+                    double_click: 10,
+                    swap_buttons: false,
+                    text_speed: 0,
+                    subtitles: self.engine.subtitles,
+                    flipped: false,
+                })
+                .map_err(error)?,
+            );
+        }
+        let strings = Strings::new(&self.assets.iso[self.assets.text.clone()]).map_err(error)?;
+        self.engine
+            .open_configuration(&self.assets.resources(), &strings, &self.menu_entries, key)
+            .map_err(error)?;
+        Ok(())
+    }
+    pub fn edit_menu(&mut self, text: &str, backspace: bool) -> Result<()> {
+        if text.len() > 80 || !text.is_ascii() || text.bytes().any(|byte| byte.is_ascii_control()) {
+            return Err("invalid menu text".into());
+        }
+        let resources = self.assets.resources();
+        if backspace {
+            self.engine
+                .edit_configuration(&resources, 0, true)
+                .map_err(error)?;
+        }
+        for byte in text.bytes() {
+            self.engine
+                .edit_configuration(&resources, byte, false)
+                .map_err(error)?;
+        }
+        Ok(())
+    }
+    /// Drain after each input/advance, before accepting the next command.
+    pub fn take_menu_request(&mut self) -> Result<Option<String>> {
+        use discworld_core::{menu_navigation::Request, save_menu::Target};
+        let Some(dispatch) = self.menu_requests.pop_front() else {
+            return Ok(None);
+        };
+        let request = dispatch.outcome.request.map(|request| match request {
+            Request::Save => "save",
+            Request::Load => "load",
+            Request::Quit => "quit",
+            Request::Restart => "restart",
+        });
+        let selection = dispatch.selection.map(|(target, description)| serde_json::json!({ "id": match target { Target::New => None, Target::Existing(id) => Some(id) }, "description": description }));
+        let settings = if dispatch.outcome.write_settings {
+            self.engine
+                .configuration
+                .as_ref()
+                .map(|menu| menu.settings())
+        } else {
+            None
+        };
+        serde_json::to_string(&serde_json::json!({ "request": request, "selection": selection, "settings": settings })).map(Some).map_err(error)
+    }
+    /// Physical edges use the shared click timing and original menu dispatch.
+    /// Touch controls also expose explicit walk/action/look gestures.
     pub fn input(&mut self, command: &str) -> Result<()> {
         if let Some(fault) = &self.fault {
             return Err(fault.clone());
         }
+        if !self.menu_requests.is_empty() {
+            return Err("menu request must be handled before input".into());
+        }
+        let active = self.menu_active();
         let engine = &mut self.engine;
         let resources = self.assets.resources();
         let point = engine.control.cursor;
@@ -266,10 +418,60 @@ impl BrowserGame {
                 } else {
                     discworld_core::mouse::Button::Right
                 };
+                let dispatch = engine
+                    .mouse_button_with_configuration(&resources, button, command.ends_with("down"))
+                    .map_err(error)?;
+                if dispatch.outcome.request.is_some() || dispatch.outcome.write_settings {
+                    self.menu_requests.push_back(dispatch);
+                }
+            }
+            "escape" => {
+                engine.user_event().map_err(error)?;
+                let strings =
+                    Strings::new(&self.assets.iso[self.assets.text.clone()]).map_err(error)?;
+                let outcome = engine
+                    .escape_configuration(&resources, &strings, &self.menu_entries)
+                    .map_err(error)?;
+                if outcome.request.is_some() || outcome.write_settings {
+                    self.menu_requests
+                        .push_back(discworld_core::menu_controller::Dispatch {
+                            outcome,
+                            selection: None,
+                        });
+                }
+            }
+            "up" | "down" | "page-up" | "page-down" | "home" | "end" if active => {
+                use discworld_core::save_menu::Scroll;
                 engine
-                    .mouse_button(&resources, button, command.ends_with("down"))
+                    .scroll_configuration(match command {
+                        "up" => Scroll::RowUp,
+                        "down" => Scroll::RowDown,
+                        "page-up" => Scroll::PageUp,
+                        "page-down" => Scroll::PageDown,
+                        "home" => Scroll::Home,
+                        _ => Scroll::End,
+                    })
                     .map_err(error)?;
             }
+            "walk" | "action" | "look" | "click" if active => {
+                let interaction = match command {
+                    "action" => PolygonInteraction::Action,
+                    "look" => PolygonInteraction::Look,
+                    _ => PolygonInteraction::WalkTo,
+                };
+                let dispatch = engine
+                    .configuration_click(point, interaction)
+                    .map_err(error)?;
+                if dispatch.outcome.request.is_some() || dispatch.outcome.write_settings {
+                    self.menu_requests.push_back(dispatch);
+                }
+            }
+            "close" if active => {
+                engine
+                    .edit_configuration(&resources, 0, true)
+                    .map_err(error)?;
+            }
+            "pockets" | "continue" if active => {}
             "continue" => engine.left_event().map_err(error)?,
             "start" => engine.user_event().map_err(error)?,
             "pockets" => {
@@ -343,6 +545,7 @@ impl BrowserGame {
         self.engine = restored.engine;
         self.audio = restored.audio;
         self.fault = None;
+        self.menu_requests.clear();
         Ok(())
     }
 }

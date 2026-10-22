@@ -261,6 +261,7 @@ dependencies = [
  "discworld-audio",
  "discworld-core",
  "discworld-replay",
+ "serde_json",
  "wasm-bindgen",
 ]
 

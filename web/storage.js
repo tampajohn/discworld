@@ -104,3 +104,10 @@ export async function listSlots() {
   entries.sort((a, b) => a.timestampMs === b.timestampMs ? a.id - b.id : a.timestampMs > b.timestampMs ? -1 : 1);
   return { entries, rejected };
 }
+
+export function devicePreferences(settings) {
+  return transaction('saves', settings === undefined ? 'readonly' : 'readwrite', (store, result) => {
+    const request = settings === undefined ? store.get('preferences') : store.put(settings, 'preferences');
+    request.onsuccess = () => result(request.result);
+  });
+}

@@ -1471,3 +1471,13 @@ is recovered before rendering. Unit and original-asset validations pass; see
 `docs/audio-runtime.md` for the legacy orphaned-sample limitation and test scope.
 The native executable has been rebuilt; the existing visual process remains
 running to preserve its unsaved state. Browser menu activation is still pending.
+
+Browser menu host integration now mirrors native controller use. The Rust/WASM
+boundary exposes catalog validation, original-menu opening/editing, checked drag
+motion and drainable menu dispatches. The worker serializes async IndexedDB I/O
+with game commands, processes requests before advancing again, and clears device
+audio on session replacement/restart. Browser key bindings include F1/F5/F7 and
+Escape, plus a touch-accessible Options button. Named saves use the existing
+DWRSLOT codec and do not replace the old manual-device-save record. Browser Quit
+pauses the player. Settings writes persist through IndexedDB. Physical iPad text
+entry and broader interactive acceptance remain incomplete.
