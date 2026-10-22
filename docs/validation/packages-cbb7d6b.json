@@ -1,0 +1,44 @@
+{
+  "schema": 1,
+  "runtime_revision": "cbb7d6b46cfe176207a534ca3add241b3c17fec6",
+  "packages": [
+    {
+      "path": "assets/packages/discworld-native-cbb7d6b.tar.gz",
+      "bytes": 3935053,
+      "sha256": "ef075e9c6968348a8261d2fdb2b2c17b3eb21d4c6b0529d7c43858b1d94b684d"
+    },
+    {
+      "path": "assets/packages/discworld-web-cbb7d6b.zip",
+      "bytes": 2902476,
+      "sha256": "0f0509299fb6aeea7857cb37d22093a9dd503bb29df9b8867a2bc3c1d56b8765"
+    }
+  ],
+  "checks": {
+    "manifest_hashes": "All extracted members listed in each manifest matched SHA-256; source revisions matched.",
+    "native": "Extracted outside checkout; SDL dummy video, muted, --audio-headroom, 30 frames: exit 0, tick 15, psygnosi.scn, stopped=false. Packaging verified arm64 architecture, system-only dynamic dependencies and strict codesign.",
+    "browser": [
+      {
+        "browser": "chrome",
+        "tick": "12",
+        "headroom": true,
+        "errors": []
+      },
+      {
+        "browser": "webkit",
+        "tick": "12",
+        "headroom": true,
+        "errors": []
+      }
+    ]
+  },
+  "limits": [
+    "Startup smoke checks only; no full-route package validation.",
+    "Browser headroom toggle and advancing ticks checked, not device listening.",
+    "Physical iPad and macOS GUI acceptance remain outstanding.",
+    "Existing visible native session was not restarted."
+  ],
+  "diagnostics": [
+    "First native invocation used an incorrect literal ISO path and exited before startup; corrected invocation passed.",
+    "First browser probe checked state before the worker acknowledgement; retry awaited the UI state and passed in both browsers."
+  ]
+}
