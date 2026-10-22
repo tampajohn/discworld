@@ -667,7 +667,15 @@ impl Engine {
                 return Err(Error("invalid snapshot inventory dimensions"));
             }
         }
-        for mover in self.movers.values() {
+        for (&id, mover) in &self.movers {
+            if mover.hidden
+                && (id != mover.placement.actor
+                    || u32::try_from(id)
+                        .ok()
+                        .is_none_or(|id| self.actors.get(id).is_err()))
+            {
+                return Err(Error("invalid hidden mover identity"));
+            }
             if !(1..=10).contains(&mover.placement.scale)
                 || mover
                     .placement
@@ -8548,6 +8556,57 @@ mod tests {
                     engine
                         .movers
                         .insert(1, crate::mover::Mover::new(&resources, placement).unwrap());
+                    if mode == 0 && !custom && !lead {
+                        use sha2::{Digest, Sha256};
+                        let original = Snapshot::capture(&engine, [7; 32]).to_bytes().unwrap();
+                        let mut hidden = engine.clone();
+                        hidden.movers.get_mut(&1).unwrap().hidden = true;
+                        let bytes = Snapshot::capture(&hidden, [7; 32]).to_bytes().unwrap();
+                        assert_eq!(u32::from_le_bytes(bytes[8..12].try_into().unwrap()), 18);
+                        let decoded = Snapshot::from_bytes(&bytes, [7; 32]).unwrap();
+                        assert_eq!(decoded.state(), &hidden);
+                        assert_eq!(decoded.to_bytes().unwrap(), bytes);
+                        assert!(!decoded.state().actors.get(1).unwrap().hidden);
+                        let mut invalid_identity = hidden.clone();
+                        invalid_identity.movers.get_mut(&1).unwrap().placement.actor = 2;
+                        assert!(
+                            Snapshot::capture(&invalid_identity, [7; 32])
+                                .to_bytes()
+                                .is_err()
+                        );
+                        let (inner, ids): (Vec<u8>, Vec<i32>) =
+                            postcard::from_bytes(&bytes[80..]).unwrap();
+                        assert_eq!(inner, original);
+                        assert_eq!(ids, vec![1]);
+                        let wrap = |inner: Vec<u8>, ids: Vec<i32>, trailing: bool| {
+                            let mut payload = postcard::to_allocvec(&(inner, ids)).unwrap();
+                            if trailing {
+                                payload.push(0);
+                            }
+                            let mut malformed = bytes[..80].to_vec();
+                            malformed[44..48]
+                                .copy_from_slice(&(payload.len() as u32).to_le_bytes());
+                            malformed[48..80].copy_from_slice(&Sha256::digest(&payload));
+                            malformed.extend(payload);
+                            malformed
+                        };
+                        for malformed in [
+                            wrap(inner.clone(), vec![], false),
+                            wrap(inner.clone(), vec![0], false),
+                            wrap(inner.clone(), vec![1, 1], false),
+                            wrap(inner.clone(), vec![2, 1], false),
+                            wrap(inner.clone(), vec![99], false),
+                            wrap(inner.clone(), vec![1], true),
+                            wrap(bytes.clone(), vec![1], false),
+                        ] {
+                            assert!(Snapshot::from_bytes(&malformed, [7; 32]).is_err());
+                        }
+                        hidden.movers.get_mut(&1).unwrap().hidden = false;
+                        assert_eq!(
+                            Snapshot::capture(&hidden, [7; 32]).to_bytes().unwrap(),
+                            original
+                        );
+                    }
                     let mut process = ScriptProcess::new(Handle((1 << 23) | 32));
                     process.polygon = Some(1);
                     engine.escape_events = Some(1);

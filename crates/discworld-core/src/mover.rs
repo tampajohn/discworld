@@ -128,6 +128,9 @@ impl Placement {
 /// Persistent mover object; standing changes only its animation script.
 #[derive(serde::Serialize, serde::Deserialize, Debug, Clone, PartialEq, Eq)]
 pub struct Mover {
+    /// V1 mover visibility, distinct from Actor.hidden. Stored by snapshot v18.
+    #[serde(skip)]
+    pub(crate) hidden: bool,
     /// Explicit V1 reel mode. None retains legacy bookkeeping until migrated.
     /// Stored separately by the versioned snapshot codec.
     #[serde(skip)]
@@ -881,6 +884,7 @@ impl Mover {
         let animation = crate::animation::Animation::new(resources, reel, 24 / base.rate as u32)?;
         let no_path = placement.path.is_none();
         let mut mover = Self {
+            hidden: false,
             reel_state: None,
             last_film: Handle(0),
             node_travel: placement.node.map(|line| crate::nodepath::Travel {

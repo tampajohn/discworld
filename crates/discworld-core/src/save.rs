@@ -22,6 +22,7 @@ const ESCAPE_VERSION: u32 = 14;
 const REEL_ESCAPE_VERSION: u32 = 15;
 const SAMPLE_WAIT_VERSION: u32 = 16;
 const INTRO_VERSION: u32 = 17;
+const MOVER_VISIBILITY_VERSION: u32 = 18;
 const HEADER: usize = 80;
 pub const MAX_SAVE_BYTES: usize = 16 * 1024 * 1024;
 
@@ -140,6 +141,31 @@ impl Snapshot {
 
     pub fn to_bytes(&self) -> Result<Vec<u8>, Error> {
         self.state.validate_snapshot_structure()?;
+        let hidden: Vec<i32> = self
+            .state
+            .movers
+            .iter()
+            .filter_map(|(&id, mover)| mover.hidden.then_some(id))
+            .collect();
+        if !hidden.is_empty() {
+            let mut legacy = self.clone();
+            for mover in legacy.state.movers.values_mut() {
+                mover.hidden = false;
+            }
+            let payload = postcard::to_allocvec(&(legacy.to_bytes()?, hidden))
+                .map_err(|_| Error("snapshot mover visibility encode failed"))?;
+            if payload.len() > MAX_SAVE_BYTES - HEADER {
+                return Err(Error("save size limit"));
+            }
+            let mut bytes = Vec::with_capacity(HEADER + payload.len());
+            bytes.extend_from_slice(MAGIC);
+            bytes.extend_from_slice(&MOVER_VISIBILITY_VERSION.to_le_bytes());
+            bytes.extend_from_slice(&self.asset_id);
+            bytes.extend_from_slice(&(payload.len() as u32).to_le_bytes());
+            bytes.extend_from_slice(&Sha256::digest(&payload));
+            bytes.extend_from_slice(&payload);
+            return Ok(bytes);
+        }
         if let Some(intro) = &self.state.intro {
             let mut legacy = self.clone();
             legacy.state.intro = None;
@@ -387,6 +413,7 @@ impl Snapshot {
             REEL_ESCAPE_VERSION,
             SAMPLE_WAIT_VERSION,
             INTRO_VERSION,
+            MOVER_VISIBILITY_VERSION,
         ]
         .contains(&word(8))
         {
@@ -401,6 +428,30 @@ impl Snapshot {
         }
         if Sha256::digest(payload)[..] != bytes[48..80] {
             return Err(Error("save checksum mismatch"));
+        }
+        if word(8) == MOVER_VISIBILITY_VERSION {
+            let ((legacy, hidden), remaining) =
+                postcard::take_from_bytes::<(Vec<u8>, Vec<i32>)>(payload)
+                    .map_err(|_| Error("invalid snapshot mover visibility payload"))?;
+            if !remaining.is_empty()
+                || legacy.len() < HEADER
+                || u32::from_le_bytes(legacy[8..12].try_into().unwrap()) > INTRO_VERSION
+                || hidden.is_empty()
+                || hidden.windows(2).any(|pair| pair[0] >= pair[1])
+            {
+                return Err(Error("invalid snapshot mover visibility extension"));
+            }
+            let mut snapshot = Self::from_bytes(&legacy, asset_id)?;
+            for id in hidden {
+                snapshot
+                    .state
+                    .movers
+                    .get_mut(&id)
+                    .ok_or(Error("hidden snapshot mover is absent"))?
+                    .hidden = true;
+            }
+            snapshot.state.validate_snapshot_structure()?;
+            return Ok(snapshot);
         }
         if word(8) == INTRO_VERSION {
             let ((legacy, intro), remaining) =

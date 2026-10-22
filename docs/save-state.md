@@ -483,3 +483,26 @@ reference's distinction between game-load and live interpreter continuation.
 Browser worker loads and native user-load actions now apply this rule. The
 exact browser `load` API and native recorded-replay startup loads preserve
 policy state for deterministic continuation.
+
+## Version 18: independent mover visibility
+
+A hidden mover now has a separate boolean from Actor.hidden. The field is
+excluded from the legacy serialized Mover layout. When any current mover is
+hidden, DWRSAVE v18 wraps the existing v1–v17 save plus a sorted, nonempty list
+of hidden mover IDs. Otherwise encoding follows the previous path unchanged.
+Legacy files default mover visibility to false and retain exact re-encoding.
+
+The wrapper uses the same length, asset identity, checksum and size checks as
+previous extensions. Decode rejects nested v18 payloads, trailing bytes,
+empty/duplicate/unsorted ID lists, missing movers and invalid hidden-mover
+identity. Restored flags must match existing mover keys, placement actor IDs
+and the actor table. The extension does not modify V1 scene-stack semantics.
+
+Focused tests verify exact bytes and state on round-trip, independence from
+Actor.hidden, identical inner legacy bytes, malformed extensions and return
+to the original bytes when visibility is cleared. Logs:
+`assets/logs/mover-visibility-codec-*`.
+
+This is persistence infrastructure for HIDEACTOR. The script handler,
+behind-background composition, movement and unhide ownership are still pending;
+the new field alone does not establish runtime hiding support.

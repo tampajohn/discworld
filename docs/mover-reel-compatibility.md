@@ -606,3 +606,8 @@ normal walking vs special-reel ticking while hidden, hiding during PLAY/TALK,
 replacement/unhide ownership, pointing, draw order, exact save continuation,
 and V1 scene-stack restoration. The audit is source-derived; no HIDEACTOR
 runtime support is claimed yet.
+
+The first HIDEACTOR integration step adds independent Mover.hidden state and
+the [v18 exact-snapshot extension](save-state.md#version-18-independent-mover-visibility).
+Older saves retain their layout and default this state to visible. Rendering,
+script dispatch and mover lifecycle behavior are not connected yet.
