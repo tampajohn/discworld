@@ -45,3 +45,25 @@ save/load continuation. Validate intro skipping separately against the pinned
 intro exception. Audit film, speech, inventory and other escape-sensitive
 library branches before claiming complete cutscene skipping. A fast-forward
 button or generic process cancellation is not equivalent behavior.
+
+
+## Interpreter transition boundary
+
+Machine::step now returns `Step::Escape(bool)` for each committed ESCON or
+ESCOFF instruction. The event occurs on repeated ESCON as well as Boolean
+changes, so the engine can capture a fresh global generation at the correct
+instruction rather than guessing from state changes after a library call.
+The existing serialized Boolean is unchanged; this step result is transient
+and is not added to the saved Machine layout.
+
+A regression executes ESCON twice, suspends at a library boundary, resumes
+through ESCOFF and halts. It verifies each event occurs once, repeated polls
+of the pending library do not replay an event, and an intermediate serialized
+Machine continues identically. Engine, declaration and probe callers currently
+consume the new transition as an ordinary instruction; event-generation capture,
+versioned persistence, cancellation handlers and host routing remain to be
+integrated. This change alone does not enable cutscene skipping.
+
+Interpreter-boundary validation: workspace tests, Clippy with warnings denied
+and the browser WASM check pass (`assets/logs/escape-opcode-*`). No cancellation
+behavior or new save-state generation fields are claimed by these checks.

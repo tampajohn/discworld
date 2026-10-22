@@ -2663,7 +2663,7 @@ impl Engine {
         let bytes = scene::script_bytes(resources, engine.master_code)?;
         for _ in 0..10000 {
             match vm.step(bytes, &mut engine.globals)? {
-                Step::Continue => {}
+                Step::Continue | Step::Escape(_) => {}
                 Step::Halted => return Err(Error("master did not request a scene")),
                 Step::Library(call) => {
                     if call.id == 120 {
@@ -2706,7 +2706,7 @@ impl Engine {
         let bytes = scene::script_bytes(resources, self.master_code)?;
         for _ in 0..10000 {
             let call = match self.master.step(bytes, &mut self.globals)? {
-                Step::Continue => continue,
+                Step::Continue | Step::Escape(_) => continue,
                 Step::Halted => return Ok(None),
                 Step::Library(c) => c,
             };
@@ -4122,7 +4122,7 @@ impl Engine {
         let bytes = scene::script_bytes(resources, process.code)?;
         for _ in 0..10000 {
             let call = match process.vm.step(bytes, &mut self.globals)? {
-                Step::Continue => continue,
+                Step::Continue | Step::Escape(_) => continue,
                 Step::Halted => {
                     if process.conversation_started {
                         if process.conversation_took_control {

@@ -218,7 +218,7 @@ mod tests {
         let mut vm = Machine::default();
         loop {
             match vm.step(&code, &mut []).unwrap() {
-                Step::Continue => {}
+                Step::Continue | Step::Escape(_) => {}
                 Step::Library(call) => {
                     assert!(state.apply(&mut vm, call, &Resources(vec![])).unwrap());
                 }

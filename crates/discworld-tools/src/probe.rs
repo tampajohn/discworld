@@ -94,7 +94,7 @@ pub fn startup(iso: &Iso<'_>) -> Result<Value, Box<dyn std::error::Error>> {
     let mut stop = json!({"status":"instruction_budget"});
     for steps in 1..=10000 {
         match vm.step(code, &mut globals)? {
-            Step::Continue => {}
+            Step::Continue | Step::Escape(_) => {}
             Step::Halted => {
                 stop = json!({"status":"halted","steps":steps});
                 break;
@@ -207,7 +207,7 @@ pub fn run(iso: &Iso<'_>) -> Result<Value, Box<dyn std::error::Error>> {
             let mut globals = vec![0; count as usize];
             for steps in 1..=10000 {
                 match vm.step(code, &mut globals)? {
-                    Step::Continue => {}
+                    Step::Continue | Step::Escape(_) => {}
                     Step::Halted => return Ok(json!({"status":"halted","steps":steps})),
                     Step::Library(call) => {
                         return Ok(

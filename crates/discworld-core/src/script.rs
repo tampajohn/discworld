@@ -62,6 +62,9 @@ pub enum Step {
     Continue,
     Library(LibraryCall),
     Halted,
+    /// A committed ESCON/ESCOFF instruction. Repeated ESCON still emits an
+    /// event so the scheduler can capture a fresh escape generation each time.
+    Escape(bool),
 }
 
 /// V1 interpreter resume states used by SAVESCENE/NEWSCENE. Unlike V2,
@@ -344,8 +347,10 @@ impl Machine {
                     self.push(value)?;
                 }
             }
-            40 => self.escape_enabled = true,
-            41 => self.escape_enabled = false,
+            40 | 41 => {
+                self.escape_enabled = ins.opcode == 40;
+                return Ok((Step::Escape(self.escape_enabled), None));
+            }
             _ => return Err(Error("unsupported V1 opcode")),
         }
         Ok((Step::Continue, write))
@@ -378,6 +383,32 @@ impl Machine {
 #[cfg(test)]
 mod tests {
     use super::*;
+    #[test]
+    fn escape_instructions_emit_each_committed_transition_once() {
+        let code = [40, 40, 0x4e, 86, 41, 0];
+        let mut vm = Machine::default();
+        assert_eq!(vm.step(&code, &mut []).unwrap(), Step::Escape(true));
+        assert!(vm.escape_enabled);
+        let saved = postcard::to_allocvec(&vm).unwrap();
+        let mut restored: Machine = postcard::from_bytes(&saved).unwrap();
+        assert_eq!(restored, vm);
+        // An already-enabled ESCON must be observable, not only Boolean edges.
+        for machine in [&mut vm, &mut restored] {
+            assert_eq!(machine.step(&code, &mut []).unwrap(), Step::Escape(true));
+            let Step::Library(call) = machine.step(&code, &mut []).unwrap() else {
+                panic!("expected suspended library call");
+            };
+            assert_eq!(machine.step(&code, &mut []).unwrap(), Step::Library(call));
+            assert!(machine.escape_enabled);
+            machine.complete_library(call, 0, None).unwrap();
+            assert_eq!(machine.step(&code, &mut []).unwrap(), Step::Escape(false));
+            assert!(!machine.escape_enabled);
+            assert_eq!(machine.step(&code, &mut []).unwrap(), Step::Halted);
+            assert_eq!(machine.step(&code, &mut []).unwrap(), Step::Halted);
+        }
+        assert_eq!(vm, restored);
+    }
+
     #[test]
     fn snapshot_pending_and_halted_positions_match_original_code() {
         let code = [0x4e, 86, 0];
