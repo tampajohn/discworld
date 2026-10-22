@@ -4128,6 +4128,28 @@ impl Engine {
         Ok(())
     }
 
+    /// V1 acquiring an actor token terminates its previous blocking walk.
+    /// WALKED releases the token before waiting and is not an owner here.
+    fn acquire_walk_token(&mut self, actor: i32) -> Result<(), Error> {
+        let current = self.processes.current_id();
+        let owners: Vec<_> = self
+            .processes
+            .entries()
+            .filter(|(id, p)| {
+                Some(*id) != current
+                    && (p.walk_wait.is_some_and(|(_, a, _, _)| a == actor)
+                        || p.tag_walk_wait.is_some_and(|(_, a, _, _)| a == actor))
+            })
+            .map(|(id, _)| id)
+            .collect();
+        for id in owners {
+            self.processes.cancel(id)?;
+        }
+        self.clicks.cleanup(&self.processes);
+        self.inventory_hover.cleanup(&self.processes);
+        Ok(())
+    }
+
     fn stand_mover(
         &mut self,
         resources: &Resources<'_>,
@@ -4340,6 +4362,7 @@ impl Engine {
                     cursor,
                     film,
                 )?;
+                self.acquire_walk_token(wait.actor)?;
                 wait.serial = Some(if early { 0 } else { serial });
                 wait.delay = 0;
                 self.scroll.follow_cursor = false;
@@ -5119,6 +5142,7 @@ impl Engine {
                         Handle(a[3] as u32),
                     )?;
                     let moving = mover.walk_target.is_some();
+                    self.acquire_walk_token(actor)?;
                     self.scroll.follow_cursor = false;
                     self.reel_owners.remove(&actor);
                     self.reel_escape.remove(&actor);
@@ -5194,6 +5218,7 @@ impl Engine {
                     if !moving {
                         mover.adopt_tag_pose(resources, &self.declarations, film)?;
                     }
+                    self.acquire_walk_token(actor)?;
                     self.reel_owners.remove(&actor);
                     self.reel_escape.remove(&actor);
                     self.films.retain(|a| a.object.id != actor);
@@ -5295,6 +5320,7 @@ impl Engine {
                     let moving = mover.walk_target.is_some();
                     let position = mover.placement.position;
                     self.movers.insert(actor, mover);
+                    self.acquire_walk_token(actor)?;
                     self.scroll.follow_cursor = false;
                     self.actors.get_mut(actor as u32)?.position = position;
                     self.reel_owners.remove(&actor);
@@ -5337,25 +5363,7 @@ impl Engine {
                         .get_mut(&actor)
                         .ok_or(Error("STOPWALK actor has no mover"))?
                         .stop_requested = true;
-                    // V1 token acquisition kills normal WALK/SWALK/WALKTAG
-                    // owners immediately. WALKED has already freed its token
-                    // and must observe the changed walk serial instead.
-                    let current = self.processes.current_id();
-                    let owners: Vec<_> = self
-                        .processes
-                        .entries()
-                        .filter(|(id, p)| {
-                            Some(*id) != current
-                                && (p.walk_wait.is_some_and(|(_, a, _, _)| a == actor)
-                                    || p.tag_walk_wait.is_some_and(|(_, a, _, _)| a == actor))
-                        })
-                        .map(|(id, _)| id)
-                        .collect();
-                    for id in owners {
-                        self.processes.cancel(id)?;
-                        self.clicks.cleanup(&self.processes);
-                        self.inventory_hover.cleanup(&self.processes);
-                    }
+                    self.acquire_walk_token(actor)?;
                     process.vm.complete_library(call, 1, None)?;
                 }
                 72 | 73 => {
@@ -8724,6 +8732,7 @@ mod tests {
                     code.extend([0x41, 77, 0x4c, 0, 0]);
                     scene[8..8 + code.len()].copy_from_slice(&code);
                     scene[56..60].copy_from_slice(&[3, 0x4e, 74, 0]); // STOPWALK(lead)
+                    scene[32..41].copy_from_slice(&[3, 0x41, 80, 0x41, 70, 2, 0x4e, 88, 0]);
                     let mut film = vec![0; 400];
                     for (at, value) in [
                         (0, 24u32),
@@ -8816,6 +8825,56 @@ mod tests {
                     engine
                         .movers
                         .insert(1, crate::mover::Mover::new(&resources, placement).unwrap());
+                    if interrupt == 0
+                        && target_x == 80
+                        && (call == 75 || call == 91 || (call == 87 && hold != 2))
+                    {
+                        let mut competition = engine.clone();
+                        let mut owner = ScriptProcess::new(Handle((1 << 23) | 8));
+                        if call == 91 {
+                            owner.polygon = Some(1);
+                        }
+                        assert_eq!(
+                            competition
+                                .run_process(&resources, None, None, None, &mut owner)
+                                .unwrap(),
+                            Status::Running
+                        );
+                        let owner_id = competition.processes.spawn(None, owner.clone()).unwrap();
+                        let bytes = Snapshot::capture(&competition, [7; 32]).to_bytes().unwrap();
+                        let mut delayed = competition.clone();
+                        let mut walked = ScriptProcess::new(Handle((1 << 23) | 32));
+                        delayed
+                            .run_process(&resources, None, None, None, &mut walked)
+                            .unwrap();
+                        for _ in 0..23 {
+                            delayed
+                                .run_process(&resources, None, None, None, &mut walked)
+                                .unwrap();
+                            assert!(delayed.processes.entries().any(|(id, _)| id == owner_id));
+                        }
+                        delayed
+                            .run_process(&resources, None, None, None, &mut walked)
+                            .unwrap();
+                        assert!(!delayed.processes.entries().any(|(id, _)| id == owner_id));
+                        assert!(walked.walked_wait.as_ref().unwrap().serial.is_some());
+                        let mut restored = Snapshot::from_bytes(&bytes, [7; 32])
+                            .unwrap()
+                            .state()
+                            .clone();
+                        for state in [&mut competition, &mut restored] {
+                            let mut replacement = ScriptProcess::new(Handle((1 << 23) | 8));
+                            replacement.polygon = owner.polygon;
+                            state
+                                .run_process(&resources, None, None, None, &mut replacement)
+                                .unwrap();
+                            assert!(
+                                !state.processes.entries().any(|(id, _)| id == owner_id),
+                                "new walk must kill the owner before its next scheduler turn"
+                            );
+                        }
+                        assert_eq!(competition, restored);
+                    }
                     if interrupt >= 2 {
                         engine.escape_events = Some(1);
                         for vm in engine.escape_contexts_mut() {

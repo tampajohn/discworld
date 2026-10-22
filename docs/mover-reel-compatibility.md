@@ -477,3 +477,27 @@ WALKED, not simply remove walk-number checks: the current checks also prevent
 superseded scripts from resuming, while the reference kills the previous token
 owner at acquisition. Token release and process cancellation need validation
 across save/load and scene reset before replacing that approximation.
+
+### Immediate competing-walk acquisition
+
+WALK, SWALK and WALKTAG now use the same immediate owner cancellation as
+STOPWALK when starting a new walk. WALKED invokes it only after its 24-tick
+startup delay, then waits without owning the token. Pending blocking walk
+fields identify owners; no new serialized token table is introduced. The
+currently executing scheduler entry is excluded, and click/inventory-hover
+process references are cleaned after cancellation.
+
+Regression coverage starts a real suspended owner, snapshots it, and issues a
+replacement before the owner gets another scheduler turn. Both the live and
+restored engines must remove that owner immediately. Cases span normal/custom
+films, ordinary/node paths and WALK/SWALK/WALKTAG. A delayed WALKED competitor
+must preserve the owner during the first 23 resumptions and cancel it on the
+24th, when it begins walking. Existing serial checks remain for historical
+waits and other interruption paths; this change does not claim a complete
+implementation of every Tinsel token type or raw-stop behavior.
+
+Logs: `assets/logs/walk-token-*`. The a1eaead native full-route audit predates
+this change and remains separate evidence.
+Validation passes: workspace tests, all 20 original-asset web integration
+tests, workspace Clippy, wasm32 checking, and native/browser release builds.
+The existing visible native process has not been restarted.
