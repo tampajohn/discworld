@@ -1,0 +1,27 @@
+{
+  "schema": 1,
+  "runtime_revision": "f776192aeeed940b10b9734ace824d4a9f6c49fa",
+  "ticks": 8500,
+  "input": "user_event at tick 500",
+  "soundfont": "TimGM6mb.sf2",
+  "stereo_samples": 15618750,
+  "samples_exceeding_unity": 15578,
+  "positive_samples_exceeding_unity": 6712,
+  "overrange_with_nonzero_sample_channel": 15471,
+  "peak_absolute_preclamp": 1.6026762,
+  "source_samples_at_negative_rail": 6013,
+  "first_overrange_tick": 799,
+  "method": "Temporary Rust diagnostic ran the same tick_with_configuration and render_engine_music path as BrowserGame.advance, measured stereo music plus source/32768 before clamping; a separate production advance measurement matched all 15578 rail samples.",
+  "scope": [
+    "Original intro only; not identification of the user-reported Rincewind utterance.",
+    "In-process shared browser core using original assets; no live device listening or underrun measurement.",
+    "Negative source rail count is not proof of source clipping.",
+    "No gain, filter or original asset changes applied."
+  ],
+  "local_diagnostic_source": "assets/logs/intro-mix-preclamp-diagnostic.rs",
+  "diagnostic_source_sha256": "a5abe9d48e6d1923d511e64e66c66ea70410fc011f264407bb24525f99d43806",
+  "logs": [
+    "assets/logs/intro-mix-headroom-diagnostic.log",
+    "assets/logs/intro-mix-preclamp-diagnostic.log"
+  ]
+}

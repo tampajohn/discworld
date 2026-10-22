@@ -113,3 +113,20 @@ periodic save/load continuation. Workspace tests, the original-asset regression,
 Clippy, web WASM checks and rebuilt native/browser packages pass; logs use
 assets/logs/voice-disable-*.log. Full-route checks launched earlier remain pinned
 to runtime 00a6b38 and use default volume; they do not test this zero-volume path.
+
+
+## Measured mixer headroom
+
+A fresh 8,500-tick intro measurement on runtime f776192 with TimGM6mb found
+15,578 of 15,618,750 stereo samples exceeding +/-1 before the host clamp;
+absolute peak was 1.6026762. The production BrowserGame output hit the rails
+on exactly those 15,578 samples. Of the overrange samples, 15,471 coincided
+with a nonzero source sample. This establishes mix clipping on this sequence,
+not that it caused the user's particular Rincewind speech complaint. Source
+negative-rail samples alone do not establish clipped recording provenance.
+See [measurement and scope](validation/intro-mix-headroom.json).
+
+The native host uses the same sum-and-clamp formula. Lowering the downstream
+master gain cannot undo clipping already introduced here; any headroom or
+limiting option must act before the clamp. Source hiss and quantization are
+separate from this issue. No cleanup filter or gain change has been applied.
