@@ -2265,3 +2265,28 @@ fn original_intro_headroom_preserves_sessions_and_avoids_measured_clipping() {
         "intro headroom: original rails={original_rails}, reduced rails={reduced_rails}, reduced peak={reduced_peak}"
     );
 }
+
+#[test]
+#[ignore = "requires DISCWORLD_TEST_ISO and DISCWORLD_TEST_SOUNDFONT"]
+fn original_intro_escape_reaches_title_with_exact_session_continuation() {
+    let read = |name| std::fs::read(std::env::var_os(name).expect(name)).unwrap();
+    let iso_bytes = read("DISCWORLD_TEST_ISO");
+    let iso = discworld_core::iso::Iso::parse(&iso_bytes).unwrap();
+    let index = discworld_core::resource::parse_index(iso.file("/DISCWLD/INDEX").unwrap()).unwrap();
+    let title = discworld_core::intro::title_scene(&index).unwrap().unwrap();
+    let mut game = BrowserGame::new(iso_bytes, read("DISCWORLD_TEST_SOUNDFONT")).unwrap();
+    game.engine =
+        discworld_core::engine::Engine::bootstrap_with_title(&game.assets.resources(), Some(title))
+            .unwrap();
+    game.advance(1).unwrap();
+    assert_ne!(game.engine.scene, title, "test must escape before title");
+    game.engine.script_escape_event().unwrap();
+    for _ in 0..500 {
+        roundtrip_pending(&mut game, 24);
+        if game.engine.scene == title {
+            break;
+        }
+    }
+    assert_eq!(game.engine.scene, title);
+    roundtrip_pending(&mut game, 24);
+}

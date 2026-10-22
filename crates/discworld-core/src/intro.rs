@@ -37,6 +37,10 @@ impl Intro {
             initial_escape: None,
         })
     }
+    pub fn title(&self) -> Option<Handle> {
+        self.title
+    }
+
     /// While true, the interpreter must ignore both ESCON and ESCOFF.
     pub fn active(&self) -> bool {
         self.active && self.title.is_some()

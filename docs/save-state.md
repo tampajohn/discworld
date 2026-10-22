@@ -467,3 +467,17 @@ this extension covers active scheduler processes only. Historical active waits
 without serials remain byte-stable on load/export and retain their previous
 channel-busy completion behavior; Escape releases them without stopping an
 unproven owner. Ownership is captured normally on subsequent sample calls.
+
+
+## Intro state (v17)
+
+Version 17 wraps a v1-v16 envelope and the DOS intro policy: detected title
+handle, active flag and optional initial escape generation. It rejects nested
+v17 envelopes and trailing bytes, and validates generations against the saved
+global escape counter. Resource activation validates title scene metadata and
+entrance 1. Snapshots without configured intro policy retain prior encoding.
+
+Runtime snapshot restoration retains intro state exactly. A host's explicit
+user-load operation must separately call `Engine::end_intro`, matching the
+reference's distinction between game-load and live interpreter continuation.
+Host integration of this user-load rule remains pending.

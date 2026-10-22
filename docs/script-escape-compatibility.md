@@ -386,3 +386,37 @@ The original ISO resource inspection identifies `title.scn` at index
 11, handle `0x05800000`, among 149 resources. Logs use
 `assets/logs/intro-policy-*`. This is metadata/policy validation, not a
 playthrough or host Escape test.
+
+## Opt-in engine intro integration
+
+`Engine::bootstrap_with_title` installs the detected policy before master
+execution. The original `bootstrap` path and a missing detected title retain
+legacy behavior. Title metadata is checked for a scene script and entrance 1;
+resource-validated snapshot restoration checks it again. Intro scene/entrance
+interpreters receive the current generation, while master and scene dispatch
+restore the previous escape flags when ignoring ESCON/ESCOFF. Scene requests
+apply intro redirection after hook interception. Reaching the title ends intro
+mode; restart preserves detection but resets its baseline and event counter.
+
+DWRSAVE v17 wraps the earlier envelope with intro policy, preserving exact
+runtime continuation. `end_intro` is a separate user-load operation. It must
+not be called by deterministic snapshot audits. The hosts still use legacy
+bootstrap and do not yet route keyboard/touch Escape to the shared event API.
+
+Synthetic integration tests cover armed intro scripts through ESCOFF/ESCON,
+hook override, exact snapshots at every tick, title arrival, restart, explicit
+end, nested-wrapper rejection and missing-title fallback. An original-asset
+web-core test enables the opt-in bootstrap, injects Escape at tick 1 (before the title), and
+checks full session/audio/frame continuation in 24-tick blocks until title.
+
+Original-asset timing check: this edition is already at title.scn by tick 500.
+The special reference intro policy concerns the pre-title sequence, not the
+post-title game introduction. The integration test therefore injects at tick 1
+and asserts that it has not reached the title yet. An initial tick-500 test
+correctly exposed the distinction by starting the game instead of skipping
+the pre-title sequence.
+
+Validation: workspace tests (319 core tests), all 19 original-asset web tests,
+Clippy and WASM checking passed. Native/browser release builds include the
+opt-in API. Logs use `assets/logs/intro-engine-*`. Host activation remains
+pending; no visible-session update is claimed.

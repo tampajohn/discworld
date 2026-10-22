@@ -287,6 +287,8 @@ pub struct Engine {
     timers: crate::timers::Timers,
     #[serde(skip)]
     escape_events: Option<u64>,
+    #[serde(skip)]
+    pub(crate) intro: Option<crate::intro::Intro>,
     user_events: u64,
     left_events: u64,
     pub subtitles: bool,
@@ -483,6 +485,12 @@ impl Engine {
     }
 
     pub(crate) fn validate_snapshot_structure(&self) -> Result<(), Error> {
+        if let Some(intro) = &self.intro {
+            intro.validate(
+                self.escape_events
+                    .ok_or(Error("intro missing escape counter"))?,
+            )?;
+        }
         if self.processes.states().any(|p| {
             p.sample_serial.is_some_and(|serial| {
                 serial == 0 || serial > self.sample_player.serial || p.sample_wait.is_none()
@@ -716,6 +724,10 @@ impl Engine {
 
     pub(crate) fn validate_snapshot_scripts(&self, resources: &Resources<'_>) -> Result<(), Error> {
         self.validate_snapshot_structure()?;
+        Self::validate_intro_title(
+            resources,
+            self.intro.as_ref().and_then(crate::intro::Intro::title),
+        )?;
         self.master
             .validate_snapshot_code(scene::script_bytes(resources, self.master_code)?)?;
         for (id, process) in self.processes.entries() {
@@ -2733,12 +2745,50 @@ impl Engine {
     }
 
     pub fn bootstrap(resources: &Resources<'_>) -> Result<Self, Error> {
-        Self::bootstrap_after_restart(resources, false)
+        Self::bootstrap_after_restart(resources, false, None)
+    }
+
+    fn validate_intro_title(resources: &Resources<'_>, title: Option<Handle>) -> Result<(), Error> {
+        if let Some(title) = title {
+            let scene = scene::read(resources, title.resource())?
+                .ok_or(Error("intro title scene missing"))?;
+            if !scene.entrances.iter().any(|(id, _)| *id == 1) {
+                return Err(Error("intro title entrance missing"));
+            }
+            if scene.script.0 == 0 {
+                return Err(Error("intro title script missing"));
+            }
+            scene::script_bytes(resources, scene.script)?;
+        }
+        Ok(())
+    }
+
+    pub fn bootstrap_with_title(
+        resources: &Resources<'_>,
+        title: Option<Handle>,
+    ) -> Result<Self, Error> {
+        Self::validate_intro_title(resources, title)?;
+        let intro = title
+            .map(|title| crate::intro::Intro::new(Some(title)))
+            .transpose()?;
+        Self::bootstrap_after_restart(resources, false, intro)
+    }
+
+    /// User game loads end intro mode; snapshot audit restoration must not.
+    pub fn end_intro(&mut self) {
+        if let Some(intro) = &mut self.intro {
+            intro.end();
+        }
+    }
+
+    fn intro_active(&self) -> bool {
+        self.intro.as_ref().is_some_and(crate::intro::Intro::active)
     }
 
     fn bootstrap_after_restart(
         resources: &Resources<'_>,
         has_restarted: bool,
+        intro: Option<crate::intro::Intro>,
     ) -> Result<Self, Error> {
         let master = resources
             .0
@@ -2798,7 +2848,8 @@ impl Engine {
             inventory_resize: None,
             inventory_hover: Default::default(),
             inventory_geometry: crate::inventory_geometry::State::default(),
-            escape_events: None,
+            escape_events: intro.as_ref().map(|_| 1),
+            intro,
             user_events: 0,
             left_events: 0,
             subtitles: true,
@@ -2840,10 +2891,15 @@ impl Engine {
         let mut vm = Machine::default();
         let bytes = scene::script_bytes(resources, engine.master_code)?;
         for _ in 0..10000 {
+            let previous_escape = (vm.escape_enabled, vm.escape_generation);
             match vm.step(bytes, &mut engine.globals)? {
                 Step::Continue => {}
                 Step::Escape(enabled) => {
-                    Self::capture_escape(&mut engine.escape_events, &mut vm, enabled)
+                    if engine.intro_active() {
+                        (vm.escape_enabled, vm.escape_generation) = previous_escape;
+                    } else {
+                        Self::capture_escape(&mut engine.escape_events, &mut vm, enabled);
+                    }
                 }
                 Step::Halted => return Err(Error("master did not request a scene")),
                 Step::Library(call) => {
@@ -2887,10 +2943,16 @@ impl Engine {
         }
         let bytes = scene::script_bytes(resources, self.master_code)?;
         for _ in 0..10000 {
+            let previous_escape = (self.master.escape_enabled, self.master.escape_generation);
             let call = match self.master.step(bytes, &mut self.globals)? {
                 Step::Continue => continue,
                 Step::Escape(enabled) => {
-                    Self::capture_escape(&mut self.escape_events, &mut self.master, enabled);
+                    if self.intro_active() {
+                        (self.master.escape_enabled, self.master.escape_generation) =
+                            previous_escape;
+                    } else {
+                        Self::capture_escape(&mut self.escape_events, &mut self.master, enabled);
+                    }
                     continue;
                 }
                 Step::Halted => return Ok(None),
@@ -2932,6 +2994,9 @@ impl Engine {
                     let a = args(&self.master, 3)?;
                     let request = crate::scene_hook::Request::new(Handle(a[0] as u32), a[1], a[2])?;
                     let request = self.scene_hooks.intercept(request);
+                    let request = self.intro.as_ref().map_or(request, |intro| {
+                        intro.redirect(request, self.escape_events.unwrap_or(1))
+                    });
                     self.queue_scene_request(request);
                     self.control.apply_at(4, false, self.world_origin)?;
                     self.master.complete_library(call, 3, None)?;
@@ -3060,8 +3125,16 @@ impl Engine {
         }
         for code in [entrance, scene_script] {
             if code.0 != 0 {
-                self.processes
-                    .spawn(Some(self.generation), ScriptProcess::new(code))?;
+                let mut process = ScriptProcess::new(code);
+                if let Some(intro) = &mut self.intro {
+                    if let Some(event) =
+                        intro.scene_script(code, self.escape_events.unwrap_or(1))?
+                    {
+                        process.vm.escape_enabled = true;
+                        process.vm.escape_generation = Some(event);
+                    }
+                }
+                self.processes.spawn(Some(self.generation), process)?;
             }
         }
         self.background = None;
@@ -3674,7 +3747,11 @@ impl Engine {
         if next.restart_pending && !matches!(status, Status::Unsupported(_)) {
             // Pinned V1 resets after the game cycle, outside script dispatch.
             // Keep host-facing time, settings and the RNG stream continuous.
-            let mut fresh = Self::bootstrap_after_restart(resources, true)?;
+            let mut intro = next.intro.clone();
+            if let Some(policy) = &mut intro {
+                policy.reset();
+            }
+            let mut fresh = Self::bootstrap_after_restart(resources, true, intro)?;
             fresh.ticks = next.ticks;
             fresh.configuration = next
                 .configuration
@@ -4431,10 +4508,15 @@ impl Engine {
         }
         let bytes = scene::script_bytes(resources, process.code)?;
         for _ in 0..10000 {
+            let previous_escape = (process.vm.escape_enabled, process.vm.escape_generation);
             let call = match process.vm.step(bytes, &mut self.globals)? {
                 Step::Continue => continue,
                 Step::Escape(enabled) => {
-                    Self::capture_escape(&mut self.escape_events, &mut process.vm, enabled);
+                    if self.intro_active() {
+                        (process.vm.escape_enabled, process.vm.escape_generation) = previous_escape;
+                    } else {
+                        Self::capture_escape(&mut self.escape_events, &mut process.vm, enabled);
+                    }
                     continue;
                 }
                 Step::Halted => {
@@ -5812,6 +5894,9 @@ impl Engine {
                     let a = args(&process.vm, 3)?;
                     let request = crate::scene_hook::Request::new(Handle(a[0] as u32), a[1], a[2])?;
                     let request = self.scene_hooks.intercept(request);
+                    let request = self.intro.as_ref().map_or(request, |intro| {
+                        intro.redirect(request, self.escape_events.unwrap_or(1))
+                    });
                     self.queue_scene_request(request);
                     self.control.apply_at(4, false, self.world_origin)?;
                     return Ok(Status::Halted);
@@ -6424,6 +6509,79 @@ mod tests {
         (master, scene)
     }
     #[test]
+    fn intro_scene_escape_ignores_opcodes_redirects_and_restores_exactly() {
+        let (master, mut scene) = fixtures();
+        // ESCOFF/ESCON cannot disarm or recapture an intro scene's generation.
+        let code = [
+            41, 40, 0x41, 100, 3, 0x4e, 86, 1, 0, 0, 128, 0, 3, 2, 0x4e, 44, 0,
+        ];
+        scene[8..8 + code.len()].copy_from_slice(&code);
+        let mut title = scene.clone();
+        title[8..14].copy_from_slice(&[41, 0x41, 77, 0x4c, 0, 0]);
+        title[88..92].copy_from_slice(&((2u32 << 23) | 8).to_le_bytes());
+        title[92..96].copy_from_slice(&((2u32 << 23) | 112).to_le_bytes());
+        let resources = Resources(vec![&master, &scene, &title]);
+        let mut engine = Engine::bootstrap_with_title(&resources, Some(Handle(2 << 23))).unwrap();
+        assert!(engine.intro_active());
+        engine.tick(&resources).unwrap();
+        let scene_vm = &engine
+            .processes
+            .states()
+            .find(|p| p.wait.is_some())
+            .unwrap()
+            .vm;
+        assert!(scene_vm.escape_enabled);
+        assert_eq!(scene_vm.escape_generation, Some(1));
+        // Intro redirect is applied after hook interception.
+        engine
+            .scene_hooks
+            .set(crate::scene_hook::Request::new(Handle(1 << 23), 1, 1).unwrap());
+        engine.script_escape_event().unwrap();
+        for _ in 0..50 {
+            let bytes = crate::save::Snapshot::capture(&engine, [7; 32])
+                .to_bytes()
+                .unwrap();
+            assert_eq!(u32::from_le_bytes(bytes[8..12].try_into().unwrap()), 17);
+            let snapshot = crate::save::Snapshot::from_bytes(&bytes, [7; 32]).unwrap();
+            assert_eq!(snapshot.to_bytes().unwrap(), bytes);
+            let mut restored = snapshot.state().clone();
+            engine.tick(&resources).unwrap();
+            restored.tick(&resources).unwrap();
+            assert_eq!(engine, restored);
+            if engine.globals[0] == 77 {
+                break;
+            }
+        }
+        assert_eq!(engine.scene, Handle(2 << 23));
+        assert_eq!(engine.globals[0], 77);
+        assert!(!engine.intro_active());
+        engine.request_restart();
+        engine.tick(&resources).unwrap();
+        assert!(engine.intro_active());
+        assert_eq!(engine.scene, Handle(1 << 23));
+        assert_eq!(engine.escape_events, Some(1));
+        engine.end_intro();
+        assert!(!engine.intro_active());
+        let bytes = crate::save::Snapshot::capture(&engine, [7; 32])
+            .to_bytes()
+            .unwrap();
+        let decoded = crate::save::Snapshot::from_bytes(&bytes, [7; 32]).unwrap();
+        assert!(!decoded.state().intro_active());
+        // A nested v17 envelope must be rejected before recursive decoding.
+        use sha2::{Digest, Sha256};
+        let payload =
+            postcard::to_allocvec(&(bytes.clone(), engine.intro.as_ref().unwrap())).unwrap();
+        let mut bad = bytes[..80].to_vec();
+        bad[44..48].copy_from_slice(&(payload.len() as u32).to_le_bytes());
+        bad[48..80].copy_from_slice(&Sha256::digest(&payload));
+        bad.extend(payload);
+        assert!(crate::save::Snapshot::from_bytes(&bad, [7; 32]).is_err());
+        let legacy = Engine::bootstrap(&resources).unwrap();
+        let fallback = Engine::bootstrap_with_title(&resources, None).unwrap();
+        assert_eq!(legacy, fallback);
+    }
+
+    #[test]
     fn startup_menu_key_enables_control_without_incrementing_waitkey_counter() {
         use crate::menu_navigation::Key;
         let (master, scene) = fixtures();
@@ -6585,7 +6743,7 @@ mod tests {
         );
         // Compare all game state, including scheduler, scene hooks, actors and
         // inventory definitions, against a fresh startup at the same host time.
-        let mut fresh = Engine::bootstrap_after_restart(&resources, true).unwrap();
+        let mut fresh = Engine::bootstrap_after_restart(&resources, true, None).unwrap();
         fresh.ticks = engine.ticks;
         fresh.configuration = Some(crate::menu_controller::Controller::new(settings).unwrap());
         fresh.mouse = Some(crate::mouse::MouseInput::new(engine.ticks as u32, 17));
