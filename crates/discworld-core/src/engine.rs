@@ -317,6 +317,53 @@ fn args(vm: &Machine, n: usize) -> Result<&[i32], Error> {
     .ok_or(Error("engine argument underflow"))
 }
 impl Engine {
+    fn capture_escape(counter: &mut Option<u64>, vm: &mut Machine, enabled: bool) {
+        vm.escape_generation = if enabled {
+            Some(*counter.get_or_insert(1))
+        } else {
+            None
+        };
+    }
+    fn migrate_escape(counter: &mut Option<u64>, vm: &mut Machine) {
+        if vm.escape_enabled && vm.escape_generation.is_none() {
+            Self::capture_escape(counter, vm, true);
+        }
+    }
+    fn escaped(&self, vm: &Machine) -> bool {
+        vm.escape_enabled
+            && vm
+                .escape_generation
+                .is_some_and(|captured| Some(captured) != self.escape_events)
+    }
+    /// Shared script event; frontends must still supply menu/intro precedence.
+    /// Counter overflow rejects the event before mutating any input state.
+    pub fn script_escape_event(&mut self) -> Result<(), Error> {
+        let previous = self.escape_events.unwrap_or(1);
+        let next = previous
+            .checked_add(1)
+            .ok_or(Error("escape event overflow"))?;
+        let users = self
+            .user_events
+            .checked_add(1)
+            .ok_or(Error("input event overflow"))?;
+        let left = self
+            .left_events
+            .checked_add(1)
+            .ok_or(Error("left event overflow"))?;
+        // Legacy snapshots had a Boolean but no event stamp. Arm them against
+        // the pre-event generation so this first new event is not lost.
+        for vm in self.escape_contexts_mut() {
+            if vm.escape_enabled && vm.escape_generation.is_none() {
+                vm.escape_generation = Some(previous);
+            }
+        }
+        self.escape_events = Some(next);
+        self.user_events = users;
+        self.left_events = left;
+        self.control.user_event(self.ticks);
+        Ok(())
+    }
+
     fn escape_contexts(&self) -> impl Iterator<Item = &Machine> {
         std::iter::once(&self.master)
             .chain(self.processes.states().map(|p| &p.vm))
@@ -2742,7 +2789,10 @@ impl Engine {
         let bytes = scene::script_bytes(resources, engine.master_code)?;
         for _ in 0..10000 {
             match vm.step(bytes, &mut engine.globals)? {
-                Step::Continue | Step::Escape(_) => {}
+                Step::Continue => {}
+                Step::Escape(enabled) => {
+                    Self::capture_escape(&mut engine.escape_events, &mut vm, enabled)
+                }
                 Step::Halted => return Err(Error("master did not request a scene")),
                 Step::Library(call) => {
                     if call.id == 120 {
@@ -2774,8 +2824,9 @@ impl Engine {
         if self.master_stopped {
             return Ok(None);
         }
+        Self::migrate_escape(&mut self.escape_events, &mut self.master);
         if let Some((call, left)) = self.master_wait {
-            if left > 1 {
+            if left > 1 && !self.escaped(&self.master) {
                 self.master_wait = Some((call, left - 1));
                 return Ok(None);
             }
@@ -2785,7 +2836,11 @@ impl Engine {
         let bytes = scene::script_bytes(resources, self.master_code)?;
         for _ in 0..10000 {
             let call = match self.master.step(bytes, &mut self.globals)? {
-                Step::Continue | Step::Escape(_) => continue,
+                Step::Continue => continue,
+                Step::Escape(enabled) => {
+                    Self::capture_escape(&mut self.escape_events, &mut self.master, enabled);
+                    continue;
+                }
                 Step::Halted => return Ok(None),
                 Step::Library(c) => c,
             };
@@ -2857,6 +2912,10 @@ impl Engine {
                 }
                 86 => {
                     let a = args(&self.master, 2)?;
+                    if self.escaped(&self.master) {
+                        self.master.complete_library(call, 2, None)?;
+                        continue;
+                    }
                     let n = u32::try_from(a[0]).map_err(|_| Error("negative master wait"))?;
                     let n = n
                         .checked_mul(if a[1] == 0 { 24 } else { 1 })
@@ -4190,8 +4249,9 @@ impl Engine {
             process.vm.complete_library(call, 2, None)?;
             process.sample_wait = None;
         }
+        Self::migrate_escape(&mut self.escape_events, &mut process.vm);
         if let Some((call, left)) = process.wait {
-            if left > 1 {
+            if left > 1 && !(call.id == 86 && self.escaped(&process.vm)) {
                 process.wait = Some((call, left - 1));
                 return Ok(Status::Running);
             }
@@ -4201,7 +4261,11 @@ impl Engine {
         let bytes = scene::script_bytes(resources, process.code)?;
         for _ in 0..10000 {
             let call = match process.vm.step(bytes, &mut self.globals)? {
-                Step::Continue | Step::Escape(_) => continue,
+                Step::Continue => continue,
+                Step::Escape(enabled) => {
+                    Self::capture_escape(&mut self.escape_events, &mut process.vm, enabled);
+                    continue;
+                }
                 Step::Halted => {
                     if process.conversation_started {
                         if process.conversation_took_control {
@@ -5469,6 +5533,10 @@ impl Engine {
                 }
                 86 => {
                     let a = args(&process.vm, 2)?;
+                    if self.escaped(&process.vm) {
+                        process.vm.complete_library(call, 2, None)?;
+                        continue;
+                    }
                     let time = u32::try_from(a[0]).map_err(|_| Error("negative wait time"))?;
                     let duration = time
                         .checked_mul(if a[1] == 0 { 24 } else { 1 })
@@ -10776,6 +10844,114 @@ mod tests {
             assert_eq!(engine, before);
         }
     }
+    #[test]
+    fn escape_cancels_timed_waits_rearms_and_survives_save_load() {
+        let (master, mut scene) = fixtures();
+        let mut code = vec![40];
+        for value in 1..=4 {
+            if value == 3 {
+                code.push(40);
+            }
+            if value == 4 {
+                code.push(41);
+            }
+            code.extend([0x41, 10, 3, 0x4e, 86, 0x41, value, 0x4c, 0]);
+        }
+        code.push(0);
+        scene[8..8 + code.len()].copy_from_slice(&code);
+        let resources = Resources(vec![&master, &scene]);
+        let mut engine = Engine::bootstrap(&resources).unwrap();
+        engine.control.enabled = false;
+        let tick = |engine: &mut Engine| {
+            let bytes = crate::save::Snapshot::capture(engine, [7; 32])
+                .to_bytes()
+                .unwrap();
+            let decoded = crate::save::Snapshot::from_bytes(&bytes, [7; 32]).unwrap();
+            assert_eq!(decoded.to_bytes().unwrap(), bytes);
+            let mut restored = decoded.state().clone();
+            assert_eq!(
+                engine.tick(&resources).unwrap(),
+                restored.tick(&resources).unwrap()
+            );
+            assert_eq!(*engine, restored);
+        };
+        tick(&mut engine);
+        assert_eq!(engine.globals[0], 0);
+        assert_eq!(engine.escape_events, Some(1));
+        let old_events = (engine.user_events, engine.left_events);
+        engine.script_escape_event().unwrap();
+        assert_eq!(
+            (engine.user_events, engine.left_events),
+            (old_events.0 + 1, old_events.1 + 1)
+        );
+        assert!(!engine.control.enabled);
+        tick(&mut engine);
+        assert_eq!(
+            engine.globals[0], 2,
+            "stale generation skips a new WAITTIME too"
+        );
+        assert!(
+            engine
+                .processes
+                .states()
+                .any(|p| p.vm.escape_generation == Some(2))
+        );
+        tick(&mut engine);
+        assert_eq!(
+            engine.globals[0], 2,
+            "repeated ESCON captures the new generation"
+        );
+        engine.script_escape_event().unwrap();
+        tick(&mut engine);
+        assert_eq!(engine.globals[0], 3);
+        engine.script_escape_event().unwrap();
+        tick(&mut engine);
+        assert_eq!(
+            engine.globals[0], 3,
+            "ESCOFF makes the final wait unskippable"
+        );
+        for _ in 0..12 {
+            tick(&mut engine);
+        }
+        assert_eq!(engine.globals[0], 4);
+        engine.escape_events = Some(u64::MAX);
+        let before = engine.clone();
+        assert!(engine.script_escape_event().is_err());
+        assert_eq!(engine, before);
+    }
+
+    #[test]
+    fn escape_event_cancels_master_wait_and_migrates_legacy_contexts() {
+        let (master, mut scene) = fixtures();
+        let code = [40, 0x41, 5, 3, 0x4e, 86, 0x41, 77, 0x4c, 0, 0];
+        scene[8..8 + code.len()].copy_from_slice(&code);
+        let resources = Resources(vec![&master, &scene]);
+        let mut engine = Engine::bootstrap(&resources).unwrap();
+        engine.master = Machine::default();
+        engine.master_code = Handle((1 << 23) | 8);
+        engine.master_stopped = false;
+        engine.processes = Scheduler::default();
+        engine.tick(&resources).unwrap();
+        assert!(engine.master_wait.is_some());
+        assert_eq!(engine.master.escape_generation, Some(1));
+        // An older save recorded enabled=true but no generation. Its first
+        // newly delivered escape must cancel this already-suspended wait.
+        engine.clear_escape_checkpoint();
+        let bytes = crate::save::Snapshot::capture(&engine, [7; 32])
+            .to_bytes()
+            .unwrap();
+        engine = crate::save::Snapshot::from_bytes(&bytes, [7; 32])
+            .unwrap()
+            .state()
+            .clone();
+        engine.script_escape_event().unwrap();
+        assert_eq!(engine.master.escape_generation, Some(1));
+        assert_eq!(engine.escape_events, Some(2));
+        engine.tick(&resources).unwrap();
+        assert_eq!(engine.globals[0], 77);
+        assert!(engine.master_wait.is_none());
+    }
+
     #[test]
     fn escape_snapshot_covers_master_live_saved_and_restoring_contexts() {
         use crate::save::Snapshot;

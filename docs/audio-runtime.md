@@ -184,3 +184,10 @@ guard and final one-tick sleep in `tinlib.cpp::PlaySample`.
 Validation: workspace tests, Clippy, WASM checking and all 18 original-asset
 web tests pass (`assets/logs/effects-disable-*`). The running e4b6b65 route uses
 default effects volume and predates this zero-volume correction.
+
+
+The speech-priority runtime e4b6b65 completed the full native recorded route:
+2,630,000 ticks, all 1,652 inputs accepted, 5,048 engine and 5,048 DSP audits,
+and restart to the title scene. Final engine bytes match f776192. See
+[validation](validation/speech-priority-e4b6b65.json). This predates zero-effects
+volume and the escape-state work; it is not evidence for those later changes.

@@ -1,10 +1,11 @@
 # V1 script escape compatibility
 
 Reference revision: 96b42d42bc8533953bdd701db059cc33c839a9ff.
-Current implementation is incomplete: Machine stores only escape_enabled;
-there is no global escape event generation or captured per-context generation.
-Native/browser Escape currently handles configuration/inventory UI and does
-not implement the reference's script cancellation mechanism.
+Current implementation is incomplete: the engine captures global/per-context
+escape generations and handles WAITTIME cancellation, with DWRSAVE v14 state.
+Native/browser Escape still handles configuration/inventory UI; the shared
+script event API is not connected to hosts. Movement/film/speech cancellation
+and the special intro skip path remain pending.
 
 ## Observed reference contract
 
@@ -99,3 +100,30 @@ Storage validation: workspace tests, Clippy with warnings denied, WASM checking
 and all 18 original-asset integration tests pass (`assets/logs/escape-save-*`).
 The original-asset cases exercise legacy/current imports; synthetic tests above
 exercise populated v14 escape state.
+
+
+## Counter capture and timed waits
+
+ESCON now captures the global generation at that instruction in master and
+scene interpreters; ESCOFF clears its capture. The first generation is 1.
+Legacy enabled contexts without a capture adopt the current generation when
+resumed. When the first new escape is delivered before such a context resumes,
+all live/master/saved/restoring enabled contexts are armed against the previous
+generation before the counter advances, so that event is not lost.
+
+`Engine::script_escape_event` atomically increments escape, user and left-event
+counters and updates idle activity without requiring player control. Overflow
+rejects before any mutation. Hosts do not yet call this API: menu priority and
+the separate pre-title intro mechanism still require integration.
+
+WAITTIME now skips an entry call with a stale enabled capture or completes a
+suspended wait on escape. The context stays stale until ESCON captures again;
+ESCOFF disables cancellation. Other one-tick library yields are not treated as
+WAITTIME. Tests cover repeated ESCON, entry/suspended waits, ESCOFF, disabled
+control, master waits, legacy migration, counter overflow and exact save/load
+continuation at each tick. This does not claim the other library cancellation
+handlers, intro exception or host routing are implemented.
+
+Counter validation: workspace tests, Clippy, WASM checking and all 18
+original-asset tests pass (`assets/logs/escape-counter-*`). The additional
+master/legacy migration case passes in the focused escape regression run.

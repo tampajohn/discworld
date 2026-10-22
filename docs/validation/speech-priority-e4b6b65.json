@@ -1,0 +1,26 @@
+{
+  "schema": 1,
+  "runtime_revision": "e4b6b652303ab46f50efaf3c7d8a5cefd46b98e9",
+  "route": "evidence/act4-ending-input.json",
+  "route_sha256": "30c227553695638a78495f4cf56731f841e89188c8faa75821e50c164ddf4ddb",
+  "local_artifacts": "assets/validation/speech-priority-e4b6b65",
+  "native": {
+    "ticks": 2630000,
+    "status": "Running",
+    "scene_name": "title.scn",
+    "has_restarted": true,
+    "snapshot_checks": 5048,
+    "audio_snapshot_checks": 5048,
+    "snapshot_max_bytes": 47635,
+    "audio_snapshot_max_bytes": 317221,
+    "accepted_inputs": 1652,
+    "core_sha256": "62570b31e8aca0793e461792be622810dbcb8c3d980db53513cb2f474d374d64",
+    "core_matches_f776192": true,
+    "report_sha256": "5c58ce4bb16282c6e19d2c7d18083d2d747f34be2fc55fa5d592355876d10a14"
+  },
+  "scope": [
+    "Accelerated native recorded full route with engine/DSP save-load audits.",
+    "Includes speech priority correction; predates zero-effects-volume and escape state/counter changes.",
+    "No new browser or physical-device acceptance from this run."
+  ]
+}
