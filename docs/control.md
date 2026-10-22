@@ -1103,3 +1103,22 @@ replacement, coroutine ownership, removal without resetting pointBox, and
 serialization. Evidence: assets/logs/menu-highlight-{tests,assets,clippy}.log.
 Controller-wide hit testing and HL1 rendering still need to use this model for
 Main, confirmation, save/load and retained effects before live integration.
+
+Controller now owns HL1 state across all supported pages. point_at performs
+box hit testing (including non-highlighted save rows/Controls FLIP and ignored
+sliders); advance derives coroutine existence checks from that owned state.
+The lower-level step method remains for explicit-state diagnostics. Drawing
+uses the owner rather than independently highlighting the pointer and then
+painting an unrelated animation over it. Stationary hover preserves an effect;
+new hover replaces it; outside clears it. Toggle effects and button animation
+phases explicitly install/remove HL1, and window construction resets pointBox.
+Button graphics are constructed from the original reel and CONFBOX offset using
+the current window origin, so they also survive page changes. A retained press
+can create an HL1 graphic even after closure, matching ButtonPress's lack of an
+inventory-active guard. Tests exercise owned advance without host booleans,
+stationary and replacement confirmation hover, outside removal during the
+two-tick depressed stage, and a retained Subtitles toggle replacing (and being
+replaced by) Main text hover while still updating Subtitles. Evidence:
+assets/logs/menu-shared-highlight-{assets,workspace,clippy}.log. Controller
+snapshots, engine lifecycle/input scheduling, settings application and host F1
+bindings remain unfinished.

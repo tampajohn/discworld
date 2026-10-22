@@ -166,6 +166,9 @@ impl Navigation {
     pub fn button_image(&self) -> Option<(Choice, ButtonImage)> {
         self.graphic.image()
     }
+    pub(crate) fn graphic_page(&self) -> Option<Page> {
+        self.graphic_page
+    }
 
     /// InvWalkTo outside the window and CLOSEWIN both close completely.
     /// killInventory removes display objects but does not clear buttonEffect.

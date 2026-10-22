@@ -65,7 +65,7 @@ fn original_menu_controller_transitions_render_and_resolve_live_selection() {
         );
         assert_eq!(menu.take_cursor_warp(), None);
         let mut surface = baseline.clone();
-        menu.draw(&resources, &mut surface, None).unwrap();
+        menu.draw(&resources, &mut surface).unwrap();
         assert_eq!(menu.take_cursor_warp(), None); // redraw never warps again
         assert_eq!(surface.rgba == baseline.rgba, page.is_none());
     }
@@ -97,6 +97,60 @@ fn original_menu_controller_transitions_render_and_resolve_live_selection() {
     let result = menu.step(&assets, false).unwrap();
     assert_eq!(result.outcome.request, Some(Request::Save));
     assert_eq!(result.selection, None);
+    // Exercise controller-owned HL1, without an externally supplied existence
+    // flag. A stationary pointer preserves effects; another box replaces them.
+    let mut live = Controller::new(menu.settings()).unwrap();
+    live.open(Page::Restart, &assets).unwrap();
+    live.click_button([170, 85]);
+    live.close();
+    live.advance(&assets).unwrap(); // ButtonPress does not check inventoryActive
+    let mut closed_effect = baseline.clone();
+    live.draw(&resources, &mut closed_effect).unwrap();
+    assert_ne!(closed_effect.rgba, baseline.rgba);
+    live.point_at(None);
+    assert_eq!(
+        live.advance(&assets).unwrap().outcome.request,
+        Some(Request::Restart)
+    );
+    live.open(Page::Restart, &assets).unwrap();
+    live.point_at(Some([170, 85]));
+    live.click_button([170, 85]);
+    live.advance(&assets).unwrap();
+    let mut normal = baseline.clone();
+    live.draw(&resources, &mut normal).unwrap();
+    live.point_at(Some([170, 85]));
+    let mut stationary = baseline.clone();
+    live.draw(&resources, &mut stationary).unwrap();
+    assert_eq!(stationary.rgba, normal.rgba);
+    live.point_at(Some([130, 85]));
+    let mut other = baseline.clone();
+    live.draw(&resources, &mut other).unwrap();
+    assert_ne!(other.rgba, normal.rgba);
+    assert_eq!(live.advance(&assets).unwrap().outcome.request, None);
+    live.point_at(None);
+    assert_eq!(live.advance(&assets).unwrap().outcome.request, None); // second depressed tick
+    assert_eq!(
+        live.advance(&assets).unwrap().outcome.request,
+        Some(Request::Restart)
+    );
+
+    live.open(Page::Subtitles, &assets).unwrap();
+    let enabled = live.settings().subtitles;
+    live.point_at(Some([163, 77]));
+    live.click_settings([163, 77], false);
+    live.advance(&assets).unwrap();
+    live.escape(&assets).unwrap();
+    live.point_at(Some([90, 44]));
+    live.advance(&assets).unwrap(); // retained toggle replaces Main's text highlight
+    live.point_at(Some([90, 59])); // a different text highlight replaces the effect
+    live.advance(&assets).unwrap(); // any HL1 suffices: the original setting flips
+    assert_eq!(live.settings().subtitles, !enabled);
+    assert_eq!(live.page(), Some(Page::Main));
+    live.point_at(None);
+    live.advance(&assets).unwrap();
+    assert!(live.click_button([90, 44]));
+    live.advance(&assets).unwrap();
+    assert_eq!(live.page(), Some(Page::Load));
     menu.open(Page::Controls, &assets).unwrap();
     let view = menu.settings_mut().unwrap();
     view.point_at(Some([176, 112]));
@@ -125,10 +179,10 @@ fn original_menu_controller_transitions_render_and_resolve_live_selection() {
     menu.escape(&assets).unwrap();
     assert!(!menu.click_button([90, 44]));
     let mut normal = baseline.clone();
-    menu.draw(&resources, &mut normal, None).unwrap();
+    menu.draw(&resources, &mut normal).unwrap();
     menu.step(&assets, false).unwrap(); // Main active: creates depressed image
     let mut depressed = baseline.clone();
-    menu.draw(&resources, &mut depressed, None).unwrap();
+    menu.draw(&resources, &mut depressed).unwrap();
     assert_ne!(normal.rgba, depressed.rgba);
     menu.step(&assets, true).unwrap(); // HL1 exists: changes original subtitles
     assert_eq!(menu.settings().subtitles, !enabled);

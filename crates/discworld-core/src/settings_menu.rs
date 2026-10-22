@@ -189,9 +189,6 @@ impl SettingsMenu {
             self.highlight.remove();
         }
     }
-    pub(crate) fn has_overlay(&self) -> bool {
-        self.overlay.is_some()
-    }
     pub(crate) fn set_shared_enabled(&mut self, enabled: bool) {
         self.enabled = enabled;
         self.thumb.object.x =
@@ -216,10 +213,20 @@ impl SettingsMenu {
     /// Supply actual inventory/HL1 existence, as ButtonToggle checks different
     /// objects after each sleep. Returns a setting change only at the flip step.
     pub fn step_toggle(&mut self, inventory_active: bool, overlay_exists: bool) -> Option<bool> {
+        self.step_toggle_effect(inventory_active, overlay_exists)
+            .filter(|effect| *effect == Effect::FlipDown)
+            .map(|_| self.enabled)
+    }
+    pub(crate) fn step_toggle_effect(
+        &mut self,
+        inventory_active: bool,
+        overlay_exists: bool,
+    ) -> Option<Effect> {
         if !self.toggle.busy() {
             return None;
         }
-        match self.toggle.step(inventory_active, overlay_exists) {
+        let effect = self.toggle.step(inventory_active, overlay_exists);
+        match effect {
             Effect::Remove => self.effect_overlay(None),
             Effect::Down => self.effect_overlay(Some(1)),
             Effect::FlipDown => {
@@ -229,12 +236,11 @@ impl SettingsMenu {
                 self.thumb.object.x = 170
                     + menu_slider::offset(self.value, self.maximum())
                         .expect("private validated setting");
-                return Some(self.enabled);
             }
             Effect::Highlight => self.effect_overlay(Some(2)),
             Effect::Finished => self.effect_overlay(None),
         }
-        None
+        Some(effect)
     }
     pub fn begin_drag(
         &mut self,
