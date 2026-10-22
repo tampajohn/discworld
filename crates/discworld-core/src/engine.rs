@@ -1067,6 +1067,46 @@ impl Engine {
         *self = next;
         Ok(permitted)
     }
+    /// Apply a menu-opening key to an initialized configuration controller.
+    /// Resource failures leave the engine (including input counters) unchanged.
+    pub fn open_configuration(
+        &mut self,
+        resources: &Resources<'_>,
+        strings: &crate::text::Strings<'_>,
+        saves: &[crate::save_menu::Entry],
+        key: crate::menu_navigation::Key,
+    ) -> Result<bool, Error> {
+        let mut next = self.clone();
+        let active = next
+            .configuration
+            .as_ref()
+            .is_some_and(|menu| menu.page().is_some());
+        if !next.configuration_key(resources, key, active)? {
+            *self = next;
+            return Ok(false);
+        }
+        let menu = next
+            .configuration
+            .as_mut()
+            .ok_or(Error("configuration settings not initialized"))?;
+        let assets = crate::menu_controller::Assets {
+            resources,
+            strings,
+            declarations: &next.declarations,
+            saves,
+        };
+        let opened = menu.open(key.page(), &assets)?;
+        if opened {
+            // V1 popUpInventory disables tags but leaves pointing enabled.
+            next.control.tags_enabled = false;
+            if let Some(position) = menu.take_cursor_warp() {
+                next.control.move_cursor(position);
+            }
+        }
+        *self = next;
+        Ok(opened)
+    }
+
     pub fn left_event(&mut self) -> Result<(), Error> {
         let next = self
             .left_events
@@ -1997,6 +2037,12 @@ impl Engine {
 
     /// Close the active window without a conversation postamble (scripted CLOSEINVENTORY).
     pub fn close_inventory(&mut self) {
+        if let Some(menu) = &mut self.configuration {
+            if menu.page().is_some() {
+                menu.close();
+                self.control.tags_enabled = true;
+            }
+        }
         self.top_window = None;
         if let Some(slot) = self.active_inventory.take() {
             self.inventory_geometry.close(slot as usize);

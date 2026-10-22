@@ -1186,3 +1186,19 @@ menu-engine-save-browser-tests.log (24 existing browser cases) and
 menu-engine-save-browser-v10.log (two additional native-menu browser cases).
 Live menu input, scheduling, lifecycle, settings application and F1 remain
 unwired; this checkpoint fixture must not be mistaken for an interactive menu.
+
+Engine::open_configuration now combines the existing key gate with original
+menu construction, tag suppression and one-shot Save/Quit cursor warps. It
+requires an initialized controller with caller-supplied settings and catalog;
+missing resources leave the entire engine and event counters unchanged. Rejected
+keys retain the original event-counter behavior and cannot replace an open page.
+Scripted close_inventory closes an active configuration page and restores tags
+while retaining controller settings and pending effects. The existing renderer
+then resumes drawing the held-item cursor. This follows V1 openMenu,
+popUpInventory and killInventory in the pinned dialogs.cpp reference.
+The original-asset engine test covers startup ENABLEMENU, all four opening keys,
+resource-failure atomicity, open-page rejection, cursor positions, and exact
+save/load bytes and pixels while open, plus save bytes after closure. Workspace tests and Clippy
+pass; evidence is assets/logs/menu-engine-open-{assets,workspace,clippy}.log.
+Host key routing, controller initialization, ongoing menu scheduling, scene
+lifecycle and settings application remain to be connected before live F1 use.

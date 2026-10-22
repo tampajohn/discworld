@@ -515,6 +515,114 @@ fn startup_menu_key_restores_original_cursor_and_resumes_deterministically() {
     roundtrip_pending(&mut game, 24);
 }
 
+#[test]
+#[ignore = "requires DISCWORLD_TEST_ISO and DISCWORLD_TEST_SOUNDFONT"]
+fn engine_menu_opening_preserves_gates_warps_and_atomicity() {
+    use discworld_core::{
+        menu_controller::{Controller, Settings},
+        menu_navigation::Key,
+        text::Strings,
+    };
+    let read = |name| std::fs::read(std::env::var_os(name).expect(name)).unwrap();
+    let mut game =
+        BrowserGame::new(read("DISCWORLD_TEST_ISO"), read("DISCWORLD_TEST_SOUNDFONT")).unwrap();
+    while game.tick() < 500 {
+        game.advance((500 - game.tick()).min(24) as u32).unwrap();
+    }
+    game.engine.configuration = Some(
+        Controller::new(Settings {
+            volumes: [255; 3],
+            double_click: 10,
+            swap_buttons: false,
+            text_speed: 50,
+            subtitles: true,
+            flipped: false,
+        })
+        .unwrap(),
+    );
+    let resources = game.assets.resources();
+    let strings = Strings::new(&game.assets.iso[game.assets.text.clone()]).unwrap();
+    let initial = game.engine.clone();
+    let mut broken = initial.clone();
+    assert!(
+        broken
+            .open_configuration(
+                &discworld_core::graphics::Resources(vec![]),
+                &strings,
+                &[],
+                Key::Main
+            )
+            .is_err()
+    );
+    assert_eq!(broken, initial);
+    let mut checkpoints = Vec::new();
+    for key in [Key::Main, Key::Save, Key::Load, Key::Quit] {
+        let mut engine = initial.clone();
+        if key != Key::Main {
+            // Only Main can turn control on at the ENABLEMENU startup gate.
+            assert!(
+                !engine
+                    .open_configuration(&resources, &strings, &[], key)
+                    .unwrap()
+            );
+            assert!(engine.configuration.as_ref().unwrap().page().is_none());
+            engine
+                .configuration_key(&resources, Key::Main, false)
+                .unwrap();
+        }
+        let cursor = engine.control.cursor;
+        assert!(
+            engine
+                .open_configuration(&resources, &strings, &[], key)
+                .unwrap()
+        );
+        assert_eq!(
+            engine.configuration.as_ref().unwrap().page(),
+            Some(key.page())
+        );
+        assert!(!engine.control.tags_enabled);
+        assert_eq!(
+            engine.control.cursor,
+            match key {
+                Key::Save => [262, 91],
+                Key::Quit => [180, 90],
+                _ => cursor,
+            }
+        );
+        assert_eq!(
+            engine.configuration.as_mut().unwrap().take_cursor_warp(),
+            None
+        );
+        let controller = engine.configuration.clone();
+        assert!(
+            !engine
+                .open_configuration(&resources, &strings, &[], Key::Main)
+                .unwrap()
+        );
+        assert_eq!(engine.configuration, controller);
+        game.engine = engine;
+        let saved = game.save().unwrap();
+        let frame = game.frame().unwrap();
+        checkpoints.push((saved, frame));
+    }
+    for (saved, frame) in checkpoints {
+        game.load(&saved).unwrap();
+        assert_eq!(game.save().unwrap(), saved);
+        assert_eq!(game.frame().unwrap(), frame);
+        let settings = game.engine.configuration.as_ref().unwrap().settings();
+        game.engine.close_inventory();
+        assert!(game.engine.configuration.as_ref().unwrap().page().is_none());
+        assert!(game.engine.control.tags_enabled);
+        assert_eq!(
+            game.engine.configuration.as_ref().unwrap().settings(),
+            settings
+        );
+        let closed = game.save().unwrap();
+        game.load(&closed).unwrap();
+        assert_eq!(game.save().unwrap(), closed);
+    }
+}
+
 fn roundtrip_pending(game: &mut BrowserGame, ticks: u32) {
     let pending = game.save().unwrap();
     game.load(&pending).unwrap();
