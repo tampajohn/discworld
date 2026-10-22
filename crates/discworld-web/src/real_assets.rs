@@ -675,6 +675,37 @@ fn engine_menu_opening_preserves_gates_warps_and_atomicity() {
             .is_none()
     );
     let pending = engine.clone();
+    let mut scheduled = pending.clone();
+    let mut manual = pending.clone();
+    let bank = game.assets.bank().unwrap();
+    let tracks =
+        discworld_core::music::archive(&game.assets.iso[game.assets.music.clone()]).unwrap();
+    let expected_dispatch = manual
+        .advance_configuration(&resources, &strings, &[])
+        .unwrap();
+    let expected_status = manual
+        .tick_content(&resources, Some(&bank), Some(&tracks), Some(&strings))
+        .unwrap();
+    let result = scheduled
+        .tick_with_configuration(&resources, Some(&bank), Some(&tracks), &strings, &[])
+        .unwrap();
+    assert_eq!(result, (expected_status, expected_dispatch));
+    assert_eq!(scheduled, manual);
+    // A later failure rolls back the menu transition together with the cycle.
+    let before = pending.clone();
+    let mut failed = before.clone();
+    assert!(
+        failed
+            .tick_with_configuration(
+                &discworld_core::graphics::Resources(vec![]),
+                Some(&bank),
+                Some(&tracks),
+                &strings,
+                &[]
+            )
+            .is_err()
+    );
+    assert_eq!(failed, before);
     assert!(
         engine
             .advance_configuration(&discworld_core::graphics::Resources(vec![]), &strings, &[])
@@ -983,6 +1014,40 @@ fn engine_menu_opening_preserves_gates_warps_and_atomicity() {
         .mouse_button_with_configuration(&resources, Button::Right, false)
         .unwrap();
     assert!(!engine.configuration.as_ref().unwrap().dragging());
+    // A complete cycle dispatches a queued confirmation once, including across saves.
+    engine.close_inventory();
+    engine
+        .open_configuration(&resources, &strings, &catalog, Key::Save)
+        .unwrap();
+    engine.move_cursor_with_configuration([262, 69]).unwrap();
+    engine
+        .configuration_click([262, 69], Gesture::WalkTo)
+        .unwrap();
+    let mut requests = Vec::new();
+    for _ in 0..6 {
+        let snapshot = discworld_core::save::Snapshot::capture(&engine, game.assets.identity)
+            .to_bytes()
+            .unwrap();
+        let mut restored =
+            discworld_core::save::Snapshot::from_bytes(&snapshot, game.assets.identity)
+                .unwrap()
+                .restore_with_strings(&resources, &bank, &tracks, &strings)
+                .unwrap();
+        let actual = engine
+            .tick_with_configuration(&resources, Some(&bank), Some(&tracks), &strings, &catalog)
+            .unwrap();
+        assert_eq!(
+            restored
+                .tick_with_configuration(&resources, Some(&bank), Some(&tracks), &strings, &catalog)
+                .unwrap(),
+            actual
+        );
+        assert_eq!(engine, restored);
+        if let Some(request) = actual.1.outcome.request {
+            requests.push(request);
+        }
+    }
+    assert_eq!(requests, vec![Request::Save]);
 }
 
 fn roundtrip_pending(game: &mut BrowserGame, ticks: u32) {

@@ -3266,8 +3266,46 @@ impl Engine {
         tracks: Option<&[crate::music::Track<'_>]>,
         strings: Option<&crate::text::Strings<'_>>,
     ) -> Result<Status, Error> {
+        self.tick_content_impl(resources, bank, tracks, strings, None)
+    }
+
+    /// Complete a game cycle including InventoryProcess. The returned request
+    /// belongs to this cycle and must be consumed by the host before another.
+    pub fn tick_with_configuration(
+        &mut self,
+        resources: &Resources<'_>,
+        bank: Option<&SampleBank<'_>>,
+        tracks: Option<&[crate::music::Track<'_>]>,
+        strings: &crate::text::Strings<'_>,
+        saves: &[crate::save_menu::Entry],
+    ) -> Result<(Status, crate::menu_controller::Dispatch), Error> {
+        let mut dispatch = crate::menu_controller::Dispatch {
+            outcome: crate::menu_navigation::Outcome::default(),
+            selection: None,
+        };
+        let status = self.tick_content_impl(
+            resources,
+            bank,
+            tracks,
+            Some(strings),
+            Some((saves, &mut dispatch)),
+        )?;
+        Ok((status, dispatch))
+    }
+
+    fn tick_content_impl(
+        &mut self,
+        resources: &Resources<'_>,
+        bank: Option<&SampleBank<'_>>,
+        tracks: Option<&[crate::music::Track<'_>]>,
+        strings: Option<&crate::text::Strings<'_>>,
+        menu: Option<(
+            &[crate::save_menu::Entry],
+            &mut crate::menu_controller::Dispatch,
+        )>,
+    ) -> Result<Status, Error> {
         let mut next = self.clone();
-        let mut status = next.advance(resources, bank, tracks, strings)?;
+        let mut status = next.advance(resources, bank, tracks, strings, menu)?;
         if next.restart_pending && !matches!(status, Status::Unsupported(_)) {
             // Pinned V1 resets after the game cycle, outside script dispatch.
             // Keep host-facing time, settings and the RNG stream continuous.
@@ -3302,6 +3340,10 @@ impl Engine {
         bank: Option<&SampleBank<'_>>,
         tracks: Option<&[crate::music::Track<'_>]>,
         strings: Option<&crate::text::Strings<'_>>,
+        menu: Option<(
+            &[crate::save_menu::Entry],
+            &mut crate::menu_controller::Dispatch,
+        )>,
     ) -> Result<Status, Error> {
         self.ticks = self.ticks.checked_add(1).ok_or(Error("tick overflow"))?;
         self.advance_scene_restore(resources, tracks)?;
@@ -3312,6 +3354,15 @@ impl Engine {
         } else {
             Vec::new()
         };
+        // CreateConstProcesses creates master, cursor, then inventory. Idle
+        // insertion is at the head, so inventory precedes both other processes.
+        if let Some((saves, dispatch)) = menu {
+            *dispatch = self.advance_configuration(
+                resources,
+                strings.ok_or(Error("menu update requires strings"))?,
+                saves,
+            )?;
+        }
         if let Some(call) = self.run_master(resources)? {
             return Ok(Status::Unsupported(call));
         }
@@ -5575,9 +5626,17 @@ mod tests {
         let tracks = crate::music::archive(file("/DISCWLD/MIDI.DAT")).unwrap();
         let mut engine = Engine::bootstrap(&resources).unwrap();
         while engine.ticks < 500 {
-            engine
+            let mut menu_cycle = engine.clone();
+            let expected = engine
                 .tick_content(&resources, Some(&bank), Some(&tracks), Some(&strings))
                 .unwrap();
+            let (actual, dispatch) = menu_cycle
+                .tick_with_configuration(&resources, Some(&bank), Some(&tracks), &strings, &[])
+                .unwrap();
+            assert_eq!(actual, expected);
+            assert_eq!(menu_cycle, engine);
+            assert_eq!(dispatch.outcome, crate::menu_navigation::Outcome::default());
+            assert!(dispatch.selection.is_none());
         }
         engine.configuration = Some(
             crate::menu_controller::Controller::new(crate::menu_controller::Settings {

@@ -1314,3 +1314,22 @@ Unit coverage checks threshold changes mid-pair and zero-speed behavior. Evidenc
 assets/logs/menu-physical-{assets,workspace,clippy}.log. Live hosts still need to
 call these new APIs and consume dispatches; settings persistence, script click
 delay updates and automatic menu scheduling remain required.
+
+Engine::tick_with_configuration now advances InventoryProcess within the
+transactional game cycle and returns its Dispatch alongside Status. The pinned
+CreateConstProcesses creates master, cursor and inventory in that order; idle
+createProcess inserts at the head, so inventory runs before cursor/master.
+The new path advances menus before the existing master/cursor work, after scene
+transition handling. Legacy tick_content remains available without automatic
+menu stepping until hosts can consume requests. A failed cycle commits neither
+menu nor game changes. The returned selection is resolved at menu dispatch time,
+not re-read after subsequent script execution.
+Original-asset checks compare the first500 startup ticks with/without the new
+path and no controller, exercise deferred navigation, and save/restore each
+confirmation-animation stage while advancing complete cycles; exactly one Save
+request results. They also check rollback on failed reconstruction. Evidence:
+assets/logs/menu-cycle-{assets,core-assets,workspace,clippy}.log. Hosts must still
+adopt the API, handle Restart/Quit/storage requests and define capture/transfer
+timing: the reference captures scene data inside SaveGame but processes file
+transfers after NextGameCycle. Returning a request alone does not implement that
+host lifecycle or establish complete scheduler parity for every process type.
