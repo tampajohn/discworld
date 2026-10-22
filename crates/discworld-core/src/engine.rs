@@ -3141,6 +3141,42 @@ impl Engine {
         }
         Ok(())
     }
+    fn migrate_legacy_talk_reels(&mut self, resources: &Resources<'_>) -> Result<(), Error> {
+        let mut pending = std::collections::BTreeMap::new();
+        for wait in self.processes.states().filter_map(|p| p.talk_wait.as_ref()) {
+            if let Some(saved) = wait.mover_saved {
+                let mover = self
+                    .movers
+                    .get(&wait.actor)
+                    .ok_or(Error("talking mover disappeared"))?;
+                if mover.reel_state.is_none()
+                    && pending
+                        .insert(wait.actor, saved)
+                        .is_some_and(|previous| previous != saved)
+                {
+                    return Err(Error("ambiguous legacy talk reel slot"));
+                }
+            }
+        }
+        // Validate all recovered resources before committing any migration.
+        for (&actor, &saved) in &pending {
+            let mut mover = self.movers[&actor].clone();
+            mover.reel_state = Some(crate::mover_reel::State::legacy_talk(
+                saved,
+                mover.walk_target.is_some(),
+            ));
+            mover.validate_reel_resources(resources)?;
+        }
+        for (actor, saved) in pending {
+            let mover = self.movers.get_mut(&actor).unwrap();
+            mover.reel_state = Some(crate::mover_reel::State::legacy_talk(
+                saved,
+                mover.walk_target.is_some(),
+            ));
+        }
+        Ok(())
+    }
+
     pub(crate) fn finished_talks(&self) -> Vec<crate::scheduler::ProcessId> {
         self.processes
             .entries()
@@ -3556,6 +3592,9 @@ impl Engine {
             }
         }
         self.films = active;
+        // Recover old stationary TALK slots at the first tick, not while
+        // loading: importing and re-exporting legacy snapshots stays exact.
+        self.migrate_legacy_talk_reels(resources)?;
         let mover_ids: Vec<_> = self.movers.keys().copied().collect();
         for actor in mover_ids {
             if self.reel_owners.contains_key(&actor) {
@@ -9680,6 +9719,10 @@ mod tests {
                 (12, base + 256),
                 (32, base + 200),
                 (40, 1),
+                (64, 24),
+                (68, 1),
+                (72, base + 32),
+                (76, base + 256),
                 (200, base + 220),
                 (220, 8 | (16 << 16)),
                 (256, base + 200),
@@ -9703,7 +9746,7 @@ mod tests {
             engine
                 .declarations
                 .movers
-                .insert(1, [[Handle(base); 12]; 10]);
+                .insert(1, [[Handle(base + 64); 12]; 10]);
             engine.polygons = crate::polygon::Polygons::new(
                 vec![crate::polygon::Polygon {
                     kind: if node {
@@ -9740,10 +9783,121 @@ mod tests {
                 &engine.polygons,
                 1,
                 [50, 70],
-                Handle(base),
+                Handle(base + 64),
             )
             .unwrap();
             let mut mover = crate::mover::Mover::new(&resources, placement).unwrap();
+            let mut stationary = engine.clone();
+            stationary.movers.insert(1, mover.clone());
+            stationary
+                .tick_content(&resources, Some(&bank), None, Some(&strings))
+                .unwrap();
+            assert_eq!(
+                stationary.movers[&1].reel_state.unwrap().pushed(),
+                Handle(base + 64)
+            );
+            // A second TALK replaces the one shared pushed-film slot. The
+            // final POP must restore the first talk film, not the old stand.
+            let mut overlapping = stationary.clone();
+            overlapping
+                .processes
+                .spawn(
+                    Some(overlapping.generation),
+                    ScriptProcess::new(Handle((1 << 23) | 8)),
+                )
+                .unwrap();
+            overlapping
+                .tick_content(&resources, Some(&bank), None, Some(&strings))
+                .unwrap();
+            assert_eq!(
+                overlapping.movers[&1].reel_state.unwrap().pushed(),
+                Handle(base)
+            );
+            // Conflicting old per-coroutine slots cannot identify a shared
+            // slot. Reject the ambiguous migration without changing movers.
+            let mut ambiguous = overlapping.clone();
+            ambiguous.movers.get_mut(&1).unwrap().reel_state = None;
+            let before = ambiguous.clone();
+            assert_eq!(
+                ambiguous.migrate_legacy_talk_reels(&resources),
+                Err(Error("ambiguous legacy talk reel slot"))
+            );
+            assert_eq!(ambiguous, before);
+            for _ in 0..40 {
+                let bytes = Snapshot::capture(&overlapping, [7; 32]).to_bytes().unwrap();
+                let mut restored = Snapshot::from_bytes(&bytes, [7; 32])
+                    .unwrap()
+                    .state()
+                    .clone();
+                let a = overlapping
+                    .tick_content(&resources, Some(&bank), None, Some(&strings))
+                    .unwrap();
+                let b = restored
+                    .tick_content(&resources, Some(&bank), None, Some(&strings))
+                    .unwrap();
+                assert_eq!(a, b);
+                assert_eq!(overlapping, restored);
+            }
+            assert!(
+                overlapping
+                    .processes
+                    .states()
+                    .all(|p| p.talk_wait.is_none())
+            );
+            assert_eq!(overlapping.movers[&1].last_film, Handle(base));
+            let mut legacy = stationary.clone();
+            legacy.movers.get_mut(&1).unwrap().reel_state = None;
+            let old_bytes = Snapshot::capture(&legacy, [7; 32]).to_bytes().unwrap();
+            assert_eq!(u32::from_le_bytes(old_bytes[8..12].try_into().unwrap()), 12);
+            let decoded = Snapshot::from_bytes(&old_bytes, [7; 32]).unwrap();
+            assert_eq!(decoded.to_bytes().unwrap(), old_bytes);
+            let mut legacy = decoded.state().clone();
+            let mut moved_during_speech = false;
+            for tick in 0..40 {
+                if tick == 2 {
+                    for instance in [&mut stationary, &mut legacy] {
+                        instance
+                            .movers
+                            .get_mut(&1)
+                            .unwrap()
+                            .begin_walk(
+                                &resources,
+                                &instance.declarations,
+                                &instance.polygons,
+                                [80, 70],
+                                [80, 70],
+                            )
+                            .unwrap();
+                    }
+                }
+                if tick == 3 {
+                    // Old runtimes could save after a new walk replaced a
+                    // stationary talk. A pending wait alone must not freeze it.
+                    legacy.movers.get_mut(&1).unwrap().reel_state = None;
+                    let bytes = Snapshot::capture(&legacy, [7; 32]).to_bytes().unwrap();
+                    let decoded = Snapshot::from_bytes(&bytes, [7; 32]).unwrap();
+                    assert_eq!(decoded.to_bytes().unwrap(), bytes);
+                    legacy = decoded.state().clone();
+                }
+                let a = stationary
+                    .tick_content(&resources, Some(&bank), None, Some(&strings))
+                    .unwrap();
+                let b = legacy
+                    .tick_content(&resources, Some(&bank), None, Some(&strings))
+                    .unwrap();
+                assert_eq!(a, b);
+                assert_eq!(
+                    stationary, legacy,
+                    "legacy migration node={node} tick={tick}"
+                );
+                moved_during_speech |= stationary.sample_player.id.is_some()
+                    && stationary.movers[&1].placement.position[0] > 50;
+            }
+            assert!(moved_during_speech);
+            assert_eq!(stationary.movers[&1].placement.position, [80, 70]);
+            assert_eq!(stationary.movers[&1].walk_target, None);
+            assert_eq!(stationary.movers[&1].last_film, Handle(base + 64));
+            assert_eq!(stationary.globals, [9]);
             let serial = mover
                 .begin_walk(
                     &resources,

@@ -54,7 +54,7 @@ command-line development archives have been tested outside their source
 folders; native Finder app packaging and physical iPad acceptance remain.
 
 
-Next engine compatibility work: [mover reel modes and walking speech](mover-reel-compatibility.md). Walking TALK now pauses movement and resumes the existing route, with versioned reel state and interruption/save-continuation tests. Custom walking film arguments and complete legacy stationary-state migration remain.
+Next engine compatibility work: [mover reel modes and walking speech](mover-reel-compatibility.md). Walking TALK now pauses movement and resumes the existing route, with versioned reel state and interruption/save-continuation tests. New stationary speech also uses the shared reel slot; old active waits migrate at the next tick without rewriting imported bytes. Custom walking film arguments and ambiguous historical overlapping slots remain.
 
 Runtime revision `00a6b38` has runnable native and browser hosts, original menus,
 named save/load, original-font name editing, independently controlled music/

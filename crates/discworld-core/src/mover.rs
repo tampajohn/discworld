@@ -827,23 +827,20 @@ impl Mover {
         if selected.0 == 0 {
             return Err(Error("missing mover talk reel"));
         }
-        if self.reel_state.is_some() || self.walk_target.is_some() {
-            self.alter_reel(
-                resources,
-                declarations,
-                crate::mover_reel::State::default(),
-                crate::mover_reel::Operation::Push(selected),
-            )?;
-            return Ok(self.reel_state.unwrap().pushed());
-        }
-        let mut next = self.clone();
-        let saved = next.placement.standing;
-        next.placement.standing = selected;
-        next.apply_standing(resources)?;
-        next.placement.standing = saved;
-        *self = next;
-        Ok(saved)
+        let initial = if self.walk_target.is_some() {
+            crate::mover_reel::State::default()
+        } else {
+            crate::mover_reel::State::stationary(Handle(0))
+        };
+        self.alter_reel(
+            resources,
+            declarations,
+            initial,
+            crate::mover_reel::Operation::Push(selected),
+        )?;
+        Ok(self.reel_state.unwrap().pushed())
     }
+
     pub fn pop_talk(
         &mut self,
         resources: &crate::graphics::Resources<'_>,
@@ -2538,10 +2535,13 @@ mod tests {
                 .is_err()
         );
         assert_eq!(mover, before);
-        mover.walk_target = Some([160, 178]);
+        let stationary = mover.clone();
+        mover
+            .begin_walk(&resources, &declarations, &polygons, [160, 178], [160, 178])
+            .unwrap();
         let before = mover.clone();
         let saved = mover
-            .push_talk(&resources, &declarations, Handle(0))
+            .push_talk(&resources, &declarations, Handle(1))
             .unwrap();
         assert_eq!(saved, Handle(0));
         assert!(mover.special_reel());
@@ -2550,8 +2550,8 @@ mod tests {
         assert!(!mover.special_reel());
         assert_eq!(mover.walk_target, before.walk_target);
         assert_eq!(mover.walk_serial, before.walk_serial);
-        // The remaining fixture cases start from the legacy stationary state.
-        mover = before;
+        // The remaining fixture cases start from the stationary state.
+        mover = stationary;
         let mut nodes = polygons.clone();
         let p = &mut nodes.active[0].definition;
         p.kind = Kind::NodePath;
@@ -2736,7 +2736,13 @@ mod tests {
                 assert_eq!(mover.node_walk.as_ref().unwrap().leg.target, old_target);
                 assert!(!mover.node_walk.as_ref().unwrap().leg.overshoot);
                 assert_eq!(mover.walk_serial, old_serial + 1);
-                restored = postcard::from_bytes(&postcard::to_allocvec(&mover).unwrap()).unwrap();
+                // The legacy mover payload deliberately excludes reel state;
+                // DWRSAVE v13 carries that state in its companion extension.
+                let bytes = postcard::to_allocvec(&(&mover, mover.reel_state)).unwrap();
+                let (decoded, reel_state): (Mover, Option<crate::mover_reel::State>) =
+                    postcard::from_bytes(&bytes).unwrap();
+                restored = decoded;
+                restored.reel_state = reel_state;
                 retargeted_exit = true;
             }
             mover

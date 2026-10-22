@@ -3,8 +3,8 @@
 //!
 //! Selection is independent of movement/route state. The returned transition
 //! must be committed only after its animation operation succeeds. This module
-//! is applied transactionally by Mover::alter_reel. Walking speech migrates
-//! movers to this state; legacy stationary movers retain their old bookkeeping.
+//! is applied transactionally by Mover::alter_reel. New speech uses explicit
+//! state; legacy active talk waits migrate at the next mover phase.
 use crate::graphics::Handle;
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Default, serde::Serialize, serde::Deserialize)]
@@ -59,6 +59,25 @@ pub struct Transition {
 }
 
 impl State {
+    /// Recover the shared slot from an old stationary TALK wait without
+    /// restarting its animation. A fresh standing mover uses a zero slot.
+    pub(crate) fn stationary(pushed: Handle) -> Self {
+        Self {
+            mode: Mode::Special,
+            pushed,
+        }
+    }
+
+    /// Legacy snapshots rejected TALK starting during movement. A live route
+    /// alongside an old TALK wait therefore means a newer walk replaced the
+    /// talk animation; retain its pushed slot but do not suspend that route.
+    pub(crate) fn legacy_talk(pushed: Handle, moving: bool) -> Self {
+        Self {
+            mode: if moving { Mode::Normal } else { Mode::Special },
+            pushed,
+        }
+    }
+
     pub fn mode(self) -> Mode {
         self.mode
     }

@@ -2,8 +2,9 @@
 
 Status: reference-derived transition model implemented in `mover_reel.rs`;
 transactional mover animation application and snapshot storage are implemented.
-Walking speech is integrated; custom WALK/WALKED/SWALK film arguments and
-complete migration of legacy stationary bookkeeping remain pending. Reference revision:
+Walking and new stationary speech use explicit reel state; old active talk
+waits migrate at the first tick. Custom WALK/WALKED/SWALK film arguments remain
+guarded. Ambiguous legacy overlapping slots require further compatibility work. Reference revision:
 `96b42d42bc8533953bdd701db059cc33c839a9ff`. This applies to V1; later-version
 branches in the same functions must not be imported implicitly.
 
@@ -214,3 +215,34 @@ its suspended VM stack and need not be duplicated in a new wait payload.
 Retain the existing exact-arrival result, token interruption and hold==2 rules.
 Removing these guards before legacy reel migration would enable a path with
 incorrect later POP behavior.
+
+
+## Stationary speech and legacy continuation
+
+New stationary TALK calls now save the actual last film into the same shared
+slot used for walking speech. A newer TALK overwrites that single slot; ending
+an older coroutine does not restore its private historical film. The live core
+regression uses distinct standing and talking films, overlaps two TALK calls,
+and checks the final restored film and snapshot continuation at every tick.
+
+For an old active TALK wait with no explicit mover state, the engine recovers
+the saved film at the beginning of the next mover phase without restarting the
+animation. Loading and re-exporting the old snapshot remains byte-identical.
+Old runtimes rejected TALK starting during movement: if an old pending TALK
+coexists with a live route, a newer walk replaced the talk animation. Migration
+therefore keeps normal movement active while recovering the pushed slot.
+The regression saves both before and after that replacement, checks the legacy
+v12 roundtrip, and compares continuation with the new explicit state on ordinary
+and node paths.
+
+If multiple legacy waits for one mover contain conflicting saved films, the
+old representation cannot unambiguously identify a shared pushed slot. Migration
+returns an explicit error before committing any recovered mover state instead
+of guessing. A regression verifies this rejection is atomic. Newly generated
+overlapping speech saves retain the shared slot and do not have this ambiguity.
+This remains a limitation for ambiguous old saves, not a claim of universal
+migration of every historical state.
+
+The raw-mover unit fixture now carries the companion reel state when testing
+serialization; production persistence continues to use the validated DWRSAVE
+v13 extension. No legacy mover payload fields were added or reordered.
