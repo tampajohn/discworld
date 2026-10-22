@@ -114,7 +114,10 @@ fn run() -> Result<(), Box<dyn std::error::Error>> {
                 })
                 .collect::<Result<Vec<_>, _>>()?,
         );
-        let engine = discworld_core::engine::Engine::bootstrap(&resources)?;
+        let engine = discworld_core::engine::Engine::bootstrap_with_title(
+            &resources,
+            discworld_core::intro::title_scene(&index)?,
+        )?;
         let mut fonts = Vec::new();
         for handle in [engine.declarations.tag_font, engine.declarations.talk_font]
             .into_iter()

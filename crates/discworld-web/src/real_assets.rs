@@ -57,7 +57,7 @@ fn original_menu_controller_transitions_render_and_resolve_live_selection() {
             .unwrap();
         assert_eq!(
             u32::from_le_bytes(snapshot_bytes[8..12].try_into().unwrap()),
-            10
+            17
         );
         let snapshot =
             discworld_core::save::Snapshot::from_bytes(&snapshot_bytes, game.assets.identity)
@@ -2275,9 +2275,7 @@ fn original_intro_escape_reaches_title_with_exact_session_continuation() {
     let index = discworld_core::resource::parse_index(iso.file("/DISCWLD/INDEX").unwrap()).unwrap();
     let title = discworld_core::intro::title_scene(&index).unwrap().unwrap();
     let mut game = BrowserGame::new(iso_bytes, read("DISCWORLD_TEST_SOUNDFONT")).unwrap();
-    game.engine =
-        discworld_core::engine::Engine::bootstrap_with_title(&game.assets.resources(), Some(title))
-            .unwrap();
+    assert!(game.engine.intro_active());
     game.advance(1).unwrap();
     assert_ne!(game.engine.scene, title, "test must escape before title");
     game.engine.script_escape_event().unwrap();

@@ -129,7 +129,8 @@ fn run() -> Result<(), Box<dyn std::error::Error>> {
     )?;
     let tracks = music::archive(iso.file("/DISCWLD/MIDI.DAT").ok_or("missing music")?)?;
     let strings = Strings::new(iso.file("/DISCWLD/ENGLISH.TXT").ok_or("missing text")?)?;
-    let mut engine = Engine::bootstrap(&resources)?;
+    let mut engine =
+        Engine::bootstrap_with_title(&resources, discworld_core::intro::title_scene(&index)?)?;
     let soundfont_bytes = std::fs::read(soundfont)?;
     let mut synth = discworld_audio::MusicOutput::new(&soundfont_bytes, 22050)?;
     if let Some(path) = &load_path {

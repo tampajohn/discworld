@@ -1,14 +1,16 @@
 # V1 script escape compatibility
 
 Reference revision: 96b42d42bc8533953bdd701db059cc33c839a9ff.
-Current implementation is incomplete: the engine captures global/per-context
-escape generations and handles WAITTIME, scripted walking and PLAY/TOPPLAY
-cancellation plus sample-call entry and suspended cancellation, with DWRSAVE
-v16 state.
-Native/browser Escape still handles configuration/inventory UI; the shared
-script event API is not connected to hosts. Remaining waits and
-escape-sensitive library branches still need auditing; the special intro skip
-path remains pending.
+Current engine support includes escape generations, waits, walking, films,
+samples, speech/text, inventory opening/arbitration, scrolling and palette/color
+guards. Fresh native/browser/tool startup activates detected DOS pre-title
+policy. DWRSAVE v17 preserves that state, and user loads end intro mode while
+exact runtime restoration retains it.
+
+Host keyboard/touch Escape is not yet connected to the shared script event
+API. Complete user-facing skipping remains unverified. The sections below
+record implementation stages chronologically; earlier pending items may have
+been resolved by later sections.
 
 ## Observed reference contract
 
@@ -446,3 +448,23 @@ regression separately covers active v17 policy.
 All 20 Chrome/WebKit player cases passed (10 per browser), covering import/
 export, cold startup, audio pause/resume and active inventory interactions.
 See `assets/logs/user-load-browser.log`. This is not physical iPad acceptance.
+
+## Host startup activation
+
+Fresh native/browser players and native headless/window/startup tools now use
+resource-index title detection and `bootstrap_with_title`. Missing title
+detection retains the legacy fallback. The original-asset skip test now uses
+the real browser constructor, rather than replacing its engine with an opt-in
+instance. New sessions preserve the policy in v17 saves; the menu roundtrip
+test now expects that envelope while still validating identical menu rendering
+and continuation. Imported historical saves retain their existing state and
+encoding; they do not acquire fabricated intro history.
+
+Keyboard/touch Escape routing remains pending. This startup change enables
+reference intro opcode behavior and policy state, not a new user input path.
+
+Startup validation: workspace tests, all 20 original-asset web tests, Clippy
+and WASM checking passed. Both hosts rebuilt; Chrome/WebKit cold-start cases
+passed, and a 30-frame native dummy-video smoke run exited normally at tick 15
+in psygnosi.scn. Logs use `assets/logs/intro-startup-*`. Dummy-video smoke is
+not visible-window or physical-device acceptance.

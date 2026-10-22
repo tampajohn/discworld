@@ -86,7 +86,10 @@ pub fn headless(
             })
             .collect::<Result<Vec<_>, _>>()?,
     );
-    let mut engine = discworld_core::engine::Engine::bootstrap(&resources)?;
+    let mut engine = discworld_core::engine::Engine::bootstrap_with_title(
+        &resources,
+        discworld_core::intro::title_scene(&index)?,
+    )?;
     let bank = discworld_core::audio::SampleBank::new(
         iso.file("/DISCWLD/ENGLISH.IDX")
             .ok_or("missing audio index")?,

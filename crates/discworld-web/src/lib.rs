@@ -62,6 +62,7 @@ struct Assets {
     iso: Vec<u8>,
     identity: [u8; 32],
     names: Vec<String>,
+    intro_title: Option<discworld_core::graphics::Handle>,
     resources: Vec<Range<usize>>,
     sample_index: Range<usize>,
     samples: Range<usize>,
@@ -90,6 +91,7 @@ impl Assets {
         Ok(Self {
             identity: session::asset_identity(&data),
             iso: data,
+            intro_title: discworld_core::intro::title_scene(&index).map_err(error)?,
             names: index.into_iter().map(|e| e.name).collect(),
             resources,
             sample_index,
@@ -174,7 +176,7 @@ impl BrowserGame {
     pub fn new(iso: Vec<u8>, soundfont: Vec<u8>) -> Result<BrowserGame> {
         let assets = Assets::new(iso)?;
         let resources = assets.resources();
-        let engine = Engine::bootstrap(&resources).map_err(error)?;
+        let engine = Engine::bootstrap_with_title(&resources, assets.intro_title).map_err(error)?;
         assets.bank()?;
         music::archive(&assets.iso[assets.music.clone()]).map_err(error)?;
         Strings::new(&assets.iso[assets.text.clone()]).map_err(error)?;

@@ -40,7 +40,8 @@ pub fn preview(
             })
             .collect::<Result<Vec<_>, _>>()?,
     );
-    let mut engine = Engine::bootstrap(&resources)?;
+    let mut engine =
+        Engine::bootstrap_with_title(&resources, discworld_core::intro::title_scene(&index)?)?;
     if let Some(kind) = menu {
         if kind == "preview-menu" && slot != 0 {
             return Err("main-menu preview takes no image state".into());
