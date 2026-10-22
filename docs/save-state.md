@@ -344,3 +344,42 @@ process-keyed label or departure waits. Label waits carry the original layout,
 absolute cell, pending PRINTOBJ call and visibility; departure waits require a
 halted POINTED interpreter and a valid completed serial. Older versions restore
 an empty hover state. This is the runtime's save schema, not ScummVM save format.
+
+## Menu checkpoints (version 10)
+
+When `Engine::configuration` is present, version 10 extends the version 9 tuple
+with the controller checkpoint bytes (maximum 64 KiB). The outer asset identity
+and checksum cover this extension. Without a controller, the encoder continues
+to select the previous applicable format. Original resources and strings rebuild
+menu graphics; drawable objects are not serialized in the extension.
+
+Use `Snapshot::restore_with_strings` and `preview_with_strings` for these saves.
+The older methods reject a decoded menu checkpoint rather than omit its window.
+Combined-session decoding supplies strings in native, browser and headless hosts.
+Restoration validates the reconstructed controller and rejects an active menu
+overlapping a conversation or inventory window. The engine renders the menu
+before the cursor and suppresses the held-item cursor while a menu page is open.
+
+Original-asset tests compare restored engine state, rendered pixels and encoded
+session bytes across menu pages and effects. An opt-in browser test loads a native
+menu checkpoint in Chrome and WebKit, compares all canvas pixels, and exports
+identical session bytes. Generate its fixture from the repository root (the
+output and companion `.rgba` path must not already exist):
+
+```sh
+DISCWORLD_TEST_ISO="$PWD/Terry Pratchett's Discworld (1995)(Psygnosis).iso" \
+DISCWORLD_TEST_SOUNDFONT="$PWD/assets/soundfonts/TimGM6mb.sf2" \
+DISCWORLD_TEST_MENU_SAVE_OUTPUT="$PWD/assets/saves/menu-engine-v10.dws" \
+cargo test --release -p discworld-web original_menu_controller_transitions_render_and_resolve_live_selection -- --ignored
+```
+
+Then, from `web`, run:
+
+```sh
+DISCWORLD_TEST_MENU_SAVE="$PWD/../assets/saves/menu-engine-v10.dws" \
+npx playwright test tests/menu-save.spec.js
+```
+
+This verifies persistence and rendering, not live menu operation. F1 opening,
+input routing, menu scheduling, lifecycle transitions and settings application
+still require integration. Normal hosts do not yet create this controller.

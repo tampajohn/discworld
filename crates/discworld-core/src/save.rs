@@ -14,6 +14,7 @@ const SLIDER_VERSION: u32 = 6;
 const GEOMETRY_VERSION: u32 = 7;
 const RESIZE_VERSION: u32 = 8;
 const HOVER_VERSION: u32 = 9;
+const MENU_VERSION: u32 = 10;
 const HEADER: usize = 80;
 pub const MAX_SAVE_BYTES: usize = 16 * 1024 * 1024;
 
@@ -23,6 +24,7 @@ pub const MAX_SAVE_BYTES: usize = 16 * 1024 * 1024;
 pub struct Snapshot {
     asset_id: [u8; 32],
     state: Engine,
+    menu: Option<Vec<u8>>,
 }
 
 impl Snapshot {
@@ -31,6 +33,7 @@ impl Snapshot {
         Self {
             asset_id,
             state: engine.clone(),
+            menu: None,
         }
     }
 
@@ -62,6 +65,9 @@ impl Snapshot {
         &self,
         resources: &crate::graphics::Resources<'_>,
     ) -> Result<crate::compositor::Surface, Error> {
+        if self.menu.is_some() {
+            return Err(Error("menu snapshot requires original strings"));
+        }
         self.state.snapshot_preview(resources)
     }
 
@@ -74,6 +80,10 @@ impl Snapshot {
         bank: &crate::audio::SampleBank<'_>,
         tracks: &[crate::music::Track<'_>],
     ) -> Result<Engine, Error> {
+        if self.menu.is_some() {
+            return Err(Error("menu snapshot requires original strings"));
+        }
+        self.state.validate_snapshot_structure()?;
         self.verify_scripts(resources)?;
         self.verify_audio(bank, tracks)?;
         self.state.validate_snapshot_polygons(resources)?;
@@ -81,12 +91,68 @@ impl Snapshot {
         Ok(self.state)
     }
 
+    pub fn restore_with_strings(
+        mut self,
+        resources: &crate::graphics::Resources<'_>,
+        bank: &crate::audio::SampleBank<'_>,
+        tracks: &[crate::music::Track<'_>],
+        strings: &crate::text::Strings<'_>,
+    ) -> Result<Engine, Error> {
+        self.rebuild_menu(resources, strings)?;
+        self.restore(resources, bank, tracks)
+    }
+
+    pub fn preview_with_strings(
+        &self,
+        resources: &crate::graphics::Resources<'_>,
+        strings: &crate::text::Strings<'_>,
+    ) -> Result<crate::compositor::Surface, Error> {
+        let mut snapshot = self.clone();
+        snapshot.rebuild_menu(resources, strings)?;
+        snapshot.preview(resources)
+    }
+
+    fn rebuild_menu(
+        &mut self,
+        resources: &crate::graphics::Resources<'_>,
+        strings: &crate::text::Strings<'_>,
+    ) -> Result<(), Error> {
+        if let Some(bytes) = self.menu.take() {
+            let assets = crate::menu_controller::Assets {
+                resources,
+                strings,
+                declarations: &self.state.declarations,
+                saves: &[],
+            };
+            self.state.configuration = Some(crate::menu_controller::Controller::from_checkpoint(
+                &bytes, &assets,
+            )?);
+        }
+        Ok(())
+    }
+
     pub fn to_bytes(&self) -> Result<Vec<u8>, Error> {
         self.state.validate_snapshot_structure()?;
         let extended = self.state.clicks != crate::click::State::default();
         let geometry = self.state.inventory_geometry != crate::inventory_geometry::State::default();
         let hover = self.state.inventory_hover != crate::inventory_hover::State::default();
-        let payload = if hover {
+        let menu = match &self.state.configuration {
+            Some(menu) => Some(menu.checkpoint()?),
+            None => self.menu.clone(),
+        };
+        let payload = if let Some(menu) = &menu {
+            postcard::to_allocvec(&(
+                &self.state,
+                &self.state.clicks,
+                &self.state.mouse,
+                self.state.inventory_drag,
+                &self.state.inventory_slider,
+                &self.state.inventory_geometry,
+                &self.state.inventory_resize,
+                &self.state.inventory_hover,
+                menu,
+            ))
+        } else if hover {
             postcard::to_allocvec(&(
                 &self.state,
                 &self.state.clicks,
@@ -139,7 +205,9 @@ impl Snapshot {
         let mut bytes = Vec::with_capacity(HEADER + payload.len());
         bytes.extend_from_slice(MAGIC);
         bytes.extend_from_slice(
-            &(if hover {
+            &(if menu.is_some() {
+                MENU_VERSION
+            } else if hover {
                 HOVER_VERSION
             } else if self.state.inventory_resize.is_some() {
                 RESIZE_VERSION
@@ -187,6 +255,7 @@ impl Snapshot {
             GEOMETRY_VERSION,
             RESIZE_VERSION,
             HOVER_VERSION,
+            MENU_VERSION,
         ]
         .contains(&word(8))
         {
@@ -202,7 +271,36 @@ impl Snapshot {
         if Sha256::digest(payload)[..] != bytes[48..80] {
             return Err(Error("save checksum mismatch"));
         }
-        let (state, remaining) = if word(8) == HOVER_VERSION {
+        let mut menu = None;
+        let (state, remaining) = if word(8) == MENU_VERSION {
+            let (
+                (mut state, clicks, mouse, owner, slider, geometry, resize, hover, bytes),
+                remaining,
+            ) = postcard::take_from_bytes::<(
+                Engine,
+                crate::click::State,
+                Option<crate::mouse::MouseInput>,
+                Option<i32>,
+                Option<crate::inventory_slider::Drag>,
+                crate::inventory_geometry::State,
+                Option<crate::inventory_resize::Drag>,
+                crate::inventory_hover::State,
+                Vec<u8>,
+            )>(payload)
+            .map_err(|_| Error("invalid snapshot menu payload"))?;
+            if !(4..=65536).contains(&bytes.len()) {
+                return Err(Error("invalid snapshot menu size"));
+            }
+            state.clicks = clicks;
+            state.mouse = mouse;
+            state.inventory_drag = owner;
+            state.inventory_slider = slider;
+            state.inventory_geometry = geometry;
+            state.inventory_resize = resize;
+            state.inventory_hover = hover;
+            menu = Some(bytes);
+            (state, remaining)
+        } else if word(8) == HOVER_VERSION {
             let ((mut state, clicks, mouse, owner, slider, geometry, resize, hover), remaining) =
                 postcard::take_from_bytes::<(
                     Engine,
@@ -311,7 +409,11 @@ impl Snapshot {
             return Err(Error("inventory drop requires save version 3"));
         }
         state.validate_snapshot_structure()?;
-        Ok(Self { asset_id, state })
+        Ok(Self {
+            asset_id,
+            state,
+            menu,
+        })
     }
 
     #[cfg(test)]

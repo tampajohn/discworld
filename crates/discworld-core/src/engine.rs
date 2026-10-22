@@ -224,6 +224,10 @@ pub struct Engine {
     )>,
     inventory_dirty: bool,
     pub top_window: Option<crate::conversation_window::Frame>,
+    /// Shared menu state; serialized by the versioned snapshot extension.
+    /// Input/lifecycle integration is separate from checkpoint ownership.
+    #[serde(skip)]
+    pub configuration: Option<crate::menu_controller::Controller>,
     /// Optional diagnostic history of the last 256 scene-process library
     /// dispatches. Failed transactional ticks do not commit their trace.
     pub scene_calls: Option<std::collections::VecDeque<SceneCall>>,
@@ -332,6 +336,14 @@ impl Engine {
     }
 
     pub(crate) fn validate_snapshot_structure(&self) -> Result<(), Error> {
+        if self
+            .configuration
+            .as_ref()
+            .is_some_and(|menu| menu.page().is_some())
+            && (self.active_inventory.is_some() || self.top_window.is_some())
+        {
+            return Err(Error("configuration overlaps another inventory window"));
+        }
         if let Some(slot) = self.inventory_drag {
             if !(0..=2).contains(&slot)
                 || self.active_inventory != Some(slot)
@@ -2281,6 +2293,7 @@ impl Engine {
             inventory_display: None,
             inventory_dirty: false,
             top_window: None,
+            configuration: None,
             scene_calls: None,
             no_blocking: false,
             inventory_objects: crate::inventory::read(resources)?,
@@ -4932,8 +4945,15 @@ impl Engine {
                 layout.draw(resources, &mut result)?;
             }
         }
+        if let Some(menu) = &self.configuration {
+            menu.draw(resources, &mut result)?;
+        }
         if !self.control.hidden {
-            if let Some(cursor) = &self.held_cursor {
+            if let Some(cursor) = &self.held_cursor.as_ref().filter(|_| {
+                self.configuration
+                    .as_ref()
+                    .is_none_or(|menu| menu.page().is_none())
+            }) {
                 cursor.draw(resources, &mut result, self.control.cursor)?;
             }
             if let Some(cursor) = &self.cursor_animation {

@@ -73,9 +73,11 @@ pub fn decode(
     bank: &SampleBank<'_>,
     tracks: &[Track<'_>],
     soundfont: &[u8],
+    strings: &discworld_core::text::Strings<'_>,
 ) -> Result<RestoredSession, Error> {
     let (engine_bytes, audio_bytes) = sections(bytes)?;
-    let engine = Snapshot::from_bytes(engine_bytes, asset_id)?.restore(resources, bank, tracks)?;
+    let engine = Snapshot::from_bytes(engine_bytes, asset_id)?
+        .restore_with_strings(resources, bank, tracks, strings)?;
     let audio = MusicOutput::from_checkpoint(soundfont, audio_bytes)?;
     if !audio.matches_engine_clock(engine.music.clock) {
         return Err("saved engine and audio clocks disagree".into());

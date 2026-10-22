@@ -137,6 +137,7 @@ fn run() -> Result<(), Box<dyn std::error::Error>> {
             &bank,
             &tracks,
             &soundfont_bytes,
+            &strings,
         )?;
         engine = restored.engine;
         synth = restored.audio;
@@ -295,6 +296,7 @@ fn run() -> Result<(), Box<dyn std::error::Error>> {
                                 &bank,
                                 &tracks,
                                 &soundfont_bytes,
+                                &strings,
                             )
                         });
                     match result {

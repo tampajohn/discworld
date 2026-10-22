@@ -1171,3 +1171,18 @@ assets/logs/menu-checkpoint-{assets,workspace,clippy}.log. This standalone codec
 has no asset identity/checksum of its own: the enclosing engine/session format
 must supply those when integrating it. DWRSAVE and live hosts are unchanged;
 engine ownership, input scheduling, settings application and F1 remain required.
+
+Engine now owns an optional configuration controller, draws it before the cursor,
+and persists its logical checkpoint through DWRSAVE version10 and DWRPLAY.
+Native, browser and headless session restoration supply original strings to
+rebuild the menu; legacy preview/restore reject decoded menu checkpoints without
+those strings. Restoration rejects overlapping configuration/inventory windows.
+Original-asset coverage verifies engine equality, preview pixels and session-byte
+round trips for all pages and effects. Chrome and WebKit additionally load a
+native Save-page checkpoint, match its complete native RGBA output, and export
+identical session bytes. Reproduction commands are in docs/save-state.md.
+Evidence: assets/logs/menu-engine-save-{workspace,all-assets,clippy}.log,
+menu-engine-save-browser-tests.log (24 existing browser cases) and
+menu-engine-save-browser-v10.log (two additional native-menu browser cases).
+Live menu input, scheduling, lifecycle, settings application and F1 remain
+unwired; this checkpoint fixture must not be mistaken for an interactive menu.

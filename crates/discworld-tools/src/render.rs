@@ -112,8 +112,9 @@ pub fn headless(
         let font = soundfont_bytes
             .as_deref()
             .ok_or("--load requires a SoundFont")?;
-        let restored =
-            discworld_audio::session::decode(&bytes, asset_id, &resources, &bank, &tracks, font)?;
+        let restored = discworld_audio::session::decode(
+            &bytes, asset_id, &resources, &bank, &tracks, font, &strings,
+        )?;
         engine = restored.engine;
         synth = Some(restored.audio);
     }
@@ -179,15 +180,23 @@ pub fn headless(
                     let decoded = discworld_core::save::Snapshot::from_bytes(&bytes, asset_id)?;
                     decoded.verify_scripts(&resources)?;
                     decoded.verify_audio(&bank, &tracks)?;
-                    if decoded.preview(&resources)? != engine.render(&resources)? {
+                    if decoded.preview_with_strings(&resources, &strings)?
+                        != engine.render(&resources)?
+                    {
                         return Err(format!("snapshot preview differs at {}", engine.ticks).into());
                     }
-                    if decoded != captured || decoded.to_bytes()? != bytes {
+                    if decoded.to_bytes()? != bytes {
                         return Err(
                             format!("snapshot round trip failed at {}", engine.ticks).into()
                         );
                     }
-                    let restored = decoded.restore(&resources, &bank, &tracks)?;
+                    let restored =
+                        decoded.restore_with_strings(&resources, &bank, &tracks, &strings)?;
+                    if restored != engine {
+                        return Err(
+                            format!("restored snapshot state differs at {}", engine.ticks).into(),
+                        );
+                    }
                     let mut continued = restored.clone();
                     let mut uninterrupted = engine.clone();
                     let a = continued.tick_content(

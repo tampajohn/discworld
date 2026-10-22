@@ -337,6 +337,7 @@ impl BrowserGame {
             &bank,
             &tracks,
             &self.font,
+            &Strings::new(&self.assets.iso[self.assets.text.clone()]).map_err(error)?,
         )
         .map_err(error)?;
         self.engine = restored.engine;

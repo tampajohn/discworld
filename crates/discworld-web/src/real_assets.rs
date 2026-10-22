@@ -37,6 +37,9 @@ fn original_menu_controller_transitions_render_and_resolve_live_selection() {
         flipped: false,
     };
     let baseline = game.engine.render(&resources).unwrap();
+    let bank = game.assets.bank().unwrap();
+    let tracks =
+        discworld_core::music::archive(&game.assets.iso[game.assets.music.clone()]).unwrap();
     let restore_menu = |original: &Controller| {
         let bytes = original.checkpoint().unwrap();
         let restored = Controller::from_checkpoint(&bytes, &assets).unwrap();
@@ -47,6 +50,49 @@ fn original_menu_controller_transitions_render_and_resolve_live_selection() {
         original.draw(&resources, &mut before).unwrap();
         restored.draw(&resources, &mut after).unwrap();
         assert_eq!(before.rgba, after.rgba);
+        let mut engine = game.engine.clone();
+        engine.configuration = Some(original.clone());
+        let snapshot_bytes = discworld_core::save::Snapshot::capture(&engine, game.assets.identity)
+            .to_bytes()
+            .unwrap();
+        assert_eq!(
+            u32::from_le_bytes(snapshot_bytes[8..12].try_into().unwrap()),
+            10
+        );
+        let snapshot =
+            discworld_core::save::Snapshot::from_bytes(&snapshot_bytes, game.assets.identity)
+                .unwrap();
+        assert_eq!(snapshot.to_bytes().unwrap(), snapshot_bytes);
+        assert!(snapshot.preview(&resources).is_err()); // never silently drop a menu
+        assert_eq!(
+            snapshot
+                .preview_with_strings(&resources, &strings)
+                .unwrap()
+                .rgba,
+            engine.render(&resources).unwrap().rgba
+        );
+        let bytes =
+            discworld_audio::session::encode(&engine, &game.audio, game.assets.identity).unwrap();
+        let session = discworld_audio::session::decode(
+            &bytes,
+            game.assets.identity,
+            &resources,
+            &bank,
+            &tracks,
+            &game.font,
+            &strings,
+        )
+        .unwrap();
+        assert_eq!(engine, session.engine);
+        assert_eq!(
+            session.engine.render(&resources).unwrap().rgba,
+            engine.render(&resources).unwrap().rgba
+        );
+        assert_eq!(
+            discworld_audio::session::encode(&session.engine, &session.audio, game.assets.identity)
+                .unwrap(),
+            bytes
+        );
         restored
     };
     for (page, point) in [
@@ -100,6 +146,29 @@ fn original_menu_controller_transitions_render_and_resolve_live_selection() {
     checkpoint_probe.close();
     checkpoint_probe.open(Page::Save, &assets).unwrap();
     checkpoint_probe.list_mut().unwrap().select(1).unwrap();
+    if let Some(path) = std::env::var_os("DISCWORLD_TEST_MENU_SAVE_OUTPUT") {
+        use std::io::Write;
+        let mut engine = game.engine.clone();
+        engine.configuration = Some(checkpoint_probe.clone());
+        let bytes =
+            discworld_audio::session::encode(&engine, &game.audio, game.assets.identity).unwrap();
+        std::fs::OpenOptions::new()
+            .write(true)
+            .create_new(true)
+            .open(&path)
+            .unwrap()
+            .write_all(&bytes)
+            .unwrap();
+        let mut rgba = path.clone();
+        rgba.push(".rgba");
+        std::fs::OpenOptions::new()
+            .write(true)
+            .create_new(true)
+            .open(rgba)
+            .unwrap()
+            .write_all(&engine.render(&resources).unwrap().rgba)
+            .unwrap();
+    }
     let empty_catalog = Assets {
         saves: &[],
         resources: &resources,
