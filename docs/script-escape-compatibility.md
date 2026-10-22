@@ -6,7 +6,7 @@ escape generations and handles WAITTIME, scripted walking and PLAY/TOPPLAY
 cancellation plus sample-call entry and suspended cancellation, with DWRSAVE
 v16 state.
 Native/browser Escape still handles configuration/inventory UI; the shared
-script event API is not connected to hosts. Speech cancellation
+script event API is not connected to hosts. Animated TALK cancellation
 and the special intro skip path remain pending.
 
 ## Observed reference contract
@@ -219,3 +219,27 @@ rejection of empty/all-None captures, zero/future serials and nested wrappers.
 
 Ownership validation: workspace tests (307 core tests), all 18 original-asset
 web tests, Clippy and WASM checking passed; logs use `assets/logs/sample-owner-*`.
+
+## PRINT and positioned speech escape
+
+PRINT (53), TALKAT (98) and sustained TALKATS (104) now skip stale escape
+contexts before reading strings, samples, actor colors or font resources.
+TALKATS still validates its required sustain argument before this guard,
+matching the reference assertion. Skipped calls leave existing audio intact.
+
+During a wait, escape dismisses these calls independently of the left-click
+sentinel, duration or sustain setting. Existing sample serial ownership limits
+audio stopping to the line's own playback; replacement speech survives. This
+uses the existing saved print wait and escape generation, without a new save
+format. Inventory PRINTOBJ and animated TALK are separate paths and remain
+outside this change.
+
+The regression covers entry and suspended escape for all three calls, timed
+sustained PRINT, speech and text-only waits, replacement speech, disabled
+escape contexts and exact snapshot continuation. Empty precomputed glyph lists
+isolate text wait scheduling from font rasterization in the text-only case.
+
+Validation: workspace tests (308 core tests), all 18 original-asset web tests,
+Clippy, WASM checking and native/browser release rebuilds passed. Logs use
+`assets/logs/escape-print-*`. The recorded sample-ownership route remains a
+separate run on revision 99fe70e, without escape inputs.

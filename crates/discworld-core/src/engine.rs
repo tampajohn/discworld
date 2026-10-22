@@ -4339,9 +4339,11 @@ impl Engine {
             self.release_reel(animation);
             process.play_wait = None;
         }
+        let print_escaped = self.escaped(&process.vm);
         if let Some(wait) = &mut process.print_wait {
-            let cancelled = ((wait.inventory || wait.left_events != 0)
-                && wait.left_events != self.left_events)
+            let cancelled = (matches!(wait.call.id, 53 | 98 | 104) && print_escaped)
+                || ((wait.inventory || wait.left_events != 0)
+                    && wait.left_events != self.left_events)
                 || (wait.inventory && self.conversation.hidden);
             let finished = if let Some(serial) = wait.sample_serial {
                 wait.timeout = wait.timeout.saturating_sub(1);
@@ -5390,21 +5392,25 @@ impl Engine {
                     return Ok(Status::Running);
                 }
                 53 | 98 | 104 => {
-                    let (Some(strings), Some(bank)) = (strings, bank) else {
-                        return Ok(Status::Unsupported(call));
-                    };
                     let consumed = match call.id {
                         53 => 6,
                         98 => 4,
                         _ => 5,
                     };
                     let a = args(&process.vm, consumed)?;
+                    if call.id == 104 && a[4] != 2 {
+                        return Err(Error("invalid TALKATS sustain"));
+                    }
+                    if self.escaped(&process.vm) {
+                        process.vm.complete_library(call, consumed, None)?;
+                        continue;
+                    }
+                    let (Some(strings), Some(bank)) = (strings, bank) else {
+                        return Ok(Status::Unsupported(call));
+                    };
                     let (x, y, text, time, sustain, actor) = if call.id == 53 {
                         (a[0], a[1], a[3] as u32, a[4], a[5] == 2, None)
                     } else {
-                        if call.id == 104 && a[4] != 2 {
-                            return Err(Error("invalid TALKATS sustain"));
-                        }
                         (a[1], a[2], a[3] as u32, 0, call.id == 104, Some(a[0]))
                     };
                     if time < 0 {
@@ -9912,6 +9918,108 @@ mod tests {
             }
             assert_eq!(status, Status::Halted);
             assert_eq!(engine.ticks, if volume == 0 { 27 } else { 3 });
+        }
+    }
+
+    #[test]
+    fn escaped_print_and_positioned_speech_preserve_replacement_audio() {
+        for opcode in [53, 98, 104] {
+            for at_entry in [false, true] {
+                for mode in 0..3 {
+                    let (master, mut scene) = fixtures();
+                    let mut code = vec![0x41, 77];
+                    if opcode == 53 {
+                        // Timed, sustained PRINT cannot be dismissed by clicks.
+                        code.extend([2, 2, 2, 3, 0x41, 5, 0x41, 2]);
+                    } else {
+                        code.extend([4, 2, 2, 3]);
+                        if opcode == 104 {
+                            code.extend([0x41, 2]);
+                        }
+                    }
+                    code.extend([0x4e, opcode, 0x4c, 0, 0]);
+                    scene[8..8 + code.len()].copy_from_slice(&code);
+                    let resources = Resources(vec![&master, &scene]);
+                    let strings =
+                        crate::text::Strings::new(&[1, 0, 52, 51, 0, 0, 0, 0, 0, 1, b'W']).unwrap();
+                    let index = [0, 0, 0, 0, 4, 0, 0, 0];
+                    let mut samples = vec![0; 8];
+                    samples[4..8].copy_from_slice(&5000u32.to_le_bytes());
+                    samples.extend(vec![129; 5000]);
+                    let bank = SampleBank::new(&index, &samples).unwrap();
+                    let mut engine = Engine::bootstrap(&resources).unwrap();
+                    engine.subtitles = false;
+                    engine.escape_events = Some(1);
+                    for vm in engine.escape_contexts_mut() {
+                        vm.escape_enabled = true;
+                        vm.escape_generation = Some(1);
+                    }
+                    if at_entry {
+                        engine.sample_player.play_speech(&bank, 1).unwrap();
+                        let before = engine.sample_player.clone();
+                        engine.script_escape_event().unwrap();
+                        // Missing strings, bank and actor/font resources must
+                        // not be accessed by an already-escaped text call.
+                        engine.tick(&resources).unwrap();
+                        assert_eq!(engine.sample_player, before);
+                        assert_eq!(engine.globals[0], 77);
+                        assert!(engine.processes.states().all(|p| p.print_wait.is_none()));
+                        continue;
+                    }
+                    engine
+                        .tick_content(&resources, Some(&bank), None, Some(&strings))
+                        .unwrap();
+                    for p in engine.processes.states_mut() {
+                        if let Some(wait) = &mut p.print_wait {
+                            // Isolate escape from the ordinary left-click path.
+                            wait.left_events = 0;
+                            if mode == 2 {
+                                wait.sample_serial = None;
+                                wait.layout = Some(crate::text::Layout { glyphs: vec![] });
+                            }
+                        }
+                    }
+                    if mode == 1 {
+                        engine.sample_player.play_speech(&bank, 1).unwrap();
+                    }
+                    if mode == 2 {
+                        engine.sample_player.stop();
+                    }
+                    let before = engine.sample_player.clone();
+                    let bytes = crate::save::Snapshot::capture(&engine, [7; 32])
+                        .to_bytes()
+                        .unwrap();
+                    let snapshot = crate::save::Snapshot::from_bytes(&bytes, [7; 32]).unwrap();
+                    assert_eq!(snapshot.to_bytes().unwrap(), bytes);
+                    let mut restored = snapshot.state().clone();
+                    if mode != 1 {
+                        let mut ordinary = engine.clone();
+                        ordinary.tick(&resources).unwrap();
+                        assert_eq!(ordinary.globals[0], 0);
+                        for vm in ordinary.escape_contexts_mut() {
+                            vm.escape_enabled = false;
+                            vm.escape_generation = None;
+                        }
+                        ordinary.script_escape_event().unwrap();
+                        ordinary.tick(&resources).unwrap();
+                        assert_eq!(ordinary.globals[0], 0);
+                    }
+                    engine.script_escape_event().unwrap();
+                    restored.script_escape_event().unwrap();
+                    engine.tick(&resources).unwrap();
+                    restored.tick(&resources).unwrap();
+                    assert_eq!(engine, restored);
+                    assert_eq!(engine.globals[0], 77);
+                    assert!(engine.processes.states().all(|p| p.print_wait.is_none()));
+                    if mode == 0 {
+                        let mut stopped = before;
+                        stopped.stop();
+                        assert_eq!(engine.sample_player, stopped);
+                    } else {
+                        assert_eq!(engine.sample_player, before);
+                    }
+                }
+            }
         }
     }
 
