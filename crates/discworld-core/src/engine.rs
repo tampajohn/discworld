@@ -8689,6 +8689,7 @@ mod tests {
                     (80, 4, true),
                     (255, 0, true), // signed byte -1 disables horizontal movement
                     (255, 0, false),
+                    (255, 1, true),
                     (255, 2, true),
                     (255, 2, false),
                 ] {
@@ -8722,6 +8723,7 @@ mod tests {
                     }
                     code.extend([0x41, 77, 0x4c, 0, 0]);
                     scene[8..8 + code.len()].copy_from_slice(&code);
+                    scene[56..60].copy_from_slice(&[3, 0x4e, 74, 0]); // STOPWALK(lead)
                     let mut film = vec![0; 400];
                     for (at, value) in [
                         (0, 24u32),
@@ -8849,7 +8851,19 @@ mod tests {
                                 || (disabled_axis && tick == 5))
                         {
                             stopped_at = Some(engine.movers[&1].placement.position);
-                            engine.movers.get_mut(&1).unwrap().stop_requested = true;
+                            if disabled_axis {
+                                let mut stopper = ScriptProcess::new(Handle((1 << 23) | 56));
+                                engine
+                                    .run_process(&resources, None, None, None, &mut stopper)
+                                    .unwrap();
+                                assert!(
+                                    engine.processes.is_empty(),
+                                    "STOPWALK kills its token owner before movement advances"
+                                );
+                                assert_eq!(engine.movers[&1].walk_target, Some([-1, 70]));
+                            } else {
+                                engine.movers.get_mut(&1).unwrap().stop_requested = true;
+                            }
                         }
                         let bytes = Snapshot::capture(&engine, [7; 32]).to_bytes().unwrap();
                         let decoded = Snapshot::from_bytes(&bytes, [7; 32]).unwrap();

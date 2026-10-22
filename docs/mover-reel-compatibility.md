@@ -452,3 +452,28 @@ not changed by disabled-axis support. Logs use `assets/logs/disabled-axis-*`.
 Validation: workspace tests, all 20 original-asset web integration tests,
 workspace Clippy and wasm32 checking pass. The cbb7d6b full-route evidence
 predates this change; no new full-route or physical-device result is claimed.
+
+
+### STOPWALK caller audit
+
+The preceding raw-stop concern must not be interpreted as a defect in normal
+STOPWALK cancellation. Pinned `tinlib.cpp::StopWalk` acquires the actor token
+before setting bStop and releases it immediately. `token.cpp::GetToken` kills
+the previous holder; that script never reaches its post-Walk continuation.
+The Rust call-74 handler already cancels pending WALK/SWALK/WALKTAG owners
+immediately, before movement processes the stop flag. WALKED has released its
+token and instead observes the changed walk number.
+
+The disabled-axis script matrix now invokes actual STOPWALK bytecode from a
+second process. It checks immediate cancellation while the mover still has
+its destination, subsequent movement stop, absence of the killed script's
+post-call write, and control remaining disabled when the killed SWALK had
+owned it. Normal/custom walking and Escape scenarios retain their separate
+coverage. Directly setting stop_requested in a fixture bypasses token
+acquisition and cannot establish STOPWALK fidelity by itself.
+
+Further ownership work should audit acquisition by competing WALK/WALKTAG and
+WALKED, not simply remove walk-number checks: the current checks also prevent
+superseded scripts from resuming, while the reference kills the previous token
+owner at acquisition. Token release and process cancellation need validation
+across save/load and scene reset before replacing that approximation.
