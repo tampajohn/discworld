@@ -1117,6 +1117,33 @@ impl Engine {
         Ok(opened)
     }
 
+    /// Diverted save-name characters do not reach PlayerEvent and therefore
+    /// do not increment its user-event counter or wake WAITKEY.
+    pub fn edit_configuration(
+        &mut self,
+        resources: &Resources<'_>,
+        byte: u8,
+        backspace: bool,
+    ) -> Result<bool, Error> {
+        match &mut self.configuration {
+            Some(menu) => menu.edit(resources, byte, backspace),
+            None => Ok(false),
+        }
+    }
+
+    /// Page/Home/End and wheel events still pass through PlayerEvent's gate.
+    pub fn scroll_configuration(
+        &mut self,
+        action: crate::save_menu::Scroll,
+    ) -> Result<bool, Error> {
+        self.user_event()?;
+        Ok(self.control.enabled
+            && self
+                .configuration
+                .as_mut()
+                .is_some_and(|menu| menu.scroll(action)))
+    }
+
     /// Deliver a resolved menu gesture and return any immediate save/load
     /// request. Hosts must consume the dispatch before advancing the game.
     pub fn configuration_click(
@@ -5652,6 +5679,32 @@ mod tests {
         engine
             .open_configuration(&resources, &strings, &[], crate::menu_navigation::Key::Main)
             .unwrap();
+        let mut editing = engine.clone();
+        editing.close_inventory();
+        editing
+            .open_configuration(&resources, &strings, &[], crate::menu_navigation::Key::Save)
+            .unwrap();
+        let mut expected = editing.clone();
+        expected
+            .configuration
+            .as_mut()
+            .unwrap()
+            .edit(&resources, b'R', false)
+            .unwrap();
+        assert!(editing.edit_configuration(&resources, b'R', false).unwrap());
+        assert_eq!(editing, expected); // No extra PlayerEvent counter or idle reset.
+        expected.user_event().unwrap();
+        expected
+            .configuration
+            .as_mut()
+            .unwrap()
+            .scroll(crate::save_menu::Scroll::PageDown);
+        assert!(
+            editing
+                .scroll_configuration(crate::save_menu::Scroll::PageDown)
+                .unwrap()
+        );
+        assert_eq!(editing, expected);
         let mut input = engine.clone();
         let processes = input.processes.clone();
         let before = input.render(&resources).unwrap();

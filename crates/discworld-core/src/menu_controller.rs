@@ -449,6 +449,23 @@ impl Controller {
             None
         }
     }
+    /// InvKeyIn consumes character/backspace input in both Save and Load,
+    /// but only Save is editable. Bytes refer to the original game font.
+    pub fn edit(
+        &mut self,
+        resources: &Resources<'_>,
+        byte: u8,
+        backspace: bool,
+    ) -> Result<bool, Error> {
+        let (Some(Display::Saves(view)), Some(list)) = (&self.display, &mut self.list) else {
+            return Ok(false);
+        };
+        list.edit(resources, &view.font, byte, backspace)
+    }
+
+    pub fn scroll(&mut self, action: crate::save_menu::Scroll) -> bool {
+        self.list_mut().is_some_and(|list| list.scroll(action))
+    }
     pub fn sound_mut(&mut self) -> Option<&mut SoundMenu> {
         match &mut self.display {
             Some(Display::Sound(view)) => Some(view),

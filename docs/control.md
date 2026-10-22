@@ -1333,3 +1333,17 @@ adopt the API, handle Restart/Quit/storage requests and define capture/transfer
 timing: the reference captures scene data inside SaveGame but processes file
 transfers after NextGameCycle. Returning a request alone does not implement that
 host lifecycle or establish complete scheduler parity for every process type.
+
+Native integration review identified that its development letters/Backspace
+currently bypass save-name diversion. Shared Controller::edit/scroll and
+Engine::edit_configuration/scroll_configuration now provide the corresponding
+InvKeyIn path. Name input uses original-font bytes, supported-glyph checks,
+backspace, leading-space rejection, the40-byte description limit and rendered
+right-edge limit. Load consumes no edits. Diverted character input does not
+increment PlayerEvent counters or reset idle time; page/wheel actions still
+increment user events and require control. Unsupported pages do not edit lists.
+Original-asset tests check typed names, backspace, invalid/leading input,
+missing-resource rollback, length limiting, Load immutability, page scrolling,
+checkpoint reconstruction and exact engine counter behavior. Evidence:
+assets/logs/menu-edit-{assets,core-assets,workspace,clippy}.log. Native SDL key
+routing, F1 activation and host request handling remain unconnected.

@@ -173,6 +173,38 @@ fn original_menu_controller_transitions_render_and_resolve_live_selection() {
         assert_eq!(original, released);
         restore_menu(&original);
     }
+    let mut editing = Controller::new(settings.clone()).unwrap();
+    editing.open(Page::Save, &assets).unwrap();
+    assert!(!editing.edit(&resources, b' ', false).unwrap());
+    assert!(!editing.edit(&resources, 0, false).unwrap());
+    for byte in b"Rincewind's room" {
+        assert!(editing.edit(&resources, *byte, false).unwrap());
+    }
+    assert!(editing.edit(&resources, 8, true).unwrap());
+    assert_eq!(editing.list_mut().unwrap().draft(), b"Rincewind's roo");
+    let before = editing.clone();
+    assert!(
+        editing
+            .edit(&discworld_core::graphics::Resources(vec![]), b'W', false)
+            .is_err()
+    );
+    assert_eq!(editing, before);
+    restore_menu(&editing);
+    for _ in 0..80 {
+        editing.edit(&resources, b'W', false).unwrap();
+    }
+    assert!(editing.list_mut().unwrap().draft().len() <= 40);
+    restore_menu(&editing);
+    editing.close();
+    editing.open(Page::Load, &assets).unwrap();
+    let before = editing.clone();
+    assert!(!editing.edit(&resources, b'X', false).unwrap());
+    assert!(!editing.edit(&resources, 8, true).unwrap());
+    assert_eq!(editing, before);
+    assert!(editing.scroll(discworld_core::save_menu::Scroll::End));
+    restore_menu(&editing);
+    assert!(editing.scroll(discworld_core::save_menu::Scroll::Home));
+    restore_menu(&editing);
     let mut checkpoint_probe = Controller::new(settings.clone()).unwrap();
     checkpoint_probe.open(Page::Main, &assets).unwrap();
     let bytes = checkpoint_probe.checkpoint().unwrap();

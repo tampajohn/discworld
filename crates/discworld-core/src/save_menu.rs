@@ -65,7 +65,7 @@ pub struct View {
     extra: Vec<crate::animation::Animation>,
     thumb: crate::animation::Animation,
     buttons: Vec<crate::animation::Animation>,
-    font: Font,
+    pub(crate) font: Font,
     heading: Layout,
 }
 impl View {
