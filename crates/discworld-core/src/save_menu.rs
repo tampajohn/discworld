@@ -375,6 +375,9 @@ impl List {
             SliderHit::Thumb
         })
     }
+    pub(crate) fn dragging(&self) -> bool {
+        self.slider_raw.is_some()
+    }
     pub fn begin_slider(&mut self) -> bool {
         if self.slider_raw.is_some() {
             return false;

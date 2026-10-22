@@ -110,12 +110,8 @@ fn original_menu_controller_transitions_render_and_resolve_live_selection() {
         original.point_at(Some(point));
         original.click(point, false).unwrap();
         if page == Page::Sound {
-            original
-                .sound_mut()
-                .unwrap()
-                .begin_drag(&resources, point)
-                .unwrap();
-            original.sound_mut().unwrap().drag(100).unwrap();
+            assert!(original.begin_drag(&resources, point).unwrap());
+            original.drag_by([100, 0]).unwrap();
         }
         for step in 0..6 {
             let mut restored = restore_menu(&original);
@@ -128,6 +124,53 @@ fn original_menu_controller_transitions_render_and_resolve_live_selection() {
                 original.escape(&assets).unwrap();
             }
         }
+        restore_menu(&original);
+    }
+    for (page, point) in [
+        (Page::Sound, [218, 93]),
+        (Page::Controls, [205, 53]),
+        (Page::Subtitles, [218, 48]),
+        (Page::Save, [224, 50]),
+        (Page::Load, [224, 50]),
+    ] {
+        let mut original = Controller::new(settings.clone()).unwrap();
+        original.open(page, &assets).unwrap();
+        original.point_at(Some(point));
+        if !matches!(page, Page::Save | Page::Load) {
+            let before = original.clone();
+            assert!(
+                original
+                    .begin_drag(&discworld_core::graphics::Resources(vec![]), point)
+                    .is_err()
+            );
+            assert_eq!(original, before);
+        }
+        assert!(!original.begin_drag(&resources, [0, 0]).unwrap());
+        if page == Page::Controls {
+            // The previous monitor pass can still own a toggle highlight when
+            // a press arrives at the thumb; freeze it throughout the drag.
+            original.point_at(Some([176, 112]));
+        }
+        assert!(original.begin_drag(&resources, point).unwrap());
+        assert!(original.dragging());
+        assert!(!original.begin_drag(&resources, point).unwrap());
+        let frozen_hover = original.clone();
+        original.point_at(None);
+        assert_eq!(original, frozen_hover);
+        for delta in [[1, 1], [300, 300], [-100, -100], [-250, -250], [20, 20]] {
+            let mut restored = restore_menu(&original);
+            restored.drag_by(delta).unwrap();
+            original.drag_by(delta).unwrap();
+            assert_eq!(restored, original);
+        }
+        let mut restored = restore_menu(&original);
+        original.end_drag().unwrap();
+        restored.end_drag().unwrap();
+        assert_eq!(original, restored);
+        assert!(!original.dragging());
+        let released = original.clone();
+        original.end_drag().unwrap();
+        assert_eq!(original, released);
         restore_menu(&original);
     }
     let mut checkpoint_probe = Controller::new(settings.clone()).unwrap();

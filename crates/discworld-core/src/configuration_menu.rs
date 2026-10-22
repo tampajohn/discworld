@@ -359,6 +359,9 @@ impl SoundMenu {
     pub fn values(&self) -> [u16; 3] {
         self.values
     }
+    pub(crate) fn dragging(&self) -> bool {
+        self.drag.is_some()
+    }
 
     /// whichMenuBox tests the actual multipart thumb bounds with strict edges.
     /// English V1's arrow Y interval is empty (9..0); do not invent arrow hits.

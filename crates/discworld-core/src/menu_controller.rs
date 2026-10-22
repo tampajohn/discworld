@@ -305,7 +305,7 @@ impl Controller {
         if let Some(crate::menu_highlight::Owner::Hover(_)) = menu.highlight.owner() {
             let mut probe = menu.clone();
             probe.highlight.reset();
-            probe.point_at(menu.pointer);
+            probe.point_boxes(menu.pointer);
             if probe.highlight.owner() != menu.highlight.owner() {
                 return Err(Error("menu checkpoint hover differs from pointer"));
             }
@@ -355,6 +355,13 @@ impl Controller {
     /// invBoxes: box identity and HL1 ownership are distinct. Call before the
     /// inventory-process step when pointer monitoring runs, even while outside.
     pub fn point_at(&mut self, pointer: Option<[i32; 2]>) {
+        // invCursor returns before invBoxes while a slider owns the drag.
+        if self.dragging() {
+            return;
+        }
+        self.point_boxes(pointer);
+    }
+    fn point_boxes(&mut self, pointer: Option<[i32; 2]>) {
         let target = pointer.and_then(|point| match self.page()? {
             Page::Main => MainMenu::action_at(point).map(|action| (action as u16, true)),
             Page::Restart | Page::Quit => {
@@ -475,19 +482,100 @@ impl Controller {
         }
         self.navigation.click_button(point)
     }
-    /// V1 invWalkTo/invAction after physical single/double-click arbitration.
-    /// Right-click uses the single-click path for configuration windows.
-    pub fn click(&mut self, point: [i32; 2], double: bool) -> Result<Dispatch, Error> {
-        use crate::conversation_window::Area;
+    fn area_at(&self, point: [i32; 2]) -> Option<crate::conversation_window::Area> {
         let frame = match self.display.as_ref() {
             Some(Display::Main(view)) => &view.frame,
             Some(Display::Confirmation(view)) => &view.frame,
             Some(Display::Sound(view)) => &view.frame,
             Some(Display::Settings(view)) => &view.frame,
             Some(Display::Saves(view)) => &view.frame,
-            None => return Ok(self.dispatch(Outcome::default())),
+            None => return None,
         };
-        match frame.layout.inventory_area_at(point) {
+        Some(frame.layout.inventory_area_at(point))
+    }
+
+    pub fn dragging(&self) -> bool {
+        match &self.display {
+            Some(Display::Sound(view)) => view.dragging(),
+            Some(Display::Settings(view)) => view.dragging(),
+            Some(Display::Saves(_)) => self.list.as_ref().is_some_and(List::dragging),
+            _ => false,
+        }
+    }
+
+    pub fn begin_drag(
+        &mut self,
+        resources: &Resources<'_>,
+        point: [i32; 2],
+    ) -> Result<bool, Error> {
+        // INV_CONF goes directly to whichMenuBox, before generic invArea checks.
+        if self.dragging() {
+            return Ok(false);
+        }
+        let mut next = self.clone();
+        let started = match &mut next.display {
+            Some(Display::Sound(view)) => view.begin_drag(resources, point)?,
+            Some(Display::Settings(view)) => view.begin_drag(resources, point)?,
+            Some(Display::Saves(_)) => next.list.as_mut().is_some_and(|list| {
+                list.slider_at(point) == Some(crate::save_menu::SliderHit::Thumb)
+                    && list.begin_slider()
+            }),
+            _ => false,
+        };
+        *self = next;
+        Ok(started)
+    }
+
+    /// Preserve each widget's overshoot and quantization; callers apply the
+    /// resulting settings immediately and redraw even if the value is unchanged.
+    pub fn drag_by(&mut self, delta: [i32; 2]) -> Result<(), Error> {
+        let mut next = self.clone();
+        match &mut next.display {
+            Some(Display::Sound(view)) => {
+                view.drag(delta[0])?;
+            }
+            Some(Display::Settings(view)) => {
+                view.drag(delta[0])?;
+            }
+            Some(Display::Saves(_)) => {
+                if let Some(list) = &mut next.list {
+                    list.drag_slider(delta[1])?;
+                }
+            }
+            _ => {}
+        }
+        next.settings = next.settings();
+        *self = next;
+        Ok(())
+    }
+
+    pub fn end_drag(&mut self) -> Result<(), Error> {
+        if !self.dragging() {
+            return Ok(());
+        }
+        let mut next = self.clone();
+        match &mut next.display {
+            Some(Display::Sound(view)) => view.end_drag()?,
+            Some(Display::Settings(view)) => view.end_drag()?,
+            Some(Display::Saves(_)) => {
+                if let Some(list) = &mut next.list {
+                    list.end_slider();
+                }
+            }
+            _ => {}
+        }
+        *self = next;
+        Ok(())
+    }
+
+    /// V1 invWalkTo/invAction after physical single/double-click arbitration.
+    /// Right-click uses the single-click path for configuration windows.
+    pub fn click(&mut self, point: [i32; 2], double: bool) -> Result<Dispatch, Error> {
+        use crate::conversation_window::Area;
+        let Some(area) = self.area_at(point) else {
+            return Ok(self.dispatch(Outcome::default()));
+        };
+        match area {
             Area::Outside if !double => {
                 let outcome = self.close();
                 return Ok(self.dispatch(outcome));

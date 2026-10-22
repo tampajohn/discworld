@@ -1277,3 +1277,21 @@ right-click Main navigation, immediate Save selection despite double-clicking a
 different row, no duplicate deferred request, list arrow clicks, outside single
 versus double, and disabled-control rejection. Evidence:
 assets/logs/menu-click-{assets,workspace,clippy}.log.
+
+Controller now provides begin_drag/drag_by/end_drag/dragging for Sound, Controls,
+Subtitles and Save/Load. Drag ownership is derived from the existing serialized
+widget state, so no additional checkpoint field or format is needed. Horizontal
+mixing-desk controls retain overshoot and snap on release; Save/Load uses its
+vertical raw/logical/drawn thumb positions and does not snap. Settings are
+available immediately after movement for eventual host application. Failed
+resource resolution leaves the controller unchanged and repeated begin/end is
+idempotent. As in invDragStart, configuration thumb detection precedes generic
+window-area checks. invCursor suppresses hover changes during a drag; checkpoint
+validation still checks the stored hover against its stored pointer independently
+of that suppression.
+The original-asset controller test exercises all five pages through overshoot,
+reverse movement and release, restoring controller/engine/session checkpoints at
+each step and comparing state and pixels. It also covers a frozen pre-drag toggle
+highlight and missing-resource atomicity. Evidence:
+assets/logs/menu-drag-{assets,workspace,clippy}.log. Physical mouse routing and
+engine movement integration remain; these APIs are not yet called by live hosts.

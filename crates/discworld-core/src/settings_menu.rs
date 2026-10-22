@@ -369,6 +369,9 @@ impl SettingsMenu {
         }
         Some(effect)
     }
+    pub(crate) fn dragging(&self) -> bool {
+        self.drag.is_some()
+    }
     pub fn begin_drag(
         &mut self,
         resources: &Resources<'_>,
