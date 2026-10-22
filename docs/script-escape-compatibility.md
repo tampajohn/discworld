@@ -3,7 +3,8 @@
 Reference revision: 96b42d42bc8533953bdd701db059cc33c839a9ff.
 Current implementation is incomplete: the engine captures global/per-context
 escape generations and handles WAITTIME, scripted walking and PLAY/TOPPLAY
-cancellation plus already-escaped sample-call entry, with DWRSAVE v15 state.
+cancellation plus sample-call entry and suspended cancellation, with DWRSAVE
+v16 state.
 Native/browser Escape still handles configuration/inventory UI; the shared
 script event API is not connected to hosts. Speech cancellation
 and the special intro skip path remain pending.
@@ -193,13 +194,28 @@ speech channels and enabled/muted effects. It deliberately supplies no bank
 and verifies exact channel preservation or stopping, yield behavior and
 continuation without retry. No snapshot format changes are needed for entry.
 
-Suspended sample cancellation is still pending. The current sample wait stores
-only a library call, while the reference stores an Audio::SoundHandle. Before
-adding cancellation, persist the sample serial for each wait and validate its
-restoration, including replacement playback and historical-save migration.
-Stopping the current channel blindly would interrupt unrelated replacement
-audio. Speech/text cancellation requires a separate reference audit.
+Suspended sample calls now capture SamplePlayer's monotonically increasing
+serial. A replaced or ended playback releases its waiter immediately; an
+escaped waiter stops audio only while that same serial owns the active channel.
+The serial is cleared on completion. This corrects ordinary replacement timing
+as well as escape behavior: the reference waits on its original SoundHandle,
+not whatever sample is currently playing.
+
+DWRSAVE v16 preserves these serials in scheduler order. Older snapshots cannot
+recover their unrecorded handle. Their waits retain the previous channel-busy
+behavior; Escape completes such a wait without stopping unproven audio. New
+PLAYSAMPLE/TRYPLAYSAMPLE calls always capture ownership. This legacy limitation is deliberate and
+does not claim to reconstruct information absent from historical saves.
+Speech/text cancellation still requires a separate reference audit.
 
 Validation: workspace tests (306 core tests), all 18 original-asset web tests,
 Clippy, WASM checking and native/browser release rebuilds passed. Logs use
 `assets/logs/escape-sample-entry-*`. The visible session was not restarted.
+
+The ownership regression covers both sample calls, ordinary and escaped waits,
+original/replaced effect/replaced speech/ended channels, and historical waits.
+It checks exact snapshot re-encoding and subsequent state equality, plus v16
+rejection of empty/all-None captures, zero/future serials and nested wrappers.
+
+Ownership validation: workspace tests (307 core tests), all 18 original-asset
+web tests, Clippy and WASM checking passed; logs use `assets/logs/sample-owner-*`.

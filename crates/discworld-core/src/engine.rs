@@ -91,6 +91,8 @@ struct ScriptProcess {
     code: Handle,
     wait: Option<(LibraryCall, u32)>,
     sample_wait: Option<LibraryCall>,
+    #[serde(skip)]
+    sample_serial: Option<u64>,
 }
 impl ScriptProcess {
     fn wait_calls(&self) -> [Option<LibraryCall>; 11] {
@@ -145,6 +147,7 @@ impl ScriptProcess {
             code,
             wait: None,
             sample_wait: None,
+            sample_serial: None,
         }
     }
 }
@@ -430,6 +433,33 @@ impl Engine {
         Ok(())
     }
 
+    pub(crate) fn sample_wait_checkpoint(&self) -> Vec<Option<u64>> {
+        self.processes.states().map(|p| p.sample_serial).collect()
+    }
+    pub(crate) fn clear_sample_wait_checkpoint(&mut self) {
+        for process in self.processes.states_mut() {
+            process.sample_serial = None;
+        }
+    }
+    pub(crate) fn restore_sample_wait_checkpoint(
+        &mut self,
+        serials: &[Option<u64>],
+    ) -> Result<(), Error> {
+        if serials.len() != self.processes.states().count()
+            || self.processes.states().zip(serials).any(|(p, serial)| {
+                serial.is_some_and(|s| {
+                    s == 0 || s > self.sample_player.serial || p.sample_wait.is_none()
+                })
+            })
+        {
+            return Err(Error("invalid sample wait checkpoint"));
+        }
+        for (process, serial) in self.processes.states_mut().zip(serials) {
+            process.sample_serial = *serial;
+        }
+        Ok(())
+    }
+
     fn snapshot_animations(&self) -> impl Iterator<Item = &Animation> {
         self.background
             .iter()
@@ -453,6 +483,13 @@ impl Engine {
     }
 
     pub(crate) fn validate_snapshot_structure(&self) -> Result<(), Error> {
+        if self.processes.states().any(|p| {
+            p.sample_serial.is_some_and(|serial| {
+                serial == 0 || serial > self.sample_player.serial || p.sample_wait.is_none()
+            })
+        }) {
+            return Err(Error("invalid snapshot sample wait ownership"));
+        }
         for (&actor, &(playback, captured)) in &self.reel_escape {
             if captured == 0
                 || self.escape_events.is_none_or(|event| captured > event)
@@ -4361,11 +4398,20 @@ impl Engine {
             process.key_wait = None;
         }
         if let Some(call) = process.sample_wait {
-            if self.sample_player.id.is_some() {
+            let owns = process.sample_serial == Some(self.sample_player.serial);
+            let active =
+                self.sample_player.id.is_some() && (owns || process.sample_serial.is_none());
+            if active && !self.escaped(&process.vm) {
                 return Ok(Status::Running);
             }
+            if active && owns {
+                self.sample_player.stop();
+            }
+            // Legacy saves lack the original handle. Preserve their ordinary
+            // channel wait, but never stop an unproven owner on escape.
             process.vm.complete_library(call, 2, None)?;
             process.sample_wait = None;
+            process.sample_serial = None;
         }
         if let Some((call, left)) = process.wait {
             if left > 1 && !(call.id == 86 && self.escaped(&process.vm)) {
@@ -5601,6 +5647,7 @@ impl Engine {
                     }
                     if blocking && self.sample_player.id.is_some() {
                         process.sample_wait = Some(call);
+                        process.sample_serial = Some(self.sample_player.serial);
                         return Ok(Status::Running);
                     }
                     process.vm.complete_library(call, 2, None)?;
@@ -11734,6 +11781,103 @@ mod tests {
                     assert_eq!(engine.sample_player, before);
                     assert_eq!(engine.globals[0], 77);
                     assert!(process.wait.is_none());
+                }
+            }
+        }
+    }
+
+    #[test]
+    fn sample_wait_ownership_survives_saves_escape_and_replacement() {
+        for opcode in [51, 112] {
+            for escaped in [false, true] {
+                // 0 original; 1 replaced effect; 2 replaced speech; 3 ended;
+                // 4 legacy wait without a recorded playback handle.
+                for mode in 0..5 {
+                    let (master, mut scene) = fixtures();
+                    let code = [0x41, 77, 3, 3, 0x4e, opcode, 0x4c, 0, 0];
+                    scene[8..8 + code.len()].copy_from_slice(&code);
+                    let resources = Resources(vec![&master, &scene]);
+                    let index = [0, 0, 0, 0, 4, 0, 0, 0];
+                    let mut data = vec![0; 8];
+                    data[4..8].copy_from_slice(&5000u32.to_le_bytes());
+                    data.extend(vec![129; 5000]);
+                    let bank = SampleBank::new(&index, &data).unwrap();
+                    let mut engine = Engine::bootstrap(&resources).unwrap();
+                    engine.escape_events = Some(1);
+                    for vm in engine.escape_contexts_mut() {
+                        vm.escape_enabled = true;
+                        vm.escape_generation = Some(1);
+                    }
+                    engine.tick_audio(&resources, Some(&bank)).unwrap();
+                    assert!(engine.sample_wait_checkpoint().contains(&Some(1)));
+                    match mode {
+                        1 => {
+                            engine.sample_player.play(&bank, 1).unwrap();
+                        }
+                        2 => {
+                            engine.sample_player.play_speech(&bank, 1).unwrap();
+                        }
+                        3 => engine.sample_player.stop(),
+                        4 => engine.clear_sample_wait_checkpoint(),
+                        _ => {}
+                    }
+                    let before = engine.sample_player.clone();
+                    let bytes = crate::save::Snapshot::capture(&engine, [7; 32])
+                        .to_bytes()
+                        .unwrap();
+                    if mode != 4 {
+                        assert_eq!(u32::from_le_bytes(bytes[8..12].try_into().unwrap()), 16);
+                        let (inner, serials): (Vec<u8>, Vec<Option<u64>>) =
+                            postcard::from_bytes(&bytes[80..]).unwrap();
+                        use sha2::{Digest, Sha256};
+                        let wrap = |inner: Vec<u8>, serials: Vec<Option<u64>>| {
+                            let payload = postcard::to_allocvec(&(inner, serials)).unwrap();
+                            let mut bad = bytes[..80].to_vec();
+                            bad[44..48].copy_from_slice(&(payload.len() as u32).to_le_bytes());
+                            bad[48..80].copy_from_slice(&Sha256::digest(&payload));
+                            bad.extend(payload);
+                            bad
+                        };
+                        let mut zero = serials.clone();
+                        *zero.iter_mut().find(|s| s.is_some()).unwrap() = Some(0);
+                        let mut future = serials.clone();
+                        *future.iter_mut().find(|s| s.is_some()).unwrap() = Some(u64::MAX);
+                        for bad in [
+                            wrap(inner.clone(), vec![]),
+                            wrap(inner.clone(), vec![None; serials.len()]),
+                            wrap(inner.clone(), zero),
+                            wrap(inner, future),
+                            wrap(bytes.clone(), serials),
+                        ] {
+                            assert!(crate::save::Snapshot::from_bytes(&bad, [7; 32]).is_err());
+                        }
+                    }
+                    let snapshot = crate::save::Snapshot::from_bytes(&bytes, [7; 32]).unwrap();
+                    assert_eq!(snapshot.to_bytes().unwrap(), bytes);
+                    let mut restored = snapshot.state().clone();
+                    if escaped {
+                        engine.script_escape_event().unwrap();
+                        restored.script_escape_event().unwrap();
+                    }
+                    engine.tick(&resources).unwrap();
+                    restored.tick(&resources).unwrap();
+                    assert_eq!(engine, restored);
+                    let pending = !escaped && matches!(mode, 0 | 4);
+                    assert_eq!(engine.globals[0], if pending { 0 } else { 77 });
+                    assert_eq!(
+                        engine.processes.states().any(|p| p.sample_wait.is_some()),
+                        pending
+                    );
+                    if mode == 0 && escaped {
+                        let mut stopped = before;
+                        stopped.stop();
+                        assert_eq!(engine.sample_player, stopped);
+                    } else {
+                        assert_eq!(engine.sample_player, before);
+                    }
+                    if !pending {
+                        assert!(engine.sample_wait_checkpoint().iter().all(Option::is_none));
+                    }
                 }
             }
         }

@@ -450,3 +450,20 @@ live reel owner and a nonzero generation no newer than the global event.
 The decoder rejects duplicate/unordered actors, unknown owners, invalid
 generations, trailing data and nested v15 wrappers. Saves without live reel
 captures retain the previous encoding.
+
+
+## Blocking sample ownership (v16)
+
+Version 16 wraps a v1-v15 envelope with one optional sample serial per active
+scheduler process, in scheduler order. At least one entry must be present;
+present serials must be nonzero, no newer than the sample player's serial and
+attached to a pending sample wait. Older serials are valid: replacement must
+release their wait without stopping the new sound. The decoder checks shape,
+trailing data and nesting before installing the extension. Saves without
+recorded sample wait ownership retain their previous encoding.
+
+Saved-scene contexts contain interpreter state rather than host waits, so
+this extension covers active scheduler processes only. Historical active waits
+without serials remain byte-stable on load/export and retain their previous
+channel-busy completion behavior; Escape releases them without stopping an
+unproven owner. Ownership is captured normally on subsequent sample calls.
