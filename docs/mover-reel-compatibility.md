@@ -175,7 +175,18 @@ position during speech, exact continuation after reload, retained walk serial,
 and arrival at the original destination after POP. It invokes the mover reel
 API directly; TALK dispatch is covered by the synthetic regression above.
 
-Additional coverage remains for scene replacement during the new speech phase,
-full stationary-state migration, overlapping live speech coroutines, and script
-custom walking films. The earlier transition-model tests cover single-slot
+The synthetic route test also replaces the scene during active walking speech,
+verifies removal of the old mover/route, voice and TALK coroutine, then performs
+resource-validated save/load in the replacement scene and compares continuation.
+The cancelled script must not write its post-TALK global. Additional coverage
+remains for full stationary-state migration, overlapping live speech coroutines,
+and script custom walking films. The earlier transition-model tests cover single-slot
 PUSH/POP decisions but do not establish all those engine interactions.
+
+
+A fresh 2,630,000-tick replay of the complete original-input route is in progress
+for runtime fa77914 in native, Chrome and WebKit. Local artifacts are under
+`assets/validation/walking-talk-fa77914`; inspect terminal results and reports
+before treating this run as successful. The native run enables engine and DSP
+snapshot audits. Browser runs generate audio in a module worker; they do not
+prove physical-device playback or full touch-only interaction.

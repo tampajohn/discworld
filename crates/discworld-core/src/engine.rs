@@ -9763,6 +9763,47 @@ mod tests {
             );
             let frozen = engine.movers[&1].placement.position;
             assert!(frozen[0] < 80);
+            // Scene replacement must discard the suspended route and TALK
+            // coroutine together. Re-enter without startup scripts so the
+            // previous coroutine cannot be mistaken for a fresh scene call.
+            let mut transitioned = engine.clone();
+            let generation = transitioned.generation;
+            transitioned
+                .enter_scene(&resources, Handle(1 << 23), None, 1)
+                .unwrap();
+            assert_eq!(transitioned.generation, generation + 1);
+            assert!(transitioned.movers.is_empty());
+            assert!(
+                transitioned
+                    .processes
+                    .states()
+                    .all(|p| p.talk_wait.is_none())
+            );
+            assert!(transitioned.sample_player.id.is_none());
+            let bytes = Snapshot::capture(&transitioned, [7; 32])
+                .to_bytes()
+                .unwrap();
+            let mut loaded = Snapshot::from_bytes(&bytes, [7; 32])
+                .unwrap()
+                .restore(&resources, &bank, &[])
+                .unwrap();
+            assert_eq!(loaded, transitioned);
+            for _ in 0..3 {
+                let a = transitioned
+                    .tick_content(&resources, Some(&bank), None, Some(&strings))
+                    .unwrap();
+                let b = loaded
+                    .tick_content(&resources, Some(&bank), None, Some(&strings))
+                    .unwrap();
+                assert_eq!(a, b);
+                assert_eq!(loaded, transitioned);
+                assert!(loaded.movers.is_empty());
+                assert_eq!(
+                    loaded.globals,
+                    [0],
+                    "cancelled TALK must not resume its script"
+                );
+            }
             for scenario in ["natural", "click", "stop", "replace", "hidden", "early"] {
                 let mut live = engine.clone();
                 if scenario == "stop" {
