@@ -32,6 +32,21 @@ cargo run --release -p discworld-native -- \
 
 `--room` simulates the opening before showing Rincewind's room. Omit it to watch the opening in real time. Add `--mute` to start silently; the SoundFont is still required. Runtime logs from the launchers are retained under `assets/logs/`.
 
+### Native development archive
+
+From a clean, committed checkout on Apple Silicon macOS:
+
+```sh
+python3 scripts/package-native.py assets/packages/discworld-native.tar.gz
+```
+
+Extract the archive and run its `discworld-native` executable with your ISO and
+SoundFont paths as above (omit `cargo run --release -p discworld-native --`).
+It contains the executable, exact project source, license notices and checksums.
+It is a command-line development distribution; Finder app packaging,
+notarization and testing on other macOS versions remain unfinished.
+See [native distribution validation](docs/native-distribution.md).
+
 ### Save and reload
 
 Press **F6** to quick-save and **F9** to quick-load `discworld-save.dws` in the working directory. Choose a destination with `--save-file PATH`; its parent directory must exist. Relaunch with `--load PATH` to restore the engine and synthesizer together. Use the same ISO and SoundFont. These development saves are not compatible with ScummVM.
