@@ -1,0 +1,26 @@
+{
+  "runtime_revision": "1ac8f90b59db1eea6d078b98b425d13c7ab6735a",
+  "route": "evidence/act4-ending-input.json",
+  "route_sha256": "30c227553695638a78495f4cf56731f841e89188c8faa75821e50c164ddf4ddb",
+  "schema": 1,
+  "local_artifacts": "assets/validation/intro-startup-1ac8f90",
+  "native": {
+    "ticks": 2630000,
+    "status": "Running",
+    "scene_name": "title.scn",
+    "has_restarted": true,
+    "snapshot_checks": 5048,
+    "audio_snapshot_checks": 5048,
+    "snapshot_max_bytes": 48155,
+    "audio_snapshot_max_bytes": 317221,
+    "accepted_inputs": 1652,
+    "core_sha256": "d4a60d7dd6637c3c8f5cd5131b29868e40afd06f45559e7cd8dafa42711de4eb",
+    "report_sha256": "0d56aa96e4af901e4e12f18a7bf4dffb9e83a33f571eb0649a81f03aec7a8763"
+  },
+  "scope": [
+    "Recorded full native route with intro-aware startup and engine/DSP snapshot audits.",
+    "No Escape inputs; predates cbb7d6b host Escape routing.",
+    "Final PNG visually inspected: original title screen.",
+    "Does not establish alternate puzzle orders, manual UI, browser or physical iPad acceptance."
+  ]
+}

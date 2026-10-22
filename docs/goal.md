@@ -44,7 +44,21 @@ Keep the user's visible native session current with newly verified engine builds
 
 ## Current progress (2026-10-22)
 
-Latest complete-route validation: runtime `f776192` passes 2,630,000 ticks in
+The intro-aware native runtime at `1ac8f90` completed the recorded route:
+2,630,000 ticks, all 1,652 inputs accepted, restart committed and final
+`title.scn`. It passed 5,048 engine and 5,048 DSP snapshot audits; the final
+image was inspected. See [native audit](validation/intro-startup-1ac8f90.json).
+This route contains no Escape inputs. The subsequent `cbb7d6b` host Escape
+routing has focused keyboard/touch tests; its full cross-host audit remains
+pending and is not covered by this native result.
+
+Current development archives at `cbb7d6b` passed extracted-package startup
+checks on native macOS, Chrome and WebKit, including the optional audio
+headroom control. See [package evidence](validation/packages-cbb7d6b.json).
+These checks do not establish full-route or physical-device acceptance.
+
+
+Latest completed cross-host route validation: runtime `f776192` passes 2,630,000 ticks in
 native, Chrome and WebKit with exact final engine state and pixels. Native
 passes 5,048 engine snapshot and 5,048 DSP continuation audits. The new walking
 speech behavior has separate interruption, scene-reset and original-asset
@@ -54,7 +68,7 @@ command-line development archives have been tested outside their source
 folders; native Finder app packaging and physical iPad acceptance remain.
 
 
-Next engine compatibility work: [mover reel modes and walking speech](mover-reel-compatibility.md). Walking TALK now pauses movement and resumes the existing route, with versioned reel state and interruption/save-continuation tests. New stationary speech also uses the shared reel slot; old active waits migrate at the next tick without rewriting imported bytes. WALK, WALKED, WALKTAG and SWALK accept custom films; disabled-axis direct walks, [script escape cancellation](script-escape-compatibility.md) and ambiguous historical overlapping slots remain.
+Next engine compatibility work: [mover reel modes and walking speech](mover-reel-compatibility.md). Walking TALK now pauses movement and resumes the existing route, with versioned reel state and interruption/save-continuation tests. New stationary speech also uses the shared reel slot; old active waits migrate at the next tick without rewriting imported bytes. WALK, WALKED, WALKTAG and SWALK accept custom films; disabled-axis direct walks and ambiguous historical overlapping slots remain. [Script escape cancellation](script-escape-compatibility.md), intro routing and host Escape input now have focused coverage; broader reference comparisons remain.
 
 Runtime revision `00a6b38` has runnable native and browser hosts, original menus,
 named save/load, original-font name editing, independently controlled music/
@@ -77,7 +91,7 @@ These are accelerated semantic-input runs, not complete manual UI or physical
 touch playthroughs. The later `a6fc4a3` zero-voice-volume correction has separate
 original-intro validation and was not part of the full-route binaries.
 
-Recent verified evidence includes workspace tests, Clippy, all 14 original-asset
+Historical menu-runtime evidence includes workspace tests, Clippy, all 14 original-asset
 Rust web integration tests, desktop and emulated-touch menu save/name-edit/load
 in Chrome/WebKit, audio continuation tests, and active-drag restoration with
 ordinary and swapped mouse buttons. Browser test captures show original menu
@@ -91,12 +105,13 @@ The full objective remains incomplete. Remaining acceptance work includes:
   interruption recovery, and a touch-only complete game playthrough.
 - End-to-end native menu interaction and current-build visible-session acceptance;
   programmatic tests do not substitute for SDL click/typing/device validation.
-- Broader alternate interaction orders and reference comparisons. The engine still
-  explicitly rejects some variants (for example nonzero WALK/WALKED film
-  parameters and TALK on a moving actor); one recorded route cannot establish
-  that every supported-game path is implemented.
-- Reproducible packaged/distributable hosts and a final requirement-by-requirement
-  audit, including reference state/frame/audio-event comparisons.
+- Broader alternate interaction orders and reference comparisons. Custom walking
+  films and moving-actor TALK are implemented with focused tests. Disabled-axis
+  direct walks and ambiguous historical overlapping speech slots remain;
+  one recorded route cannot establish every supported-game path.
+- Full-route checks of packaged hosts, native Finder application delivery, and
+  a final requirement-by-requirement audit, including reference
+  state/frame/audio-event comparisons.
 
 The existing visible native session is kept running to preserve unsaved progress;
 its binary is older than the latest rebuilt executable. A process being alive is
