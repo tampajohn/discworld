@@ -11,7 +11,7 @@ pub fn offset(value: u16, maximum: u16) -> Result<i32, Error> {
     Ok((RANGE * i64::from(value) / i64::from(maximum)) as i32)
 }
 
-#[derive(Debug, Clone, PartialEq, Eq)]
+#[derive(serde::Serialize, serde::Deserialize, Debug, Clone, PartialEq, Eq)]
 pub struct Drag {
     maximum: u16,
     value: u16,
@@ -19,6 +19,16 @@ pub struct Drag {
     shown: i32,
 }
 impl Drag {
+    pub fn validate_snapshot(&self) -> Result<(), Error> {
+        let canonical = offset(self.value, self.maximum)?;
+        if i64::from(self.shown) != self.raw.clamp(0, RANGE)
+            || (self.shown != canonical
+                && self.value != (i64::from(self.shown) * i64::from(self.maximum) / RANGE) as u16)
+        {
+            return Err(Error("invalid menu slider snapshot"));
+        }
+        Ok(())
+    }
     pub fn new(value: u16, maximum: u16) -> Result<Self, Error> {
         let shown = offset(value, maximum)?;
         Ok(Self {
@@ -62,6 +72,51 @@ impl Drag {
 #[cfg(test)]
 mod tests {
     use super::*;
+    #[test]
+    fn snapshots_preserve_quantization_and_raw_drag_history() {
+        for maximum in [30, 100, 255] {
+            for value in 0..=maximum {
+                let mut drag = Drag::new(value, maximum).unwrap();
+                for delta in [0, 1, 100, -60, -1, -200, 1, 200] {
+                    drag.validate_snapshot().unwrap();
+                    let bytes = postcard::to_allocvec(&drag).unwrap();
+                    let mut copy: Drag = postcard::from_bytes(&bytes).unwrap();
+                    copy.validate_snapshot().unwrap();
+                    assert_eq!(copy.move_by(delta), drag.move_by(delta));
+                    assert_eq!(copy, drag);
+                    assert_eq!(copy.released_position(), drag.released_position());
+                }
+            }
+        }
+        for invalid in [
+            Drag {
+                maximum: 0,
+                value: 0,
+                raw: 0,
+                shown: 0,
+            },
+            Drag {
+                maximum: 30,
+                value: 31,
+                raw: 81,
+                shown: 81,
+            },
+            Drag {
+                maximum: 30,
+                value: 0,
+                raw: 0,
+                shown: -1,
+            },
+            Drag {
+                maximum: 30,
+                value: 15,
+                raw: 0,
+                shown: 0,
+            },
+        ] {
+            assert!(invalid.validate_snapshot().is_err());
+        }
+    }
     #[test]
     fn drag_retains_overshoot_and_only_updates_when_thumb_moves() {
         let mut drag = Drag::new(128, 255).unwrap();

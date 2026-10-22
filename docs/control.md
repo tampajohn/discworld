@@ -1122,3 +1122,19 @@ replaced by) Main text hover while still updating Subtitles. Evidence:
 assets/logs/menu-shared-highlight-{assets,workspace,clippy}.log. Controller
 snapshots, engine lifecycle/input scheduling, settings application and host F1
 bindings remain unfinished.
+
+Save/load List, mixing-desk Drag and Toggle now support serialization with
+explicit logical-state validation for subsequent controller snapshots. List
+validation checks catalog uniqueness/description bounds, selection/page bounds,
+draft integrity, logical/drawn scrollbar ranges and their quantization relation;
+Load's draft must match its selected catalog description. Keyboard scroll during
+an active drag may legitimately leave raw overshoot separate from the logical
+thumb, so validation preserves that state. Slider validation checks maximum,
+value, raw/clamped position and initial-versus-drag quantization. Toggle rejects
+unknown coroutine phases before step can reach an invalid branch. Roundtrip
+tests cover every save-list page in both modes with empty/partial/full catalogs,
+overshoot, keyboard scroll during drag, edited drafts, every slider value for
+the three supported ranges, every toggle phase and malformed serialized state.
+Evidence: assets/logs/menu-primitives-snapshot-{tests,workspace,clippy}.log.
+These component schemas are not yet a complete controller checkpoint and do not
+change DWRSAVE; resource-bound menu reconstruction and engine integration remain.

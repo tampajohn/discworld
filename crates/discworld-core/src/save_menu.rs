@@ -10,12 +10,12 @@ use crate::{
 pub const ROWS: usize = 9;
 pub const CAPACITY: usize = 100;
 pub const DESCRIPTION_LIMIT: usize = 40;
-#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+#[derive(serde::Serialize, serde::Deserialize, Debug, Clone, Copy, PartialEq, Eq)]
 pub enum Mode {
     Save,
     Load,
 }
-#[derive(Debug, Clone, PartialEq, Eq)]
+#[derive(serde::Serialize, serde::Deserialize, Debug, Clone, PartialEq, Eq)]
 pub struct Entry {
     pub id: u32,
     pub description: Vec<u8>,
@@ -44,7 +44,7 @@ pub enum SliderHit {
     Thumb,
 }
 
-#[derive(Debug, Clone, PartialEq, Eq)]
+#[derive(serde::Serialize, serde::Deserialize, Debug, Clone, PartialEq, Eq)]
 pub struct List {
     mode: Mode,
     entries: Vec<Entry>,
@@ -214,7 +214,39 @@ impl View {
     }
 }
 impl List {
-    pub fn new(mode: Mode, entries: Vec<Entry>) -> Result<Self, Error> {
+    /// Validate decoded logical state before drawing or accepting input. Raw
+    /// overshoot may legitimately differ from the logical thumb after keyboard
+    /// scrolling during a drag; it is consumed with checked arithmetic.
+    pub fn validate_snapshot(&self) -> Result<(), Error> {
+        Self::validate_entries(&self.entries)?;
+        if self.first > CAPACITY - ROWS
+            || self.selected >= ROWS
+            || self.draft.len() > DESCRIPTION_LIMIT
+            || self.draft.contains(&0)
+            || !(49..=174).contains(&self.slider_y)
+            || !(49..=174).contains(&self.slider_drawn_y)
+        {
+            return Err(Error("invalid save menu snapshot bounds"));
+        }
+        let canonical = 49 + (self.first * 125 / (CAPACITY - ROWS)) as i32;
+        let first_at = |y: i32| (y - 49) as usize * (CAPACITY - ROWS) / 125;
+        let canonical_pair = self.slider_y == canonical && self.slider_drawn_y == canonical;
+        let drag_pair = first_at(self.slider_y) == self.first
+            && (first_at(self.slider_drawn_y) == self.first || self.slider_drawn_y == canonical);
+        if !canonical_pair && !drag_pair {
+            return Err(Error("inconsistent save menu scrollbar snapshot"));
+        }
+        if self.mode == Mode::Load
+            && self.draft.as_slice()
+                != self
+                    .row(self.selected)
+                    .map_or(&[][..], |entry| entry.description.as_slice())
+        {
+            return Err(Error("load menu draft differs from selection"));
+        }
+        Ok(())
+    }
+    fn validate_entries(entries: &[Entry]) -> Result<(), Error> {
         let mut ids = std::collections::BTreeSet::new();
         if entries.len() > CAPACITY
             || entries.iter().any(|entry| {
@@ -225,6 +257,10 @@ impl List {
         {
             return Err(Error("invalid save menu catalog"));
         }
+        Ok(())
+    }
+    pub fn new(mode: Mode, entries: Vec<Entry>) -> Result<Self, Error> {
+        Self::validate_entries(&entries)?;
         let mut result = Self {
             mode,
             entries,
@@ -431,6 +467,67 @@ impl List {
 #[cfg(test)]
 mod tests {
     use super::*;
+    fn restored(list: &List) -> List {
+        list.validate_snapshot().unwrap();
+        let bytes = postcard::to_allocvec(list).unwrap();
+        let result: List = postcard::from_bytes(&bytes).unwrap();
+        result.validate_snapshot().unwrap();
+        assert_eq!(*list, result);
+        result
+    }
+    #[test]
+    fn snapshots_preserve_drag_overshoot_draft_and_continuation() {
+        for mode in [Mode::Save, Mode::Load] {
+            for count in [0, 12, 100] {
+                let mut list = List::new(mode, entries(count)).unwrap();
+                if mode == Mode::Save {
+                    list.draft = b"Edited description".to_vec();
+                }
+                list = restored(&list);
+                for row in 0..=CAPACITY - ROWS {
+                    list.scroll(Scroll::Home);
+                    for _ in 0..row {
+                        list.scroll(Scroll::RowDown);
+                    }
+                    list.begin_slider();
+                    for delta in [0, 1, 1, 200, -1, -200, -200, 200, 2] {
+                        let mut copy = restored(&list);
+                        assert_eq!(list.drag_slider(delta), copy.drag_slider(delta));
+                        assert_eq!(list, copy);
+                        list = restored(&copy);
+                    }
+                    // Keyboard scroll during a drag does not discard raw
+                    // overshoot; restoring must not silently snap that state.
+                    list.scroll(Scroll::PageUp);
+                    list = restored(&list);
+                    list.drag_slider(-1).unwrap();
+                    list.end_slider();
+                    list = restored(&list);
+                }
+            }
+        }
+    }
+    #[test]
+    fn malformed_list_snapshots_are_rejected_before_input_or_draw() {
+        let valid = List::new(Mode::Load, entries(12)).unwrap();
+        for case in 0..9 {
+            let mut bad = valid.clone();
+            match case {
+                0 => bad.first = usize::MAX,
+                1 => bad.selected = ROWS,
+                2 => bad.slider_y = i32::MIN,
+                3 => bad.slider_drawn_y = i32::MAX,
+                4 => bad.slider_y = 174, // valid coordinate, wrong first row
+                5 => bad.draft = b"Wrong selected description".to_vec(),
+                6 => bad.entries[1].id = bad.entries[0].id,
+                7 => bad.entries[0].description.push(0),
+                _ => bad.draft = vec![b'x'; DESCRIPTION_LIMIT + 1],
+            }
+            let bytes = postcard::to_allocvec(&bad).unwrap();
+            let decoded: List = postcard::from_bytes(&bytes).unwrap();
+            assert!(decoded.validate_snapshot().is_err(), "case {case}");
+        }
+    }
     fn entries(count: usize) -> Vec<Entry> {
         (0..count)
             .map(|i| Entry {

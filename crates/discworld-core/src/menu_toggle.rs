@@ -10,11 +10,17 @@ pub enum Effect {
     Finished,
 }
 
-#[derive(Debug, Clone, Default, PartialEq, Eq)]
+#[derive(serde::Serialize, serde::Deserialize, Debug, Clone, Default, PartialEq, Eq)]
 pub struct Toggle {
     phase: Option<u8>,
 }
 impl Toggle {
+    pub fn validate_snapshot(&self) -> Result<(), crate::iso::Error> {
+        if self.phase.is_some_and(|phase| phase > 4) {
+            return Err(crate::iso::Error("invalid menu toggle phase"));
+        }
+        Ok(())
+    }
     pub fn start(&mut self) -> bool {
         if self.phase.is_some() {
             return false;
@@ -49,6 +55,27 @@ impl Toggle {
 #[cfg(test)]
 mod tests {
     use super::*;
+    #[test]
+    fn serialized_toggle_resumes_every_phase_and_rejects_unknown_phases() {
+        for phase in 0..=4 {
+            for (active, overlay) in [(true, true), (false, true), (true, false)] {
+                let mut original = Toggle { phase: Some(phase) };
+                original.validate_snapshot().unwrap();
+                let bytes = postcard::to_allocvec(&original).unwrap();
+                let mut copy: Toggle = postcard::from_bytes(&bytes).unwrap();
+                copy.validate_snapshot().unwrap();
+                for _ in 0..6 {
+                    assert_eq!(copy.step(active, overlay), original.step(active, overlay));
+                    assert_eq!(copy, original);
+                }
+            }
+        }
+        for phase in [5u8, 255] {
+            let bytes = postcard::to_allocvec(&Some(phase)).unwrap();
+            let bad: Toggle = postcard::from_bytes(&bytes).unwrap();
+            assert!(bad.validate_snapshot().is_err());
+        }
+    }
     #[test]
     fn state_changes_mid_animation_once_and_respects_reference_abort_checks() {
         let mut toggle = Toggle::default();
