@@ -1055,3 +1055,19 @@ publish a warp. The original-ISO controller test covers direct and Main-driven
 opening, single consumption, redraw, Escape and close-before-consumption.
 Evidence: assets/logs/menu-cursor-{original-assets,clippy}.log. Live hosts still
 need to consume this request and synchronize the engine and physical pointer.
+
+Active settings-page input now goes through Controller::click_settings and its
+toggle advances inside Controller::step. Navigation exposes its shared effect
+busy state. TOGGLE cannot queue while a text/graphic function is pending;
+immediate FLIP remains permitted, as dialogs.cpp::menuAction handles it before
+the bButAnim guard. The original-ISO regression drives Controls through the
+controller, rejects repeated toggle input, allows FLIP during that animation,
+and closes/reopens around a pending Save graphic to verify its effect slot blocks
+a new toggle while still permitting FLIP. Evidence:
+assets/logs/menu-widget-{original-assets,clippy}.log. This covers active-page
+widget timing only. A toggle coroutine still needs to retain its original CONFBOX
+identity across close/Escape/page replacement, share HL1 with the replacement
+window, and update its original setting even if a new page is visible. Reference
+ButtonToggle checks inventoryIsActive and global HL1, not its original window's
+identity. The controller is not ready for live host attachment until that
+ownership/lifecycle behavior and durable state are implemented.

@@ -105,11 +105,11 @@ fn original_menu_controller_transitions_render_and_resolve_live_selection() {
     assert_eq!(menu.take_cursor_warp(), None);
 
     menu.open(Page::Controls, &assets).unwrap();
-    let view = menu.settings_mut().unwrap();
-    assert!(view.click([163, 72], true));
-    assert!(view.click([176, 112], false));
+    assert!(menu.click_settings([176, 112], false));
+    assert!(!menu.click_settings([176, 112], false)); // shared effect already busy
+    assert!(menu.click_settings([163, 72], true)); // FLIP remains immediate
     for _ in 0..3 {
-        view.step_toggle(true, true);
+        menu.step(&assets, true).unwrap();
     }
     menu.escape(&assets).unwrap();
     assert!(menu.settings().swap_buttons && menu.settings().flipped);
@@ -131,6 +131,20 @@ fn original_menu_controller_transitions_render_and_resolve_live_selection() {
     assert_eq!(menu, before);
     menu.step(&assets, true).unwrap();
     assert_eq!(menu.page(), Some(Page::Load));
+
+    // A pending graphic function can survive closure and opening another page.
+    // It owns the same effect slot as settings toggles, but not immediate FLIP.
+    menu.close();
+    menu.open(Page::Save, &assets).unwrap();
+    menu.click_button([262, 69]);
+    menu.step(&assets, true).unwrap();
+    menu.close();
+    menu.open(Page::Controls, &assets).unwrap();
+    assert!(!menu.click_settings([176, 112], false));
+    assert!(menu.click_settings([163, 72], true));
+    let result = menu.step(&assets, false).unwrap();
+    assert_eq!(result.outcome.request, Some(Request::Save));
+    assert_eq!(result.selection, None);
 }
 
 #[test]

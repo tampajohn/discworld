@@ -129,7 +129,15 @@ impl Controller {
         Ok(true)
     }
     pub fn click_button(&mut self, point: [i32; 2]) -> bool {
+        if self.settings_mut().is_some_and(|view| view.toggle_busy()) {
+            return false;
+        }
         self.navigation.click_button(point)
+    }
+    pub fn click_settings(&mut self, point: [i32; 2], double: bool) -> bool {
+        let allow_toggle = !self.navigation.busy();
+        self.settings_mut()
+            .is_some_and(|view| view.click_with_toggle_guard(point, double, allow_toggle))
     }
     pub fn click_row(&mut self, point: [i32; 2], double: bool) -> Result<Dispatch, Error> {
         let mut next = self.clone();
@@ -166,6 +174,9 @@ impl Controller {
         overlay_exists: bool,
     ) -> Result<Dispatch, Error> {
         let mut next = self.clone();
+        if let Some(view) = next.settings_mut() {
+            view.step_toggle(true, overlay_exists);
+        }
         next.settings = next.settings();
         let outcome = next.navigation.step(overlay_exists);
         let dispatch = next.dispatch(outcome);

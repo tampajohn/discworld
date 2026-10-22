@@ -61,6 +61,9 @@ pub struct Navigation {
 }
 
 impl Navigation {
+    pub fn busy(&self) -> bool {
+        self.text_action.is_some() || self.graphic.pending()
+    }
     /// Validate before activating a decoded menu state. A queued function may
     /// belong to a closed or different page: killInventory does not cancel it.
     pub fn validate_snapshot(&self) -> Result<(), crate::iso::Error> {
@@ -94,7 +97,7 @@ impl Navigation {
     /// confirmation graphics additionally run ButtonPress before dispatch.
     /// Settings and save-list rows have their own handlers, not this hit test.
     pub fn click_button(&mut self, point: [i32; 2]) -> bool {
-        if self.text_action.is_some() || self.graphic.pending() {
+        if self.busy() {
             return false;
         }
         match self.page {

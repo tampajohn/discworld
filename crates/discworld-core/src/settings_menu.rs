@@ -153,13 +153,26 @@ impl SettingsMenu {
         }
     }
     pub fn click(&mut self, point: [i32; 2], double: bool) -> bool {
+        self.click_with_toggle_guard(point, double, true)
+    }
+    /// FLIP is immediate even while another menu button effect is running;
+    /// TOGGLE must acquire the inventory process's shared button-effect slot.
+    pub fn click_with_toggle_guard(
+        &mut self,
+        point: [i32; 2],
+        double: bool,
+        allow_toggle: bool,
+    ) -> bool {
         if self.kind == Kind::Controls && Self::contains(point, [162, 71]) {
             if double {
                 self.flipped = !self.flipped;
             }
             return double;
         }
-        Self::contains(point, self.toggle_origin()) && self.toggle.start()
+        allow_toggle && Self::contains(point, self.toggle_origin()) && self.toggle.start()
+    }
+    pub fn toggle_busy(&self) -> bool {
+        self.toggle.busy()
     }
     /// Supply actual inventory/HL1 existence, as ButtonToggle checks different
     /// objects after each sleep. Returns a setting change only at the flip step.
