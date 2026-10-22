@@ -169,3 +169,18 @@ a spoken line; it does not change the source recording or mixing gain.
 Speech priority validation: workspace tests, Clippy, WASM checks and all 18
 original-asset tests pass (`assets/logs/speech-priority-*`). The completed
 f776192 full-route audit predates this correction.
+
+
+V1 zero-effects-volume correction: after speech/busy-channel priority checks,
+PLAYSAMPLE and TRYPLAYSAMPLE skip a new sample when the effects slider is zero,
+then yield once. They preserve any existing channel. Raising the volume before
+resumption does not retry the skipped request. This is distinct from master
+mute and from lowering the gain of an already-playing effect. The bytecode
+regression covers both calls, blocking/nonblocking requests, idle/active effect
+channels, serialized suspended operations, exact argument consumption, and
+volume changes during the yield. The pinned source is the `_soundVolume != 0`
+guard and final one-tick sleep in `tinlib.cpp::PlaySample`.
+
+Validation: workspace tests, Clippy, WASM checking and all 18 original-asset
+web tests pass (`assets/logs/effects-disable-*`). The running e4b6b65 route uses
+default effects volume and predates this zero-volume correction.

@@ -5312,6 +5312,15 @@ impl Engine {
                         process.vm.complete_library(call, 2, None)?;
                         continue;
                     }
+                    if self
+                        .configuration
+                        .as_ref()
+                        .is_some_and(|menu| menu.settings().volumes[1] == 0)
+                    {
+                        args(&process.vm, 2)?;
+                        process.wait = Some((call, 1));
+                        return Ok(Status::Running);
+                    }
                     let Some(bank) = bank else {
                         return Ok(Status::Unsupported(call));
                     };
@@ -10945,6 +10954,68 @@ mod tests {
             assert!(!engine.sample_player.is_speech());
             assert_eq!(engine.sample_player.serial, speech.serial + 1);
             assert_eq!(engine.sample_player.position, 0);
+        }
+    }
+
+    #[test]
+    fn zero_effect_volume_yields_once_without_starting_or_replacing_samples() {
+        for opcode in [51, 112] {
+            for active in [false, true] {
+                for blocking in [0, 1] {
+                    let (master, mut scene) = fixtures();
+                    scene[8] = 0;
+                    let code = [0x41, 77, 3, 0x41, blocking, 0x4e, opcode, 0x4c, 0, 0];
+                    scene[32..32 + code.len()].copy_from_slice(&code);
+                    let resources = Resources(vec![&master, &scene]);
+                    let index = [0, 0, 0, 0, 4, 0, 0, 0];
+                    let mut data = vec![0; 8];
+                    data[4..8].copy_from_slice(&1000u32.to_le_bytes());
+                    data.extend(vec![129; 1000]);
+                    let bank = SampleBank::new(&index, &data).unwrap();
+                    let mut engine = Engine::bootstrap(&resources).unwrap();
+                    let mut settings = crate::menu_controller::Settings {
+                        volumes: [255, 0, 255],
+                        double_click: 10,
+                        swap_buttons: false,
+                        text_speed: 0,
+                        subtitles: true,
+                        flipped: false,
+                    };
+                    engine.configuration =
+                        Some(crate::menu_controller::Controller::new(settings.clone()).unwrap());
+                    if active {
+                        engine.sample_player.play(&bank, 1).unwrap();
+                        engine.sample_player.tick(&bank).unwrap();
+                    }
+                    let before = engine.sample_player.clone();
+                    let mut process = ScriptProcess::new(Handle((1 << 23) | 32));
+                    assert_eq!(
+                        engine
+                            .run_process(&resources, Some(&bank), None, None, &mut process)
+                            .unwrap(),
+                        Status::Running
+                    );
+                    assert_eq!(engine.sample_player, before);
+                    assert!(process.sample_wait.is_none());
+                    assert_eq!(engine.globals[0], 0);
+                    // Restore the suspended operation, then enable effects.
+                    // The declined request must complete, not retry playback.
+                    let bytes = postcard::to_allocvec(&process).unwrap();
+                    process = postcard::from_bytes(&bytes).unwrap();
+                    settings.volumes[1] = 255;
+                    engine.configuration =
+                        Some(crate::menu_controller::Controller::new(settings).unwrap());
+                    assert_eq!(
+                        engine
+                            .run_process(&resources, Some(&bank), None, None, &mut process)
+                            .unwrap(),
+                        Status::Halted
+                    );
+                    assert_eq!(engine.sample_player, before);
+                    assert_eq!(engine.globals[0], 77);
+                    assert!(process.wait.is_none());
+                }
+            }
         }
     }
 
