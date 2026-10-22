@@ -3,8 +3,7 @@
 Status: reference-derived transition model implemented in `mover_reel.rs`;
 transactional mover animation application and snapshot storage are implemented.
 Walking and new stationary speech use explicit reel state; old active talk
-waits migrate at the first tick. Custom WALK/WALKED/WALKTAG films are implemented; SWALK overrides remain
-guarded. Ambiguous legacy overlapping slots require further compatibility work. Reference revision:
+waits migrate at the first tick. Custom WALK/WALKED/WALKTAG/SWALK films are implemented. Ambiguous legacy overlapping slots require further compatibility work. Reference revision:
 `96b42d42bc8533953bdd701db059cc33c839a9ff`. This applies to V1; later-version
 branches in the same functions must not be imported implicitly.
 
@@ -310,3 +309,29 @@ audit remains pinned to 6a519c6, which predates this WALKTAG change.
 
 Validation: workspace tests, Clippy with warnings denied, the web WASM check,
 and all 17 opt-in original-asset tests pass (`assets/logs/walktag-*`).
+
+
+## Custom SWALK walking films
+
+Pinned `tinlib.cpp::Swalk` establishes the start position (using the destination
+path's characteristics when starting outside paths), then calls Walk with its
+explicit film and ignore-paths enabled. Call 75 now installs a nonzero film on
+the cloned mover after standing and before `begin_direct_walk`. Invalid film
+resources therefore fail before the actor/mover/control state is committed.
+Zero-film calls keep their existing behavior. No snapshot format change is
+needed: custom animation state and the SWALK control-restoration wait are
+already represented.
+
+The shared bytecode regression includes SWALK with control initially enabled
+or disabled, zero/custom films, ordinary/node paths, finite-film completion,
+short walks and interruptions. It checks control suppression while moving,
+restoration on successful completion, blocking semantics and exact next-tick
+snapshot continuation. As in the existing token-cancellation path, an
+interrupted coroutine does not execute its completion/control-restoration code.
+Disabled-axis destinations and script escape cancellation remain compatibility
+gaps; this change does not claim to resolve them.
+
+Validation: workspace tests, Clippy with warnings denied, web WASM checking
+and all 17 opt-in original-asset tests pass (`assets/logs/swalk-film-*`).
+The ongoing full-route run is pinned to 6a519c6 and predates both WALKTAG and
+SWALK custom-film integration.

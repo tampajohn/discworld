@@ -4736,7 +4736,7 @@ impl Engine {
                     } else {
                         a[0]
                     };
-                    if a[5] != 0 || !self.declarations.movers.contains_key(&actor) {
+                    if !self.declarations.movers.contains_key(&actor) {
                         return Ok(Status::Unsupported(call));
                     }
                     let start = [a[1], a[2]];
@@ -4795,6 +4795,14 @@ impl Engine {
                             .checked_add(self.world_origin[1])
                             .ok_or(Error("world cursor overflow"))?,
                     ];
+                    if a[5] != 0 {
+                        mover.alter_reel(
+                            resources,
+                            &self.declarations,
+                            crate::mover_reel::State::default(),
+                            crate::mover_reel::Operation::Walk(Handle(a[5] as u32)),
+                        )?;
+                    }
                     let serial = mover.begin_direct_walk(
                         resources,
                         &self.declarations,
@@ -7920,7 +7928,15 @@ mod tests {
     fn scripted_custom_walk_films_preserve_delay_hold_and_snapshot_continuation() {
         use crate::save::Snapshot;
         for node in [false, true] {
-            for (call, hold) in [(87, 0), (87, 1), (87, 2), (88, 0), (91, 0)] {
+            for (call, hold) in [
+                (87, 0),
+                (87, 1),
+                (87, 2),
+                (88, 0),
+                (91, 0),
+                (75, 0),
+                (75, 1),
+            ] {
                 for (target_x, stop, custom) in [
                     (80, false, true),
                     (80, true, true),
@@ -7930,7 +7946,9 @@ mod tests {
                 ] {
                     let (master, mut scene) = fixtures();
                     let base = 2u32 << 23;
-                    let mut code = if call == 91 {
+                    let mut code = if call == 75 {
+                        vec![3, 0x41, 50, 0x41, 70, 0x41, target_x, 0x41, 70, 1]
+                    } else if call == 91 {
                         vec![3, 1]
                     } else {
                         vec![3, 0x41, target_x, 0x41, 70, 1]
@@ -7974,6 +7992,14 @@ mod tests {
                     engine.globals.resize(2, 0);
                     engine.actors = crate::actor::Actors::new(1).unwrap();
                     engine.no_blocking = true;
+                    if call == 75 {
+                        engine.declarations.lead = Some(crate::startup::Lead {
+                            id: 1,
+                            text: Handle(0),
+                            tagged: false,
+                        });
+                        engine.control.enabled = hold == 1;
+                    }
                     engine
                         .declarations
                         .movers
@@ -8063,7 +8089,11 @@ mod tests {
                         if call == 87 && hold == 2 {
                             assert_eq!(engine.globals[0], 77);
                         }
-                        if ((call == 87 && hold != 2) || call == 91) && mover.walk_target.is_some()
+                        if call == 75 && mover.walk_target.is_some() {
+                            assert!(!engine.control.enabled, "SWALK holds lead control");
+                        }
+                        if ((call == 87 && hold != 2) || call == 91 || call == 75)
+                            && mover.walk_target.is_some()
                         {
                             assert_eq!(engine.globals[0], 0, "blocking WALK must not return early");
                         }
@@ -8085,12 +8115,15 @@ mod tests {
                     assert_eq!(mover.walk_serial, 1 + u64::from(stop));
                     assert_eq!(
                         engine.globals[0],
-                        if stop && ((call == 87 && hold != 2) || call == 91) {
+                        if stop && ((call == 87 && hold != 2) || call == 91 || call == 75) {
                             0
                         } else {
                             77
                         }
                     );
+                    if call == 75 {
+                        assert_eq!(engine.control.enabled, hold == 1 && !stop);
+                    }
                     if call == 91 && !stop {
                         assert_eq!(mover.placement.direction, crate::mover::Direction::Away);
                     }
