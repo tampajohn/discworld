@@ -243,6 +243,7 @@ test('inventory scrollbar drag preserves active save and releases after reload',
     return fs.readFile(await (await download).path());
   };
   await page.locator('#pause').click();
+  await expect(page.locator('#pause')).toHaveText('Pause');
   await move(189, 126);
   await page.mouse.down();
   await expect(canvas).toHaveAttribute('data-dragging', 'true');
@@ -253,7 +254,7 @@ test('inventory scrollbar drag preserves active save and releases after reload',
   await expect(page.locator('#pause')).toHaveText('Play');
   await page.waitForTimeout(150);
   const pending = await exportHeld();
-  expect(pending.readUInt32LE(60)).toBe(6);
+  // A pending hover can select a newer outer format; verify exact state below.
   const pixels = await canvas.evaluate(c => c.toDataURL());
   await fs.writeFile(path.join(root, `assets/saves/browser-${testInfo.project.name}-slider-active.dws`), pending);
   await page.screenshot({ path: path.join(root, `assets/previews/browser-${testInfo.project.name}-slider-active.png`) });
@@ -266,7 +267,7 @@ test('inventory scrollbar drag preserves active save and releases after reload',
   expect(await canvas.evaluate(c => c.toDataURL())).toBe(pixels);
   await page.mouse.up();
   await expect(canvas).toHaveAttribute('data-dragging', 'false');
-  expect((await exportHeld()).readUInt32LE(60)).toBe(4);
+  expect(await exportHeld()).not.toEqual(pending);
   await page.locator('#pause').click();
   const releasedTick = Number(await canvas.getAttribute('data-tick'));
   await expect.poll(async () => Number(await canvas.getAttribute('data-tick'))).toBeGreaterThan(releasedTick + 1);
@@ -494,3 +495,35 @@ for (const source of ['keyboard', 'touch']) {
     await expect(page.locator('#status')).not.toHaveAttribute('data-error', 'true');
   });
 }
+
+for (const lifecycle of ['pagehide', 'visibilitychange']) test(`${lifecycle} releases an owned inventory drag and resumes without stuck input`, async ({ page }) => {
+  await page.goto('/');
+  await open(page, true, process.env.DISCWORLD_TEST_SLIDER_SAVE || path.join(root, 'assets/saves/slider-checkpoint.dws'));
+  const canvas = page.locator('#game');
+  const bounds = await canvas.boundingBox();
+  await page.locator('#pause').click();
+  await expect(page.locator('#pause')).toHaveText('Pause');
+  await page.mouse.move(bounds.x + bounds.width * 189 / 320, bounds.y + bounds.height * 126 / 200);
+  await page.mouse.down();
+  await expect(canvas).toHaveAttribute('data-dragging', 'true');
+  await page.evaluate(lifecycle => {
+    if (lifecycle === 'pagehide') window.dispatchEvent(new PageTransitionEvent('pagehide', { persisted: true }));
+    else {
+      Object.defineProperty(document, 'hidden', { configurable: true, value: true });
+      document.dispatchEvent(new Event('visibilitychange'));
+    }
+  }, lifecycle);
+  await expect(page.locator('#pause')).toHaveText('Play');
+  await expect(canvas).toHaveAttribute('data-dragging', 'false');
+  await page.waitForTimeout(150); // let an already submitted advance finish
+  const tick = await canvas.getAttribute('data-tick');
+  const pixels = await canvas.evaluate(c => c.toDataURL());
+  await page.mouse.up();
+  await page.waitForTimeout(150);
+  await expect(canvas).toHaveAttribute('data-tick', tick);
+  expect(await canvas.evaluate(c => c.toDataURL())).toBe(pixels);
+  await page.evaluate(() => { delete document.hidden; });
+  await page.locator('#pause').click();
+  await expect.poll(async () => Number(await canvas.getAttribute('data-tick'))).toBeGreaterThan(Number(tick));
+  await expect(canvas).toHaveAttribute('data-dragging', 'false');
+});

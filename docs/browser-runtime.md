@@ -425,3 +425,29 @@ canvas bounds and actual touch input with save roundtrip. Evidence is in
 `assets/logs/browser-package-test.log`; the isolated test configuration is
 `assets/packages/package.config.mjs`. This does not establish physical iPad
 acceptance, full manual gameplay coverage or native application packaging.
+
+## Page suspension during an inventory drag
+
+The host now pauses and releases browser-owned pointers on `pagehide` or a
+hidden-document `visibilitychange`. Releases are sent while paused, so they
+cannot move the inventory window or cursor. Pointer ownership is cleared
+before releasing capture; a later lost-capture or physical-up event does not
+repeat the release. Manual Pause continues to preserve an active drag for
+save/export, as before. Imported drags with no host-owned pointer are not
+implicitly changed by suspension.
+
+A new original-asset Playwright regression reproduced a stuck inventory drag
+in Chrome and WebKit before the fix. It dispatches pagehide and hidden-page
+events while a slider is held, checks drag release and paused tick/pixel
+stability after a late physical release, then resumes simulation. These are
+synthetic lifecycle events in desktop browsers, not physical iPad background,
+orientation, operating-system suspension or device-audio acceptance.
+
+The manual-pause regression waits for Play's asynchronous audio startup and
+continues checking exact save import/export bytes, pixels and drag release.
+Its obsolete fixed outer-version assertion was removed: a pending hover can
+legitimately encode the same slider state using version 9 rather than 6.
+Save-format versions and malformed input remain covered by core tests.
+Logs: `assets/logs/lifecycle-drag-*`.
+All six targeted Chrome/WebKit lifecycle and manual-pause/save cases pass
+(`lifecycle-drag-final.log`); JavaScript syntax and whitespace checks pass.

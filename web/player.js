@@ -224,8 +224,21 @@ document.onkeydown = event => {
   const command = { w: 'walk', a: 'action', l: 'look', i: 'pockets', backspace: 'close', ' ': 'continue', arrowup: 'up', arrowdown: 'down' }[key];
   if (command) { event.preventDefault(); input(command); }
 };
-document.onvisibilitychange = () => { if (ready && document.hidden) { pause(); status('Paused while the page is hidden.'); } };
-window.addEventListener('pagehide', pause);
+function suspend() {
+  pause();
+  // A page interruption may consume the physical pointer-up. Release only
+  // pointers this host owns, with no cursor motion while paused.
+  const pointers = [...pressedPointers];
+  pressedPointers.clear();
+  for (const [id] of pointers) {
+    if (canvas.hasPointerCapture(id)) canvas.releasePointerCapture(id);
+  }
+  for (const button of new Set(pointers.map(([, button]) => button))) {
+    input(`${button}-up`);
+  }
+}
+document.onvisibilitychange = () => { if (ready && document.hidden) { suspend(); status('Paused while the page is hidden.'); } };
+window.addEventListener('pagehide', suspend);
 
 async function restore(bytes) {
   pause();
