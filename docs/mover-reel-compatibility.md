@@ -343,3 +343,20 @@ the destination-first standing setup, zero/custom films, control initially on
 or off, successful arrival and interruption. Every tick still checks exact
 snapshot continuation. These cases pass without a runtime change; the focused
 regression and core Clippy pass (`assets/logs/swalk-entry-*`).
+
+
+The 6a519c6 native audit completed the 2,630,000-tick recorded route: all
+1,652 inputs accepted, 5,048 engine and 5,048 DSP snapshot audits, and restart
+to the title scene. Final engine bytes exactly match 3856346. See
+[recorded results](validation/custom-walk-6a519c6.json). This run includes the
+short-distance WALKED correction but predates WALKTAG/SWALK integration.
+Fresh native, Chrome and WebKit audits for f776192 are running separately under
+`assets/validation/custom-reels-f776192`; no result is claimed until completion.
+
+Remaining direct-axis investigation: pinned `GetDirection` and `NewCoOrdinates`
+treat -1 as a disabled axis, but SetActorDest/SetNextDest short-distance checks
+use raw destination coordinates and MoveActor returns immediately when both
+active targets equal -1. Replacing -1 with the starting coordinate would change
+those decisions. The existing guard remains until the complete destination,
+completion and pending-coroutine behavior is modeled and tested; direction or
+single-step support alone is insufficient evidence to remove it.
