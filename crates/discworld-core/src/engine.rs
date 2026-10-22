@@ -1107,6 +1107,69 @@ impl Engine {
         Ok(opened)
     }
 
+    /// Escape closes Main, or returns a submenu to Main and requests that the
+    /// host persist settings. Input event accounting belongs to the dispatcher.
+    pub fn escape_configuration(
+        &mut self,
+        resources: &Resources<'_>,
+        strings: &crate::text::Strings<'_>,
+        saves: &[crate::save_menu::Entry],
+    ) -> Result<crate::menu_navigation::Outcome, Error> {
+        let mut next = self.clone();
+        let Some(menu) = &mut next.configuration else {
+            return Ok(crate::menu_navigation::Outcome::default());
+        };
+        let was_active = menu.page().is_some();
+        let outcome = menu.escape(&crate::menu_controller::Assets {
+            resources,
+            strings,
+            declarations: &next.declarations,
+            saves,
+        })?;
+        next.finish_configuration_transition(was_active);
+        *self = next;
+        Ok(outcome)
+    }
+
+    /// One InventoryProcess update, including effects retained after closure.
+    /// The caller must consume Save/Load/Restart/Quit dispatches at this boundary.
+    pub fn advance_configuration(
+        &mut self,
+        resources: &Resources<'_>,
+        strings: &crate::text::Strings<'_>,
+        saves: &[crate::save_menu::Entry],
+    ) -> Result<crate::menu_controller::Dispatch, Error> {
+        let mut next = self.clone();
+        let Some(menu) = &mut next.configuration else {
+            return Ok(crate::menu_controller::Dispatch {
+                outcome: crate::menu_navigation::Outcome::default(),
+                selection: None,
+            });
+        };
+        let was_active = menu.page().is_some();
+        let dispatch = menu.advance(&crate::menu_controller::Assets {
+            resources,
+            strings,
+            declarations: &next.declarations,
+            saves,
+        })?;
+        next.finish_configuration_transition(was_active);
+        *self = next;
+        Ok(dispatch)
+    }
+
+    fn finish_configuration_transition(&mut self, was_active: bool) {
+        if let Some(menu) = &mut self.configuration {
+            let active = menu.page().is_some();
+            if was_active || active {
+                self.control.tags_enabled = !active;
+            }
+            if let Some(position) = menu.take_cursor_warp() {
+                self.control.move_cursor(position);
+            }
+        }
+    }
+
     pub fn left_event(&mut self) -> Result<(), Error> {
         let next = self
             .left_events

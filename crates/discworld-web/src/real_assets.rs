@@ -621,6 +621,110 @@ fn engine_menu_opening_preserves_gates_warps_and_atomicity() {
         game.load(&closed).unwrap();
         assert_eq!(game.save().unwrap(), closed);
     }
+    let resources = game.assets.resources();
+    let strings = Strings::new(&game.assets.iso[game.assets.text.clone()]).unwrap();
+    let mut engine = initial;
+    engine
+        .open_configuration(&resources, &strings, &[], Key::Main)
+        .unwrap();
+    assert!(
+        engine
+            .configuration
+            .as_mut()
+            .unwrap()
+            .click_button([90, 59])
+    );
+    let pending = engine.clone();
+    assert!(
+        engine
+            .advance_configuration(&discworld_core::graphics::Resources(vec![]), &strings, &[])
+            .is_err()
+    );
+    assert_eq!(engine, pending);
+    let opened = engine
+        .advance_configuration(&resources, &strings, &[])
+        .unwrap();
+    assert!(opened.outcome.changed);
+    assert_eq!(
+        engine.configuration.as_ref().unwrap().page(),
+        Some(discworld_core::menu_navigation::Page::Save)
+    );
+    assert_eq!(engine.control.cursor, [262, 91]);
+    assert!(!engine.control.tags_enabled);
+    let before_escape = engine.clone();
+    assert!(
+        engine
+            .escape_configuration(&discworld_core::graphics::Resources(vec![]), &strings, &[])
+            .is_err()
+    );
+    assert_eq!(engine, before_escape);
+    let escaped = engine
+        .escape_configuration(&resources, &strings, &[])
+        .unwrap();
+    assert!(escaped.changed && escaped.write_settings);
+    assert!(!engine.control.tags_enabled);
+    assert_eq!(
+        engine.configuration.as_ref().unwrap().page(),
+        Some(discworld_core::menu_navigation::Page::Main)
+    );
+    let escaped = engine
+        .escape_configuration(&resources, &strings, &[])
+        .unwrap();
+    assert!(escaped.changed && !escaped.write_settings);
+    assert!(engine.control.tags_enabled);
+    assert!(engine.configuration.as_ref().unwrap().page().is_none());
+
+    // A button function remains pending even when CLOSEINVENTORY removes its window.
+    engine
+        .open_configuration(&resources, &strings, &[], Key::Save)
+        .unwrap();
+    assert!(
+        engine
+            .configuration
+            .as_mut()
+            .unwrap()
+            .click_button([262, 69])
+    );
+    engine.close_inventory();
+    let mut requests = Vec::new();
+    for _ in 0..6 {
+        let snapshot = discworld_core::save::Snapshot::capture(&engine, game.assets.identity)
+            .to_bytes()
+            .unwrap();
+        let mut restored =
+            discworld_core::save::Snapshot::from_bytes(&snapshot, game.assets.identity)
+                .unwrap()
+                .restore_with_strings(
+                    &resources,
+                    &game.assets.bank().unwrap(),
+                    &discworld_core::music::archive(&game.assets.iso[game.assets.music.clone()])
+                        .unwrap(),
+                    &strings,
+                )
+                .unwrap();
+        let dispatch = engine
+            .advance_configuration(&resources, &strings, &[])
+            .unwrap();
+        assert_eq!(
+            restored
+                .advance_configuration(&resources, &strings, &[])
+                .unwrap(),
+            dispatch
+        );
+        assert_eq!(restored, engine);
+        if let Some(request) = dispatch.outcome.request {
+            requests.push(request);
+            assert_eq!(
+                dispatch.selection,
+                Some((discworld_core::save_menu::Target::New, Vec::new()))
+            );
+        }
+        assert!(engine.control.tags_enabled);
+    }
+    assert_eq!(
+        requests,
+        vec![discworld_core::menu_navigation::Request::Save]
+    );
 }
 
 fn roundtrip_pending(game: &mut BrowserGame, ticks: u32) {

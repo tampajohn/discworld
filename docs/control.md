@@ -1202,3 +1202,19 @@ save/load bytes and pixels while open, plus save bytes after closure. Workspace 
 pass; evidence is assets/logs/menu-engine-open-{assets,workspace,clippy}.log.
 Host key routing, controller initialization, ongoing menu scheduling, scene
 lifecycle and settings application remain to be connected before live F1 use.
+
+Engine::advance_configuration and escape_configuration now transactionally
+apply controller transitions to engine tag state and consume cursor warps.
+Advance returns the original deferred dispatch (including the currently selected
+save target); Escape returns the submenu-to-Main settings-write request. Neither
+method performs host storage, restart or quit itself. An absent controller is a
+no-op, and failed resource reconstruction preserves the entire prior engine.
+The caller must schedule advance at the InventoryProcess boundary and consume
+its dispatch; this is not yet called automatically by tick_content or hosts.
+The expanded original-asset engine test checks deferred Main-to-Save navigation,
+Save cursor placement, transactional failures during navigation and Escape,
+submenu versus Main Escape semantics, and a Save button retained after scripted
+window closure. Checkpointing at every retained-effect stage yields identical
+subsequent engines and dispatches, with exactly one Save request. This follows
+the pinned dialogs.cpp InventoryProcess and PLR_ESCAPE handlers. Workspace and
+Clippy evidence: assets/logs/menu-engine-transition-{workspace,clippy}.log.
