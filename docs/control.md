@@ -1045,3 +1045,13 @@ This shared controller is not yet attached to Engine or live hosts. Engine
 tags/held-cursor lifecycle, cursor warps, widget event routing/coroutine ownership,
 complete controller snapshots, actual settings application and host persistence
 dispatch remain integration work; the current user session is unchanged.
+
+Controller page construction also exposes a one-shot screen-coordinate cursor
+warp: Save[262,91], Restart/Quit[180,90], and none for other English V1 pages,
+matching dialogs.cpp::openMenu. take_cursor_warp consumes the request; redraw
+does not recreate it. Closing or Escape-to-Main removes any unconsumed request,
+including immediate save-row double action, and failed page construction cannot
+publish a warp. The original-ISO controller test covers direct and Main-driven
+opening, single consumption, redraw, Escape and close-before-consumption.
+Evidence: assets/logs/menu-cursor-{original-assets,clippy}.log. Live hosts still
+need to consume this request and synchronize the engine and physical pointer.

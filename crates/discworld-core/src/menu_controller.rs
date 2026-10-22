@@ -54,6 +54,9 @@ pub struct Controller {
     settings: Settings,
     // killInventory leaves selection intact; opening any new page resets it.
     list: Option<List>,
+    // SetCursorScreenXY runs once on opening, not on every redraw. Hosts consume
+    // this after committing the transition and update both engine and pointer.
+    cursor_warp: Option<[i32; 2]>,
 }
 
 impl Controller {
@@ -69,10 +72,14 @@ impl Controller {
             display: None,
             settings,
             list: None,
+            cursor_warp: None,
         })
     }
     pub fn page(&self) -> Option<Page> {
         self.navigation.page()
+    }
+    pub fn take_cursor_warp(&mut self) -> Option<[i32; 2]> {
+        self.cursor_warp.take()
     }
     pub fn settings(&self) -> Settings {
         let mut settings = self.settings.clone();
@@ -134,6 +141,7 @@ impl Controller {
         let dispatch = next.dispatch(outcome);
         if next.page().is_none() {
             next.display = None;
+            next.cursor_warp = None;
         }
         *self = next;
         Ok(dispatch)
@@ -141,6 +149,7 @@ impl Controller {
     pub fn close(&mut self) -> Outcome {
         self.settings = self.settings();
         self.display = None;
+        self.cursor_warp = None;
         self.navigation.close()
     }
     pub fn escape(&mut self, assets: &Assets<'_, '_>) -> Result<Outcome, Error> {
@@ -185,6 +194,7 @@ impl Controller {
         } = assets;
         let Some(page) = self.page() else {
             self.display = None;
+            self.cursor_warp = None;
             return Ok(());
         };
         self.list = None; // popUpInventory resets selBox even when opening Main.
@@ -243,6 +253,11 @@ impl Controller {
                 Display::Saves(View::new(resources, strings, declarations, mode)?.into())
             }
         });
+        self.cursor_warp = match page {
+            Page::Save => Some([262, 91]),
+            Page::Restart | Page::Quit => Some([180, 90]),
+            _ => None,
+        };
         Ok(())
     }
     pub fn draw(

@@ -55,12 +55,23 @@ fn original_menu_controller_transitions_render_and_resolve_live_selection() {
         assert!(menu.click_button([90, 44 + row as i32 * 15]));
         menu.step(&assets, true).unwrap();
         assert_eq!(menu.page(), page);
+        assert_eq!(
+            menu.take_cursor_warp(),
+            match page {
+                Some(Page::Save) => Some([262, 91]),
+                Some(Page::Restart | Page::Quit) => Some([180, 90]),
+                _ => None,
+            }
+        );
+        assert_eq!(menu.take_cursor_warp(), None);
         let mut surface = baseline.clone();
         menu.draw(&resources, &mut surface, None).unwrap();
+        assert_eq!(menu.take_cursor_warp(), None); // redraw never warps again
         assert_eq!(surface.rgba == baseline.rgba, page.is_none());
     }
     let mut menu = Controller::new(settings).unwrap();
     menu.open(Page::Save, &assets).unwrap();
+    assert_eq!(menu.take_cursor_warp(), Some([262, 91]));
     assert!(menu.click_button([262, 69]));
     menu.step(&assets, true).unwrap();
     menu.click_row([50, 63], false).unwrap();
@@ -82,9 +93,16 @@ fn original_menu_controller_transitions_render_and_resolve_live_selection() {
     menu.click_button([262, 69]);
     menu.step(&assets, true).unwrap();
     assert!(menu.escape(&assets).unwrap().write_settings);
+    assert_eq!(menu.take_cursor_warp(), None);
     let result = menu.step(&assets, false).unwrap();
     assert_eq!(result.outcome.request, Some(Request::Save));
     assert_eq!(result.selection, None);
+
+    // A close before the host consumes the warp must not move the world cursor
+    // to a now-hidden save window on its next presentation update.
+    menu.open(Page::Save, &assets).unwrap();
+    menu.click_row([50, 48], true).unwrap();
+    assert_eq!(menu.take_cursor_warp(), None);
 
     menu.open(Page::Controls, &assets).unwrap();
     let view = menu.settings_mut().unwrap();
