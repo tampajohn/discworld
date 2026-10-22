@@ -408,6 +408,7 @@ impl Mover {
             return Err(Error("invalid resolved node destination"));
         }
         let mut next = self.clone();
+        next.restore_normal_reel(resources, declarations)?;
         next.stop_requested = false;
         next.walk_serial = next
             .walk_serial
@@ -786,17 +787,33 @@ impl Mover {
         *self = next;
         Ok(())
     }
-    /// Stationary V1 talk push: direction constants select the current scale's
-    /// talk bank without changing the actor's standing direction.
+    fn restore_normal_reel(
+        &mut self,
+        resources: &crate::graphics::Resources<'_>,
+        declarations: &Declarations,
+    ) -> Result<(), Error> {
+        if let Some(state) = self.reel_state {
+            self.alter_reel(
+                resources,
+                declarations,
+                state,
+                crate::mover_reel::Operation::Normal(Handle(0)),
+            )?;
+        }
+        Ok(())
+    }
+    pub(crate) fn special_reel(&self) -> bool {
+        self.reel_state
+            .is_some_and(|state| state.suspends_movement())
+    }
+    /// V1 talk push: direction constants select the current scale's talk bank
+    /// without changing standing direction. Moving actors retain their route.
     pub fn push_talk(
         &mut self,
         resources: &crate::graphics::Resources<'_>,
         declarations: &Declarations,
         film: Handle,
     ) -> Result<Handle, Error> {
-        if self.walk_target.is_some() {
-            return Err(Error("unsupported talking while walking"));
-        }
         let selected = if film.0 <= 4 {
             let direction = Direction::from_talk_constant(film.0, self.placement.direction)?;
             declarations
@@ -809,6 +826,15 @@ impl Mover {
         };
         if selected.0 == 0 {
             return Err(Error("missing mover talk reel"));
+        }
+        if self.reel_state.is_some() || self.walk_target.is_some() {
+            self.alter_reel(
+                resources,
+                declarations,
+                crate::mover_reel::State::default(),
+                crate::mover_reel::Operation::Push(selected),
+            )?;
+            return Ok(self.reel_state.unwrap().pushed());
         }
         let mut next = self.clone();
         let saved = next.placement.standing;
@@ -825,6 +851,24 @@ impl Mover {
         saved: Handle,
     ) -> Result<(), Error> {
         let mut next = self.clone();
+        if let Some(state) = next.reel_state {
+            // FinishTalkingReel selects standing before POP, but does not
+            // finish or clear the interrupted walk.
+            next.placement.standing = declarations
+                .movers
+                .get(&next.placement.actor)
+                .ok_or(Error("missing talk mover declaration"))?[next.placement.scale - 1]
+                [4 + next.placement.direction.index()];
+            next.apply_standing(resources)?;
+            next.alter_reel(
+                resources,
+                declarations,
+                state,
+                crate::mover_reel::Operation::Pop,
+            )?;
+            *self = next;
+            return Ok(());
+        }
         next.finish_walk(resources, declarations)?;
         next.placement.standing = saved;
         next.apply_standing(resources)?;
@@ -904,6 +948,7 @@ impl Mover {
         cursor: [i32; 2],
     ) -> Result<u64, Error> {
         let mut next = self.clone();
+        next.restore_normal_reel(resources, declarations)?;
         let path = next
             .placement
             .path
@@ -1051,6 +1096,7 @@ impl Mover {
             return Err(Error("unsupported walking node path"));
         }
         let mut next = self.clone();
+        next.restore_normal_reel(resources, declarations)?;
         let direction =
             crate::walk::direction(from, cursor, next.placement.direction, p.definition.reel)?;
         next.stop_requested = false;
@@ -1532,6 +1578,12 @@ impl Mover {
         scale: usize,
         force: bool,
     ) -> Result<(), Error> {
+        if self
+            .reel_state
+            .is_some_and(|state| state.suppresses_walk_selection())
+        {
+            return Ok(());
+        }
         if !(1..=10).contains(&scale) || self.step_phase >= 6 {
             return Err(Error("invalid mover walking scale or phase"));
         }
@@ -1594,6 +1646,7 @@ impl Mover {
         next.animation.object.z = i32::try_from(i64::from(position[1]) + (factor << 10))
             .map_err(|_| Error("mover depth overflow"))?;
         if next.animation.tick(resources)? == crate::animation::Tick::Finished {
+            next.reel_state = next.reel_state.map(|state| state.walking_film_finished());
             next.step_phase = 0;
             next.select_walk_reel(
                 resources,
@@ -1608,7 +1661,18 @@ impl Mover {
         Ok(())
     }
     fn apply_standing(&mut self, resources: &crate::graphics::Resources<'_>) -> Result<(), Error> {
-        self.install_reel(resources, self.placement.standing, true)
+        self.install_reel(resources, self.placement.standing, true)?;
+        if let Some(state) = self.reel_state {
+            self.reel_state = Some(
+                state
+                    .transition(
+                        self.last_film,
+                        crate::mover_reel::Operation::Normal(self.placement.standing),
+                    )
+                    .state,
+            );
+        }
+        Ok(())
     }
     fn install_reel(
         &mut self,
@@ -2452,12 +2516,18 @@ mod tests {
         assert_eq!(mover, before);
         mover.walk_target = Some([160, 178]);
         let before = mover.clone();
-        assert!(
-            mover
-                .push_talk(&resources, &declarations, Handle(0))
-                .is_err()
-        );
-        assert_eq!(mover, before);
+        let saved = mover
+            .push_talk(&resources, &declarations, Handle(0))
+            .unwrap();
+        assert_eq!(saved, Handle(0));
+        assert!(mover.special_reel());
+        assert_eq!(mover.walk_target, before.walk_target);
+        mover.pop_talk(&resources, &declarations, saved).unwrap();
+        assert!(!mover.special_reel());
+        assert_eq!(mover.walk_target, before.walk_target);
+        assert_eq!(mover.walk_serial, before.walk_serial);
+        // The remaining fixture cases start from the legacy stationary state.
+        mover = before;
         let mut nodes = polygons.clone();
         let p = &mut nodes.active[0].definition;
         p.kind = Kind::NodePath;

@@ -2071,3 +2071,72 @@ fn disabled_voice_plays_original_intro_with_text_and_restorable_timing() {
         "the original intro must exercise speech calls"
     );
 }
+
+#[test]
+#[ignore = "requires DISCWORLD_TEST_ISO, DISCWORLD_TEST_SOUNDFONT and DISCWORLD_TEST_NODE_EXIT_SAVE"]
+fn original_walking_talk_reel_preserves_route_and_full_session() {
+    use discworld_core::graphics::Handle;
+    let read = |name| std::fs::read(std::env::var_os(name).expect(name)).unwrap();
+    let mut game =
+        BrowserGame::new(read("DISCWORLD_TEST_ISO"), read("DISCWORLD_TEST_SOUNDFONT")).unwrap();
+    game.load(&read("DISCWORLD_TEST_NODE_EXIT_SAVE")).unwrap();
+    while game.tick() < 133800 {
+        game.advance((133800 - game.tick()).min(24) as u32).unwrap();
+    }
+    let actor = game.engine.declarations.lead.as_ref().unwrap().id;
+    let initial = game.engine.movers[&actor].clone();
+    let start = initial.placement.position;
+    let resources = game.assets.resources();
+    let mut selected = None;
+    for delta in [[-40, 0], [40, 0], [0, -20], [0, 20]] {
+        let target = [start[0] + delta[0], start[1] + delta[1]];
+        let mut mover = initial.clone();
+        if mover
+            .begin_walk(
+                &resources,
+                &game.engine.declarations,
+                &game.engine.polygons,
+                target,
+                target,
+            )
+            .is_ok()
+            && mover.walk_target.is_some()
+        {
+            selected = Some(mover);
+            break;
+        }
+    }
+    let mut mover = selected.expect("a nontrivial walk from the original checkpoint");
+    let target = mover.walk_target.unwrap();
+    let serial = mover.walk_serial;
+    let saved = mover
+        .push_talk(&resources, &game.engine.declarations, Handle(0))
+        .unwrap();
+    assert_eq!(saved, Handle(0));
+    game.engine.movers.insert(actor, mover);
+    // Exercise the actual core mover loop and production engine/DSP session
+    // codec. This is a reel-level test; the synthetic core test dispatches TALK.
+    roundtrip_pending(&mut game, 1);
+    roundtrip_pending(&mut game, 5);
+    assert_eq!(game.engine.movers[&actor].placement.position, start);
+    assert_eq!(game.engine.movers[&actor].walk_target, Some(target));
+    assert_eq!(game.engine.movers[&actor].walk_serial, serial);
+    let resources = game.assets.resources();
+    game.engine
+        .movers
+        .get_mut(&actor)
+        .unwrap()
+        .pop_talk(&resources, &game.engine.declarations, saved)
+        .unwrap();
+    roundtrip_pending(&mut game, 1);
+    for _ in 0..100 {
+        if game.engine.movers[&actor].walk_target.is_none() {
+            break;
+        }
+        roundtrip_pending(&mut game, 1);
+    }
+    assert_eq!(game.engine.movers[&actor].walk_target, None);
+    assert_eq!(game.engine.movers[&actor].placement.position, target);
+    assert_eq!(game.engine.movers[&actor].walk_serial, serial);
+    roundtrip_pending(&mut game, 3);
+}

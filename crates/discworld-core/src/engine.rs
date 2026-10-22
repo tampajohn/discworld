@@ -3561,7 +3561,11 @@ impl Engine {
             if self.reel_owners.contains_key(&actor) {
                 continue;
             }
-            if self.movers[&actor].walk_target.is_some() {
+            let special = self.movers[&actor].special_reel();
+            if special && self.actors.get(actor as u32)?.hidden {
+                continue;
+            }
+            if self.movers[&actor].walk_target.is_some() && !special {
                 let footprints = if self.no_blocking {
                     Vec::new()
                 } else {
@@ -3578,7 +3582,7 @@ impl Engine {
                     &footprints,
                 )?;
                 self.actors.get_mut(actor as u32)?.position = mover.placement.position;
-            } else {
+            } else if special || self.movers[&actor].reel_state.is_none() {
                 self.movers
                     .get_mut(&actor)
                     .ok_or(Error("missing mover"))?
@@ -4377,13 +4381,6 @@ impl Engine {
                         let reels = Self::start_film(resources, film, false)?;
                         reels.first().ok_or(Error("empty talk film"))?.object.id
                     };
-                    if self
-                        .movers
-                        .get(&actor)
-                        .is_some_and(|m| m.walk_target.is_some())
-                    {
-                        return Ok(Status::Unsupported(call));
-                    }
                     self.actors.get_mut(
                         u32::try_from(actor).map_err(|_| Error("invalid speech actor"))?,
                     )?;
@@ -9667,6 +9664,239 @@ mod tests {
         }
         assert_eq!(engine, restored);
     }
+    #[test]
+    fn talking_interrupts_live_walk_and_roundtrips_route_continuation() {
+        use crate::save::Snapshot;
+        for node in [false, true] {
+            let (master, mut scene) = fixtures();
+            scene[8..20].copy_from_slice(&[1, 0, 0, 0, 1, 3, 0x4e, 77, 0x41, 9, 0x4c, 0]);
+            scene[20] = 0;
+            let base = 2u32 << 23;
+            let mut film = vec![0; 400];
+            for (at, value) in [
+                (0, 24u32),
+                (4, 1),
+                (8, base + 32),
+                (12, base + 256),
+                (32, base + 200),
+                (40, 1),
+                (200, base + 220),
+                (220, 8 | (16 << 16)),
+                (256, base + 200),
+                (260, 1),
+                (264, (-2i32) as u32),
+            ] {
+                film[at..at + 4].copy_from_slice(&value.to_le_bytes());
+            }
+            let resources = Resources(vec![&master, &scene, &film]);
+            let strings =
+                crate::text::Strings::new(&[1, 0, 52, 51, 0, 0, 0, 0, 0, 1, b'W']).unwrap();
+            let index = [0, 0, 0, 0, 4, 0, 0, 0];
+            let mut samples = vec![0; 8];
+            samples[4..8].copy_from_slice(&10000u32.to_le_bytes());
+            samples.extend([128; 10000]);
+            let bank = SampleBank::new(&index, &samples).unwrap();
+            let mut engine = Engine::bootstrap(&resources).unwrap();
+            engine.actors = crate::actor::Actors::new(1).unwrap();
+            engine.subtitles = false;
+            engine.no_blocking = true;
+            engine
+                .declarations
+                .movers
+                .insert(1, [[Handle(base); 12]; 10]);
+            engine.polygons = crate::polygon::Polygons::new(
+                vec![crate::polygon::Polygon {
+                    kind: if node {
+                        crate::polygon::Kind::NodePath
+                    } else {
+                        crate::polygon::Kind::Path
+                    },
+                    corners: [[0, 0], [100, 0], [100, 100], [0, 100]],
+                    tag_position: [0; 2],
+                    tag_text: Handle(0),
+                    node_position: [0; 2],
+                    film: Handle(0),
+                    refer_type: 0,
+                    id: 1,
+                    scales: [1, 0],
+                    reel: 0,
+                    z_factor: 0,
+                    nodes: if node {
+                        vec![[50, 70], [80, 70]]
+                    } else {
+                        vec![]
+                    },
+                    lines: if node {
+                        vec![[0, 30, -2100, 0, 0, 0, 0, 0, 0, 0]]
+                    } else {
+                        vec![]
+                    },
+                    script: Handle(0),
+                }],
+                0,
+            );
+            let placement = crate::mover::Placement::initial(
+                &engine.declarations,
+                &engine.polygons,
+                1,
+                [50, 70],
+                Handle(base),
+            )
+            .unwrap();
+            let mut mover = crate::mover::Mover::new(&resources, placement).unwrap();
+            let serial = mover
+                .begin_walk(
+                    &resources,
+                    &engine.declarations,
+                    &engine.polygons,
+                    [80, 70],
+                    [80, 70],
+                )
+                .unwrap();
+            engine.movers.insert(1, mover);
+            engine
+                .tick_content(&resources, Some(&bank), None, Some(&strings))
+                .unwrap();
+            assert!(
+                engine.movers[&1].special_reel(),
+                "TALK must run while actor is moving"
+            );
+            let frozen = engine.movers[&1].placement.position;
+            assert!(frozen[0] < 80);
+            for scenario in ["natural", "click", "stop", "replace", "hidden", "early"] {
+                let mut live = engine.clone();
+                if scenario == "stop" {
+                    live.movers.get_mut(&1).unwrap().stop_requested = true;
+                }
+                if scenario == "replace" {
+                    live.movers
+                        .get_mut(&1)
+                        .unwrap()
+                        .begin_walk(
+                            &resources,
+                            &live.declarations,
+                            &live.polygons,
+                            [50, 70],
+                            [50, 70],
+                        )
+                        .unwrap();
+                    assert!(!live.movers[&1].special_reel());
+                }
+                if scenario == "hidden" {
+                    live.actors.get_mut(1).unwrap().hidden = true;
+                }
+                if scenario == "early" {
+                    live.configuration = Some(
+                        crate::menu_controller::Controller::new(crate::menu_controller::Settings {
+                            volumes: [255; 3],
+                            double_click: 10,
+                            swap_buttons: false,
+                            text_speed: 100,
+                            subtitles: true,
+                            flipped: false,
+                        })
+                        .unwrap(),
+                    );
+                    let id = live
+                        .processes
+                        .entries()
+                        .find(|(_, p)| p.talk_wait.is_some())
+                        .unwrap()
+                        .0;
+                    let wait = live
+                        .processes
+                        .state_mut(id)
+                        .unwrap()
+                        .talk_wait
+                        .as_mut()
+                        .unwrap();
+                    wait.initialized = true;
+                    wait.layout = Some(crate::text::Layout { glyphs: vec![] });
+                    wait.remaining = 145;
+                }
+                let mut paused_ticks = 0;
+                for tick in 0..50 {
+                    if scenario == "click" && tick == 3 {
+                        live.left_event().unwrap();
+                    }
+                    let bytes = Snapshot::capture(&live, [7; 32]).to_bytes().unwrap();
+                    let decoded = Snapshot::from_bytes(&bytes, [7; 32]).unwrap();
+                    assert_eq!(decoded.to_bytes().unwrap(), bytes);
+                    let mut restored = decoded.state().clone();
+                    // This synthetic route is not in the scene's polygon
+                    // archive, so full resource restore belongs to the
+                    // original-asset test. Rebuild the closed preferences
+                    // controller separately; it is deferred by from_bytes.
+                    if let Some(menu) = &live.configuration {
+                        restored.configuration = Some(
+                            crate::menu_controller::Controller::from_checkpoint(
+                                &menu.checkpoint().unwrap(),
+                                &crate::menu_controller::Assets {
+                                    resources: &resources,
+                                    strings: &strings,
+                                    declarations: &restored.declarations,
+                                    saves: &[],
+                                },
+                            )
+                            .unwrap(),
+                        );
+                    }
+                    let previous = live.movers[&1].clone();
+                    let a = live
+                        .tick_content(&resources, Some(&bank), None, Some(&strings))
+                        .unwrap();
+                    let b = restored
+                        .tick_content(&resources, Some(&bank), None, Some(&strings))
+                        .unwrap();
+                    assert_eq!(a, b);
+                    assert_eq!(
+                        live, restored,
+                        "node={node}, scenario={scenario}, tick={tick}"
+                    );
+                    if previous.special_reel() {
+                        assert_eq!(
+                            live.movers[&1].placement.position,
+                            previous.placement.position
+                        );
+                        if scenario != "replace" {
+                            assert_eq!(live.movers[&1].placement.position, frozen);
+                        }
+                        if scenario == "hidden" && live.movers[&1].special_reel() {
+                            assert_eq!(live.movers[&1].animation, previous.animation);
+                        }
+                        paused_ticks += 1;
+                    }
+                    if live.movers[&1].walk_target.is_none()
+                        && (scenario == "early"
+                            || live.processes.states().all(|p| p.talk_wait.is_none()))
+                    {
+                        break;
+                    }
+                }
+                if scenario == "early" {
+                    assert!(
+                        !live.finished_talks().is_empty(),
+                        "walk resumes before remaining subtitle expires"
+                    );
+                } else {
+                    assert!(live.processes.states().all(|p| p.talk_wait.is_none()));
+                }
+                assert!(paused_ticks > 0 || scenario == "replace");
+                assert_eq!(live.movers[&1].walk_target, None, "{scenario}");
+                let expected = match scenario {
+                    "stop" => frozen,
+                    "replace" => [50, 70],
+                    _ => [80, 70],
+                };
+                assert_eq!(live.movers[&1].placement.position, expected, "{scenario}");
+                assert_eq!(
+                    live.movers[&1].walk_serial,
+                    serial + u64::from(matches!(scenario, "stop" | "replace"))
+                );
+            }
+        }
+    }
+
     #[test]
     fn animated_talk_yields_then_click_restores_normal_film_and_tags() {
         let (master, mut scene) = fixtures();

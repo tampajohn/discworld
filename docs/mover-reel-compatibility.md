@@ -2,7 +2,8 @@
 
 Status: reference-derived transition model implemented in `mover_reel.rs`;
 transactional mover animation application and snapshot storage are implemented.
-Live scheduling/call integration remains pending. Reference revision:
+Walking speech is integrated; custom WALK/WALKED/SWALK film arguments and
+complete migration of legacy stationary bookkeeping remain pending. Reference revision:
 `96b42d42bc8533953bdd701db059cc33c839a9ff`. This applies to V1; later-version
 branches in the same functions must not be imported implicitly.
 
@@ -48,7 +49,7 @@ A new walk request can therefore replace a talk animation while its speech
 coroutine is still alive. Deriving the animation mode only from the existence
 of a pending talk coroutine would be wrong.
 
-## Current implementation gaps
+## Gaps identified before integration
 
 `engine.rs` call 77 explicitly rejects a mover with `walk_target`, and
 `Mover::push_talk` independently rejects it. `pop_talk` calls `finish_walk`,
@@ -141,3 +142,40 @@ Validation: 296 core tests, workspace tests, Clippy, the web WASM build check,
 and all 15 opt-in original-asset web tests pass. Logs are under
 `assets/logs/mover-reel-integration-*.log`. The legacy fixture tests include
 native save import/export and exact original frame restoration.
+
+
+## Live walking speech
+
+Call 77 now accepts a moving speaker. The first walking PUSH migrates that mover
+to explicit reel state; already-migrated movers continue using it. Stationary
+legacy movers retain their old bookkeeping, including restored old stationary
+speech waits. New explicit states use DWRSAVE v13; imported legacy saves are not
+rewritten merely by loading them.
+
+The engine mover phase advances special animation without changing route or
+position, skips hidden special actors, and leaves explicit normal movers with
+no destination idle. A zero-film new walk clears special mode before selecting
+its route. Speech completion selects standing then POP without clearing the
+existing destination, leg or walk number. Stop requests remain queued during
+special animation. Existing walking-film completion clears custom mode before
+normal reel selection, matching MoveActor; script custom-film guards remain.
+
+The core regression dispatches real TALK bytecode during ordinary and node-path
+walks. Both paths cover natural completion, click cancellation, queued STOP,
+replacement walk, hidden actor, and early reel completion while slow subtitle
+text remains. Each tick encodes/decodes/re-encodes and compares subsequent engine
+state; synthetic route geometry is tested independently of asset validation.
+Its closed preferences controller is rebuilt separately because the synthetic
+polygon does not exist in the fixture archive.
+
+`original_walking_talk_reel_preserves_route_and_full_session` separately uses
+the original unseen.scn checkpoint, actual walking/talk films, engine mover loop,
+rendering and production engine/DSP session restoration. It verifies the held
+position during speech, exact continuation after reload, retained walk serial,
+and arrival at the original destination after POP. It invokes the mover reel
+API directly; TALK dispatch is covered by the synthetic regression above.
+
+Additional coverage remains for scene replacement during the new speech phase,
+full stationary-state migration, overlapping live speech coroutines, and script
+custom walking films. The earlier transition-model tests cover single-slot
+PUSH/POP decisions but do not establish all those engine interactions.

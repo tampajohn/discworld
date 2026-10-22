@@ -3,8 +3,8 @@
 //!
 //! Selection is independent of movement/route state. The returned transition
 //! must be committed only after its animation operation succeeds. This module
-//! is applied transactionally by Mover::alter_reel. Live speech/walk scheduling
-//! still uses legacy bookkeeping until its migration is complete.
+//! is applied transactionally by Mover::alter_reel. Walking speech migrates
+//! movers to this state; legacy stationary movers retain their old bookkeeping.
 use crate::graphics::Handle;
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Default, serde::Serialize, serde::Deserialize)]
@@ -65,6 +65,15 @@ impl State {
 
     pub fn pushed(self) -> Handle {
         self.pushed
+    }
+
+    /// MoveActor clears bWalkReel when a walking animation finishes, before
+    /// restoring the ordinary walk reel (also used for scale transitions).
+    pub(crate) fn walking_film_finished(mut self) -> Self {
+        if self.mode == Mode::CustomWalk {
+            self.mode = Mode::Normal;
+        }
+        self
     }
 
     /// Special reels suspend movement without ending or clearing the route.
