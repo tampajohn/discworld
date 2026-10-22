@@ -1507,3 +1507,20 @@ that statement applies to host master mute and scaling existing samples, not
 Tinsel's voice-disabled mode. Synthetic and original-intro save/load tests pass.
 The ongoing full-route jobs continue validating their original 00a6b38 binaries;
 no running job or visible session was restarted during this correction.
+
+Full-route validation of runtime 00a6b38 completed from startup at tick zero to
+2630000, after the original ending/credits and committed restart to title.scn.
+Native, Chrome 156.0.8078.47 and WebKit 27.2 accepted all 1652 unchanged inputs.
+Native passed 5048 engine snapshot/preview/continuation audits and 5048 separate
+DSP checkpoint/continuation audits. Each browser generated 4,832,625,000 finite
+audio samples; final engine bytes and RGBA match native exactly. Combined DSP
+saves differ, so cross-platform audio equality remains unproven. The title frame
+was inspected. Browser elapsed times were 586.072s and 620.227s respectively.
+
+The tracked summary `docs/validation/menu-runtime-00a6b38.json` records route and
+report hashes, browser versions, comparisons and sampled ending transitions.
+Full local artifacts live under assets/validation/menu-runtime-00a6b38. This
+run used accelerated semantic inputs and no menu interactions; separate menu
+UI tests cover those paths. The later voice-disabled correction a6fc4a3 is
+validated by its targeted original-intro test, not these older running binaries.
+The dedicated temporary replay HTTP server was stopped after comparisons.

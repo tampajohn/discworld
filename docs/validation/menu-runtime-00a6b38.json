@@ -1,0 +1,190 @@
+{
+  "schema": 1,
+  "date": "2026-10-22",
+  "runtime_revision": "00a6b38e37d53889a43689b68466f1df676f7787",
+  "route": "evidence/act4-ending-input.json",
+  "route_sha256": "30c227553695638a78495f4cf56731f841e89188c8faa75821e50c164ddf4ddb",
+  "local_artifacts": "assets/validation/menu-runtime-00a6b38",
+  "native": {
+    "ticks": 2630000,
+    "status": "Running",
+    "scene_name": "title.scn",
+    "has_restarted": true,
+    "snapshot_checks": 5048,
+    "audio_snapshot_checks": 5048,
+    "snapshot_max_bytes": 47635,
+    "audio_snapshot_max_bytes": 317221,
+    "accepted_inputs": 1652,
+    "report_sha256": "5c58ce4bb16282c6e19d2c7d18083d2d747f34be2fc55fa5d592355876d10a14"
+  },
+  "browsers": {
+    "chrome": {
+      "browser_version": "156.0.8078.47",
+      "ticks": 2630000,
+      "scene": "title.scn",
+      "has_restarted": true,
+      "accepted_inputs": 1652,
+      "audio_samples": 4832625000,
+      "nonfinite_audio_samples": 0,
+      "elapsed_seconds": 586.071799999997,
+      "rgba_sha256": "8833cac8d0cc20ebbfa5e7158676914ad7d9a82222812a3a91568cbb5a6e8978",
+      "core_sha256": "62570b31e8aca0793e461792be622810dbcb8c3d980db53513cb2f474d374d64",
+      "comparison": {
+        "ticks": 2630000,
+        "ticks_equal": true,
+        "native_status": "Running",
+        "scene": "title.scn",
+        "scene_equal": true,
+        "has_restarted": true,
+        "restart_equal": true,
+        "accepted_inputs": 1652,
+        "native_inputs": 1652,
+        "native_inputs_accepted": true,
+        "engine_bytes_equal": true,
+        "rgba_equal": true,
+        "combined_save_equal": false,
+        "core_sha256": "62570b31e8aca0793e461792be622810dbcb8c3d980db53513cb2f474d374d64",
+        "audio_scope": "WASM checked for finite samples; cross-platform audio equality not established"
+      },
+      "ending_scenes_sampled": [
+        {
+          "tick": 2601072,
+          "scene": "custard.scn"
+        },
+        {
+          "tick": 2601240,
+          "scene": "finale.scn"
+        },
+        {
+          "tick": 2601432,
+          "scene": "sunset.scn"
+        },
+        {
+          "tick": 2602320,
+          "scene": "finale.scn"
+        },
+        {
+          "tick": 2602440,
+          "scene": "sunset.scn"
+        },
+        {
+          "tick": 2602800,
+          "scene": "endgame.scn"
+        },
+        {
+          "tick": 2603568,
+          "scene": "credits.scn"
+        },
+        {
+          "tick": 2604336,
+          "scene": "psygnosi.scn"
+        },
+        {
+          "tick": 2604384,
+          "scene": "twg.scn"
+        },
+        {
+          "tick": 2604504,
+          "scene": "perfect1.scn"
+        },
+        {
+          "tick": 2604672,
+          "scene": "credits.scn"
+        },
+        {
+          "tick": 2604720,
+          "scene": "title.scn"
+        }
+      ],
+      "report_sha256": "c7ef189c620edc479ce414b8504ba5a08355e337c001d4b71b68166af2965123"
+    },
+    "webkit": {
+      "browser_version": "27.2",
+      "ticks": 2630000,
+      "scene": "title.scn",
+      "has_restarted": true,
+      "accepted_inputs": 1652,
+      "audio_samples": 4832625000,
+      "nonfinite_audio_samples": 0,
+      "elapsed_seconds": 620.227,
+      "rgba_sha256": "8833cac8d0cc20ebbfa5e7158676914ad7d9a82222812a3a91568cbb5a6e8978",
+      "core_sha256": "62570b31e8aca0793e461792be622810dbcb8c3d980db53513cb2f474d374d64",
+      "comparison": {
+        "ticks": 2630000,
+        "ticks_equal": true,
+        "native_status": "Running",
+        "scene": "title.scn",
+        "scene_equal": true,
+        "has_restarted": true,
+        "restart_equal": true,
+        "accepted_inputs": 1652,
+        "native_inputs": 1652,
+        "native_inputs_accepted": true,
+        "engine_bytes_equal": true,
+        "rgba_equal": true,
+        "combined_save_equal": false,
+        "core_sha256": "62570b31e8aca0793e461792be622810dbcb8c3d980db53513cb2f474d374d64",
+        "audio_scope": "WASM checked for finite samples; cross-platform audio equality not established"
+      },
+      "ending_scenes_sampled": [
+        {
+          "tick": 2601072,
+          "scene": "custard.scn"
+        },
+        {
+          "tick": 2601240,
+          "scene": "finale.scn"
+        },
+        {
+          "tick": 2601432,
+          "scene": "sunset.scn"
+        },
+        {
+          "tick": 2602320,
+          "scene": "finale.scn"
+        },
+        {
+          "tick": 2602440,
+          "scene": "sunset.scn"
+        },
+        {
+          "tick": 2602800,
+          "scene": "endgame.scn"
+        },
+        {
+          "tick": 2603568,
+          "scene": "credits.scn"
+        },
+        {
+          "tick": 2604336,
+          "scene": "psygnosi.scn"
+        },
+        {
+          "tick": 2604384,
+          "scene": "twg.scn"
+        },
+        {
+          "tick": 2604504,
+          "scene": "perfect1.scn"
+        },
+        {
+          "tick": 2604672,
+          "scene": "credits.scn"
+        },
+        {
+          "tick": 2604720,
+          "scene": "title.scn"
+        }
+      ],
+      "report_sha256": "79cd623afbbf4f35e18db73ed6bbee564fab106c82db8c70b0b94af1561cdd35"
+    }
+  },
+  "scope": [
+    "Accelerated semantic inputs through original Acts I\u2013IV, ending, credits and restart.",
+    "Native snapshot checks cover structural/resource validation, preview, exact roundtrip and next-tick continuation; separate DSP audits cover exact continuation.",
+    "Browser audio is generated and checked for finite values, not played through Web Audio in this run.",
+    "Final core bytes and RGBA match; combined engine/DSP saves differ across platforms.",
+    "Later zero-voice-volume correction a6fc4a3 has separate original-intro tests and was not included in these binaries.",
+    "Does not establish alternate-route compatibility, manual full-game UI acceptance or physical iPad play."
+  ]
+}

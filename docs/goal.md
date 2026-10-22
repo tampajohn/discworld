@@ -54,14 +54,16 @@ keyboard endpoint while the original game font draws the name.
 
 The recorded 1,652-input route previously passed Acts I–IV, ending, credits and
 restart in native, Chrome and WebKit, with matching final core state and RGBA.
-That evidence predates the recent menu and audio integration. A fresh full-route
-run of `00a6b38` is **in progress**, with native snapshot/DSP/preview audits and
-separate Chrome/WebKit worker runs. Output is under
-`assets/validation/menu-runtime-00a6b38/{native,chrome,webkit}`; native progress is
-in its `progress.log`, browser progress in `assets/logs/menu-runtime-*.log`.
-Completion and cross-host comparisons must be checked before claiming this
-revision passes the full route. These are accelerated semantic-input runs, not
-complete manual UI or physical touch playthroughs.
+A fresh full-route run of `00a6b38` now passes in native, Chrome and WebKit:
+all 1,652 inputs accepted, credits and committed restart reached, and final
+`title.scn` at tick 2,630,000. Final engine bytes and RGBA match across all three.
+Native passed 5,048 engine snapshot/preview/continuation checks and 5,048 DSP
+checkpoint checks. Combined DSP saves still differ across platforms. See the
+[tracked validation summary](validation/menu-runtime-00a6b38.json); bulk local
+outputs are under `assets/validation/menu-runtime-00a6b38`.
+These are accelerated semantic-input runs, not complete manual UI or physical
+touch playthroughs. The later `a6fc4a3` zero-voice-volume correction has separate
+original-intro validation and was not part of the full-route binaries.
 
 Recent verified evidence includes workspace tests, Clippy, all 14 original-asset
 Rust web integration tests, desktop and emulated-touch menu save/name-edit/load
