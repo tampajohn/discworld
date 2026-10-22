@@ -381,3 +381,18 @@ function keys. All four Chrome/WebKit menu cases pass. The text endpoint's DOM
 event test separately exercises composition, deletion and paste fallback.
 These are emulated touch/input tests: a physical iPad must still verify keyboard
 appearance, visual-viewport resizing, focus and landscape usability.
+
+Restored drag ownership now reports the required physical release button from
+WASM. Browser release fallback previously assumed left, so a drag saved with
+swapped buttons could remain active after the user's right-button release.
+The host now matches the configured physical button, clears old pointer ownership
+when loading/restarting, and permits unowned fallback only on pointerup (not the
+following lostpointercapture notification).
+
+A Chrome/WebKit regression seeds swapped-button preferences, begins an actual
+right-button inventory drag, exports/reloads the active drag byte-for-byte,
+checks that a left release leaves it active, then checks that a right release
+ends it. Existing ordinary header-drag save/load cases also pass, including
+Chrome's real browser touch dispatch. Four targeted browser cases, workspace
+tests, Clippy and WASM build pass; logs: assets/logs/swapped-drag-*.log.
+This is browser input lifecycle evidence, not physical iPad acceptance.

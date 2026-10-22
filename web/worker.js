@@ -2,7 +2,7 @@ import { listSlots, readSlot, writeSlot, devicePreferences } from './storage.js'
 import init, { GameUpload } from './pkg/discworld_web.js';
 let game;
 let queue = Promise.resolve();
-const snapshot = () => ({ frame: game.frame(), tick: game.tick().toString(), scene: game.scene(), dragging: game.inventory_dragging(), menu: game.menu_active(), editing: game.menu_editing(), menuPage: game.menu_page() || '' });
+const snapshot = () => ({ frame: game.frame(), tick: game.tick().toString(), scene: game.scene(), dragging: game.inventory_dragging(), dragButton: game.drag_button() || null, menu: game.menu_active(), editing: game.menu_editing(), menuPage: game.menu_page() || '' });
 async function refreshCatalog() {
   const { entries } = await listSlots();
   game.clear_menu_catalog();
@@ -24,10 +24,11 @@ async function consumeMenu() {
       if (selection.id === null) throw new Error('Load requires an existing slot');
       game.load((await readSlot(selection.id)).session);
       effects.resetAudio = true;
+      effects.resetPointers = true;
       effects.changed = true;
       effects.notice = 'Saved game loaded.';
     } else if (request === 'quit') effects.quit = true;
-    else if (request === 'restart') effects.resetAudio = true;
+    else if (request === 'restart') { effects.resetAudio = true; effects.resetPointers = true; }
   }
   return effects;
 }
@@ -81,7 +82,7 @@ async function handle({ id, type, ...data }) {
         break;
       case 'pointer': game.move_pointer_checked(...data.point); result = snapshot(); break;
       case 'save': result = { bytes: game.save(), tick: game.tick().toString() }; break;
-      case 'load': game.load(new Uint8Array(data.bytes)); result = snapshot(); break;
+      case 'load': game.load(new Uint8Array(data.bytes)); result = { ...snapshot(), resetPointers: true }; break;
       default: throw new Error('Unknown worker request');
     }
     const effects = await consumeMenu();

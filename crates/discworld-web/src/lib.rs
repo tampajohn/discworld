@@ -275,6 +275,21 @@ impl BrowserGame {
                 .as_ref()
                 .is_some_and(|menu| menu.dragging())
     }
+    /// Physical button that releases a drag restored without host pointer state.
+    pub fn drag_button(&self) -> Option<String> {
+        self.inventory_dragging().then(|| {
+            if self
+                .engine
+                .configuration
+                .as_ref()
+                .is_some_and(|menu| menu.settings().swap_buttons)
+            {
+                "right".to_string()
+            } else {
+                "left".to_string()
+            }
+        })
+    }
     pub fn menu_active(&self) -> bool {
         self.engine
             .configuration

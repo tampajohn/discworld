@@ -6,7 +6,7 @@ const $ = id => document.getElementById(id);
 const canvas = $('game'), context = canvas.getContext('2d', { alpha: false });
 const worker = new Worker(new URL('./worker.js', import.meta.url), { type: 'module' });
 let serial = 0, ready = false, paused = true, muted = true, epoch = 0;
-let dragging = false, menuActive = false, menuEditing = false;
+let dragging = false, dragButton = null, menuActive = false, menuEditing = false;
 let busy = false, previous = performance.now(), elapsed = 0;
 let audioContext, gain, resampler, audioEnd = 0;
 const sources = new Set(), pending = new Map();
@@ -34,6 +34,8 @@ worker.onerror = event => {
   status(`Player stopped: ${event.message}`, true);
 };
 function draw(result) {
+  if (result.resetPointers) pressedPointers.clear();
+  if (result.dragButton !== undefined) { dragButton = result.dragButton; canvas.dataset.dragButton = dragButton || ''; }
   if (result.menuPage !== undefined) canvas.dataset.menuPage = result.menuPage;
   if (result.resetAudio) clearAudio();
   if (result.menu !== undefined) { menuActive = result.menu; canvas.dataset.menu = String(menuActive); }
@@ -160,7 +162,11 @@ canvas.onpointerdown = event => {
   input(`${button}-down`, point(event));
 };
 function releasePointer(event) {
-  const button = pressedPointers.get(event.pointerId) || (dragging && event.button === 0 ? 'left' : null);
+  // Only a physical release may finish an unowned restored drag. A subsequent
+  // lostpointercapture event must not repeat an already-delivered release.
+  const restored = event.type === 'pointerup' && dragging
+    && event.button === (dragButton === 'right' ? 2 : 0) ? dragButton : null;
+  const button = pressedPointers.get(event.pointerId) || restored;
   if (!button) return;
   pressedPointers.delete(event.pointerId);
   input(`${button}-up`, point(event));

@@ -432,3 +432,43 @@ test('original inventory hover cursor survives save and restores over body', asy
     expect(await canvas.evaluate(c => c.toDataURL())).toBe(pixels);
   }
 });
+
+test('swapped-button inventory drag restores its physical release button', async ({ page }) => {
+  await page.goto('/');
+  await page.evaluate(async () => {
+    const { devicePreferences } = await import('/storage.js');
+    await devicePreferences({ volumes: [255, 255, 255], double_click: 10,
+      swap_buttons: true, text_speed: 0, subtitles: true, flipped: false });
+  });
+  await open(page);
+  const canvas = page.locator('#game');
+  const bounds = await canvas.boundingBox();
+  const move = (x, y) => page.mouse.move(bounds.x + bounds.width * x / 320, bounds.y + bounds.height * y / 200);
+  const exportHeld = async () => {
+    const download = page.waitForEvent('download');
+    await page.evaluate(() => document.querySelector('#export').click());
+    return fs.readFile(await (await download).path());
+  };
+  await page.locator('#pause').click();
+  await expect(page.locator('#pause')).toHaveText('Pause');
+  await move(140, 110);
+  await page.mouse.down({ button: 'right' });
+  await expect(canvas).toHaveAttribute('data-dragging', 'true');
+  await expect(canvas).toHaveAttribute('data-drag-button', 'right');
+  await move(165, 125);
+  await page.evaluate(() => document.querySelector('#pause').click());
+  await expect(page.locator('#pause')).toHaveText('Play');
+  const pending = await exportHeld();
+  await page.mouse.up({ button: 'right' });
+  await expect(canvas).toHaveAttribute('data-dragging', 'false');
+  await page.locator('#import').setInputFiles({ name: 'swapped-drag.dws', mimeType: 'application/octet-stream', buffer: pending });
+  await expect(page.locator('#status')).toContainText('Saved game loaded.');
+  await expect(canvas).toHaveAttribute('data-drag-button', 'right');
+  expect(await exportHeld()).toEqual(pending);
+  await page.mouse.up({ button: 'left' });
+  await exportHeld(); // Barrier behind the input's worker response.
+  await expect(canvas).toHaveAttribute('data-dragging', 'true');
+  await page.mouse.up({ button: 'right' });
+  await expect(canvas).toHaveAttribute('data-dragging', 'false');
+  await expect(canvas).toHaveAttribute('data-drag-button', '');
+});

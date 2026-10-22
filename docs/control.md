@@ -1491,3 +1491,10 @@ insertion/deletion/reload pass in Chrome and WebKit. Workspace tests, Clippy,
 WASM package build and native release build pass. Logs: assets/logs/touch-name-*.
 Physical iPad keyboard behavior is not yet verified; the native visual process
 is preserved and has not been restarted onto this rebuilt binary.
+
+Browser restored-drag release now honors the configured physical mouse button,
+matching the native restoration policy. Session load/restart clears stale DOM
+pointer ownership. Unowned lostpointercapture cannot repeat an already-issued
+release. Swapped right-button and ordinary left-button active drag exports,
+reloads and releases pass in Chrome/WebKit; wrong-button release is explicitly
+checked. No save-format or game-script change was needed.
