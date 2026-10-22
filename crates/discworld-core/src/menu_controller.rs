@@ -57,6 +57,7 @@ pub struct Controller {
     // SetCursorScreenXY runs once on opening, not on every redraw. Hosts consume
     // this after committing the transition and update both engine and pointer.
     cursor_warp: Option<[i32; 2]>,
+    retained_toggle: Option<Box<SettingsMenu>>,
 }
 
 impl Controller {
@@ -73,6 +74,7 @@ impl Controller {
             settings,
             list: None,
             cursor_warp: None,
+            retained_toggle: None,
         })
     }
     pub fn page(&self) -> Option<Page> {
@@ -129,15 +131,33 @@ impl Controller {
         Ok(true)
     }
     pub fn click_button(&mut self, point: [i32; 2]) -> bool {
-        if self.settings_mut().is_some_and(|view| view.toggle_busy()) {
+        if self
+            .retained_toggle
+            .as_ref()
+            .is_some_and(|view| view.toggle_busy())
+            || self.settings_mut().is_some_and(|view| view.toggle_busy())
+        {
             return false;
         }
-        self.navigation.click_button(point)
+        let accepted = self.navigation.click_button(point);
+        if accepted {
+            self.retained_toggle = None;
+        }
+        accepted
     }
     pub fn click_settings(&mut self, point: [i32; 2], double: bool) -> bool {
-        let allow_toggle = !self.navigation.busy();
-        self.settings_mut()
-            .is_some_and(|view| view.click_with_toggle_guard(point, double, allow_toggle))
+        let allow_toggle = !self.navigation.busy()
+            && !self
+                .retained_toggle
+                .as_ref()
+                .is_some_and(|view| view.toggle_busy());
+        let accepted = self
+            .settings_mut()
+            .is_some_and(|view| view.click_with_toggle_guard(point, double, allow_toggle));
+        if accepted && allow_toggle && self.settings_mut().is_some_and(|view| view.toggle_busy()) {
+            self.retained_toggle = None;
+        }
+        accepted
     }
     pub fn click_row(&mut self, point: [i32; 2], double: bool) -> Result<Dispatch, Error> {
         let mut next = self.clone();
@@ -156,6 +176,7 @@ impl Controller {
     }
     pub fn close(&mut self) -> Outcome {
         self.settings = self.settings();
+        self.retain_toggle();
         self.display = None;
         self.cursor_warp = None;
         self.navigation.close()
@@ -178,6 +199,23 @@ impl Controller {
             view.step_toggle(true, overlay_exists);
         }
         next.settings = next.settings();
+        let active = next.page().is_some();
+        let changed = next.retained_toggle.as_mut().and_then(|view| {
+            if !overlay_exists {
+                view.clear_overlay();
+            }
+            view.step_toggle(active, overlay_exists)
+                .map(|value| (view.kind(), value))
+        });
+        if let Some((kind, value)) = changed {
+            match kind {
+                Kind::Controls => next.settings.swap_buttons = value,
+                Kind::Subtitles => next.settings.subtitles = value,
+            }
+            if let Some(view) = next.settings_mut().filter(|view| view.kind() == kind) {
+                view.set_shared_enabled(value);
+            }
+        }
         let outcome = next.navigation.step(overlay_exists);
         let dispatch = next.dispatch(outcome);
         if outcome.changed {
@@ -197,6 +235,7 @@ impl Controller {
         Dispatch { outcome, selection }
     }
     fn rebuild(&mut self, assets: &Assets<'_, '_>) -> Result<(), Error> {
+        self.retain_toggle();
         let Assets {
             resources,
             strings,
@@ -271,27 +310,61 @@ impl Controller {
         };
         Ok(())
     }
+    fn retain_toggle(&mut self) {
+        if let Some(Display::Settings(view)) = &self.display {
+            if view.toggle_busy() {
+                self.retained_toggle = Some(view.clone());
+            }
+        }
+        if let Some(view) = &mut self.retained_toggle {
+            view.clear_overlay();
+        }
+    }
     pub fn draw(
         &self,
         resources: &Resources<'_>,
         surface: &mut Surface,
         pointer: Option<[i32; 2]>,
     ) -> Result<(), Error> {
+        let retained_overlay = self
+            .retained_toggle
+            .as_ref()
+            .is_some_and(|view| view.has_overlay());
         match &self.display {
             Some(Display::Main(view)) => view.draw(resources, surface, pointer),
-            Some(Display::Confirmation(view)) => {
-                view.draw(resources, surface, pointer, self.navigation.button_image())
-            }
+            Some(Display::Confirmation(view)) => view.draw(
+                resources,
+                surface,
+                if retained_overlay { None } else { pointer },
+                self.navigation.button_image(),
+            ),
             Some(Display::Sound(view)) => view.draw(resources, surface),
-            Some(Display::Settings(view)) => view.draw(resources, surface),
+            Some(Display::Settings(view)) => {
+                if retained_overlay {
+                    let mut base = view.clone();
+                    base.clear_overlay();
+                    base.draw(resources, surface)
+                } else {
+                    view.draw(resources, surface)
+                }
+            }
             Some(Display::Saves(view)) => view.draw(
                 resources,
                 surface,
                 self.list.as_ref().ok_or(Error("missing menu save list"))?,
-                pointer,
+                if retained_overlay { None } else { pointer },
                 self.navigation.button_image(),
             ),
             None => Ok(()),
+        }?;
+        if let (Some(view), Some(page)) = (&self.retained_toggle, self.page()) {
+            let origin = match page {
+                Page::Main => [72, 23],
+                Page::Restart | Page::Quit => [98, 53],
+                _ => [20, 16],
+            };
+            view.draw_retained_overlay(resources, surface, origin)?;
         }
+        Ok(())
     }
 }

@@ -174,6 +174,36 @@ impl SettingsMenu {
     pub fn toggle_busy(&self) -> bool {
         self.toggle.busy()
     }
+    pub(crate) fn kind(&self) -> Kind {
+        self.kind
+    }
+    pub(crate) fn clear_overlay(&mut self) {
+        self.overlay = None;
+    }
+    pub(crate) fn has_overlay(&self) -> bool {
+        self.overlay.is_some()
+    }
+    pub(crate) fn set_shared_enabled(&mut self, enabled: bool) {
+        self.enabled = enabled;
+        self.thumb.object.x =
+            170 + menu_slider::offset(self.value, self.maximum()).expect("validated setting");
+    }
+    /// A retained CONFBOX uses the current window origin after page changes.
+    pub(crate) fn draw_retained_overlay(
+        &self,
+        resources: &Resources<'_>,
+        surface: &mut Surface,
+        origin: [i32; 2],
+    ) -> Result<(), Error> {
+        if let Some(offset) = self.overlay {
+            let base = if self.enabled { 3 } else { 0 };
+            let mut image = self.buttons[base + offset].clone();
+            image.object.x += origin[0] - 20;
+            image.object.y += origin[1] - 16;
+            surface.draw_animation(resources, &image)?;
+        }
+        Ok(())
+    }
     /// Supply actual inventory/HL1 existence, as ButtonToggle checks different
     /// objects after each sleep. Returns a setting change only at the flip step.
     pub fn step_toggle(&mut self, inventory_active: bool, overlay_exists: bool) -> Option<bool> {

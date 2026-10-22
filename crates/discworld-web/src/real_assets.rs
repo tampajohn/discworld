@@ -97,6 +97,37 @@ fn original_menu_controller_transitions_render_and_resolve_live_selection() {
     let result = menu.step(&assets, false).unwrap();
     assert_eq!(result.outcome.request, Some(Request::Save));
     assert_eq!(result.selection, None);
+    // A toggle retains its original setting pointer across Escape-to-Main.
+    // It blocks new button functions until the inventory coroutine completes.
+    menu.open(Page::Subtitles, &assets).unwrap();
+    let enabled = menu.settings().subtitles;
+    assert!(menu.click_settings([163, 77], false));
+    menu.step(&assets, true).unwrap(); // normal image, first sleep
+    menu.escape(&assets).unwrap();
+    assert!(!menu.click_button([90, 44]));
+    let mut normal = baseline.clone();
+    menu.draw(&resources, &mut normal, None).unwrap();
+    menu.step(&assets, false).unwrap(); // Main active: creates depressed image
+    let mut depressed = baseline.clone();
+    menu.draw(&resources, &mut depressed, None).unwrap();
+    assert_ne!(normal.rgba, depressed.rgba);
+    menu.step(&assets, true).unwrap(); // HL1 exists: changes original subtitles
+    assert_eq!(menu.settings().subtitles, !enabled);
+    assert_eq!(menu.page(), Some(Page::Main));
+    menu.step(&assets, true).unwrap();
+    menu.step(&assets, false).unwrap();
+    assert!(menu.click_button([90, 44]));
+    menu.step(&assets, true).unwrap();
+    assert_eq!(menu.page(), Some(Page::Load));
+    // Fully closing the window before the first sleep completes aborts it.
+    menu.close();
+    menu.open(Page::Subtitles, &assets).unwrap();
+    let enabled = menu.settings().subtitles;
+    menu.click_settings([163, 77], false);
+    menu.step(&assets, true).unwrap();
+    menu.close();
+    menu.step(&assets, false).unwrap();
+    assert_eq!(menu.settings().subtitles, enabled);
 
     // A close before the host consumes the warp must not move the world cursor
     // to a now-hidden save window on its next presentation update.
@@ -113,6 +144,8 @@ fn original_menu_controller_transitions_render_and_resolve_live_selection() {
     }
     menu.escape(&assets).unwrap();
     assert!(menu.settings().swap_buttons && menu.settings().flipped);
+    assert!(!menu.click_button([90, 44])); // still owns the shared effect slot
+    menu.step(&assets, false).unwrap(); // removed HL1 ends the remaining effect
     menu.close();
     menu.open(Page::Controls, &assets).unwrap();
     assert!(menu.settings_mut().unwrap().enabled());

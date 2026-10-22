@@ -1071,3 +1071,20 @@ window, and update its original setting even if a new page is visible. Reference
 ButtonToggle checks inventoryIsActive and global HL1, not its original window's
 identity. The controller is not ready for live host attachment until that
 ownership/lifecycle behavior and durable state are implemented.
+
+The controller now retains a running SettingsMenu toggle across window removal
+and page replacement. It preserves the original setting identity and coroutine
+phase, clears the removed HL1 graphic, then advances using the current active
+page and caller-supplied global HL1 existence. A later flip updates the original
+global setting (and an active view of that setting). The retained graphic uses
+the new window's origin plus the original CONFBOX offset; only its overlay is
+drawn over the new page. Its shared busy slot still excludes button functions
+and new toggles, and a new accepted button replaces the finished overlay.
+Original-ISO tests cover Subtitles -> Escape -> Main with the toggle still
+running, changed overlay pixels, the delayed subtitle change, blocked new
+functions until completion, and a fully closed window aborting before the flip.
+An existing Controls test now waits for the retained effect to finish after
+Escape rather than assuming closure cancels it. Assets regression, workspace
+tests and Clippy pass in assets/logs/menu-retained-toggle-{assets,workspace,clippy}.log.
+Unified pointer/highlight ownership (including replacement by another hover),
+controller snapshots, engine lifecycle and live host binding remain unfinished.
