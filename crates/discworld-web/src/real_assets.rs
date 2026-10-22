@@ -865,6 +865,124 @@ fn engine_menu_opening_preserves_gates_warps_and_atomicity() {
     assert!(closed.outcome.changed && !closed.outcome.write_settings);
     assert!(engine.configuration.as_ref().unwrap().page().is_none());
     assert!(engine.control.tags_enabled);
+    use discworld_core::mouse::Button;
+    engine
+        .open_configuration(&resources, &strings, &catalog, Key::Main)
+        .unwrap();
+    engine.move_cursor_with_configuration([90, 59]).unwrap();
+    engine
+        .mouse_button_with_configuration(&resources, Button::Right, true)
+        .unwrap();
+    engine
+        .mouse_button_with_configuration(&resources, Button::Right, false)
+        .unwrap();
+    engine
+        .advance_configuration(&resources, &strings, &catalog)
+        .unwrap();
+    assert_eq!(
+        engine.configuration.as_ref().unwrap().page(),
+        Some(Page::Save)
+    );
+    engine.move_cursor_with_configuration([50, 63]).unwrap();
+    assert!(
+        engine
+            .mouse_button_with_configuration(&resources, Button::Left, true)
+            .unwrap()
+            .outcome
+            .request
+            .is_none()
+    );
+    engine
+        .mouse_button_with_configuration(&resources, Button::Left, false)
+        .unwrap();
+    engine.move_cursor_with_configuration([50, 48]).unwrap();
+    let saved = engine
+        .mouse_button_with_configuration(&resources, Button::Left, true)
+        .unwrap();
+    assert_eq!(saved.outcome.request, Some(Request::Save));
+    assert_eq!(
+        saved.selection,
+        Some((Target::Existing(7), b"Library".to_vec()))
+    );
+    engine
+        .mouse_button_with_configuration(&resources, Button::Left, false)
+        .unwrap();
+    engine
+        .open_configuration(&resources, &strings, &catalog, Key::Main)
+        .unwrap();
+    engine
+        .configuration_click([90, 104], Gesture::WalkTo)
+        .unwrap();
+    engine
+        .advance_configuration(&resources, &strings, &catalog)
+        .unwrap();
+    assert_eq!(
+        engine.configuration.as_ref().unwrap().page(),
+        Some(Page::Controls)
+    );
+    engine.move_cursor_with_configuration([205, 53]).unwrap();
+    engine
+        .mouse_button_with_configuration(&resources, Button::Left, true)
+        .unwrap();
+    assert!(engine.configuration.as_ref().unwrap().dragging());
+    let before = engine.clone();
+    assert!(
+        engine
+            .move_cursor_with_configuration([i32::MIN, 53])
+            .is_err()
+    );
+    assert_eq!(engine, before);
+    engine.move_cursor_with_configuration([230, 53]).unwrap();
+    assert!(
+        engine
+            .configuration
+            .as_ref()
+            .unwrap()
+            .settings()
+            .double_click
+            > 10
+    );
+    let held = discworld_core::save::Snapshot::capture(&engine, game.assets.identity)
+        .to_bytes()
+        .unwrap();
+    let mut restored = discworld_core::save::Snapshot::from_bytes(&held, game.assets.identity)
+        .unwrap()
+        .restore_with_strings(&resources, &game.assets.bank().unwrap(), &tracks, &strings)
+        .unwrap();
+    // Release is admitted even if a script took control during the drag.
+    for state in [&mut engine, &mut restored] {
+        state.control.enabled = false;
+        state
+            .mouse_button_with_configuration(&resources, Button::Left, false)
+            .unwrap();
+        assert!(!state.configuration.as_ref().unwrap().dragging());
+    }
+    assert_eq!(engine, restored);
+    engine.control.enabled = true;
+    engine.move_cursor_with_configuration([176, 112]).unwrap();
+    engine
+        .configuration_click([176, 112], Gesture::WalkTo)
+        .unwrap();
+    for _ in 0..6 {
+        engine
+            .advance_configuration(&resources, &strings, &catalog)
+            .unwrap();
+    }
+    let settings = engine.configuration.as_ref().unwrap().settings();
+    assert!(settings.swap_buttons);
+    let thumb = [
+        178 + discworld_core::menu_slider::offset(settings.double_click, 30).unwrap(),
+        53,
+    ];
+    engine.move_cursor_with_configuration(thumb).unwrap();
+    engine
+        .mouse_button_with_configuration(&resources, Button::Right, true)
+        .unwrap();
+    assert!(engine.configuration.as_ref().unwrap().dragging());
+    engine
+        .mouse_button_with_configuration(&resources, Button::Right, false)
+        .unwrap();
+    assert!(!engine.configuration.as_ref().unwrap().dragging());
 }
 
 fn roundtrip_pending(game: &mut BrowserGame, ticks: u32) {

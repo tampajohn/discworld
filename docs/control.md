@@ -1295,3 +1295,22 @@ each step and comparing state and pixels. It also covers a frozen pre-drag toggl
 highlight and missing-resource atomicity. Evidence:
 assets/logs/menu-drag-{assets,workspace,clippy}.log. Physical mouse routing and
 engine movement integration remain; these APIs are not yet called by live hosts.
+
+Engine::mouse_button_with_configuration now routes physical edges through the
+existing MouseInput history, returning immediate menu dispatches to its caller.
+It handles logical left drag start/end, single/right/double gestures and disabled
+control; drag-end remains admitted while control is off. Configuration scrollbar
+drags end on double action, while mixing-desk drags survive it, matching
+eventToInventory. move_cursor_with_configuration transactionally applies effective
+cursor movement to an active drag and rejects coordinate overflow without partial
+movement. MouseInput accepts updated double-click thresholds without resetting
+release history. Both menu and world classification read the controller's current
+threshold and button-swap settings when a controller exists.
+The original-asset engine test drives Main-to-Save with physical right input,
+selects and double-clicks rows with left input, checks the immediate Save target,
+drags Controls, rejects overflowing movement, restores a mid-drag checkpoint,
+releases with control disabled, and starts/ends a drag using swapped right input.
+Unit coverage checks threshold changes mid-pair and zero-speed behavior. Evidence:
+assets/logs/menu-physical-{assets,workspace,clippy}.log. Live hosts still need to
+call these new APIs and consume dispatches; settings persistence, script click
+delay updates and automatic menu scheduling remain required.

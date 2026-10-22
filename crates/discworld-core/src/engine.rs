@@ -1218,6 +1218,73 @@ impl Engine {
         Ok(())
     }
     /// Deliver a physical edge at the deterministic engine tick.
+    /// Menu-aware counterpart returning synchronous Save/Load dispatches.
+    /// Hosts must consume the result; the legacy entry point handles world input.
+    pub fn mouse_button_with_configuration(
+        &mut self,
+        resources: &Resources<'_>,
+        button: crate::mouse::Button,
+        down: bool,
+    ) -> Result<crate::menu_controller::Dispatch, Error> {
+        use crate::mouse::{Button, MouseInput, PlayerEvent};
+        let mut dispatch = crate::menu_controller::Dispatch {
+            outcome: crate::menu_navigation::Outcome::default(),
+            selection: None,
+        };
+        let Some(settings) = self
+            .configuration
+            .as_ref()
+            .filter(|menu| menu.page().is_some())
+            .map(|menu| menu.settings())
+        else {
+            self.mouse_button(resources, button, down)?;
+            return Ok(dispatch);
+        };
+        let mut next = self.clone();
+        let mouse = next
+            .mouse
+            .get_or_insert_with(|| MouseInput::new(0, u32::from(settings.double_click)));
+        mouse.set_double_click_ticks(u32::from(settings.double_click));
+        let events = if down {
+            mouse
+                .button_down(button, next.ticks as u32, settings.swap_buttons)
+                .to_vec()
+        } else {
+            vec![mouse.button_up(button, next.ticks as u32, settings.swap_buttons)]
+        };
+        for event in events {
+            match event {
+                PlayerEvent::WalkTo | PlayerEvent::Look | PlayerEvent::Action => {
+                    let interaction = match event {
+                        PlayerEvent::Action => PolygonInteraction::Action,
+                        PlayerEvent::Look => PolygonInteraction::Look,
+                        _ => PolygonInteraction::WalkTo,
+                    };
+                    dispatch = next.configuration_click(next.control.cursor, interaction)?;
+                }
+                _ => {
+                    next.user_event()?;
+                    if let Some(menu) = &mut next.configuration {
+                        match event {
+                            PlayerEvent::DragStart(Button::Left) if next.control.enabled => {
+                                menu.begin_drag(resources, next.control.cursor)?;
+                            }
+                            PlayerEvent::DragEnd(Button::Left) => {
+                                // PlayerEvent admits drag-end even with control off.
+                                menu.end_drag()?;
+                                menu.point_at(Some(next.control.cursor));
+                            }
+                            _ => {}
+                        }
+                    }
+                }
+            }
+        }
+        *self = next;
+        Ok(dispatch)
+    }
+
+    /// Deliver a physical edge at the deterministic engine tick.
     pub fn mouse_button(
         &mut self,
         resources: &Resources<'_>,
@@ -1227,13 +1294,21 @@ impl Engine {
         use crate::mouse::{DEFAULT_DOUBLE_CLICK_TICKS, MouseInput, PlayerEvent};
         let mut next = self.clone();
         next.update_inventory_hover(resources)?;
-        let mouse = next
-            .mouse
-            .get_or_insert_with(|| MouseInput::new(0, DEFAULT_DOUBLE_CLICK_TICKS));
+        let settings = next.configuration.as_ref().map(|menu| menu.settings());
+        let speed = settings
+            .as_ref()
+            .map_or(DEFAULT_DOUBLE_CLICK_TICKS, |settings| {
+                u32::from(settings.double_click)
+            });
+        let swap = settings
+            .as_ref()
+            .is_some_and(|settings| settings.swap_buttons);
+        let mouse = next.mouse.get_or_insert_with(|| MouseInput::new(0, speed));
+        mouse.set_double_click_ticks(speed);
         let events = if down {
-            mouse.button_down(button, next.ticks as u32, false).to_vec()
+            mouse.button_down(button, next.ticks as u32, swap).to_vec()
         } else {
-            vec![mouse.button_up(button, next.ticks as u32, false)]
+            vec![mouse.button_up(button, next.ticks as u32, swap)]
         };
         for event in events {
             use crate::mouse::Button;
@@ -1429,6 +1504,27 @@ impl Engine {
         }
         Ok(())
     }
+    /// Logical game coordinates. V1 WAITKEY also wakes on cursor movement.
+    /// Transactional movement that also advances an active configuration drag.
+    pub fn move_cursor_with_configuration(&mut self, position: [i32; 2]) -> Result<(), Error> {
+        let mut next = self.clone();
+        let before = next.control.cursor;
+        next.move_cursor(position);
+        if let Some(menu) = &mut next.configuration {
+            if menu.dragging() {
+                let dx = next.control.cursor[0]
+                    .checked_sub(before[0])
+                    .ok_or(Error("menu cursor delta overflow"))?;
+                let dy = next.control.cursor[1]
+                    .checked_sub(before[1])
+                    .ok_or(Error("menu cursor delta overflow"))?;
+                menu.drag_by([dx, dy])?;
+            }
+        }
+        *self = next;
+        Ok(())
+    }
+
     /// Logical game coordinates. V1 WAITKEY also wakes on cursor movement.
     pub fn move_cursor(&mut self, position: [i32; 2]) {
         let old = self.control.cursor;

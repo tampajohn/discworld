@@ -572,6 +572,11 @@ impl Controller {
     /// Right-click uses the single-click path for configuration windows.
     pub fn click(&mut self, point: [i32; 2], double: bool) -> Result<Dispatch, Error> {
         use crate::conversation_window::Area;
+        // invAction ends a configuration scrollbar drag, but mixing-desk
+        // controls keep their drag across a double action (ID_MDCONT).
+        if double && matches!(self.display, Some(Display::Saves(_))) {
+            self.end_drag()?;
+        }
         let Some(area) = self.area_at(point) else {
             return Ok(self.dispatch(Outcome::default()));
         };

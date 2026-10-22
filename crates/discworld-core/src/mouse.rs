@@ -56,6 +56,11 @@ impl MouseInput {
             double_click_ticks,
         }
     }
+    /// Configuration changes affect the next edge without resetting release
+    /// history or the physical button's current single/double pair.
+    pub fn set_double_click_ticks(&mut self, ticks: u32) {
+        self.double_click_ticks = ticks;
+    }
 
     /// Reference order is drag-start first, then the click classification.
     /// Swapping buttons happens after classification using physical timers.
@@ -89,6 +94,31 @@ impl MouseInput {
 #[cfg(test)]
 mod tests {
     use super::*;
+
+    #[test]
+    fn changing_speed_preserves_release_history_and_current_pair() {
+        let mut input = MouseInput::new(0, 10);
+        input.button_down(Button::Left, 100, false);
+        input.button_up(Button::Left, 101, false);
+        input.set_double_click_ticks(20);
+        assert_eq!(
+            input.button_down(Button::Left, 115, false)[1],
+            PlayerEvent::Action
+        );
+        // Reference release uses the current setting, even if changed mid-pair.
+        input.set_double_click_ticks(5);
+        input.button_up(Button::Left, 116, false);
+        assert_eq!(
+            input.button_down(Button::Left, 117, false)[1],
+            PlayerEvent::WalkTo
+        );
+        input.set_double_click_ticks(0);
+        input.button_up(Button::Left, 118, false);
+        assert_eq!(
+            input.button_down(Button::Left, 118, false)[1],
+            PlayerEvent::WalkTo
+        );
+    }
 
     #[test]
     fn threshold_is_strict_and_measured_from_release_not_press() {
