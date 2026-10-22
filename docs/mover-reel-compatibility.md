@@ -501,3 +501,40 @@ this change and remains separate evidence.
 Validation passes: workspace tests, all 20 original-asset web integration
 tests, workspace Clippy, wasm32 checking, and native/browser release builds.
 The existing visible native process has not been restarted.
+
+## WALKPOLY implementation contract (pending)
+
+Static dispatch audit found V1 library ID 90, WALKPOLY, has no scene-runtime
+handler and currently reaches the explicit unsupported-call stop. This is
+not covered by the successful recorded route.
+
+Pinned `tinlib.cpp::WalkPoly` (4098) and its dispatcher (6806), plus
+`movers.cpp::MoverIsInPolygon` (534), establish the following requirements:
+
+- The V1 call consumes **three** stack arguments. Actor and walking film are
+  the first two; the third is consumed even though the dispatcher does not
+  pass it to WalkPoly. V2 consumes two. Preserve lower stack contents.
+- A calling polygon context and mover are required. An already-escaped call
+  invokes StandTag and returns without acquiring the actor token.
+- Ordinary V1 entry acquires the actor token, starts a path walk toward the
+  calling polygon's node with the supplied film, and enables cursor following.
+- Wait only while the actor is outside that polygon **and** remains moving.
+  The containment test uses the actor animation object's position. Being
+  inside on entry permits immediate script continuation after starting the
+  walk. Entering later releases the caller while movement continues.
+- The coroutine yields before checking Escape. Escape calls StandTag, frees
+  the token, and returns. A normal return only frees the token: unlike
+  WALKTAG, it does not adopt the polygon's pose/film at completion.
+- V1 does not compare walk numbers in this loop; competing actor-token
+  acquisition kills its owner. Once WALKPOLY has returned, it no longer owns
+  the token despite any remaining movement.
+
+Implementation should reuse existing routing, film, token cancellation and
+polygon geometry without equating polygon entry with final arrival. Required
+regressions include initially inside/outside, crossing before final arrival,
+movement ending before entry, stop/replacement, both Escape timings, custom
+and normal films, non-lead/lead actors, lower-stack preservation, and exact
+snapshot continuation of the suspended call. Saved pending calls must retain
+polygon context and remain structurally validated. This is a source-derived
+contract; no WALKPOLY runtime support or reference-process comparison is yet
+claimed.
