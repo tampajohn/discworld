@@ -421,3 +421,14 @@ The synthetic animated-TALK regression checks natural completion, cancellation,
 byte-stable v11 encoding, full resource-validated restoration and identical
 continuation through the remaining subtitle duration. It supplies an empty
 precomputed text layout to isolate scheduling from font rasterization.
+
+## Active speech channel (v12)
+
+Version 12 uses the v11 extension layout but identifies the active sample as
+speech; its finished-talking-process list may be empty. Decoding requires an
+active sample and retains the existing process/controller validation. Other
+new saves continue selecting the smallest applicable previous format. The
+SamplePlayer base serialization is unchanged, so versions 1–11 remain readable
+and byte-stable before stepping. Old live speech waits recover channel identity
+on the next tick. Explicit v12 ownership also survives after the script that
+started the sample has disappeared.

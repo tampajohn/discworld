@@ -43,6 +43,8 @@ impl<'a> SampleBank<'a> {
 }
 #[derive(serde::Serialize, serde::Deserialize, Debug, Clone, Default, PartialEq, Eq)]
 pub struct SamplePlayer {
+    #[serde(skip)]
+    speech: bool,
     pub serial: u64,
     pub id: Option<i32>,
     pub position: usize,
@@ -50,7 +52,10 @@ pub struct SamplePlayer {
 }
 impl SamplePlayer {
     pub(crate) fn validate_snapshot_structure(&self) -> Result<(), Error> {
-        if self.remainder >= 24 || self.id.is_some_and(|id| id <= 0) {
+        if self.remainder >= 24
+            || self.id.is_some_and(|id| id <= 0)
+            || (self.speech && self.id.is_none())
+        {
             return Err(Error("invalid snapshot sample clock or identity"));
         }
         Ok(())
@@ -80,14 +85,44 @@ impl SamplePlayer {
             .ok_or(Error("sample identity overflow"))?;
         self.id = if data.is_empty() { None } else { Some(id) };
         self.position = 0;
+        self.speech = false;
         Ok(true)
     }
+    pub fn is_speech(&self) -> bool {
+        self.speech
+    }
+    pub(crate) fn restore_speech(&mut self) -> Result<(), Error> {
+        if self.id.is_none() {
+            return Err(Error("speech channel has no active sample"));
+        }
+        self.speech = true;
+        Ok(())
+    }
+    pub fn play_speech(&mut self, bank: &SampleBank<'_>, id: i32) -> Result<bool, Error> {
+        let played = self.play(bank, id)?;
+        if played && self.id.is_some() {
+            self.speech = true;
+        }
+        Ok(played)
+    }
     pub fn stop(&mut self) {
+        self.speech = false;
         self.id = None;
         self.position = 0;
     }
     /// Exactly one 1/24 second block, preserving the fractional sample rate.
     pub fn tick(&mut self, bank: &SampleBank<'_>) -> Result<Vec<i16>, Error> {
+        self.tick_with_volume(bank, 255)
+    }
+    /// Gain changes output only; sample clocks and completion remain identical.
+    pub fn tick_with_volume(
+        &mut self,
+        bank: &SampleBank<'_>,
+        volume: u16,
+    ) -> Result<Vec<i16>, Error> {
+        if volume > 255 {
+            return Err(Error("invalid sample volume"));
+        }
         let mut next = self.clone();
         next.remainder += SAMPLE_RATE;
         let count = next.remainder / 24;
@@ -103,11 +138,12 @@ impl SamplePlayer {
                 .iter_mut()
                 .zip(&data[next.position..next.position + n])
             {
-                *out = (i16::from(input) - 128) * 256;
+                *out = (((i32::from(input) - 128) * 256 * i32::from(volume)) / 255) as i16;
             }
             next.position += n;
             if next.position == data.len() {
                 next.id = None;
+                next.speech = false;
             }
         }
         *self = next;
@@ -117,6 +153,52 @@ impl SamplePlayer {
 #[cfg(test)]
 mod tests {
     use super::*;
+    #[test]
+    fn channel_identity_gain_and_completion_are_independent() {
+        let index = [0, 0, 0, 0, 4, 0, 0, 0];
+        let mut data = vec![0; 8];
+        data[4..8].copy_from_slice(&1000u32.to_le_bytes());
+        data.extend((0..1000).map(|i| [0, 128, 255][i % 3]));
+        let bank = SampleBank::new(&index, &data).unwrap();
+        let mut player = SamplePlayer::default();
+        player.play_speech(&bank, 1).unwrap();
+        assert!(player.is_speech());
+        assert!(!player.play(&bank, 99).unwrap());
+        assert!(
+            player.is_speech(),
+            "missing sample preserves the playing channel"
+        );
+        let before = player.clone();
+        assert!(player.tick_with_volume(&bank, 256).is_err());
+        assert_eq!(player, before);
+        let mut full = player.clone();
+        let expected = full.tick(&bank).unwrap();
+        for volume in [0, 128, 255] {
+            let mut scaled = player.clone();
+            let actual = scaled.tick_with_volume(&bank, volume).unwrap();
+            assert_eq!(
+                scaled, full,
+                "gain does not alter clocks or channel ownership"
+            );
+            assert_eq!(
+                actual,
+                expected
+                    .iter()
+                    .map(|sample| (i32::from(*sample) * i32::from(volume) / 255) as i16)
+                    .collect::<Vec<_>>()
+            );
+            scaled.tick_with_volume(&bank, volume).unwrap();
+            assert!(scaled.id.is_none());
+            assert!(!scaled.is_speech());
+        }
+        player.play(&bank, 1).unwrap();
+        assert!(!player.is_speech());
+        player.play_speech(&bank, 1).unwrap();
+        player.stop();
+        assert!(!player.is_speech());
+        assert!(player.restore_speech().is_err());
+    }
+
     #[test]
     fn snapshot_checks_fractional_clock_and_active_sample_bounds() {
         let index = [0, 0, 0, 0, 4, 0, 0, 0];

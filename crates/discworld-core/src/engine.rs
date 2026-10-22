@@ -3475,8 +3475,28 @@ impl Engine {
         self.advance_scene_restore(resources, tracks)?;
         self.advance_transition(resources)?;
         self.music_frame = self.music.tick()?;
+        // Older snapshots have no channel marker. Their live speech waits
+        // identify the owner without changing the stored legacy representation.
+        if self.sample_player.id.is_some() && !self.sample_player.is_speech() {
+            let serial = self.sample_player.serial;
+            if self.processes.states().any(|process| {
+                process
+                    .talk_wait
+                    .as_ref()
+                    .is_some_and(|wait| wait.sample == Some(serial))
+                    || process
+                        .print_wait
+                        .as_ref()
+                        .is_some_and(|wait| wait.sample_serial == Some(serial))
+            }) {
+                self.sample_player.restore_speech()?;
+            }
+        }
+        let sample_volume = self.configuration.as_ref().map_or(255, |menu| {
+            menu.settings().volumes[if self.sample_player.is_speech() { 2 } else { 1 }]
+        });
         self.audio_frame = if let Some(bank) = bank {
-            self.sample_player.tick(bank)?
+            self.sample_player.tick_with_volume(bank, sample_volume)?
         } else {
             Vec::new()
         };
@@ -4367,7 +4387,7 @@ impl Engine {
                     let text_id = a[1];
                     let text = strings.get(text_id as u32)?.to_vec();
                     let sample = if bank.sample(text_id)?.is_some() {
-                        self.sample_player.play(bank, text_id)?;
+                        self.sample_player.play_speech(bank, text_id)?;
                         Some(self.sample_player.serial)
                     } else {
                         None
@@ -4983,7 +5003,7 @@ impl Engine {
                         None
                     };
                     let sample_serial = if speech {
-                        self.sample_player.play(bank, text)?;
+                        self.sample_player.play_speech(bank, text)?;
                         Some(self.sample_player.serial)
                     } else {
                         None
@@ -5071,7 +5091,7 @@ impl Engine {
                             .ok_or(Error("print time overflow"))?
                     };
                     let sample_serial = if speech {
-                        self.sample_player.play(bank, text as i32)?;
+                        self.sample_player.play_speech(bank, text as i32)?;
                         Some(self.sample_player.serial)
                     } else {
                         None
@@ -9024,7 +9044,7 @@ mod tests {
         let index = [0, 0, 0, 0, 4, 0, 0, 0];
         let mut samples = vec![0; 8];
         samples[4..8].copy_from_slice(&1000u32.to_le_bytes());
-        samples.extend([128; 1000]);
+        samples.extend([129; 1000]);
         let bank = SampleBank::new(&index, &samples).unwrap();
         let mut engine = Engine::bootstrap(&resources).unwrap();
         engine.subtitles = false;
@@ -9034,6 +9054,61 @@ mod tests {
                 .unwrap(),
             Status::Running
         );
+        assert!(engine.sample_player.is_speech());
+        let bytes = crate::save::Snapshot::capture(&engine, [7; 32])
+            .to_bytes()
+            .unwrap();
+        assert_eq!(u32::from_le_bytes(bytes[8..12].try_into().unwrap()), 12);
+        let decoded = crate::save::Snapshot::from_bytes(&bytes, [7; 32]).unwrap();
+        assert_eq!(decoded.to_bytes().unwrap(), bytes);
+        assert_eq!(decoded.state(), &engine);
+        for (speech, legacy) in [(false, false), (true, false), (true, true)] {
+            for voice_volume in [0, 255] {
+                let mut mixed = engine.clone();
+                mixed.configuration = Some(
+                    crate::menu_controller::Controller::new(crate::menu_controller::Settings {
+                        volumes: [255, 255 - voice_volume, voice_volume],
+                        double_click: 10,
+                        swap_buttons: false,
+                        text_speed: 0,
+                        subtitles: false,
+                        flipped: false,
+                    })
+                    .unwrap(),
+                );
+                if !speech {
+                    mixed.sample_player.play(&bank, 1).unwrap();
+                }
+                if legacy {
+                    // Old envelopes contain only SamplePlayer's base fields.
+                    mixed.sample_player =
+                        postcard::from_bytes(&postcard::to_allocvec(&mixed.sample_player).unwrap())
+                            .unwrap();
+                    assert!(!mixed.sample_player.is_speech());
+                }
+                let saved = crate::save::Snapshot::capture(&mixed, [7; 32])
+                    .to_bytes()
+                    .unwrap();
+                let mut resumed = crate::save::Snapshot::from_bytes(&saved, [7; 32])
+                    .unwrap()
+                    .restore_with_strings(&resources, &bank, &[], &strings)
+                    .unwrap();
+                mixed
+                    .tick_content(&resources, Some(&bank), None, Some(&strings))
+                    .unwrap();
+                resumed
+                    .tick_content(&resources, Some(&bank), None, Some(&strings))
+                    .unwrap();
+                assert_eq!(resumed, mixed);
+                let volume = if speech {
+                    voice_volume
+                } else {
+                    255 - voice_volume
+                };
+                assert_eq!(mixed.audio_frame[0], if volume == 0 { 0 } else { 256 });
+                assert_eq!(mixed.sample_player.position, 919);
+            }
+        }
         let mut slow = engine.clone();
         slow.configuration = Some(
             crate::menu_controller::Controller::new(crate::menu_controller::Settings {

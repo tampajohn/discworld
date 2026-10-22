@@ -71,3 +71,26 @@ after checkpoint restoration, and invalid-volume rejection before mutation.
 Workspace tests, the opt-in SoundFont regression, Clippy and the web WASM check
 pass (assets/logs/music-volume-*.log). Separate speech/effects gain still needs
 persistent channel classification; the music slider never scales sample PCM.
+
+Speech/effects gains now apply in the shared core. TALK, PRINT, TALKAT and
+inventory speech mark the single sample channel as speech; PLAYSAMPLE uses the
+effects category. A replacement sample changes category, a missing sample leaves
+the current channel unchanged, and stop/natural completion clear the marker.
+The marker belongs to playback rather than to a waiting script, so terminating
+a script cannot misclassify a still-playing sample. Each engine tick applies
+the selected controller volume (effects index 1, speech index 2) with integer
+linear scaling by volume/255. With no controller, output remains full volume.
+Clocks, sample cursors and completion proceed unchanged at zero gain.
+
+DWRSAVE v12 preserves active speech classification. For older snapshots, a live
+TALK/PRINT wait with the same sample serial recovers the speech category before
+the next audio block; otherwise legacy unmarked playback is treated as effects.
+Older snapshots cannot recover orphaned speech identity that they never stored.
+The gain is applied before PCM reaches native, WASM or headless presentation;
+the music gain remains separate. Tests cover replacement/missing IDs, stop and
+natural completion, invalid gain atomicity, 0/128/255 scaling, speech versus
+effects routing, legacy-wait recovery and exact resource-validated save/load
+continuation. Workspace tests, all 14 original-asset web integration tests,
+Clippy, web WASM checking and native release build pass. Logs use the
+assets/logs/sample-volume-* prefix. No new physical-device listening or original
+hardware gain-curve equivalence is claimed.

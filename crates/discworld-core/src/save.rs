@@ -16,6 +16,7 @@ const RESIZE_VERSION: u32 = 8;
 const HOVER_VERSION: u32 = 9;
 const MENU_VERSION: u32 = 10;
 const TALK_PHASE_VERSION: u32 = 11;
+const SPEECH_CHANNEL_VERSION: u32 = 12;
 const HEADER: usize = 80;
 pub const MAX_SAVE_BYTES: usize = 16 * 1024 * 1024;
 
@@ -142,7 +143,8 @@ impl Snapshot {
             None => self.menu.clone(),
         };
         let finished_talks = self.state.finished_talks();
-        let payload = if !finished_talks.is_empty() {
+        let speech = self.state.sample_player.is_speech();
+        let payload = if speech || !finished_talks.is_empty() {
             postcard::to_allocvec(&(
                 &self.state,
                 &self.state.clicks,
@@ -220,7 +222,9 @@ impl Snapshot {
         let mut bytes = Vec::with_capacity(HEADER + payload.len());
         bytes.extend_from_slice(MAGIC);
         bytes.extend_from_slice(
-            &(if !finished_talks.is_empty() {
+            &(if speech {
+                SPEECH_CHANNEL_VERSION
+            } else if !finished_talks.is_empty() {
                 TALK_PHASE_VERSION
             } else if menu.is_some() {
                 MENU_VERSION
@@ -274,6 +278,7 @@ impl Snapshot {
             HOVER_VERSION,
             MENU_VERSION,
             TALK_PHASE_VERSION,
+            SPEECH_CHANNEL_VERSION,
         ]
         .contains(&word(8))
         {
@@ -290,7 +295,7 @@ impl Snapshot {
             return Err(Error("save checksum mismatch"));
         }
         let mut menu = None;
-        let (state, remaining) = if word(8) == TALK_PHASE_VERSION {
+        let (state, remaining) = if matches!(word(8), TALK_PHASE_VERSION | SPEECH_CHANNEL_VERSION) {
             let (
                 (mut state, clicks, mouse, owner, slider, geometry, resize, hover, bytes, finished),
                 remaining,
@@ -310,7 +315,7 @@ impl Snapshot {
             if bytes
                 .as_ref()
                 .is_some_and(|bytes| !(4..=65536).contains(&bytes.len()))
-                || finished.is_empty()
+                || (finished.is_empty() && word(8) == TALK_PHASE_VERSION)
                 || finished.len() > 1024
             {
                 return Err(Error("invalid snapshot talk phase extension"));
@@ -323,6 +328,9 @@ impl Snapshot {
             state.inventory_resize = resize;
             state.inventory_hover = hover;
             state.restore_finished_talks(&finished)?;
+            if word(8) == SPEECH_CHANNEL_VERSION {
+                state.sample_player.restore_speech()?;
+            }
             menu = bytes;
             (state, remaining)
         } else if word(8) == MENU_VERSION {

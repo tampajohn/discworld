@@ -1462,3 +1462,12 @@ synth checkpoint. Tests compare active-note output and exact continuation at
 0/128/255 gain. Speech/effects slider separation remains pending, as does browser
 menu UI wiring. This change has not been live-reloaded into the existing native
 process; preserving its unsaved state takes precedence over restarting it.
+
+All three sound sliders now feed playback: music scales synthesized stereo;
+effects and voice scale the shared core's sample PCM according to explicit
+channel ownership. Muting a category never skips clocks or script completion.
+The active speech marker is preserved by DWRSAVE v12; legacy live-wait ownership
+is recovered before rendering. Unit and original-asset validations pass; see
+`docs/audio-runtime.md` for the legacy orphaned-sample limitation and test scope.
+The native executable has been rebuilt; the existing visual process remains
+running to preserve its unsaved state. Browser menu activation is still pending.
