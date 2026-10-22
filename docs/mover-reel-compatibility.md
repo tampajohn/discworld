@@ -190,3 +190,24 @@ for runtime fa77914 in native, Chrome and WebKit. Local artifacts are under
 before treating this run as successful. The native run enables engine and DSP
 snapshot audits. Browser runs generate audio in a module worker; they do not
 prove physical-device playback or full touch-only interaction.
+
+
+## Custom walking film readiness
+
+The mover regression now checks that a forced direction/scale selection cannot
+replace an explicit walking film. It advances a finite custom film through its
+12 Hz timing, checks that the route and walk serial survive every displacement,
+and verifies that film completion clears custom mode, resets phase and selects
+the ordinary walking reel without an extra frame. This matches SetMoverWalkReel
+and MoveActor in the pinned movers.cpp/move.cpp. The test passes; evidence is in
+`assets/logs/custom-walk-reel-completion.log`.
+
+Script WALK (87) and WALKED (88) still reject nonzero film arguments. Their next
+integration must account for legacy stationary speech: a new custom walk must
+retain the reference's existing pushed-film slot, even when the current old
+snapshot stored that slot in a TALK wait rather than explicit mover state.
+WALKED's one-second delay precedes SetActorDest; the film argument remains on
+its suspended VM stack and need not be duplicated in a new wait payload.
+Retain the existing exact-arrival result, token interruption and hold==2 rules.
+Removing these guards before legacy reel migration would enable a path with
+incorrect later POP behavior.

@@ -2015,6 +2015,30 @@ mod tests {
         assert_eq!(talking.last_film, Handle(128));
         assert_eq!(talking.step_phase, 0);
         assert_eq!(talking.walk_target, Some([200, 178]));
+        // SetMoverWalkReel must not override an explicit walking film, even
+        // for a forced direction/scale selection. Its eventual end, however,
+        // clears custom mode and restores the ordinary reel at phase zero.
+        let custom = talking.clone();
+        talking
+            .select_walk_reel(&resources, &declarations, Direction::Right, 2, true)
+            .unwrap();
+        assert_eq!(talking, custom);
+        for (position, phase) in [([244, 178], 1), ([240, 178], 2), ([236, 178], 1)] {
+            talking
+                .animate_move(&resources, &declarations, position, 2)
+                .unwrap();
+            assert_eq!(talking.step_phase, phase);
+            assert_eq!(talking.walk_target, Some([200, 178]));
+            assert_eq!(talking.walk_serial, 17);
+        }
+        assert_eq!(
+            talking.reel_state.unwrap().mode(),
+            crate::mover_reel::Mode::Normal
+        );
+        assert_eq!(talking.last_film, Handle(64));
+        assert_eq!(talking.placement.direction, Direction::Left);
+        assert_eq!(talking.placement.scale, 1);
+        assert_eq!(talking.animation.steps, 0);
         mover
             .select_walk_reel(&resources, &declarations, Direction::Left, 1, true)
             .unwrap();
