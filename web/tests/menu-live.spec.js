@@ -2,7 +2,7 @@ import { test, expect } from '@playwright/test';
 import path from 'node:path';
 const root = path.resolve(import.meta.dirname, '../..');
 
-test('original browser menu types a named slot, saves and reloads through IndexedDB', async ({ page }, info) => {
+for (const touch of [false, true]) test(`original menu ${touch ? 'touch keyboard' : 'desktop keyboard'} saves and reloads through IndexedDB`, async ({ page }, info) => {
   const errors = [];
   page.on('pageerror', error => errors.push(error.message));
   await page.goto('/');
@@ -14,14 +14,30 @@ test('original browser menu types a named slot, saves and reloads through Indexe
   await page.locator('#pause').click();
   await expect(page.locator('#pause')).toHaveText('Pause');
   await page.locator('#game').focus();
-  await page.keyboard.press('F5');
+  if (touch) await page.locator('#options').tap();
+  else await page.keyboard.press('F5');
   await expect(page.locator('#game')).toHaveAttribute('data-menu', 'true');
   const click = async (x, y) => {
     const bounds = await page.locator('#game').boundingBox();
-    await page.mouse.click(bounds.x + x * bounds.width / 320, bounds.y + y * bounds.height / 200);
+    const point = [bounds.x + x * bounds.width / 320, bounds.y + y * bounds.height / 200];
+    if (touch) await page.touchscreen.tap(...point);
+    else await page.mouse.click(...point);
   };
-  await page.keyboard.type('Browser test');
-  await page.locator('#game').screenshot({ path: path.join(root, `assets/previews/browser-${info.project.name}-save-name.png`) });
+  if (touch) {
+    await click(90, 59); // Main -> Save
+    await expect(page.locator('#game')).toHaveAttribute('data-editing', 'true');
+    await page.locator('#name-keyboard').tap();
+    await expect(page.locator('#name-input')).toBeFocused();
+    // insertText exercises the input path used by virtual keyboards without keydown.
+    await page.keyboard.insertText('Browser tesX');
+    await page.keyboard.press('Backspace');
+    await page.keyboard.insertText('t');
+  } else {
+    await page.keyboard.type('Browser tesX');
+    await page.keyboard.press('Backspace');
+    await page.keyboard.type('t');
+  }
+  await page.locator('#game').screenshot({ path: path.join(root, `assets/previews/browser-${info.project.name}-${touch ? 'touch' : 'desktop'}-save-name.png`) });
   await click(262, 69);
   await expect(page.locator('#status')).toHaveText('Game saved on this device.');
   const saved = await page.evaluate(async () => {
@@ -32,8 +48,13 @@ test('original browser menu types a named slot, saves and reloads through Indexe
   });
   expect(new TextDecoder().decode(new Uint8Array(saved.description))).toContain('Browser test');
   await expect(page.locator('#game')).toHaveAttribute('data-menu', 'false');
-  await page.keyboard.press('F7');
+  if (touch) await page.locator('#options').tap();
+  else await page.keyboard.press('F7');
   await expect(page.locator('#game')).toHaveAttribute('data-menu', 'true');
+  if (touch) {
+    await click(90, 44); // Main -> Load
+    await expect(page.locator('#game')).toHaveAttribute('data-menu-page', 'Load');
+  }
   await click(262, 69);
   await expect(page.locator('#status')).toHaveText('Saved game loaded.');
   await expect(page.locator('#game')).toHaveAttribute('data-menu', 'false');

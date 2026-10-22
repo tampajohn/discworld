@@ -1481,3 +1481,13 @@ Escape, plus a touch-accessible Options button. Named saves use the existing
 DWRSLOT codec and do not replace the old manual-device-save record. Browser Quit
 pauses the player. Settings writes persist through IndexedDB. Physical iPad text
 entry and broader interactive acceptance remain incomplete.
+
+Browser touch Save now provides an explicit keyboard-focus button while retaining
+original-font rendering in the game. Menu page/editing metadata gates the endpoint
+and makes tests wait for actual submenu transitions. Browser regression found
+that both native and WASM host backspace adapters sent 0 instead of 8; corrected
+both without changing the shared original editor. Desktop and touch save-name
+insertion/deletion/reload pass in Chrome and WebKit. Workspace tests, Clippy,
+WASM package build and native release build pass. Logs: assets/logs/touch-name-*.
+Physical iPad keyboard behavior is not yet verified; the native visual process
+is preserved and has not been restarted onto this rebuilt binary.

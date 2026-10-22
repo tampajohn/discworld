@@ -281,6 +281,19 @@ impl BrowserGame {
             .as_ref()
             .is_some_and(|menu| menu.page().is_some())
     }
+    pub fn menu_page(&self) -> Option<String> {
+        self.engine
+            .configuration
+            .as_ref()
+            .and_then(|menu| menu.page())
+            .map(|page| format!("{page:?}"))
+    }
+    pub fn menu_editing(&self) -> bool {
+        self.engine
+            .configuration
+            .as_ref()
+            .is_some_and(|menu| menu.page() == Some(discworld_core::menu_navigation::Page::Save))
+    }
     pub fn clear_menu_catalog(&mut self) {
         self.menu_entries.clear();
     }
@@ -365,7 +378,7 @@ impl BrowserGame {
         let resources = self.assets.resources();
         if backspace {
             self.engine
-                .edit_configuration(&resources, 0, true)
+                .edit_configuration(&resources, 8, true)
                 .map_err(error)?;
         }
         for byte in text.bytes() {
@@ -468,7 +481,7 @@ impl BrowserGame {
             }
             "close" if active => {
                 engine
-                    .edit_configuration(&resources, 0, true)
+                    .edit_configuration(&resources, 8, true)
                     .map_err(error)?;
             }
             "pockets" | "continue" if active => {}

@@ -1,3 +1,4 @@
+import { nameInput } from './name-input.js';
 import { deviceSave } from './storage.js';
 import { advanceClock } from './clock.js';
 import { AudioResampler } from './audio.js';
@@ -5,7 +6,7 @@ const $ = id => document.getElementById(id);
 const canvas = $('game'), context = canvas.getContext('2d', { alpha: false });
 const worker = new Worker(new URL('./worker.js', import.meta.url), { type: 'module' });
 let serial = 0, ready = false, paused = true, muted = true, epoch = 0;
-let dragging = false, menuActive = false;
+let dragging = false, menuActive = false, menuEditing = false;
 let busy = false, previous = performance.now(), elapsed = 0;
 let audioContext, gain, resampler, audioEnd = 0;
 const sources = new Set(), pending = new Map();
@@ -33,8 +34,16 @@ worker.onerror = event => {
   status(`Player stopped: ${event.message}`, true);
 };
 function draw(result) {
+  if (result.menuPage !== undefined) canvas.dataset.menuPage = result.menuPage;
   if (result.resetAudio) clearAudio();
   if (result.menu !== undefined) { menuActive = result.menu; canvas.dataset.menu = String(menuActive); }
+  if (result.editing !== undefined) {
+    menuEditing = result.editing;
+    canvas.dataset.editing = String(menuEditing);
+    $('name-keyboard').hidden = !menuEditing;
+    if (!menuEditing) $('name-input').blur();
+    $('name-input').disabled = !menuEditing;
+  }
   if (result.quit) { pause(); status('Game stopped. Press Play to continue or close this tab.'); }
   else if (result.notice) status(result.notice);
   if (result.dragging !== undefined) { dragging = result.dragging; canvas.dataset.dragging = String(dragging); }
@@ -48,6 +57,7 @@ function clearAudio() {
 }
 function pause() {
   paused = true; epoch++; elapsed = 0;
+  $('name-input').blur();
   $('pause').textContent = 'Play';
   clearAudio();
 }
@@ -168,6 +178,12 @@ canvas.onpointermove = async event => {
 };
 canvas.onwheel = event => { event.preventDefault(); input(event.deltaY < 0 ? 'up' : 'down'); };
 for (const button of document.querySelectorAll('[data-input]')) button.onclick = () => input(menuActive && button.dataset.input === 'close' ? 'escape' : button.dataset.input);
+const focusName = nameInput($('name-input'), (text, backspace) => {
+  if (ready && !paused && menuEditing) rpc('edit-menu', { text, backspace }).then(draw).catch(error => status(error.message, true));
+});
+$('name-keyboard').onclick = () => {
+  if (ready && !paused && menuEditing) focusName();
+};
 $('options').onclick = () => { if (ready && !paused) rpc('menu', { page: 'main' }).then(draw).catch(error => status(error.message, true)); };
 document.onkeydown = event => {
   if (!ready || /^(INPUT|SELECT|TEXTAREA)$/.test(event.target.tagName)) return;

@@ -2,7 +2,7 @@ import { listSlots, readSlot, writeSlot, devicePreferences } from './storage.js'
 import init, { GameUpload } from './pkg/discworld_web.js';
 let game;
 let queue = Promise.resolve();
-const snapshot = () => ({ frame: game.frame(), tick: game.tick().toString(), scene: game.scene(), dragging: game.inventory_dragging(), menu: game.menu_active() });
+const snapshot = () => ({ frame: game.frame(), tick: game.tick().toString(), scene: game.scene(), dragging: game.inventory_dragging(), menu: game.menu_active(), editing: game.menu_editing(), menuPage: game.menu_page() || '' });
 async function refreshCatalog() {
   const { entries } = await listSlots();
   game.clear_menu_catalog();

@@ -359,7 +359,7 @@ fn run() -> Result<(), Box<dyn std::error::Error>> {
                         _ => None,
                     };
                     if key == Key::Backspace {
-                        engine.edit_configuration(&resources, 0, true)?;
+                        engine.edit_configuration(&resources, 8, true)?;
                     }
                     if let Some(scroll) = scroll {
                         engine.scroll_configuration(scroll)?;

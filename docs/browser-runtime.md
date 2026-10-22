@@ -362,3 +362,22 @@ After removing that extra click, the new case passed three repetitions in each
 browser (six passes). Logs: assets/logs/browser-menu-{workspace,clippy,build,
 assets,browser-suite,live}.log. The test also waits for audio startup before
 sending menu keys, so a key cannot be dropped while the host is still paused.
+
+Touch save-name entry: Save exposes a `Type save name` button that synchronously
+focuses a text-input endpoint from the user's gesture. The endpoint is visually
+transparent; the engine continues drawing the actual name with its original
+font. Input events forward ASCII insertion/backspace to the shared editor;
+IME composition waits for commitment, duplicate composition events are consumed,
+and paste/input fallback is bounded. Autocorrection, capitalization and spelling
+suggestions are disabled. Leaving Save or pausing blurs the endpoint. Enter or
+Escape dismisses keyboard focus without submitting a save.
+
+This work also found and fixed a native/browser host bug: both passed byte zero
+for backspace, but the reference-derived editor ignores zero before inspecting
+the backspace flag. Both hosts now pass ASCII backspace (8). Desktop and touch
+menu tests insert a deliberately wrong character, delete it, finish the name,
+save and reload. Touch cases navigate Options -> Save and Options -> Load without
+function keys. All four Chrome/WebKit menu cases pass. The text endpoint's DOM
+event test separately exercises composition, deletion and paste fallback.
+These are emulated touch/input tests: a physical iPad must still verify keyboard
+appearance, visual-viewport resizing, focus and landscape usability.

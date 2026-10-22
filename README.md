@@ -41,7 +41,10 @@ opens Save, and **F7** opens Load. Use Escape to close a menu. The browser also 
 Close the native window to exit manual play. Native named slots are stored beside the quick-save path in
 a directory with the `.slots` extension (default `discworld-save.slots`). Save
 names use the original game font. Chrome and WebKit tests cover typing a named save and reloading through the
-original menus. Automated end-to-end SDL click/typing validation is still pending. Preferences are atomically stored in `<save-stem>.settings.json` when Escape
+original menus, including touch input and backspace. In the browser Save menu,
+tap **Type save name** to focus the on-screen keyboard input; the name stays in
+the original game font. Physical iPad keyboard behavior remains unverified.
+Automated end-to-end SDL click/typing validation is still pending. Preferences are atomically stored in `<save-stem>.settings.json` when Escape
 returns from a submenu. Browser named slots and preferences use IndexedDB on the
 current device. A restored game retains its checkpoint settings.
 Music, speech, and effects volumes now apply independently; **M** still mutes the whole output when a menu is closed.
