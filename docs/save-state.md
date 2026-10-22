@@ -440,3 +440,13 @@ a nonzero global generation and captured values for every live/master/saved/
 restoring script context. No global escape state means unchanged legacy output.
 See [escape integration status](script-escape-compatibility.md); host input and
 cancellation integration remain pending.
+
+
+## Live film escape ownership (v15)
+
+Version 15 wraps a v1-v14 envelope and an ordered, nonempty list of actor,
+playback identity and captured escape generation. Each entry must match a
+live reel owner and a nonzero generation no newer than the global event.
+The decoder rejects duplicate/unordered actors, unknown owners, invalid
+generations, trailing data and nested v15 wrappers. Saves without live reel
+captures retain the previous encoding.

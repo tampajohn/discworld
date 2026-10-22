@@ -267,6 +267,8 @@ pub struct Engine {
     fade_in_step: Option<usize>,
     fade_on_background: bool,
     reel_owners: std::collections::BTreeMap<i32, (Handle, u64)>,
+    #[serde(skip)]
+    pub(crate) reel_escape: std::collections::BTreeMap<i32, (u64, u64)>,
     next_playback: u64,
     pub polygons: crate::polygon::Polygons,
     pub random: crate::random::Random,
@@ -451,6 +453,18 @@ impl Engine {
     }
 
     pub(crate) fn validate_snapshot_structure(&self) -> Result<(), Error> {
+        for (&actor, &(playback, captured)) in &self.reel_escape {
+            if captured == 0
+                || self.escape_events.is_none_or(|event| captured > event)
+                || self
+                    .reel_owners
+                    .get(&actor)
+                    .is_none_or(|(_, owner)| *owner != playback)
+            {
+                return Err(Error("invalid snapshot reel escape owner"));
+            }
+        }
+
         if self.escape_events == Some(0)
             || self.escape_contexts().any(|vm| {
                 vm.escape_generation.is_some_and(|value| {
@@ -2764,6 +2778,7 @@ impl Engine {
             fade_in_step: None,
             fade_on_background: false,
             reel_owners: std::collections::BTreeMap::new(),
+            reel_escape: std::collections::BTreeMap::new(),
             next_playback: 0,
             polygons: crate::polygon::Polygons::default(),
             random: crate::random::Random::default(),
@@ -3022,6 +3037,7 @@ impl Engine {
         };
         self.films.clear();
         self.reel_owners.clear();
+        self.reel_escape.clear();
         self.playback.clear();
         self.movers.clear();
         self.actor_effects.clear();
@@ -3485,6 +3501,21 @@ impl Engine {
         }
         Ok(true)
     }
+    fn capture_reel_escape(&mut self, actor: i32, captured: Option<u64>) {
+        self.reel_escape.remove(&actor);
+        if let (Some((_, playback)), Some(captured)) = (self.reel_owners.get(&actor), captured) {
+            self.reel_escape.insert(actor, (*playback, captured));
+        }
+    }
+
+    fn reel_escaped(&self, animation: &Animation) -> bool {
+        self.reel_escape
+            .get(&animation.object.id)
+            .is_some_and(|&(owner, captured)| {
+                owner == animation.playback && Some(captured) != self.escape_events
+            })
+    }
+
     fn owns_reel(&self, animation: &Animation) -> bool {
         animation.reel.is_some_and(|reel| {
             self.reel_owners.get(&animation.object.id) == Some(&(reel, animation.playback))
@@ -3493,6 +3524,7 @@ impl Engine {
     fn release_reel(&mut self, animation: &Animation) {
         if self.owns_reel(animation) {
             self.reel_owners.remove(&animation.object.id);
+            self.reel_escape.remove(&animation.object.id);
         }
     }
     /// A duplicate reel does not restart. Replacement gets a distinct generation.
@@ -3519,6 +3551,7 @@ impl Engine {
             .ok_or(Error("playback generation overflow"))?;
         animation.playback = self.next_playback;
         self.reel_owners.insert(actor, (reel, animation.playback));
+        self.reel_escape.remove(&actor);
         self.films.retain(|old| old.object.id != actor);
         Ok(true)
     }
@@ -3526,6 +3559,7 @@ impl Engine {
         self.actors.disable(id)?;
         self.movers.remove(&(id as i32));
         self.reel_owners.remove(&(id as i32));
+        self.reel_escape.remove(&(id as i32));
         self.films.retain(|film| film.object.id != id as i32);
         Ok(())
     }
@@ -3718,6 +3752,10 @@ impl Engine {
         let mut active = Vec::new();
         for mut a in std::mem::take(&mut self.films) {
             if !self.owns_reel(&a) {
+                continue;
+            }
+            if self.reel_escaped(&a) {
+                self.release_reel(&a);
                 continue;
             }
             let state = a.tick(resources)?;
@@ -4074,6 +4112,7 @@ impl Engine {
                 )?;
                 self.scroll.follow_cursor = false;
                 self.reel_owners.remove(&actor);
+                self.reel_escape.remove(&actor);
                 self.films.retain(|a| a.object.id != actor);
             }
             return Ok(Status::Halted);
@@ -4157,6 +4196,7 @@ impl Engine {
                 wait.delay = 0;
                 self.scroll.follow_cursor = false;
                 self.reel_owners.remove(&wait.actor);
+                self.reel_escape.remove(&wait.actor);
                 self.films.retain(|a| a.object.id != wait.actor);
             }
             let mover = self
@@ -4245,7 +4285,7 @@ impl Engine {
             process.scroll_wait = None;
         }
         if let Some((call, animation)) = &mut process.play_wait {
-            let state = if self.owns_reel(animation) {
+            let state = if self.owns_reel(animation) && !self.reel_escaped(animation) {
                 let state = animation.tick(resources)?;
                 self.actor_steps
                     .insert(animation.object.id, animation.steps);
@@ -4880,6 +4920,7 @@ impl Engine {
                     let moving = mover.walk_target.is_some();
                     self.scroll.follow_cursor = false;
                     self.reel_owners.remove(&actor);
+                    self.reel_escape.remove(&actor);
                     self.films.retain(|a| a.object.id != actor);
                     if moving && a[4] != 2 {
                         process.walk_wait = Some((call, actor, serial, false));
@@ -4953,6 +4994,7 @@ impl Engine {
                         mover.adopt_tag_pose(resources, &self.declarations, film)?;
                     }
                     self.reel_owners.remove(&actor);
+                    self.reel_escape.remove(&actor);
                     self.films.retain(|a| a.object.id != actor);
                     if moving {
                         process.tag_walk_wait = Some((call, actor, serial, film));
@@ -5055,6 +5097,7 @@ impl Engine {
                     self.scroll.follow_cursor = false;
                     self.actors.get_mut(actor as u32)?.position = position;
                     self.reel_owners.remove(&actor);
+                    self.reel_escape.remove(&actor);
                     self.films.retain(|film| film.object.id != actor);
                     let restore_control = self.control.enabled
                         && self
@@ -5560,6 +5603,11 @@ impl Engine {
                     process.vm.complete_library(call, 1, None)?;
                 }
                 49 | 81 => {
+                    if self.escaped(&process.vm) {
+                        args(&process.vm, 6)?;
+                        process.vm.complete_library(call, 6, None)?;
+                        continue;
+                    }
                     if let Some(id) = process.actor {
                         if !self.actors.get(id)?.alive {
                             return Ok(Status::Halted);
@@ -5581,9 +5629,27 @@ impl Engine {
                     let blocking = a[5] == 1;
                     let mut primary = None;
                     for (column, mut reel) in reels.into_iter().enumerate() {
+                        let captured = process
+                            .vm
+                            .escape_generation
+                            .filter(|_| process.vm.escape_enabled);
+                        // V1 updates actor escape flags before its duplicate
+                        // reel and normal/talk arbitration checks.
+                        if self.actors.get(reel.object.id as u32)?.alive {
+                            self.capture_reel_escape(reel.object.id, captured);
+                        }
+
                         if self.playback.start(reel.object.id, film)
                             && self.claim_reel(&mut reel)?
                         {
+                            if let Some(captured) = process
+                                .vm
+                                .escape_generation
+                                .filter(|_| process.vm.escape_enabled)
+                            {
+                                self.reel_escape
+                                    .insert(reel.object.id, (reel.playback, captured));
+                            }
                             if blocking && column == 0 {
                                 primary = Some(reel);
                             } else {
@@ -8418,6 +8484,136 @@ mod tests {
                             i32::from(!stop && target_x != 50),
                             "SetActorDest returns zero when no walk was needed"
                         );
+                    }
+                }
+            }
+        }
+    }
+
+    #[test]
+    fn escaped_films_release_primary_and_secondary_reels_with_saved_ownership() {
+        for opcode in [49, 81] {
+            for blocking in [0, 1] {
+                // 0: unescapable, 1: escape during playback, 2: already escaped,
+                // 3: duplicate request disables escape without restarting.
+                // 4: replacement playback survives the old owner's escape.
+                for mode in 0..5 {
+                    let (master, mut scene) = fixtures();
+                    let base = 2u32 << 23;
+                    let handle = if mode == 2 { u32::MAX } else { base };
+                    let mut code = vec![1];
+                    code.extend_from_slice(&handle.to_le_bytes());
+                    code.extend([
+                        4, 4, 2, 2, 0x41, blocking, 0x4e, opcode, 0x41, 77, 0x4c, 0, 0,
+                    ]);
+                    scene[8..8 + code.len()].copy_from_slice(&code);
+                    let mut film = vec![0; 112];
+                    for (at, value) in [
+                        (0, 24u32),
+                        (4, 2),
+                        (8, base + 32),
+                        (12, base + 80),
+                        (16, base + 56),
+                        (20, base + 80),
+                        (40, 1),
+                        (64, 2),
+                        (80, 10),
+                        (84, 1),
+                        (88, (-2i32) as u32),
+                    ] {
+                        film[at..at + 4].copy_from_slice(&value.to_le_bytes());
+                    }
+                    let resources = Resources(vec![&master, &scene, &film]);
+                    let mut engine = Engine::bootstrap(&resources).unwrap();
+                    engine.actors = crate::actor::Actors::new(2).unwrap();
+                    engine.escape_events = Some(1);
+                    if mode != 0 {
+                        for vm in engine.escape_contexts_mut() {
+                            vm.escape_enabled = true;
+                            vm.escape_generation = Some(1);
+                        }
+                    }
+                    if mode == 2 {
+                        engine.script_escape_event().unwrap();
+                    }
+                    engine.tick(&resources).unwrap();
+                    if mode == 2 {
+                        assert!(engine.reel_owners.is_empty());
+                        assert_eq!(engine.globals[0], 77);
+                        continue;
+                    }
+                    assert_eq!(engine.reel_owners.len(), 2);
+                    assert_eq!(engine.reel_escape.len(), if mode == 0 { 0 } else { 2 });
+                    if mode == 3 {
+                        let owners = engine.reel_owners.clone();
+                        let mut duplicate = ScriptProcess::new(Handle((1 << 23) | 8));
+                        engine
+                            .run_process(&resources, None, None, None, &mut duplicate)
+                            .unwrap();
+                        assert_eq!(engine.reel_owners, owners);
+                        assert!(engine.reel_escape.is_empty());
+                    }
+                    if mode == 4 {
+                        let mut replacement = engine
+                            .films
+                            .iter()
+                            .find(|a| a.object.id == 2)
+                            .unwrap()
+                            .clone();
+                        replacement.reel = Some(Handle(base + 100));
+                        assert!(engine.claim_reel(&mut replacement).unwrap());
+                        engine.films.push(replacement);
+                    }
+                    let bytes = crate::save::Snapshot::capture(&engine, [7; 32])
+                        .to_bytes()
+                        .unwrap();
+                    if mode == 1 {
+                        assert_eq!(u32::from_le_bytes(bytes[8..12].try_into().unwrap()), 15);
+                    }
+                    if mode == 1 {
+                        use sha2::{Digest, Sha256};
+                        type ReelCaptures = Vec<(i32, (u64, u64))>;
+                        let (inner, captures): (Vec<u8>, ReelCaptures) =
+                            postcard::from_bytes(&bytes[80..]).unwrap();
+                        let wrap = |inner: Vec<u8>, captures: Vec<(i32, (u64, u64))>| {
+                            let payload = postcard::to_allocvec(&(inner, captures)).unwrap();
+                            let mut bad = bytes[..80].to_vec();
+                            bad[44..48].copy_from_slice(&(payload.len() as u32).to_le_bytes());
+                            bad[48..80].copy_from_slice(&Sha256::digest(&payload));
+                            bad.extend(payload);
+                            bad
+                        };
+                        for bad in [
+                            wrap(inner.clone(), vec![]),
+                            wrap(inner.clone(), vec![captures[0], captures[0]]),
+                            wrap(inner.clone(), vec![(99, captures[0].1)]),
+                            wrap(inner.clone(), vec![(1, (u64::MAX, 1))]),
+                            wrap(inner.clone(), vec![(1, (captures[0].1.0, 2))]),
+                            wrap(bytes.clone(), captures.clone()),
+                        ] {
+                            assert!(crate::save::Snapshot::from_bytes(&bad, [7; 32]).is_err());
+                        }
+                    }
+                    let decoded = crate::save::Snapshot::from_bytes(&bytes, [7; 32]).unwrap();
+                    assert_eq!(decoded.to_bytes().unwrap(), bytes);
+                    let mut restored = decoded.state().clone();
+                    engine.script_escape_event().unwrap();
+                    restored.script_escape_event().unwrap();
+                    engine.tick(&resources).unwrap();
+                    restored.tick(&resources).unwrap();
+                    assert_eq!(engine, restored);
+                    if mode == 1 {
+                        assert!(engine.reel_owners.is_empty());
+                        assert!(engine.reel_escape.is_empty());
+                        assert!(engine.films.is_empty());
+                        assert!(engine.processes.states().all(|p| p.play_wait.is_none()));
+                        assert_eq!(engine.globals[0], 77);
+                    } else if mode == 4 {
+                        assert_eq!(engine.reel_owners.len(), 1);
+                        assert!(engine.reel_owners.contains_key(&2));
+                        assert!(engine.reel_escape.is_empty());
+                    } else {
+                        assert_eq!(engine.reel_owners.len(), 2);
                     }
                 }
             }

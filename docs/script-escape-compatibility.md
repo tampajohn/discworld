@@ -2,10 +2,10 @@
 
 Reference revision: 96b42d42bc8533953bdd701db059cc33c839a9ff.
 Current implementation is incomplete: the engine captures global/per-context
-escape generations and handles WAITTIME plus scripted-walking cancellation,
-with DWRSAVE v14 state.
+escape generations and handles WAITTIME, scripted walking and PLAY/TOPPLAY
+cancellation, with DWRSAVE v15 state.
 Native/browser Escape still handles configuration/inventory UI; the shared
-script event API is not connected to hosts. Film/speech cancellation
+script event API is not connected to hosts. Speech cancellation
 and the special intro skip path remain pending.
 
 ## Observed reference contract
@@ -156,3 +156,25 @@ Walking cancellation validation: workspace tests, Clippy, WASM checking and
 all 18 original-asset tests pass (`assets/logs/escape-walk-*`). The original
 assets run without host escape input; explicit cancellation is covered by the
 synthetic script cases above. The running fb49b7e route predates this change.
+
+## V1 film cancellation
+
+PLAY/TOPPLAY skip already-escaped calls before reading film resources. Live
+primary and secondary reels capture the calling context's escape generation
+alongside their playback identity. Escape releases only the matching owner;
+a replacement reel survives. V1 removes escaped reels without the V2
+last-frame fast-forward. Duplicate requests update escape flags before
+arbitration without restarting the reel, matching the reference ordering.
+
+DWRSAVE v15 preserves live reel captures. Tests cover both calls, blocking
+and asynchronous playback, entry and suspended escape, duplicate requests
+that disable escape, replacement ownership and exact restored continuation.
+Malformed capture lists, unknown owners, future generations and nested v15
+envelopes are rejected. Saved-scene reconstruction starts restored reels
+without escape authority, matching RestoreReel; full snapshots retain it.
+
+Validation: workspace tests (305 core tests), all 18 original-asset web tests,
+Clippy and WASM checking; logs use `assets/logs/escape-film-*`. These focused
+checks do not establish complete host cutscene skipping. The recorded route
+on the earlier escape-counter revision is documented separately in
+[its validation report](validation/escape-counter-fb49b7e.json).

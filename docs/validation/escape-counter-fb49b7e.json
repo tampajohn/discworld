@@ -1,0 +1,25 @@
+{
+  "runtime_revision": "fb49b7e93fc4fa14c9baf976ff3a83e559086d3e",
+  "route": "evidence/act4-ending-input.json",
+  "route_sha256": "30c227553695638a78495f4cf56731f841e89188c8faa75821e50c164ddf4ddb",
+  "schema": 1,
+  "local_artifacts": "assets/validation/escape-counter-fb49b7e",
+  "native": {
+    "ticks": 2630000,
+    "status": "Running",
+    "scene_name": "title.scn",
+    "has_restarted": true,
+    "snapshot_checks": 5048,
+    "audio_snapshot_checks": 5048,
+    "snapshot_max_bytes": 47725,
+    "audio_snapshot_max_bytes": 317221,
+    "accepted_inputs": 1652,
+    "core_sha256": "62570b31e8aca0793e461792be622810dbcb8c3d980db53513cb2f474d374d64",
+    "report_sha256": "208cab8698d21e79116b5b4490c8a9d4e9433de2aa7d985be399afd2634e1ec7"
+  },
+  "scope": [
+    "Recorded native full route with engine and DSP save/load audits.",
+    "Includes escape counter and WAITTIME changes, but no escape input; predates walking and film cancellation.",
+    "Does not establish browser, manual UI or physical iPad acceptance."
+  ]
+}

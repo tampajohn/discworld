@@ -19,6 +19,7 @@ const TALK_PHASE_VERSION: u32 = 11;
 const SPEECH_CHANNEL_VERSION: u32 = 12;
 const MOVER_REEL_VERSION: u32 = 13;
 const ESCAPE_VERSION: u32 = 14;
+const REEL_ESCAPE_VERSION: u32 = 15;
 const HEADER: usize = 80;
 pub const MAX_SAVE_BYTES: usize = 16 * 1024 * 1024;
 
@@ -137,6 +138,25 @@ impl Snapshot {
 
     pub fn to_bytes(&self) -> Result<Vec<u8>, Error> {
         self.state.validate_snapshot_structure()?;
+        if !self.state.reel_escape.is_empty() {
+            let mut legacy = self.clone();
+            let captures: Vec<_> = std::mem::take(&mut legacy.state.reel_escape)
+                .into_iter()
+                .collect();
+            let payload = postcard::to_allocvec(&(legacy.to_bytes()?, captures))
+                .map_err(|_| Error("snapshot reel escape encode failed"))?;
+            if payload.len() > MAX_SAVE_BYTES - HEADER {
+                return Err(Error("save size limit"));
+            }
+            let mut bytes = Vec::with_capacity(HEADER + payload.len());
+            bytes.extend_from_slice(MAGIC);
+            bytes.extend_from_slice(&REEL_ESCAPE_VERSION.to_le_bytes());
+            bytes.extend_from_slice(&self.asset_id);
+            bytes.extend_from_slice(&(payload.len() as u32).to_le_bytes());
+            bytes.extend_from_slice(&Sha256::digest(&payload));
+            bytes.extend_from_slice(&payload);
+            return Ok(bytes);
+        }
         if let Some((event, captures)) = self.state.escape_checkpoint() {
             let mut legacy = self.clone();
             legacy.state.clear_escape_checkpoint();
@@ -327,6 +347,7 @@ impl Snapshot {
             SPEECH_CHANNEL_VERSION,
             MOVER_REEL_VERSION,
             ESCAPE_VERSION,
+            REEL_ESCAPE_VERSION,
         ]
         .contains(&word(8))
         {
@@ -341,6 +362,29 @@ impl Snapshot {
         }
         if Sha256::digest(payload)[..] != bytes[48..80] {
             return Err(Error("save checksum mismatch"));
+        }
+        if word(8) == REEL_ESCAPE_VERSION {
+            let ((legacy, captures), remaining) =
+                postcard::take_from_bytes::<(Vec<u8>, Vec<(i32, (u64, u64))>)>(payload)
+                    .map_err(|_| Error("invalid snapshot reel escape payload"))?;
+            if !remaining.is_empty()
+                || captures.is_empty()
+                || legacy.len() < HEADER
+                || u32::from_le_bytes(legacy[8..12].try_into().unwrap()) > ESCAPE_VERSION
+            {
+                return Err(Error("invalid snapshot reel escape extension"));
+            }
+            let mut snapshot = Self::from_bytes(&legacy, asset_id)?;
+            let mut previous = None;
+            for (actor, capture) in captures {
+                if previous.is_some_and(|id| actor <= id) {
+                    return Err(Error("unordered reel escape actors"));
+                }
+                snapshot.state.reel_escape.insert(actor, capture);
+                previous = Some(actor);
+            }
+            snapshot.state.validate_snapshot_structure()?;
+            return Ok(snapshot);
         }
         if word(8) == ESCAPE_VERSION {
             let ((legacy, event, captures), remaining) =
