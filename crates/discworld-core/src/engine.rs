@@ -1215,6 +1215,7 @@ impl Engine {
             declarations: &next.declarations,
             saves,
         })?;
+        next.subtitles = menu.settings().subtitles;
         next.finish_configuration_transition(was_active, dispatch.outcome.changed);
         *self = next;
         Ok(dispatch)
@@ -3527,7 +3528,16 @@ impl Engine {
         self.processes.begin()?;
         let mut blocked = None;
         while let Some(id) = self.processes.ready()? {
-            match self.clicks.prepare(&mut self.processes, id)? {
+            let double_click_ticks = self
+                .configuration
+                .as_ref()
+                .map_or(crate::mouse::DEFAULT_DOUBLE_CLICK_TICKS, |menu| {
+                    u32::from(menu.settings().double_click)
+                });
+            match self
+                .clicks
+                .prepare(&mut self.processes, id, double_click_ticks)?
+            {
                 crate::click::Dispatch::Sleep(delay) => {
                     self.processes.finish(Some(delay))?;
                     continue;
@@ -6949,6 +6959,37 @@ mod tests {
         let legacy = crate::save::Snapshot::capture(&engine, [9; 32])
             .to_bytes()
             .unwrap();
+        for speed in [0, 3, 30] {
+            let mut configured = engine.clone();
+            let mut settings = crate::menu_controller::Settings {
+                volumes: [255; 3],
+                double_click: speed,
+                swap_buttons: false,
+                text_speed: 0,
+                subtitles: true,
+                flipped: false,
+            };
+            configured.configuration =
+                Some(crate::menu_controller::Controller::new(settings.clone()).unwrap());
+            assert!(
+                configured
+                    .world_click(&resources, [10, 10], PolygonInteraction::WalkTo)
+                    .unwrap()
+            );
+            configured.tick(&resources).unwrap();
+            assert_eq!(configured.globals, [0]);
+            // A sleep already entered uses the value captured on acquisition.
+            settings.double_click = 30 - speed;
+            configured.configuration =
+                Some(crate::menu_controller::Controller::new(settings).unwrap());
+            for _ in 0..speed {
+                configured.tick(&resources).unwrap();
+                assert_eq!(configured.globals, [0]);
+            }
+            configured.tick(&resources).unwrap();
+            assert_eq!(configured.globals, [1]);
+            assert_eq!(configured.clicks, crate::click::State::default());
+        }
         assert_eq!(u32::from_le_bytes(legacy[8..12].try_into().unwrap()), 1);
         assert!(
             engine

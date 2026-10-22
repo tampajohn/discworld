@@ -1080,6 +1080,43 @@ fn engine_menu_opening_preserves_gates_warps_and_atomicity() {
         }
     }
     assert_eq!(requests, vec![Request::Save]);
+    let mut subtitle_probe = engine.clone();
+    subtitle_probe.control.enabled = true;
+    subtitle_probe
+        .open_configuration(&resources, &strings, &catalog, Key::Main)
+        .unwrap();
+    subtitle_probe
+        .configuration_click([90, 119], Gesture::WalkTo)
+        .unwrap();
+    subtitle_probe
+        .advance_configuration(&resources, &strings, &catalog)
+        .unwrap();
+    assert_eq!(
+        subtitle_probe.configuration.as_ref().unwrap().page(),
+        Some(Page::Subtitles)
+    );
+    let before_subtitles = subtitle_probe.subtitles;
+    subtitle_probe
+        .move_cursor_with_configuration([163, 77])
+        .unwrap();
+    subtitle_probe
+        .configuration_click([163, 77], Gesture::WalkTo)
+        .unwrap();
+    for _ in 0..6 {
+        subtitle_probe
+            .advance_configuration(&resources, &strings, &catalog)
+            .unwrap();
+        assert_eq!(
+            subtitle_probe.subtitles,
+            subtitle_probe
+                .configuration
+                .as_ref()
+                .unwrap()
+                .settings()
+                .subtitles
+        );
+    }
+    assert_ne!(subtitle_probe.subtitles, before_subtitles);
     engine.close_inventory();
     engine.control.enabled = true;
     engine

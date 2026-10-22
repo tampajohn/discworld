@@ -1,6 +1,7 @@
 //! Scheduler-owned V1 AllowDclick token. Hosts must not approximate this with
 //! a wall-clock timer: acquiring the token kills the previous script process.
-//! Integration with engine input dispatch and snapshot migration is pending.
+//! The engine supplies the current setting when a process acquires the token;
+//! an entered scheduler sleep retains that duration across setting changes.
 use crate::{
     iso::Error,
     scheduler::{ProcessId, Scheduler},
@@ -109,15 +110,14 @@ impl State {
         &mut self,
         queue: &mut Scheduler<T>,
         id: ProcessId,
+        double_click_ticks: u32,
     ) -> Result<Dispatch, Error> {
         let Some(index) = self.pending.iter().position(|(p, _)| *p == id) else {
             return Ok(Dispatch::Ready);
         };
         match self.pending[index].1 {
             Phase::Drop(position) => {
-                let sleep = self
-                    .token
-                    .single(queue, crate::mouse::DEFAULT_DOUBLE_CLICK_TICKS)?;
+                let sleep = self.token.single(queue, double_click_ticks)?;
                 self.pending[index].1 = Phase::DropWaiting(position);
                 self.cleanup(queue);
                 Ok(Dispatch::Sleep(sleep))
@@ -128,9 +128,7 @@ impl State {
                 Ok(Dispatch::Drop(position))
             }
             Phase::Single => {
-                let sleep = self
-                    .token
-                    .single(queue, crate::mouse::DEFAULT_DOUBLE_CLICK_TICKS)?;
+                let sleep = self.token.single(queue, double_click_ticks)?;
                 self.pending[index].1 = Phase::Waiting;
                 self.cleanup(queue);
                 Ok(Dispatch::Sleep(sleep))

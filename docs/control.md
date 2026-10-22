@@ -1376,3 +1376,17 @@ control gate before confirmation to isolate it from concurrent intro scripts;
 this is not a claim of a complete live SDL restart interaction.
 Evidence: assets/logs/menu-restart-{assets,workspace,clippy}.log. Full host menu
 activation, settings effects/persistence and device handoff remain unfinished.
+
+AllowDclick preparation now takes the controller's current double-click setting
+for scripted singles and ordinary inventory drops, instead of a fixed10 ticks.
+The token still sleeps setting+1 passes, including a one-pass wait at zero.
+Once entered, the scheduler retains that duration even if settings change.
+Without a controller the previous default is unchanged. The timed-world-click
+test exercises0/3/30 settings and changes each setting after acquisition to check
+that an existing wait is not rescheduled. Menu advancement also copies the
+current subtitle toggle into the engine's rendering/speech setting; the original
+asset test checks every toggle phase and final change. Evidence:
+assets/logs/menu-settings-runtime-{assets,workspace,clippy}.log.
+Text speed is still pending: TextTime adds a duration, but sampled speech also
+stops its talking reel before a slower subtitle expires. Applying only the
+duration would miss that lifecycle. Native menu activation remains unfinished.
