@@ -37,6 +37,83 @@ fn original_menu_controller_transitions_render_and_resolve_live_selection() {
         flipped: false,
     };
     let baseline = game.engine.render(&resources).unwrap();
+    // Rebuild logical widget checkpoints against the real font/window film,
+    // including unsnapped drag positions and a toggle redrawing during a drag.
+    for (kind, value, thumb, toggle) in [
+        (
+            discworld_core::settings_menu::Kind::Controls,
+            10,
+            [205, 53],
+            [176, 112],
+        ),
+        (
+            discworld_core::settings_menu::Kind::Subtitles,
+            50,
+            [218, 48],
+            [163, 77],
+        ),
+    ] {
+        use discworld_core::settings_menu::SettingsMenu;
+        let mut widget = SettingsMenu::new(
+            &resources,
+            &strings,
+            assets.declarations,
+            kind,
+            value,
+            false,
+            false,
+        )
+        .unwrap();
+        let restore = |original: &SettingsMenu| {
+            let state = original.state();
+            state.validate().unwrap();
+            let restored =
+                SettingsMenu::from_state(&resources, &strings, assets.declarations, state).unwrap();
+            assert_eq!(*original, restored);
+            let mut before = baseline.clone();
+            let mut after = baseline.clone();
+            original.draw(&resources, &mut before).unwrap();
+            restored.draw(&resources, &mut after).unwrap();
+            assert_eq!(before.rgba, after.rgba);
+            restored
+        };
+        assert!(widget.begin_drag(&resources, thumb).unwrap());
+        for delta in [1, 100, -60, -1] {
+            let mut copy = restore(&widget);
+            assert_eq!(copy.drag(delta).unwrap(), widget.drag(delta).unwrap());
+            assert_eq!(copy, widget);
+            widget = restore(&widget);
+        }
+        widget.point_at(Some(toggle));
+        assert!(widget.click(toggle, false));
+        for _ in 0..5 {
+            let mut copy = restore(&widget);
+            assert_eq!(copy.step_toggle(true, true), widget.step_toggle(true, true));
+            assert_eq!(copy, widget);
+        }
+        widget = restore(&widget);
+        widget.end_drag().unwrap();
+        restore(&widget);
+    }
+    {
+        use discworld_core::configuration_menu::SoundMenu;
+        let mut widget =
+            SoundMenu::new(&resources, &strings, assets.declarations, [255, 128, 0]).unwrap();
+        assert!(widget.begin_drag(&resources, [218, 93]).unwrap());
+        for delta in [0, 1, 100, -60, -1] {
+            let mut restored =
+                SoundMenu::from_state(&resources, &strings, assets.declarations, widget.state())
+                    .unwrap();
+            assert_eq!(restored, widget);
+            assert_eq!(restored.drag(delta).unwrap(), widget.drag(delta).unwrap());
+            assert_eq!(restored, widget);
+            let mut before = baseline.clone();
+            let mut after = baseline.clone();
+            widget.draw(&resources, &mut before).unwrap();
+            restored.draw(&resources, &mut after).unwrap();
+            assert_eq!(before.rgba, after.rgba);
+        }
+    }
     for (row, page) in [
         Some(Page::Load),
         Some(Page::Save),

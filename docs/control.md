@@ -1138,3 +1138,18 @@ the three supported ranges, every toggle phase and malformed serialized state.
 Evidence: assets/logs/menu-primitives-snapshot-{tests,workspace,clippy}.log.
 These component schemas are not yet a complete controller checkpoint and do not
 change DWRSAVE; resource-bound menu reconstruction and engine integration remain.
+
+SettingsMenu::State and SoundState now provide logical checkpoint recipes and
+from_state rebuilds the original fonts, window film and drawable objects from
+Resources/Strings/Declarations. Serialized recipes contain values, drag history,
+toggle phase and highlight ownership, never serialized graphics. Settings keeps
+its displayed thumb position separately: a toggle can rebuild the quantized
+thumb while a drag still retains its unsnapped/raw position. Validation checks
+that distinction, correct slider maximum/value association, overlay image and
+hover consistency, and valid sound channel indices. Malformed recipe unit tests
+and the original-ISO integration test cover reconstruction while dragging,
+overshoot, each toggle stage including a toggle during a drag, and exact view
+state/pixels plus matching subsequent drag/toggle outcomes. Evidence:
+assets/logs/menu-widget-rebuild-{assets,workspace,clippy}.log. Complete controller
+checkpoint encoding and DWRSAVE integration remain the next persistence layer;
+this increment changes neither the live host nor existing game saves.

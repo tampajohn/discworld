@@ -217,7 +217,75 @@ pub struct SoundMenu {
     values: [u16; 3],
     drag: Option<(usize, crate::menu_slider::Drag)>,
 }
+#[derive(serde::Serialize, serde::Deserialize, Debug, Clone, PartialEq, Eq)]
+pub struct SoundState {
+    values: [u16; 3],
+    drag: Option<(usize, crate::menu_slider::Drag)>,
+}
+impl SoundState {
+    pub fn validate(&self) -> Result<(), Error> {
+        if self.values.iter().any(|value| *value > 255) {
+            return Err(Error("invalid sound menu values"));
+        }
+        if let Some((channel, drag)) = &self.drag {
+            drag.validate_snapshot()?;
+            if self.values.get(*channel) != Some(&drag.value()) || drag.maximum() != 255 {
+                return Err(Error("invalid sound menu drag"));
+            }
+        }
+        Ok(())
+    }
+}
+#[cfg(test)]
+mod sound_checkpoint_tests {
+    use super::*;
+    #[test]
+    fn sound_recipe_roundtrips_and_rejects_invalid_channel_or_value() {
+        let state = SoundState {
+            values: [255, 128, 0],
+            drag: Some((1, crate::menu_slider::Drag::new(128, 255).unwrap())),
+        };
+        state.validate().unwrap();
+        let bytes = postcard::to_allocvec(&state).unwrap();
+        let decoded: SoundState = postcard::from_bytes(&bytes).unwrap();
+        decoded.validate().unwrap();
+        assert_eq!(decoded, state);
+        for case in 0..4 {
+            let mut invalid = state.clone();
+            match case {
+                0 => invalid.values[0] = 256,
+                1 => invalid.drag.as_mut().unwrap().0 = usize::MAX,
+                2 => invalid.values[1] = 127,
+                _ => {
+                    invalid.values[1] = 10;
+                    invalid.drag = Some((1, crate::menu_slider::Drag::new(10, 30).unwrap()));
+                }
+            }
+            assert!(invalid.validate().is_err());
+        }
+    }
+}
 impl SoundMenu {
+    pub fn state(&self) -> SoundState {
+        SoundState {
+            values: self.values,
+            drag: self.drag.clone(),
+        }
+    }
+    pub fn from_state(
+        resources: &Resources<'_>,
+        strings: &Strings<'_>,
+        declarations: &Declarations,
+        state: SoundState,
+    ) -> Result<Self, Error> {
+        state.validate()?;
+        let mut menu = Self::new(resources, strings, declarations, state.values)?;
+        if let Some((channel, drag)) = &state.drag {
+            menu.thumbs[*channel].object.x = 170 + drag.position();
+        }
+        menu.drag = state.drag;
+        Ok(menu)
+    }
     pub fn new(
         resources: &Resources<'_>,
         strings: &Strings<'_>,

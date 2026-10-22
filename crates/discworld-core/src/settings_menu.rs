@@ -14,10 +14,98 @@ use crate::{
     text::{Font, Layout, Strings},
 };
 
-#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+#[derive(serde::Serialize, serde::Deserialize, Debug, Clone, Copy, PartialEq, Eq)]
 pub enum Kind {
     Controls,
     Subtitles,
+}
+
+/// Logical checkpoint only; fonts, reels and drawable objects are rebuilt from
+/// the caller's original resources instead of trusting serialized graphics.
+#[derive(serde::Serialize, serde::Deserialize, Debug, Clone, PartialEq, Eq)]
+pub struct State {
+    kind: Kind,
+    value: u16,
+    enabled: bool,
+    flipped: bool,
+    drag: Option<menu_slider::Drag>,
+    toggle: Toggle,
+    highlight: crate::menu_highlight::State,
+    overlay: Option<usize>,
+    thumb_offset: i32,
+}
+#[cfg(test)]
+mod checkpoint_tests {
+    use super::*;
+    #[test]
+    fn settings_recipe_roundtrips_and_rejects_inconsistent_fields() {
+        let state = State {
+            kind: Kind::Controls,
+            value: 10,
+            enabled: false,
+            flipped: true,
+            drag: Some(menu_slider::Drag::new(10, 30).unwrap()),
+            toggle: Toggle::default(),
+            highlight: crate::menu_highlight::State::default(),
+            overlay: None,
+            thumb_offset: 27,
+        };
+        state.validate().unwrap();
+        let bytes = postcard::to_allocvec(&state).unwrap();
+        let decoded: State = postcard::from_bytes(&bytes).unwrap();
+        decoded.validate().unwrap();
+        assert_eq!(decoded, state);
+        for case in 0..6 {
+            let mut invalid = state.clone();
+            match case {
+                0 => invalid.value = 31,
+                1 => invalid.drag = Some(menu_slider::Drag::new(10, 100).unwrap()),
+                2 => invalid.drag = Some(menu_slider::Drag::new(9, 30).unwrap()),
+                3 => invalid.thumb_offset = i32::MAX,
+                4 => invalid.overlay = Some(255),
+                _ => {
+                    invalid.highlight.point_at(Some((1, true)));
+                    invalid.overlay = Some(2);
+                }
+            }
+            let bytes = postcard::to_allocvec(&invalid).unwrap();
+            let decoded: State = postcard::from_bytes(&bytes).unwrap();
+            assert!(decoded.validate().is_err(), "case {case}");
+        }
+    }
+}
+impl State {
+    pub fn validate(&self) -> Result<(), Error> {
+        let maximum = if self.kind == Kind::Controls { 30 } else { 100 };
+        let canonical = menu_slider::offset(self.value, maximum)?;
+        self.toggle.validate_snapshot()?;
+        self.highlight.validate_snapshot()?;
+        if let Some(drag) = &self.drag {
+            drag.validate_snapshot()?;
+            if drag.maximum() != maximum || drag.value() != self.value {
+                return Err(Error("settings drag differs from setting"));
+            }
+        }
+        if self.thumb_offset != canonical
+            && self
+                .drag
+                .as_ref()
+                .is_none_or(|drag| drag.position() != self.thumb_offset)
+        {
+            return Err(Error("invalid settings thumb position"));
+        }
+        if self.overlay.is_some() != self.highlight.exists()
+            || self.overlay.is_some_and(|image| !matches!(image, 1 | 2))
+        {
+            return Err(Error("invalid settings overlay"));
+        }
+        if let Some(crate::menu_highlight::Owner::Hover(id)) = self.highlight.owner() {
+            if id != if self.kind == Kind::Controls { 2 } else { 1 } || self.overlay != Some(2) {
+                return Err(Error("invalid settings hover"));
+            }
+        }
+        Ok(())
+    }
 }
 
 #[derive(Debug, Clone, PartialEq, Eq)]
@@ -38,6 +126,42 @@ pub struct SettingsMenu {
     overlay: Option<usize>, // state offset, uses current enabled value
 }
 impl SettingsMenu {
+    pub fn state(&self) -> State {
+        State {
+            kind: self.kind,
+            value: self.value,
+            enabled: self.enabled,
+            flipped: self.flipped,
+            drag: self.drag.clone(),
+            toggle: self.toggle.clone(),
+            highlight: self.highlight.clone(),
+            overlay: self.overlay,
+            thumb_offset: self.thumb.object.x - 170,
+        }
+    }
+    pub fn from_state(
+        resources: &Resources<'_>,
+        strings: &Strings<'_>,
+        declarations: &Declarations,
+        state: State,
+    ) -> Result<Self, Error> {
+        state.validate()?;
+        let mut menu = Self::new(
+            resources,
+            strings,
+            declarations,
+            state.kind,
+            state.value,
+            state.enabled,
+            state.flipped,
+        )?;
+        menu.drag = state.drag;
+        menu.toggle = state.toggle;
+        menu.highlight = state.highlight;
+        menu.overlay = state.overlay;
+        menu.thumb.object.x = 170 + state.thumb_offset;
+        Ok(menu)
+    }
     pub fn new(
         resources: &Resources<'_>,
         strings: &Strings<'_>,

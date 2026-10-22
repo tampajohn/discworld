@@ -44,6 +44,9 @@ impl Drag {
     pub fn value(&self) -> u16 {
         self.value
     }
+    pub(crate) fn maximum(&self) -> u16 {
+        self.maximum
+    }
 
     /// The raw coordinate retains overshoot; reversing a clamped drag must
     /// traverse it before the thumb moves back. No movement preserves the
