@@ -624,3 +624,36 @@ The preceding WALKPOLY runtime completed the recorded native route through
 2,630,000 ticks, title restart, and 5,048 engine plus 5,048 audio continuation
 checks. See [route evidence](validation/walkpoly-b692a3b.json). That run predates
 HIDEACTOR integration and does not exercise additional WALKPOLY inputs.
+
+
+## SPLAY and movement under PLAY: remaining compatibility gap
+
+Source audit at adda50c/fdbdae2 identifies work still required; SPLAY is not
+implemented by this audit. DW1 operand 71 consumes seven arguments: slow factor,
+film, x, y, two unused values, and completion mode. WALKIN/WALKOUT force calling
+actor zero; other events pass the calling actor. SPlay checks stale Escape
+before calling Play, unlike direct PLAY's null-film check before Escape.
+
+T1MoverProcess continues normal DoMoveActor while a PLAY reel hides its mover.
+Only a hidden special mover reel freezes. The current Rust engine skips all
+movers with reel owners, so ordinary walking under PLAY is still suspended.
+Removing that skip alone is insufficient: mover updates must not overwrite
+the actor position stored by the active film, and walking-reel selection may
+clear actor reel ownership and reveal the mover. These transitions need tests
+against the reference, including route turns, scale changes, and arrival.
+
+MoveActor applies a global hidden-movement counter before stepping, comparing
+it with the mover's SlowFactor. However the pinned PlayFilm/PlayFilmc APIs
+take sfact as bool even though Play and SPlay accept int, so this path passes
+only 0 or 1 into the reel parameters. Do not invent an arbitrary slowdown
+from the script integer without resolving this conversion against the intended
+reference or original executable. HIDEACTOR passes zero directly.
+
+On t1PlayReel exit, only an unreplaced reel unhides its mover; SPLAY then calls
+Actor::restoreMovement even when replaced. That uses stored actor coordinates,
+not merely the local final animation position. It updates mover coordinates
+and invokes SSetActorDest, which calls STAND and conditionally restarts the
+remaining ultimate target using the old ignore-path setting. Full implementation
+needs ownership-aware continuation, saved SPLAY state, coordinate restoration,
+walk-token implications, and tests for replacement, Escape, completion and
+blocking/nonblocking primary/secondary reels.

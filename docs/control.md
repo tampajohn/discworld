@@ -1549,3 +1549,29 @@ Validation: 323 core tests and the workspace suite pass, all 20 original-asset
 web tests pass, Clippy and WASM checks pass, and native/browser release builds
 succeed. Local logs use assets/logs/pause-*. No visible-session or physical
 iPad acceptance is claimed for this change.
+
+
+## V1 diagnostic calls and FADEMIDI
+
+Pinned tinlib.cpp maps SHOWPOS (69), SHOWSTRING (70), VIBRATE (84), and
+FADEMIDI (106) in DW1_CODES. In a release reference build SHOWPOS/SHOWSTRING
+consume zero arguments without effects; their diagnostics are DEBUG-only.
+Vibrate is an empty function. Both runtime dispatchers now complete these
+zero-argument calls without fabricating visual or haptic behavior.
+
+FadeMidi validates FM_IN=0 or FM_OUT=1 (pcode.h), sleeps once, then consumes
+one argument. It does not modify music volume and does not check Escape.
+The runtime preserves this timing with its existing wait payload. Invalid
+directions return a checked error, matching the reference's asserted domain.
+Tests cover both directions and both dispatchers, lower-stack preservation,
+stale and newly delivered Escape, exact suspended save continuation, and
+atomic failure for invalid directions.
+
+ACTORREF (2), ESCAPE (30), and CUTSCENE (94) are explicitly fatal “not a real
+function” cases in the pinned dispatcher, not missing runnable behaviors.
+Escape instructions in the bytecode are separate and already implemented.
+
+Validation: workspace tests (324 core), all 20 original-asset web tests,
+Clippy, WASM checking, and native/browser release builds pass. Logs use
+assets/logs/fademidi-*. This does not establish new full-route, live-reference,
+or physical-device acceptance.

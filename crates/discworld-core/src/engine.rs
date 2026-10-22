@@ -2997,8 +2997,15 @@ impl Engine {
                 self.master_wait = Some((call, left - 1));
                 return Ok(None);
             }
-            self.master
-                .complete_library(call, if call.id == 48 { 0 } else { 2 }, None)?;
+            self.master.complete_library(
+                call,
+                match call.id {
+                    48 => 0,
+                    106 => 1,
+                    _ => 2,
+                },
+                None,
+            )?;
             self.master_wait = None;
         }
         let bytes = scene::script_bytes(resources, self.master_code)?;
@@ -3086,6 +3093,18 @@ impl Engine {
                 96 => {
                     let seconds = self.control.idle_seconds(self.ticks)?;
                     self.master.complete_library(call, 1, Some(seconds))?;
+                }
+                69 | 70 | 84 => {
+                    // Release V1 SHOWPOS/SHOWSTRING and VIBRATE have no effect.
+                    self.master.complete_library(call, 0, None)?;
+                }
+                106 => {
+                    if !matches!(args(&self.master, 1)?[0], 0 | 1) {
+                        return Err(Error("invalid MIDI fade direction"));
+                    }
+                    // Pinned V1 FadeMidi only sleeps once; it does not fade audio.
+                    self.master_wait = Some((call, 1));
+                    return Ok(None);
                 }
                 48 => {
                     if self.escaped(&self.master) {
@@ -4610,9 +4629,15 @@ impl Engine {
                 process.wait = Some((call, left - 1));
                 return Ok(Status::Running);
             }
-            process
-                .vm
-                .complete_library(call, if call.id == 48 { 0 } else { 2 }, None)?;
+            process.vm.complete_library(
+                call,
+                match call.id {
+                    48 => 0,
+                    106 => 1,
+                    _ => 2,
+                },
+                None,
+            )?;
             process.wait = None;
         }
         let bytes = scene::script_bytes(resources, process.code)?;
@@ -6000,6 +6025,17 @@ impl Engine {
                         self.release_reel(&primary);
                     }
                     process.vm.complete_library(call, 6, None)?;
+                }
+                69 | 70 | 84 => {
+                    // Release V1 SHOWPOS/SHOWSTRING and VIBRATE have no effect.
+                    process.vm.complete_library(call, 0, None)?;
+                }
+                106 => {
+                    if !matches!(args(&process.vm, 1)?[0], 0 | 1) {
+                        return Err(Error("invalid MIDI fade direction"));
+                    }
+                    process.wait = Some((call, 1));
+                    return Ok(Status::Running);
                 }
                 48 => {
                     if self.escaped(&process.vm) {
@@ -10357,6 +10393,63 @@ mod tests {
             [284, 285]
         );
     }
+    #[test]
+    fn v1_diagnostic_calls_and_fademidi_preserve_stack_and_wait_once() {
+        use crate::save::Snapshot;
+        for master_context in [false, true] {
+            for direction in [0u8, 1, 2, 255] {
+                let (master, mut scene) = fixtures();
+                let code = [
+                    0x41, 77, 0x4e, 69, 0x4e, 70, 0x4e, 84, 0x41, direction, 0x4e, 106, 0x4c, 0, 0,
+                ];
+                scene[8..8 + code.len()].copy_from_slice(&code);
+                let resources = Resources(vec![&master, &scene]);
+                let mut engine = Engine::bootstrap(&resources).unwrap();
+                engine.processes = Scheduler::default();
+                engine.master_stopped = !master_context;
+                engine.escape_events = Some(2);
+                let mut process = ScriptProcess::new(Handle((1 << 23) | 8));
+                process.vm.escape_enabled = true;
+                process.vm.escape_generation = Some(1); // FADEMIDI ignores stale Escape.
+                if master_context {
+                    engine.master = process.vm;
+                    engine.master_code = process.code;
+                } else {
+                    engine.processes.spawn(None, process).unwrap();
+                }
+                if direction > 1 {
+                    let before = engine.clone();
+                    assert_eq!(
+                        engine.tick(&resources),
+                        Err(Error("invalid MIDI fade direction"))
+                    );
+                    assert_eq!(engine, before);
+                    continue;
+                }
+                engine.tick(&resources).unwrap();
+                assert_eq!(engine.globals[0], 0);
+                let (pending, stack) = if master_context {
+                    (engine.master_wait, engine.master.operands())
+                } else {
+                    let process = engine.processes.states().next().unwrap();
+                    (process.wait, process.vm.operands())
+                };
+                assert_eq!(pending.map(|(call, left)| (call.id, left)), Some((106, 1)));
+                assert_eq!(stack, &[77, i32::from(direction)]);
+                let bytes = Snapshot::capture(&engine, [7; 32]).to_bytes().unwrap();
+                let decoded = Snapshot::from_bytes(&bytes, [7; 32]).unwrap();
+                assert_eq!(decoded.to_bytes().unwrap(), bytes);
+                let mut restored = decoded.state().clone();
+                engine.script_escape_event().unwrap();
+                restored.script_escape_event().unwrap();
+                engine.tick(&resources).unwrap();
+                restored.tick(&resources).unwrap();
+                assert_eq!(engine, restored);
+                assert_eq!(engine.globals[0], 77);
+            }
+        }
+    }
+
     #[test]
     fn pause_preserves_stack_waits_two_resumptions_and_restores_escape() {
         use crate::save::Snapshot;
