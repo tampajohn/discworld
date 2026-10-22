@@ -55,6 +55,12 @@ test('real WASM canvas, native save import/export, audio controls and device per
   await page.locator('summary').click();
   const original = await fs.readFile(save);
   expect(await exported(page)).toEqual(original);
+  await page.locator('#headroom').click();
+  await expect(page.locator('#headroom')).toHaveAttribute('aria-pressed', 'true');
+  expect(await exported(page)).toEqual(original);
+  await expect(page.locator('#game')).toHaveAttribute('data-tick', '33200');
+  await page.locator('#headroom').click();
+  await expect(page.locator('#headroom')).toHaveAttribute('aria-pressed', 'false');
   await page.locator('#save-local').click();
   await expect(page.locator('#status')).toHaveText('Saved on this device.');
   await page.locator('#mute').click();

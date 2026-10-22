@@ -42,11 +42,12 @@ fn run() -> Result<(), Box<dyn std::error::Error>> {
     let mut args = std::env::args_os().skip(1);
     let path = args
         .next()
-        .ok_or("usage: discworld-native ISO SOUNDFONT [--room | --replay TRACE [--from-tick N]] [--load SAVE] [--save-file SAVE] [--mute] [--paused] [--frames N]")?;
+        .ok_or("usage: discworld-native ISO SOUNDFONT [--room | --replay TRACE [--from-tick N]] [--load SAVE] [--save-file SAVE] [--mute] [--audio-headroom] [--paused] [--frames N]")?;
     let soundfont = args.next().ok_or("missing SoundFont")?;
     let mut from_tick = 0u64;
     let mut replay_path = None;
     let mut muted = false;
+    let mut audio_headroom = false;
     let mut start_paused = false;
     let mut room = false;
     let mut frame_limit = None;
@@ -72,6 +73,8 @@ fn run() -> Result<(), Box<dyn std::error::Error>> {
                 .parse()?;
         } else if arg == "--paused" {
             start_paused = true;
+        } else if arg == "--audio-headroom" {
+            audio_headroom = true;
         } else if arg == "--mute" {
             muted = true;
         } else if arg == "--room" {
@@ -196,7 +199,7 @@ fn run() -> Result<(), Box<dyn std::error::Error>> {
         }
         for (stereo, speech) in output.chunks_exact_mut(2).zip(&engine.audio_frame) {
             for sample in stereo {
-                *sample = (*sample + f32::from(*speech) / 32768.0).clamp(-1.0, 1.0);
+                *sample = discworld_audio::mix::sample(*sample, *speech, audio_headroom);
             }
         }
         Ok((status, output, dispatch))

@@ -74,6 +74,7 @@ async function handle({ id, type, ...data }) {
       }
       case 'menu': await refreshCatalog(); game.open_menu(data.page); result = snapshot(); break;
       case 'edit-menu': game.edit_menu(data.text || '', !!data.backspace); result = snapshot(); break;
+      case 'audio-headroom': game.set_audio_headroom(Boolean(data.enabled)); result = {}; break;
       case 'advance': result = { audio: game.advance(data.ticks), ...snapshot() }; break;
       case 'input':
         if (data.point) game.move_pointer_checked(...data.point);

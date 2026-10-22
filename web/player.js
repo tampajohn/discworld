@@ -137,6 +137,19 @@ $('mute').onclick = async () => {
     $('mute').textContent = muted ? 'Sound off' : 'Sound on'; $('mute').setAttribute('aria-pressed', String(muted));
   } catch (error) { status(error.message, true); }
 };
+let audioHeadroom = false;
+$('headroom').onclick = async () => {
+  if (!ready) return;
+  const button = $('headroom'); button.disabled = true;
+  try {
+    const enabled = !audioHeadroom;
+    await rpc('audio-headroom', { enabled });
+    audioHeadroom = enabled; clearAudio();
+    button.textContent = `Reduce distortion: ${enabled ? 'on' : 'off'}`;
+    button.setAttribute('aria-pressed', String(enabled));
+  } catch (error) { status(error.message, true); }
+  finally { button.disabled = false; }
+};
 async function input(command, point) {
   if (!ready || (paused && !command.endsWith('-up'))) return;
   // Release ownership while paused, without moving the cursor/window. Match

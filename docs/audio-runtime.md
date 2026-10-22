@@ -130,3 +130,28 @@ The native host uses the same sum-and-clamp formula. Lowering the downstream
 master gain cannot undo clipping already introduced here; any headroom or
 limiting option must act before the clamp. Source hiss and quantization are
 separate from this issue. No cleanup filter or gain change has been applied.
+
+
+## Optional reduction of mix distortion
+
+The browser's **Reduce distortion** button and native `--audio-headroom` flag
+apply a fixed 0.5 gain (approximately -6 dB) to the combined music/sample signal
+before saturation. The original mix remains the default. This preserves peaks
+up to twice full scale and lowers overall loudness; it is not a denoiser or a
+limiter for arbitrary signal levels. Native and browser use the same shared
+mixing function. Master mute remains downstream.
+
+The preference belongs to host presentation, is excluded from saves, and
+persists across loads in the running browser session. It resets when reopening
+the player. The original-asset regression replays the first 8,500 ticks with
+both settings, restoring each block and comparing complete engine/DSP saves.
+The original mix has 15,578 rail samples; the reduced mix has none, with peak
+0.8013381. Every unclipped original sample becomes exactly half its amplitude.
+Browser UI tests in Chrome/WebKit verify toggling while paused leaves imported
+save bytes and game ticks unchanged. No physical-device listening acceptance
+or identification of the user's specific Rincewind line is claimed.
+
+Validation passes: workspace tests, Clippy, WASM checking, all 18 original-asset
+web tests, Chrome/WebKit player UI cases, rebuilt native/browser hosts, and a
+10-frame native dummy-video smoke run with the new flag. Logs use
+`assets/logs/headroom-*`. The visible manual session has not been restarted.

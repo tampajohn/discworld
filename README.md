@@ -246,3 +246,9 @@ The behavioral reference is [ScummVM Tinsel at `96b42d42bc8533953bdd701db059cc33
 Runtime source is **GPL-3.0-or-later**; see [LICENSE](LICENSE) and [NOTICE](NOTICE) for ScummVM attribution and third-party details. This is **not a clean-room implementation**. Vendored RustySynth retains its MIT license and [local change record](vendor/rustysynth/LOCAL_CHANGES.md).
 
 Discworld game data, dialogue, artwork and audio remain proprietary and are not relicensed by this project. The documentary screenshots/GIF show original game artwork; the GPL source license does not grant rights to that artwork. Bring your own game files and SoundFont. ISO images, extracted assets, reference checkouts, generated audio and bulk local reports are excluded from version control.
+
+
+For quieter audio with less mixer distortion, use the browser's **Reduce
+distortion** button or add `--audio-headroom` to the native launch command.
+This reduces the mix before clipping; it does not remove hiss from the original
+recordings. The original mix remains the default.

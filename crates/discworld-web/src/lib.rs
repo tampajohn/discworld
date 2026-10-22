@@ -162,6 +162,7 @@ pub struct BrowserGame {
     font: Vec<u8>,
     engine: Engine,
     audio: MusicOutput,
+    audio_headroom: bool,
     fault: Option<String>,
     menu_entries: Vec<discworld_core::save_menu::Entry>,
     menu_requests: std::collections::VecDeque<discworld_core::menu_controller::Dispatch>,
@@ -183,10 +184,17 @@ impl BrowserGame {
             font: soundfont,
             engine,
             audio,
+            audio_headroom: false,
             fault: None,
             menu_entries: Vec::new(),
             menu_requests: std::collections::VecDeque::new(),
         })
+    }
+
+    /// Presentation preference: lower the sum before saturation, not after it.
+    /// Deliberately excluded from game saves and DSP checkpoints.
+    pub fn set_audio_headroom(&mut self, enabled: bool) {
+        self.audio_headroom = enabled;
     }
 
     /// Advance at most one second (24 ticks). Return interleaved stereo f32 at
@@ -230,7 +238,8 @@ impl BrowserGame {
                 }
                 for (stereo, speech) in audio.chunks_exact_mut(2).zip(&self.engine.audio_frame) {
                     for sample in stereo {
-                        *sample = (*sample + f32::from(*speech) / 32768.0).clamp(-1.0, 1.0);
+                        *sample =
+                            discworld_audio::mix::sample(*sample, *speech, self.audio_headroom);
                     }
                 }
                 output.extend(audio);

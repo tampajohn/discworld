@@ -4,6 +4,7 @@ use rustysynth::{SoundFont, Synthesizer, SynthesizerSettings};
 use sha2::{Digest, Sha256};
 use std::{io::Cursor, sync::Arc};
 
+pub mod mix;
 pub mod session;
 pub mod slot;
 

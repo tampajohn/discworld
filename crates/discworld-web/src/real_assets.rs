@@ -2219,3 +2219,49 @@ fn original_custom_walk_film_restores_exact_frames_and_full_sessions() {
     );
     roundtrip_pending(&mut game, 3);
 }
+
+#[test]
+#[ignore = "requires DISCWORLD_TEST_ISO and DISCWORLD_TEST_SOUNDFONT"]
+fn original_intro_headroom_preserves_sessions_and_avoids_measured_clipping() {
+    let read = |name| std::fs::read(std::env::var_os(name).expect(name)).unwrap();
+    let mut game =
+        BrowserGame::new(read("DISCWORLD_TEST_ISO"), read("DISCWORLD_TEST_SOUNDFONT")).unwrap();
+    let mut original_rails = 0;
+    let mut reduced_rails = 0;
+    let mut reduced_peak = 0.0f32;
+    while game.tick() < 8500 {
+        if game.tick() == 500 {
+            game.engine.user_event().unwrap();
+        }
+        let boundary = if game.tick() < 500 { 500 } else { 8500 };
+        let ticks = (boundary - game.tick()).min(24) as u32;
+        let before = game.save().unwrap();
+        game.set_audio_headroom(false);
+        let original = game.advance(ticks).unwrap();
+        let after = game.save().unwrap();
+        game.load(&before).unwrap();
+        game.set_audio_headroom(true);
+        let reduced = game.advance(ticks).unwrap();
+        assert_eq!(original.len(), reduced.len());
+        assert_eq!(
+            game.save().unwrap(),
+            after,
+            "presentation must not change engine or DSP state"
+        );
+        for (a, b) in original.iter().zip(&reduced) {
+            assert!(a.is_finite() && b.is_finite());
+            original_rails += usize::from(a.abs() == 1.0);
+            reduced_rails += usize::from(b.abs() == 1.0);
+            reduced_peak = reduced_peak.max(b.abs());
+            if a.abs() < 1.0 {
+                assert_eq!(*b, *a * 0.5);
+            }
+        }
+    }
+    assert!(original_rails > 0, "must exercise the measured clipping");
+    assert_eq!(reduced_rails, 0);
+    assert!(reduced_peak > 0.5 && reduced_peak < 1.0);
+    println!(
+        "intro headroom: original rails={original_rails}, reduced rails={reduced_rails}, reduced peak={reduced_peak}"
+    );
+}
