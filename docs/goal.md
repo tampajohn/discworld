@@ -18,7 +18,7 @@ Touch gestures and presentation technology remain implementation decisions to va
 
 The engine core forbids unsafe Rust and has no host filesystem, window, audio device, or wall-clock dependencies. Asset readers validate lengths, offsets, identifiers, and resource handles. A deterministic cooperative scheduler owns explicit, serializable script stacks and suspended operations. Save state includes scripts, actors, inventory, timers, scene state, and random generator state.
 
-CPU composition preserves the original framebuffer and palette behavior. The planned presentation layer uses wgpu with Metal on macOS and a browser backend. Hosts supply input events, asset access, audio output, persistence, and lifecycle handling. Browser execution must yield to the host and cannot assume native threads or blocking filesystem access.
+CPU composition preserves the original framebuffer and palette behavior. The current native host presents through SDL2 and the browser through canvas; the initial wgpu/Metal presentation proposal has not been implemented. Hosts supply input events, asset access, audio output, persistence, and lifecycle handling. Browser execution must yield to the host and cannot assume native threads or blocking filesystem access.
 
 ScummVM is a pinned behavioral reference. Its source informs format and behavior investigation; it is not a linked runtime dependency. Source translations require appropriate attribution and licensing. Do not describe this work as a clean-room implementation. Analyze DWB.EXE when an observed discrepancy requires additional evidence.
 
@@ -42,7 +42,56 @@ Initial scope is this exact ISO and Apple Silicon. Other releases, Intel Macs, a
 
 Keep the user's visible native session current with newly verified engine builds and replay milestones. After validation, reconstruct the latest useful watch segment, verify its window is advancing, then close the superseded instance. Preserve the user's playback speed and mute settings, and honor deliberate manual pauses. An automatic recorded-route endpoint pause may be replaced with the newly verified segment. Report preparation time and the new checkpoint; do not present unverified routes as working. This is ongoing user authorization to update the visible session without asking each time.
 
-## Current progress
+## Current progress (2026-10-22)
+
+Runtime revision `00a6b38` has runnable native and browser hosts, original menus,
+named save/load, original-font name editing, independently controlled music/
+speech/effects, and persistent preferences. DWRSAVE v12 preserves active speech
+ownership; earlier versions remain readable. Native storage uses atomic slot
+files; browser storage uses IndexedDB and the same slot/session codecs. Menu
+restart uses the shared engine's cycle boundary. The browser provides a touch
+keyboard endpoint while the original game font draws the name.
+
+The recorded 1,652-input route previously passed Acts I–IV, ending, credits and
+restart in native, Chrome and WebKit, with matching final core state and RGBA.
+That evidence predates the recent menu and audio integration. A fresh full-route
+run of `00a6b38` is **in progress**, with native snapshot/DSP/preview audits and
+separate Chrome/WebKit worker runs. Output is under
+`assets/validation/menu-runtime-00a6b38/{native,chrome,webkit}`; native progress is
+in its `progress.log`, browser progress in `assets/logs/menu-runtime-*.log`.
+Completion and cross-host comparisons must be checked before claiming this
+revision passes the full route. These are accelerated semantic-input runs, not
+complete manual UI or physical touch playthroughs.
+
+Recent verified evidence includes workspace tests, Clippy, all 14 original-asset
+Rust web integration tests, desktop and emulated-touch menu save/name-edit/load
+in Chrome/WebKit, audio continuation tests, and active-drag restoration with
+ordinary and swapped mouse buttons. Browser test captures show original menu
+backgrounds, buttons and fonts. See the scoped logs and limitations in
+`docs/control.md`, `docs/browser-runtime.md`, `docs/audio-runtime.md` and
+`docs/save-state.md`.
+
+The full objective remains incomplete. Remaining acceptance work includes:
+
+- Physical iPad landscape play, keyboard appearance, viewport/orientation changes,
+  interruption recovery, and a touch-only complete game playthrough.
+- End-to-end native menu interaction and current-build visible-session acceptance;
+  programmatic tests do not substitute for SDL click/typing/device validation.
+- Broader alternate interaction orders and reference comparisons. The engine still
+  explicitly rejects some variants (for example nonzero WALK/WALKED film
+  parameters and TALK on a moving actor); one recorded route cannot establish
+  that every supported-game path is implemented.
+- Reproducible packaged/distributable hosts and a final requirement-by-requirement
+  audit, including reference state/frame/audio-event comparisons.
+
+The existing visible native session is kept running to preserve unsaved progress;
+its binary is older than the latest rebuilt executable. A process being alive is
+not evidence that it is advancing or displaying the latest engine.
+
+## Historical milestone log
+
+The entries below retain earlier debugging evidence. Their statements about
+then-unimplemented behavior are historical, not the current status above.
 
 Latest checkpoint:2630000 Running in title.scn after the original ending, scrolling Credits4 and committedrestart (has_restarted=true). All1652 inputs in act4-ending-input.json accepted; finaltitleframe inspected. Credits4 begins2603567 and restart2604319; originalstartup returnsTitle2604708. This verifies the recorded Acts I–IV start-to-credits route, not the full compatibility objective. Native ending visual validation is queued; durable saves, browser host, landscape iPad validation and broader reference/interaction coverage remain unfinished. All217 workspace tests pass with the restart audio-clock correction.
 
