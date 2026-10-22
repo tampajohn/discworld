@@ -1390,3 +1390,21 @@ assets/logs/menu-settings-runtime-{assets,workspace,clippy}.log.
 Text speed is still pending: TextTime adds a duration, but sampled speech also
 stops its talking reel before a slower subtitle expires. Applying only the
 duration would miss that lifecycle. Native menu activation remains unfinished.
+
+Text-speed runtime semantics now follow pinned tinlib.cpp TextTime: automatic
+text duration is string length + 24 ticks + text_speed * 120 / 100. Explicit
+PRINT/TALKATS durations remain unchanged. TALK, TALKAT and inventory text count
+text time concurrently with speech; PRINT starts its text countdown after speech
+ends. At the default text speed, speech still determines completion. With a
+nondefault speed and visible text, animated TALK restores the actor's normal
+reel immediately when speech finishes, then waits for text dismissal without
+restoring that reel a second time. Cancellation and the speech timeout remain
+active. The new intermediate TALK phase is saved in DWRSAVE v11.
+
+Synthetic regressions exercise the early reel restoration, retained tag
+ownership, click cancellation, v11 resource-validated save/load continuation,
+and PRINT's separate countdown. These checks do not establish full live-menu
+host integration or a new start-to-credits replay result.
+Validation: workspace tests, Clippy all targets with warnings denied, core
+wasm32-unknown-unknown check and the original-asset menu-opening integration test
+pass. Logs: assets/logs/text-speed-{workspace,clippy,wasm,assets}.log.

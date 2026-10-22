@@ -15,6 +15,7 @@ const GEOMETRY_VERSION: u32 = 7;
 const RESIZE_VERSION: u32 = 8;
 const HOVER_VERSION: u32 = 9;
 const MENU_VERSION: u32 = 10;
+const TALK_PHASE_VERSION: u32 = 11;
 const HEADER: usize = 80;
 pub const MAX_SAVE_BYTES: usize = 16 * 1024 * 1024;
 
@@ -140,7 +141,21 @@ impl Snapshot {
             Some(menu) => Some(menu.checkpoint()?),
             None => self.menu.clone(),
         };
-        let payload = if let Some(menu) = &menu {
+        let finished_talks = self.state.finished_talks();
+        let payload = if !finished_talks.is_empty() {
+            postcard::to_allocvec(&(
+                &self.state,
+                &self.state.clicks,
+                &self.state.mouse,
+                self.state.inventory_drag,
+                &self.state.inventory_slider,
+                &self.state.inventory_geometry,
+                &self.state.inventory_resize,
+                &self.state.inventory_hover,
+                &menu,
+                &finished_talks,
+            ))
+        } else if let Some(menu) = &menu {
             postcard::to_allocvec(&(
                 &self.state,
                 &self.state.clicks,
@@ -205,7 +220,9 @@ impl Snapshot {
         let mut bytes = Vec::with_capacity(HEADER + payload.len());
         bytes.extend_from_slice(MAGIC);
         bytes.extend_from_slice(
-            &(if menu.is_some() {
+            &(if !finished_talks.is_empty() {
+                TALK_PHASE_VERSION
+            } else if menu.is_some() {
                 MENU_VERSION
             } else if hover {
                 HOVER_VERSION
@@ -256,6 +273,7 @@ impl Snapshot {
             RESIZE_VERSION,
             HOVER_VERSION,
             MENU_VERSION,
+            TALK_PHASE_VERSION,
         ]
         .contains(&word(8))
         {
@@ -272,7 +290,42 @@ impl Snapshot {
             return Err(Error("save checksum mismatch"));
         }
         let mut menu = None;
-        let (state, remaining) = if word(8) == MENU_VERSION {
+        let (state, remaining) = if word(8) == TALK_PHASE_VERSION {
+            let (
+                (mut state, clicks, mouse, owner, slider, geometry, resize, hover, bytes, finished),
+                remaining,
+            ) = postcard::take_from_bytes::<(
+                Engine,
+                crate::click::State,
+                Option<crate::mouse::MouseInput>,
+                Option<i32>,
+                Option<crate::inventory_slider::Drag>,
+                crate::inventory_geometry::State,
+                Option<crate::inventory_resize::Drag>,
+                crate::inventory_hover::State,
+                Option<Vec<u8>>,
+                Vec<crate::scheduler::ProcessId>,
+            )>(payload)
+            .map_err(|_| Error("invalid snapshot talk phase payload"))?;
+            if bytes
+                .as_ref()
+                .is_some_and(|bytes| !(4..=65536).contains(&bytes.len()))
+                || finished.is_empty()
+                || finished.len() > 1024
+            {
+                return Err(Error("invalid snapshot talk phase extension"));
+            }
+            state.clicks = clicks;
+            state.mouse = mouse;
+            state.inventory_drag = owner;
+            state.inventory_slider = slider;
+            state.inventory_geometry = geometry;
+            state.inventory_resize = resize;
+            state.inventory_hover = hover;
+            state.restore_finished_talks(&finished)?;
+            menu = bytes;
+            (state, remaining)
+        } else if word(8) == MENU_VERSION {
             let (
                 (mut state, clicks, mouse, owner, slider, geometry, resize, hover, bytes),
                 remaining,

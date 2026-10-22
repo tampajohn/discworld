@@ -49,6 +49,8 @@ struct PrintWait {
 }
 #[derive(serde::Serialize, serde::Deserialize, Debug, Clone, PartialEq, Eq)]
 struct TalkWait {
+    #[serde(skip)]
+    reel_finished: bool,
     mover_saved: Option<Handle>,
     call: LibraryCall,
     actor: i32,
@@ -336,6 +338,20 @@ impl Engine {
     }
 
     pub(crate) fn validate_snapshot_structure(&self) -> Result<(), Error> {
+        for wait in self
+            .processes
+            .states()
+            .filter_map(|process| process.talk_wait.as_ref())
+        {
+            if wait.reel_finished
+                && (!wait.initialized
+                    || wait.sample.is_some()
+                    || wait.layout.is_none()
+                    || wait.mover_saved.is_some())
+            {
+                return Err(Error("invalid finished talking reel state"));
+            }
+        }
         if self
             .configuration
             .as_ref()
@@ -3122,6 +3138,72 @@ impl Engine {
         }
         Ok(())
     }
+    pub(crate) fn finished_talks(&self) -> Vec<crate::scheduler::ProcessId> {
+        self.processes
+            .entries()
+            .filter_map(|(id, process)| {
+                process
+                    .talk_wait
+                    .as_ref()
+                    .is_some_and(|wait| wait.reel_finished)
+                    .then_some(id)
+            })
+            .collect()
+    }
+    pub(crate) fn restore_finished_talks(
+        &mut self,
+        ids: &[crate::scheduler::ProcessId],
+    ) -> Result<(), Error> {
+        for id in ids {
+            let wait = self
+                .processes
+                .state_mut(*id)
+                .and_then(|process| process.talk_wait.as_mut())
+                .ok_or(Error("finished talk process missing"))?;
+            if wait.reel_finished
+                || !wait.initialized
+                || wait.sample.is_some()
+                || wait.layout.is_none()
+                || wait.mover_saved.is_some()
+            {
+                return Err(Error("invalid finished talk process"));
+            }
+            wait.reel_finished = true;
+        }
+        Ok(())
+    }
+    fn text_speed(&self) -> u16 {
+        self.configuration
+            .as_ref()
+            .map_or(0, |menu| menu.settings().text_speed)
+    }
+    fn text_time(&self, length: usize) -> Result<u32, Error> {
+        u32::try_from(length)
+            .ok()
+            .and_then(|length| length.checked_add(24 + u32::from(self.text_speed()) * 120 / 100))
+            .ok_or(Error("text time overflow"))
+    }
+    fn finish_talk_reel(
+        &mut self,
+        resources: &Resources<'_>,
+        wait: &mut TalkWait,
+    ) -> Result<(), Error> {
+        if wait.reel_finished {
+            return Ok(());
+        }
+        if let Some(saved) = wait.mover_saved.take() {
+            self.movers
+                .get_mut(&wait.actor)
+                .ok_or(Error("talking mover disappeared"))?
+                .pop_talk(resources, &self.declarations, saved)?;
+        } else if let Some(film) = self.playback.finish_talk(wait.actor) {
+            self.launch_film(resources, film)?;
+        } else {
+            return Err(Error("talk actor has no normal film to restore"));
+        }
+        wait.reel_finished = true;
+        Ok(())
+    }
     fn advance_talk(
         &mut self,
         resources: &Resources<'_>,
@@ -3188,29 +3270,30 @@ impl Engine {
         }
         wait.origin = self.world_origin;
         wait.timeout = wait.timeout.saturating_sub(1);
+        let cancelled = wait.timeout == 0 || wait.left_events != self.left_events;
         let complete = if let Some(serial) = wait.sample {
-            self.sample_player.serial != serial || self.sample_player.id.is_none()
+            let ended = self.sample_player.serial != serial || self.sample_player.id.is_none();
+            if ended && !cancelled && wait.layout.is_some() && self.text_speed() != 0 {
+                self.finish_talk_reel(resources, wait)?;
+                wait.sample = None;
+                wait.remaining = wait.remaining.saturating_sub(1);
+                false
+            } else {
+                wait.remaining = wait.remaining.saturating_sub(1);
+                ended
+            }
         } else {
             let done = wait.remaining == 0;
             wait.remaining = wait.remaining.saturating_sub(1);
             done
         };
-        if !complete && wait.timeout != 0 && wait.left_events == self.left_events {
+        if !complete && !cancelled {
             return Ok(false);
         }
         if wait.sample == Some(self.sample_player.serial) {
             self.sample_player.stop();
         }
-        if let Some(saved) = wait.mover_saved {
-            self.movers
-                .get_mut(&wait.actor)
-                .ok_or(Error("talking mover disappeared"))?
-                .pop_talk(resources, &self.declarations, saved)?;
-        } else if let Some(film) = self.playback.finish_talk(wait.actor) {
-            self.launch_film(resources, film)?;
-        } else {
-            return Err(Error("talk actor has no normal film to restore"));
-        }
+        self.finish_talk_reel(resources, wait)?;
         if wait.restore_control {
             self.control
                 .apply_at(1, self.control_inventory_active(), self.world_origin)?;
@@ -3886,13 +3969,25 @@ impl Engine {
                 || (wait.inventory && self.conversation.hidden);
             let finished = if let Some(serial) = wait.sample_serial {
                 wait.timeout = wait.timeout.saturating_sub(1);
-                self.sample_player.serial != serial
-                    || self.sample_player.id.is_none()
-                    || wait.timeout == 0
+                let ended = self.sample_player.serial != serial || self.sample_player.id.is_none();
+                // PRINT's text duration starts counting only after speech. TALKAT
+                // and inventory text count down concurrently with the sample.
+                if wait.call.id != 53 {
+                    wait.remaining = wait.remaining.saturating_sub(1);
+                }
+                if ended && wait.timeout != 0 && wait.layout.is_some() && self.text_speed() != 0 {
+                    wait.sample_serial = None;
+                    false
+                } else {
+                    ended || wait.timeout == 0
+                }
             } else {
+                if wait.call.id != 53 {
+                    wait.timeout = wait.timeout.saturating_sub(1);
+                }
                 let done = wait.remaining == 0;
                 wait.remaining = wait.remaining.saturating_sub(1);
-                done
+                done || (wait.call.id != 53 && wait.timeout == 0)
             };
             if !cancelled && !finished {
                 return Ok(Status::Running);
@@ -4303,10 +4398,11 @@ impl Engine {
                         None
                     };
                     process.talk_wait = Some(TalkWait {
+                        reel_finished: false,
                         mover_saved,
                         call,
                         actor,
-                        remaining: text.len() as u32 + 24,
+                        remaining: self.text_time(text.len())?,
                         text,
                         sample,
                         layout: None,
@@ -4902,7 +4998,7 @@ impl Engine {
                         call,
                         consumed: 1,
                         layout,
-                        remaining: bytes.len() as u32 + 24,
+                        remaining: self.text_time(bytes.len())?,
                         sample_serial,
                         timeout: 480,
                         left_events: self.left_events,
@@ -4968,7 +5064,7 @@ impl Engine {
                         None
                     };
                     let remaining = if time == 0 {
-                        bytes.len() as u32 + 24
+                        self.text_time(bytes.len())?
                     } else {
                         (time as u32)
                             .checked_mul(24)
@@ -8938,6 +9034,71 @@ mod tests {
                 .unwrap(),
             Status::Running
         );
+        let mut slow = engine.clone();
+        slow.configuration = Some(
+            crate::menu_controller::Controller::new(crate::menu_controller::Settings {
+                volumes: [255; 3],
+                double_click: 10,
+                swap_buttons: false,
+                text_speed: 100,
+                subtitles: true,
+                flipped: false,
+            })
+            .unwrap(),
+        );
+        let id = slow
+            .processes
+            .entries()
+            .find(|(_, p)| p.print_wait.is_some())
+            .unwrap()
+            .0;
+        slow.processes
+            .state_mut(id)
+            .unwrap()
+            .print_wait
+            .as_mut()
+            .unwrap()
+            .layout = Some(crate::text::Layout { glyphs: vec![] });
+        for _ in 0..2 {
+            assert_eq!(
+                slow.tick_content(&resources, Some(&bank), None, Some(&strings))
+                    .unwrap(),
+                Status::Running
+            );
+            assert_eq!(
+                slow.processes
+                    .state_mut(id)
+                    .unwrap()
+                    .print_wait
+                    .as_ref()
+                    .unwrap()
+                    .remaining,
+                25,
+                "PRINT retains its captured duration throughout speech"
+            );
+        }
+        assert!(
+            slow.processes
+                .state_mut(id)
+                .unwrap()
+                .print_wait
+                .as_ref()
+                .unwrap()
+                .sample_serial
+                .is_none()
+        );
+        for _ in 0..25 {
+            assert_eq!(
+                slow.tick_content(&resources, Some(&bank), None, Some(&strings))
+                    .unwrap(),
+                Status::Running
+            );
+        }
+        assert_eq!(
+            slow.tick_content(&resources, Some(&bank), None, Some(&strings))
+                .unwrap(),
+            Status::Halted
+        );
         assert_eq!(
             engine
                 .tick_content(&resources, Some(&bank), None, Some(&strings))
@@ -9420,6 +9581,100 @@ mod tests {
         assert_eq!(natural.globals, [9]);
         assert!(natural.control.tags_enabled);
         assert_eq!(natural.films[0].reel, Some(Handle(base + 72)));
+        // Exercise the post-speech phase with a pre-laid-out subtitle. Font
+        // rasterization is independent of the speech/reel scheduler tested here.
+        let mut slow = engine.clone();
+        slow.configuration = Some(
+            crate::menu_controller::Controller::new(crate::menu_controller::Settings {
+                volumes: [255; 3],
+                double_click: 10,
+                swap_buttons: false,
+                text_speed: 100,
+                subtitles: true,
+                flipped: false,
+            })
+            .unwrap(),
+        );
+        assert_eq!(engine.text_time(1).unwrap(), 25);
+        assert_eq!(slow.text_time(1).unwrap(), 145);
+        let talk_id = slow
+            .processes
+            .entries()
+            .find(|(_, process)| process.talk_wait.is_some())
+            .unwrap()
+            .0;
+        let wait = slow
+            .processes
+            .state_mut(talk_id)
+            .unwrap()
+            .talk_wait
+            .as_mut()
+            .unwrap();
+        assert!(wait.initialized);
+        wait.layout = Some(crate::text::Layout { glyphs: vec![] });
+        wait.remaining = 145;
+        for _ in 0..20 {
+            assert_eq!(
+                slow.tick_content(&resources, Some(&bank), None, Some(&strings))
+                    .unwrap(),
+                Status::Running
+            );
+            if !slow.finished_talks().is_empty() {
+                break;
+            }
+        }
+        assert_eq!(slow.finished_talks(), [talk_id]);
+        assert!(slow.sample_player.id.is_none());
+        assert!(
+            !slow.control.tags_enabled,
+            "text still owns tags after speech"
+        );
+        assert_eq!(slow.films[0].reel, Some(Handle(base + 72)));
+        let bytes = crate::save::Snapshot::capture(&slow, [7; 32])
+            .to_bytes()
+            .unwrap();
+        assert_eq!(u32::from_le_bytes(bytes[8..12].try_into().unwrap()), 11);
+        let decoded = crate::save::Snapshot::from_bytes(&bytes, [7; 32]).unwrap();
+        assert_eq!(decoded.to_bytes().unwrap(), bytes);
+        let mut resumed = decoded
+            .restore_with_strings(&resources, &bank, &[], &strings)
+            .unwrap();
+        assert_eq!(resumed, slow);
+        let mut invalid = slow.clone();
+        assert!(
+            invalid.restore_finished_talks(&[talk_id]).is_err(),
+            "duplicate phase marker"
+        );
+        let mut cancelled = slow.clone();
+        cancelled.left_event().unwrap();
+        assert_eq!(
+            cancelled
+                .tick_content(&resources, Some(&bank), None, Some(&strings))
+                .unwrap(),
+            Status::Halted
+        );
+        assert!(cancelled.control.tags_enabled);
+        let mut ended = false;
+        for _ in 0..160 {
+            let status = slow
+                .tick_content(&resources, Some(&bank), None, Some(&strings))
+                .unwrap();
+            assert_eq!(
+                resumed
+                    .tick_content(&resources, Some(&bank), None, Some(&strings))
+                    .unwrap(),
+                status
+            );
+            assert_eq!(resumed, slow);
+            if status == Status::Halted {
+                ended = true;
+                break;
+            }
+        }
+        assert!(ended);
+        assert!(slow.control.tags_enabled);
+        assert!(slow.finished_talks().is_empty());
+        assert_eq!(slow.globals, [9]);
         engine.left_event().unwrap(); // zero-to-one cancels TALK, unlike PRINT.
         let mut restored = engine.clone();
         for instance in [&mut engine, &mut restored] {

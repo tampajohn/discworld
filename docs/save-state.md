@@ -404,3 +404,19 @@ It verifies exact session bytes after preparation, rejection of corrupt and
 wrong-ISO slots, unchanged current state, and allocation around rejected IDs.
 Run with `cargo test --release -p discworld-tools menu_slots_validate_assets_and_prepare_exact_session_replacement -- --ignored`.
 Native SDL menu activation and dispatch consumption still require wiring.
+
+## Speech animation phase (v11)
+
+Slower subtitles can outlast their speech sample. The actor returns to its normal
+reel when speech ends, while the script continues waiting for text dismissal.
+Version 11 stores the process IDs whose talking reels have already finished,
+plus the existing input/inventory state and optional controller checkpoint.
+This prevents a restored line from attempting to finish the same talking reel
+twice. The decoder rejects missing processes, duplicate markers and markers
+inconsistent with initialized text, sample or mover state. Versions 1–10 remain
+readable; saves without this intermediate phase retain their prior encoding.
+
+The synthetic animated-TALK regression checks natural completion, cancellation,
+byte-stable v11 encoding, full resource-validated restoration and identical
+continuation through the remaining subtitle duration. It supplies an empty
+precomputed text layout to isolate scheduling from font rasterization.
