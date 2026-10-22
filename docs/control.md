@@ -1153,3 +1153,21 @@ state/pixels plus matching subsequent drag/toggle outcomes. Evidence:
 assets/logs/menu-widget-rebuild-{assets,workspace,clippy}.log. Complete controller
 checkpoint encoding and DWRSAVE integration remain the next persistence layer;
 this increment changes neither the live host nor existing game saves.
+
+Controller::checkpoint/from_checkpoint now encode a version1 logical menu
+checkpoint bounded to64KiB. It captures navigation, the captured save catalog and
+selection/draft, base settings, active and retained widget recipes, highlight
+owner/pointer, cursor warp, window origin and a button graphic recipe. All views
+and graphics rebuild from the supplied original assets; no drawable objects are
+deserialized. Restoration checks component state, page/list/widget compatibility,
+cursor/origin consistency, effect ownership, hover versus pointer hit testing,
+and shared-effect exclusivity. Button recipes allow only original button offsets
+at supported window origins. Trailing/truncated data and missing resources fail
+without replacing a live controller. The captured catalog survives a changed
+device catalog. Original-ISO tests restore every menu page and animation stages,
+active sound drag, retained effects after Escape, and compare complete controller
+state, checkpoint bytes, pixels and next-step outcomes. Evidence:
+assets/logs/menu-checkpoint-{assets,workspace,clippy}.log. This standalone codec
+has no asset identity/checksum of its own: the enclosing engine/session format
+must supply those when integrating it. DWRSAVE and live hosts are unchanged;
+engine ownership, input scheduling, settings application and F1 remain required.

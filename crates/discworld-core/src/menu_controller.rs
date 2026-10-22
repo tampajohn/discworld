@@ -22,7 +22,7 @@ pub struct Assets<'a, 'data> {
     pub saves: &'a [Entry],
 }
 
-#[derive(Debug, Clone, PartialEq, Eq)]
+#[derive(serde::Serialize, serde::Deserialize, Debug, Clone, PartialEq, Eq)]
 pub struct Settings {
     pub volumes: [u16; 3],
     pub double_click: u16,
@@ -40,11 +40,74 @@ enum Display {
     Settings(Box<SettingsMenu>),
     Saves(Box<View>),
 }
-#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+#[derive(serde::Serialize, serde::Deserialize, Debug, Clone, Copy, PartialEq, Eq)]
 enum EffectGraphic {
     Button,
     CurrentToggle,
     RetainedToggle,
+}
+#[derive(serde::Serialize, serde::Deserialize, Debug, Clone, PartialEq, Eq)]
+struct ButtonRecipe {
+    choice: Choice,
+    image: ButtonImage,
+    position: [i32; 2],
+}
+impl ButtonRecipe {
+    fn rebuild(&self, assets: &Assets<'_, '_>) -> Result<crate::animation::Animation, Error> {
+        let offsets = if self.choice == Choice::Accept {
+            [[230, 44], [70, 28]]
+        } else {
+            [[230, 91], [30, 28]]
+        };
+        if ![[20, 16], [72, 23], [98, 53]].iter().any(|origin| {
+            offsets
+                .iter()
+                .any(|offset| self.position == [origin[0] + offset[0], origin[1] + offset[1]])
+        }) {
+            return Err(Error("invalid menu button position"));
+        }
+        let film = crate::film::Film::read(
+            assets.resources,
+            assets
+                .declarations
+                .window_parts
+                .ok_or(Error("missing window parts"))?,
+        )?;
+        let reel = if self.choice == Choice::Accept {
+            46
+        } else {
+            40
+        } + match self.image {
+            ButtonImage::Normal => 0,
+            ButtonImage::Down => 1,
+            ButtonImage::Highlight => 2,
+        };
+        let mut image = crate::animation::Animation::new(
+            assets.resources,
+            film.reels
+                .get(reel)
+                .ok_or(Error("missing menu button reel"))?,
+            1,
+        )?;
+        image.object.x = self.position[0];
+        image.object.y = self.position[1];
+        Ok(image)
+    }
+}
+#[derive(serde::Serialize, serde::Deserialize)]
+struct Checkpoint {
+    navigation: Navigation,
+    settings: Settings,
+    list: Option<List>,
+    cursor_warp: Option<[i32; 2]>,
+    sound: Option<crate::configuration_menu::SoundState>,
+    widget: Option<crate::settings_menu::State>,
+    retained: Option<crate::settings_menu::State>,
+    highlight: crate::menu_highlight::State,
+    pointer: Option<[i32; 2]>,
+    effect: Option<EffectGraphic>,
+    button: Option<ButtonRecipe>,
+    origin: [i32; 2],
 }
 
 #[derive(Debug, Clone, PartialEq, Eq)]
@@ -70,10 +133,197 @@ pub struct Controller {
     pointer: Option<[i32; 2]>,
     effect_graphic: Option<EffectGraphic>,
     button_overlay: Option<crate::animation::Animation>,
+    button_recipe: Option<ButtonRecipe>,
     window_origin: [i32; 2],
 }
 
 impl Controller {
+    /// Logical menu checkpoint, versioned independently until embedded in the
+    /// engine snapshot. The enclosing session must bind it to original assets.
+    pub fn checkpoint(&self) -> Result<Vec<u8>, Error> {
+        let state = Checkpoint {
+            navigation: self.navigation.clone(),
+            settings: self.settings.clone(),
+            list: self.list.clone(),
+            cursor_warp: self.cursor_warp,
+            sound: match &self.display {
+                Some(Display::Sound(view)) => Some(view.state()),
+                _ => None,
+            },
+            widget: match &self.display {
+                Some(Display::Settings(view)) => Some(view.state()),
+                _ => None,
+            },
+            retained: self.retained_toggle.as_ref().map(|view| view.state()),
+            highlight: self.highlight.clone(),
+            pointer: self.pointer,
+            effect: self.effect_graphic,
+            button: self.button_recipe.clone(),
+            origin: self.window_origin,
+        };
+        let mut bytes = 1u32.to_le_bytes().to_vec();
+        bytes.extend(
+            postcard::to_allocvec(&state).map_err(|_| Error("menu checkpoint encoding failed"))?,
+        );
+        if bytes.len() > 65536 {
+            return Err(Error("menu checkpoint size limit"));
+        }
+        Ok(bytes)
+    }
+    pub fn from_checkpoint(bytes: &[u8], assets: &Assets<'_, '_>) -> Result<Self, Error> {
+        if !(4..=65536).contains(&bytes.len()) || bytes[..4] != 1u32.to_le_bytes() {
+            return Err(Error("unsupported menu checkpoint"));
+        }
+        let (state, trailing): (Checkpoint, _) =
+            postcard::take_from_bytes(&bytes[4..]).map_err(|_| Error("invalid menu checkpoint"))?;
+        if !trailing.is_empty() {
+            return Err(Error("trailing menu checkpoint data"));
+        }
+        state.navigation.validate_snapshot()?;
+        state.highlight.validate_snapshot()?;
+        if let Some(list) = &state.list {
+            list.validate_snapshot()?;
+        }
+        let page = state.navigation.page();
+        if state.sound.is_some() != (page == Some(Page::Sound))
+            || state.widget.is_some() != matches!(page, Some(Page::Controls | Page::Subtitles))
+            || (state.highlight.owner() == Some(crate::menu_highlight::Owner::Effect))
+                != state.effect.is_some()
+            || ![[20, 16], [72, 23], [98, 53]].contains(&state.origin)
+        {
+            return Err(Error("inconsistent menu checkpoint"));
+        }
+        if let Some(page) = page {
+            let origin = match page {
+                Page::Main => [72, 23],
+                Page::Restart | Page::Quit => [98, 53],
+                _ => [20, 16],
+            };
+            if state.origin != origin {
+                return Err(Error("menu checkpoint origin mismatch"));
+            }
+            match page {
+                Page::Save | Page::Load => {
+                    let mode = if page == Page::Save {
+                        Mode::Save
+                    } else {
+                        Mode::Load
+                    };
+                    if state.list.as_ref().is_none_or(|list| list.mode() != mode) {
+                        return Err(Error("menu checkpoint list mismatch"));
+                    }
+                }
+                _ if state.list.is_some() => return Err(Error("unexpected menu checkpoint list")),
+                _ => {}
+            }
+        }
+        if let Some(warp) = state.cursor_warp {
+            let expected = match page {
+                Some(Page::Save) => Some([262, 91]),
+                Some(Page::Restart | Page::Quit) => Some([180, 90]),
+                _ => None,
+            };
+            if Some(warp) != expected {
+                return Err(Error("menu checkpoint cursor warp mismatch"));
+            }
+        }
+        let mut menu = Self::new(state.settings)?;
+        menu.navigation = state.navigation;
+        // Restored selection uses its captured catalog, not the current device catalog.
+        let reconstruct = Assets {
+            saves: &[],
+            resources: assets.resources,
+            strings: assets.strings,
+            declarations: assets.declarations,
+        };
+        menu.rebuild(&reconstruct)?;
+        if let Some(sound) = state.sound {
+            menu.display = Some(Display::Sound(
+                SoundMenu::from_state(
+                    assets.resources,
+                    assets.strings,
+                    assets.declarations,
+                    sound,
+                )?
+                .into(),
+            ));
+        }
+        if let Some(widget) = state.widget {
+            let widget = SettingsMenu::from_state(
+                assets.resources,
+                assets.strings,
+                assets.declarations,
+                widget,
+            )?;
+            if (widget.kind() == Kind::Controls) != (page == Some(Page::Controls)) {
+                return Err(Error("menu checkpoint widget kind mismatch"));
+            }
+            menu.display = Some(Display::Settings(widget.into()));
+        }
+        menu.retained_toggle = state
+            .retained
+            .map(|state| {
+                SettingsMenu::from_state(
+                    assets.resources,
+                    assets.strings,
+                    assets.declarations,
+                    state,
+                )
+                .map(Box::new)
+            })
+            .transpose()?;
+        menu.button_overlay = state
+            .button
+            .as_ref()
+            .map(|recipe| recipe.rebuild(assets))
+            .transpose()?;
+        menu.button_recipe = state.button;
+        if matches!(state.effect, Some(EffectGraphic::Button)) && menu.button_overlay.is_none()
+            || matches!(state.effect, Some(EffectGraphic::CurrentToggle))
+                && !matches!(menu.display, Some(Display::Settings(_)))
+            || matches!(state.effect, Some(EffectGraphic::RetainedToggle))
+                && menu.retained_toggle.is_none()
+        {
+            return Err(Error("missing menu checkpoint effect owner"));
+        }
+        menu.list = state.list;
+        menu.cursor_warp = state.cursor_warp;
+        menu.highlight = state.highlight;
+        menu.pointer = state.pointer;
+        menu.effect_graphic = state.effect;
+        menu.window_origin = state.origin;
+        if matches!(menu.effect_graphic, Some(EffectGraphic::CurrentToggle))
+            && menu.settings_mut().is_none_or(|view| !view.has_overlay())
+            || matches!(menu.effect_graphic, Some(EffectGraphic::RetainedToggle))
+                && menu
+                    .retained_toggle
+                    .as_ref()
+                    .is_none_or(|view| !view.has_overlay())
+        {
+            return Err(Error("menu checkpoint effect has no graphic"));
+        }
+        if let Some(crate::menu_highlight::Owner::Hover(_)) = menu.highlight.owner() {
+            let mut probe = menu.clone();
+            probe.highlight.reset();
+            probe.point_at(menu.pointer);
+            if probe.highlight.owner() != menu.highlight.owner() {
+                return Err(Error("menu checkpoint hover differs from pointer"));
+            }
+        }
+        let active_toggle = menu.settings_mut().is_some_and(|view| view.toggle_busy());
+        let retained_toggle = menu
+            .retained_toggle
+            .as_ref()
+            .is_some_and(|view| view.toggle_busy());
+        if usize::from(active_toggle)
+            + usize::from(retained_toggle)
+            + usize::from(menu.navigation.busy())
+            > 1
+        {
+            return Err(Error("multiple menu checkpoint effects"));
+        }
+        Ok(menu)
+    }
     pub fn new(settings: Settings) -> Result<Self, Error> {
         if settings.volumes.iter().any(|v| *v > 255)
             || settings.double_click > 30
@@ -92,6 +342,7 @@ impl Controller {
             pointer: None,
             effect_graphic: None,
             button_overlay: None,
+            button_recipe: None,
             window_origin: [20, 16],
         })
     }
@@ -164,6 +415,7 @@ impl Controller {
         self.pointer = None;
         self.effect_graphic = None;
         self.button_overlay = None;
+        self.button_recipe = None;
     }
     pub fn settings(&self) -> Settings {
         let mut settings = self.settings.clone();
@@ -322,29 +574,16 @@ impl Controller {
                 (_, Choice::Accept) => [70, 28],
                 (_, Choice::Cancel) => [30, 28],
             };
-            let film = crate::film::Film::read(
-                assets.resources,
-                assets
-                    .declarations
-                    .window_parts
-                    .ok_or(Error("missing window parts"))?,
-            )?;
-            let reel = if choice == Choice::Accept { 46 } else { 40 }
-                + match image {
-                    ButtonImage::Normal => 0,
-                    ButtonImage::Down => 1,
-                    ButtonImage::Highlight => 2,
-                };
-            let mut animation = crate::animation::Animation::new(
-                assets.resources,
-                film.reels
-                    .get(reel)
-                    .ok_or(Error("missing menu button reel"))?,
-                1,
-            )?;
-            animation.object.x = next.window_origin[0] + relative[0];
-            animation.object.y = next.window_origin[1] + relative[1];
-            next.button_overlay = Some(animation);
+            let recipe = ButtonRecipe {
+                choice,
+                image,
+                position: [
+                    next.window_origin[0] + relative[0],
+                    next.window_origin[1] + relative[1],
+                ],
+            };
+            next.button_overlay = Some(recipe.rebuild(assets)?);
+            next.button_recipe = Some(recipe);
             next.effect_graphic = Some(EffectGraphic::Button);
         }
         let dispatch = next.dispatch(outcome);

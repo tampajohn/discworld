@@ -37,6 +37,89 @@ fn original_menu_controller_transitions_render_and_resolve_live_selection() {
         flipped: false,
     };
     let baseline = game.engine.render(&resources).unwrap();
+    let restore_menu = |original: &Controller| {
+        let bytes = original.checkpoint().unwrap();
+        let restored = Controller::from_checkpoint(&bytes, &assets).unwrap();
+        assert_eq!(*original, restored);
+        assert_eq!(restored.checkpoint().unwrap(), bytes);
+        let mut before = baseline.clone();
+        let mut after = baseline.clone();
+        original.draw(&resources, &mut before).unwrap();
+        restored.draw(&resources, &mut after).unwrap();
+        assert_eq!(before.rgba, after.rgba);
+        restored
+    };
+    for (page, point) in [
+        (Page::Main, [90, 44]),
+        (Page::Save, [262, 69]),
+        (Page::Load, [262, 69]),
+        (Page::Restart, [170, 85]),
+        (Page::Quit, [170, 85]),
+        (Page::Controls, [176, 112]),
+        (Page::Subtitles, [163, 77]),
+        (Page::Sound, [218, 93]),
+    ] {
+        let mut original = Controller::new(settings.clone()).unwrap();
+        original.open(page, &assets).unwrap();
+        original.point_at(Some(point));
+        if matches!(page, Page::Controls | Page::Subtitles) {
+            original.click_settings(point, false);
+        } else {
+            original.click_button(point);
+        }
+        if page == Page::Sound {
+            original
+                .sound_mut()
+                .unwrap()
+                .begin_drag(&resources, point)
+                .unwrap();
+            original.sound_mut().unwrap().drag(100).unwrap();
+        }
+        for step in 0..6 {
+            let mut restored = restore_menu(&original);
+            assert_eq!(
+                restored.advance(&assets).unwrap(),
+                original.advance(&assets).unwrap()
+            );
+            assert_eq!(restored, original);
+            if step == 0 && matches!(page, Page::Subtitles | Page::Save) {
+                original.escape(&assets).unwrap();
+            }
+        }
+        restore_menu(&original);
+    }
+    let mut checkpoint_probe = Controller::new(settings.clone()).unwrap();
+    checkpoint_probe.open(Page::Main, &assets).unwrap();
+    let bytes = checkpoint_probe.checkpoint().unwrap();
+    for length in 0..bytes.len() {
+        assert!(Controller::from_checkpoint(&bytes[..length], &assets).is_err());
+    }
+    let mut trailing = bytes.clone();
+    trailing.push(0);
+    assert!(Controller::from_checkpoint(&trailing, &assets).is_err());
+    checkpoint_probe.close();
+    checkpoint_probe.open(Page::Save, &assets).unwrap();
+    checkpoint_probe.list_mut().unwrap().select(1).unwrap();
+    let empty_catalog = Assets {
+        saves: &[],
+        resources: &resources,
+        strings: &strings,
+        declarations: assets.declarations,
+    };
+    assert_eq!(
+        Controller::from_checkpoint(&checkpoint_probe.checkpoint().unwrap(), &empty_catalog)
+            .unwrap(),
+        checkpoint_probe
+    );
+    let invalid_declarations = discworld_core::startup::Declarations::default();
+    let invalid_assets = Assets {
+        declarations: &invalid_declarations,
+        ..empty_catalog
+    };
+    assert!(
+        Controller::from_checkpoint(&checkpoint_probe.checkpoint().unwrap(), &invalid_assets)
+            .is_err()
+    );
     // Rebuild logical widget checkpoints against the real font/window film,
     // including unsnapped drag positions and a toggle redrawing during a drag.
     for (kind, value, thumb, toggle) in [

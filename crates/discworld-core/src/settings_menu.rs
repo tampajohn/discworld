@@ -305,6 +305,9 @@ impl SettingsMenu {
         self.overlay = None;
         self.highlight.remove();
     }
+    pub(crate) fn has_overlay(&self) -> bool {
+        self.overlay.is_some()
+    }
     fn effect_overlay(&mut self, image: Option<usize>) {
         self.overlay = image;
         if image.is_some() {

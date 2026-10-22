@@ -24,7 +24,7 @@ pub enum Choice {
     Cancel,
 }
 
-#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+#[derive(serde::Serialize, serde::Deserialize, Debug, Clone, Copy, PartialEq, Eq)]
 pub enum ButtonImage {
     Normal,
     Down,
