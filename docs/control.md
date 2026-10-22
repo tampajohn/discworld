@@ -1360,3 +1360,19 @@ session-byte restoration, wrong-asset/corrupt rejection and allocation around
 reserved IDs. Evidence: assets/logs/menu-session-{assets,workspace,clippy}.log;
 reproduction is in docs/save-state.md. Native event-loop activation and device
 handoff remain required; the storage bridge alone does not enable F1.
+
+The menu-aware cycle now executes Restart through the same request_restart path
+as script RESTARTGAME: stop music/sample playback, set the restart flag, then
+rebootstrap after the cycle. Its returned Restart dispatch is a notification of
+an already applied reset, not a second host reset command. Rebootstrap retains
+controller settings in a fresh closed controller and initializes mouse history
+at the preserved host tick using the selected double-click threshold. Runtime
+ticks, fractional audio timing, music clock and RNG retain their prior restart
+semantics. The synthetic restart comparison now includes nondefault settings and
+mouse history. Original-asset confirmation tests checkpoint each animation stage,
+verify identical continuation, one restart notification, stopped audio, preserved
+settings and advancing clocks. The startup-based test explicitly restores the
+control gate before confirmation to isolate it from concurrent intro scripts;
+this is not a claim of a complete live SDL restart interaction.
+Evidence: assets/logs/menu-restart-{assets,workspace,clippy}.log. Full host menu
+activation, settings effects/persistence and device handoff remain unfinished.

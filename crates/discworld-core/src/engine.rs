@@ -2695,9 +2695,7 @@ impl Engine {
             }
             match call.id {
                 114 => {
-                    self.music.stop();
-                    self.sample_player.stop();
-                    self.restart_pending = true;
+                    self.request_restart();
                     self.master.complete_library(call, 0, None)?;
                 }
                 120 => {
@@ -3298,6 +3296,8 @@ impl Engine {
 
     /// Complete a game cycle including InventoryProcess. The returned request
     /// belongs to this cycle and must be consumed by the host before another.
+    /// Restart is applied at cycle end; its returned request is a notification,
+    /// not an instruction for the host to restart the engine a second time.
     pub fn tick_with_configuration(
         &mut self,
         resources: &Resources<'_>,
@@ -3338,10 +3338,20 @@ impl Engine {
             // Keep host-facing time, settings and the RNG stream continuous.
             let mut fresh = Self::bootstrap_after_restart(resources, true)?;
             fresh.ticks = next.ticks;
+            fresh.configuration = next
+                .configuration
+                .as_ref()
+                .map(|menu| crate::menu_controller::Controller::new(menu.settings()))
+                .transpose()?;
             if next.mouse.is_some() {
                 fresh.mouse = Some(crate::mouse::MouseInput::new(
                     next.ticks as u32,
-                    crate::mouse::DEFAULT_DOUBLE_CLICK_TICKS,
+                    fresh
+                        .configuration
+                        .as_ref()
+                        .map_or(crate::mouse::DEFAULT_DOUBLE_CLICK_TICKS, |menu| {
+                            u32::from(menu.settings().double_click)
+                        }),
                 ));
             }
             fresh.subtitles = next.subtitles;
@@ -3360,6 +3370,11 @@ impl Engine {
         }
         *self = next;
         Ok(status)
+    }
+    fn request_restart(&mut self) {
+        self.music.stop();
+        self.sample_player.stop();
+        self.restart_pending = true;
     }
     fn advance(
         &mut self,
@@ -3389,6 +3404,9 @@ impl Engine {
                 strings.ok_or(Error("menu update requires strings"))?,
                 saves,
             )?;
+            if dispatch.outcome.request == Some(crate::menu_navigation::Request::Restart) {
+                self.request_restart();
+            }
         }
         if let Some(call) = self.run_master(resources)? {
             return Ok(Status::Unsupported(call));
@@ -3953,9 +3971,7 @@ impl Engine {
             }
             match call.id {
                 114 => {
-                    self.music.stop();
-                    self.sample_player.stop();
-                    self.restart_pending = true;
+                    self.request_restart();
                     process.vm.complete_library(call, 0, None)?;
                 }
                 120 => {
@@ -5904,6 +5920,17 @@ mod tests {
         engine.menu_enabled = true;
         engine.no_blocking = true;
         engine.subtitles = false;
+        let settings = crate::menu_controller::Settings {
+            volumes: [120, 80, 200],
+            double_click: 17,
+            swap_buttons: true,
+            text_speed: 42,
+            subtitles: false,
+            flipped: true,
+        };
+        engine.configuration =
+            Some(crate::menu_controller::Controller::new(settings.clone()).unwrap());
+        engine.mouse = Some(crate::mouse::MouseInput::new(0, 17));
         engine.random.range(0, 100, 0);
         let random = engine.random.clone();
         let tracks = [crate::music::Track {
@@ -5923,6 +5950,12 @@ mod tests {
         assert_eq!(engine.ticks, tick + 1);
         assert!(engine.has_restarted());
         assert!(!engine.restart_pending);
+        assert_eq!(engine.configuration.as_ref().unwrap().settings(), settings);
+        assert!(engine.configuration.as_ref().unwrap().page().is_none());
+        assert_eq!(
+            engine.mouse,
+            Some(crate::mouse::MouseInput::new(engine.ticks as u32, 17))
+        );
         assert!(!engine.subtitles);
         assert_eq!(engine.held_object, -1);
         assert_eq!(engine.random, random);
@@ -5944,6 +5977,8 @@ mod tests {
         // inventory definitions, against a fresh startup at the same host time.
         let mut fresh = Engine::bootstrap_after_restart(&resources, true).unwrap();
         fresh.ticks = engine.ticks;
+        fresh.configuration = Some(crate::menu_controller::Controller::new(settings).unwrap());
+        fresh.mouse = Some(crate::mouse::MouseInput::new(engine.ticks as u32, 17));
         fresh.subtitles = false;
         fresh.random = random;
         fresh.music = engine.music.clone();

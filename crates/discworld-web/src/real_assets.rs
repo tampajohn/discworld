@@ -1080,6 +1080,63 @@ fn engine_menu_opening_preserves_gates_warps_and_atomicity() {
         }
     }
     assert_eq!(requests, vec![Request::Save]);
+    engine.close_inventory();
+    engine.control.enabled = true;
+    engine
+        .open_configuration(&resources, &strings, &catalog, Key::Main)
+        .unwrap();
+    engine
+        .configuration_click([90, 74], Gesture::WalkTo)
+        .unwrap();
+    engine
+        .tick_with_configuration(&resources, Some(&bank), Some(&tracks), &strings, &catalog)
+        .unwrap();
+    assert_eq!(
+        engine.configuration.as_ref().unwrap().page(),
+        Some(Page::Restart)
+    );
+    // This diagnostic runs alongside startup scripts, which may take control
+    // during navigation; isolate confirmation dispatch from that cutscene gate.
+    engine.control.enabled = true;
+    engine.move_cursor_with_configuration([170, 85]).unwrap();
+    engine
+        .configuration_click([170, 85], Gesture::WalkTo)
+        .unwrap();
+    let settings = engine.configuration.as_ref().unwrap().settings();
+    let before_tick = engine.ticks;
+    let before_clock = engine.music.clock;
+    let mut restarts = 0;
+    for _ in 0..6 {
+        let snapshot = discworld_core::save::Snapshot::capture(&engine, game.assets.identity)
+            .to_bytes()
+            .unwrap();
+        let mut restored =
+            discworld_core::save::Snapshot::from_bytes(&snapshot, game.assets.identity)
+                .unwrap()
+                .restore_with_strings(&resources, &bank, &tracks, &strings)
+                .unwrap();
+        let actual = engine
+            .tick_with_configuration(&resources, Some(&bank), Some(&tracks), &strings, &catalog)
+            .unwrap();
+        assert_eq!(
+            restored
+                .tick_with_configuration(&resources, Some(&bank), Some(&tracks), &strings, &catalog)
+                .unwrap(),
+            actual
+        );
+        assert_eq!(engine, restored);
+        if actual.1.outcome.request == Some(Request::Restart) {
+            restarts += 1;
+            assert!(engine.has_restarted());
+            assert!(engine.configuration.as_ref().unwrap().page().is_none());
+            assert!(!engine.music.playing());
+            assert_eq!(engine.sample_player.id, None);
+        }
+        assert_eq!(engine.configuration.as_ref().unwrap().settings(), settings);
+    }
+    assert_eq!(restarts, 1);
+    assert_eq!(engine.ticks, before_tick + 6);
+    assert_eq!(engine.music.clock, before_clock + 30);
 }
 
 fn roundtrip_pending(game: &mut BrowserGame, ticks: u32) {
