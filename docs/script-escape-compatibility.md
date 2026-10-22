@@ -6,7 +6,7 @@ escape generations and handles WAITTIME, scripted walking and PLAY/TOPPLAY
 cancellation plus sample-call entry and suspended cancellation, with DWRSAVE
 v16 state.
 Native/browser Escape still handles configuration/inventory UI; the shared
-script event API is not connected to hosts. PRINTOBJ and remaining
+script event API is not connected to hosts. Remaining waits and
 escape-sensitive library branches still need auditing; the special intro skip
 path remains pending.
 
@@ -312,3 +312,27 @@ inputs and predates these scroll changes.
 Validation: workspace tests (312 core tests), all 18 original-asset web tests,
 Clippy, WASM checking and native/browser release rebuilds passed. Logs use
 `assets/logs/escape-scroll-*`. Final route image was inspected at title.scn.
+
+## Inventory text arbitration
+
+PRINTOBJ retains its V1 ordering. ON/OFF commands execute independently of
+escape. After finding the inventory cell, a POINTED call clears suppression
+before checking its captured generation. A non-POINTED description suppresses
+hover text and yields once, then checks escape before accessing text, speech
+or fonts. Skipping releases suppression and leaves current audio/control
+unchanged. The saved object_print_position already preserves this boundary.
+
+Once displayed, non-POINTED V1 text uses the existing left-event cancellation
+path (Escape increments that event); it does not import a V2-specific early
+guard or add generic cancellation to hover labels. The regression covers
+already-escaped entry, escape during the arbitration delay, POINTED versus
+description behavior, unchanged existing speech/control and exact saved
+continuation. It supplies no strings, bank or font resources during skipping.
+
+Remaining audit items include WAITFRAME's escape check inside its step loop,
+WAITKEY's entry guard (suspended Escape is already an ordinary user event),
+and TALKATTR's color guard. Intro detection and host routing remain separate.
+
+Validation: workspace tests (313 core tests), all 18 original-asset web tests,
+Clippy, WASM checking and native/browser release rebuilds passed. Logs use
+`assets/logs/escape-invtext-*`.

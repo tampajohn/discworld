@@ -5320,15 +5320,22 @@ impl Engine {
                     if text < 0 {
                         return Err(Error("invalid inventory text"));
                     }
-                    let (Some(strings), Some(bank)) = (strings, bank) else {
-                        return Ok(Status::Unsupported(call));
-                    };
                     if process.event == 0 {
                         let Some((cell, position)) =
                             self.inventory_text_cell_at(self.control.cursor)
                         else {
                             process.vm.complete_library(call, 1, None)?;
                             continue;
+                        };
+                        let item = process.inventory_object.unwrap();
+                        let mut label =
+                            self.inventory_hover.monitor.begin_pointed_print(item, cell);
+                        if self.escaped(&process.vm) {
+                            process.vm.complete_library(call, 1, None)?;
+                            continue;
+                        }
+                        let (Some(strings), Some(bank)) = (strings, bank) else {
+                            return Ok(Status::Unsupported(call));
                         };
                         if bank.sample(text)?.is_some() {
                             return Err(Error("V1 pointed inventory text has speech"));
@@ -5342,9 +5349,6 @@ impl Engine {
                         let mut layout =
                             font.centered(resources, strings.get(text as u32)?, position)?;
                         layout.keep_inventory_horizontal(resources, 320)?;
-                        let item = process.inventory_object.unwrap();
-                        let mut label =
-                            self.inventory_hover.monitor.begin_pointed_print(item, cell);
                         if label.enter(
                             &self.inventory_hover.monitor,
                             (self.held_object != -1).then_some(self.held_object),
@@ -5378,6 +5382,14 @@ impl Engine {
                         self.inventory_hover.monitor.suppress();
                         // V1 lets POINTED text die for one scheduler tick.
                         return Ok(Status::Running);
+                    };
+                    if self.escaped(&process.vm) {
+                        self.inventory_hover.monitor.allow();
+                        process.vm.complete_library(call, 1, None)?;
+                        continue;
+                    }
+                    let (Some(strings), Some(bank)) = (strings, bank) else {
+                        return Ok(Status::Unsupported(call));
                     };
                     let bytes = strings.get(text as u32)?;
                     let speech = self.voice_enabled() && bank.sample(text)?.is_some();
@@ -9853,6 +9865,88 @@ mod tests {
         assert!(engine.actor_tags.contains_key(&1));
         engine.tick(&resources).unwrap();
         assert!(engine.actor_tags.is_empty());
+    }
+
+    #[test]
+    fn escaped_inventory_text_preserves_arbitration_delay_and_audio() {
+        for pointed in [false, true] {
+            for after_delay in [false, true] {
+                if pointed && after_delay {
+                    continue;
+                }
+                let (master, mut scene) = fixtures();
+                scene[8] = 0;
+                scene[32..40].copy_from_slice(&[0x41, 77, 3, 0x4e, 54, 0x4c, 0, 0]);
+                let resources = Resources(vec![&master, &scene]);
+                let index = [0, 0, 0, 0, 4, 0, 0, 0];
+                let mut samples = vec![0; 8];
+                samples[4..8].copy_from_slice(&10000u32.to_le_bytes());
+                samples.extend([128; 10000]);
+                let bank = SampleBank::new(&index, &samples).unwrap();
+                let mut engine = Engine::bootstrap(&resources).unwrap();
+                engine.active_inventory = Some(2);
+                engine.declarations.windows[2] = Some(crate::startup::Window {
+                    title: Handle(0),
+                    capacity: 10,
+                    min: [1, 1],
+                    size: [1, 1],
+                    max: [1, 1],
+                    position: [94, 100],
+                    first_display: 0,
+                    contents: vec![284],
+                });
+                engine.control.cursor = [112, 132];
+                engine.inventory_hover.monitor.suppress();
+                engine.sample_player.play_speech(&bank, 1).unwrap();
+                engine.escape_events = Some(1);
+                let mut process = ScriptProcess::new(Handle((1 << 23) | 32));
+                process.inventory_object = Some(284);
+                process.event = if pointed { 0 } else { 3 };
+                process.vm.escape_enabled = true;
+                process.vm.escape_generation = Some(1);
+                engine
+                    .processes
+                    .spawn(Some(engine.generation), process)
+                    .unwrap();
+                if !after_delay {
+                    engine.script_escape_event().unwrap();
+                }
+                let audio = engine.sample_player.clone();
+                let mut control = engine.control.clone();
+                // No font, strings or sample bank: skipping must not need them.
+                engine.tick(&resources).unwrap();
+                assert_eq!(engine.sample_player, audio);
+                assert_eq!(engine.control, control);
+                if !pointed {
+                    assert_eq!(engine.globals[0], 0);
+                    assert!(engine.inventory_hover.monitor.suppressed());
+                    assert!(
+                        engine
+                            .processes
+                            .states()
+                            .any(|p| p.object_print_position.is_some())
+                    );
+                    if after_delay {
+                        engine.script_escape_event().unwrap();
+                        control = engine.control.clone();
+                    }
+                    let bytes = crate::save::Snapshot::capture(&engine, [7; 32])
+                        .to_bytes()
+                        .unwrap();
+                    let snapshot = crate::save::Snapshot::from_bytes(&bytes, [7; 32]).unwrap();
+                    assert_eq!(snapshot.to_bytes().unwrap(), bytes);
+                    let mut restored = snapshot.state().clone();
+                    engine.tick(&resources).unwrap();
+                    restored.tick(&resources).unwrap();
+                    assert_eq!(engine, restored);
+                }
+                assert_eq!(engine.globals[0], 77);
+                assert!(!engine.inventory_hover.monitor.suppressed());
+                assert_eq!(engine.sample_player, audio);
+                assert_eq!(engine.control, control);
+                assert!(engine.processes.states().all(|p| p.print_wait.is_none()));
+            }
+        }
     }
 
     #[test]
