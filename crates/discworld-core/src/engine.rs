@@ -5840,8 +5840,12 @@ impl Engine {
                     process.vm.complete_library(call, 1, None)?;
                 }
                 49 | 81 => {
+                    // V1 Play rejects a null handle before escape or actor checks.
+                    let a = args(&process.vm, 6)?;
+                    if a[0] == 0 {
+                        return Err(Error("null film handle"));
+                    }
                     if self.escaped(&process.vm) {
-                        args(&process.vm, 6)?;
                         process.vm.complete_library(call, 6, None)?;
                         continue;
                     }
@@ -8927,10 +8931,15 @@ mod tests {
                 // 0: unescapable, 1: escape during playback, 2: already escaped,
                 // 3: duplicate request disables escape without restarting.
                 // 4: replacement playback survives the old owner's escape.
-                for mode in 0..5 {
+                // 5: null film remains invalid even after escape.
+                for mode in 0..6 {
                     let (master, mut scene) = fixtures();
                     let base = 2u32 << 23;
-                    let handle = if mode == 2 { u32::MAX } else { base };
+                    let handle = match mode {
+                        2 => u32::MAX,
+                        5 => 0,
+                        _ => base,
+                    };
                     let mut code = vec![1];
                     code.extend_from_slice(&handle.to_le_bytes());
                     code.extend([
@@ -8963,8 +8972,13 @@ mod tests {
                             vm.escape_generation = Some(1);
                         }
                     }
-                    if mode == 2 {
+                    if matches!(mode, 2 | 5) {
                         engine.script_escape_event().unwrap();
+                    }
+                    if mode == 5 {
+                        assert_eq!(engine.tick(&resources), Err(Error("null film handle")));
+                        assert!(engine.reel_owners.is_empty());
+                        continue;
                     }
                     engine.tick(&resources).unwrap();
                     if mode == 2 {

@@ -497,3 +497,15 @@ or every post-title cutscene/order. The full-route job remains pinned to
 Both Chrome/WebKit native-menu-v10 import/export cases also passed, preserving
 exact pixels and unchanged historical save bytes. The visible manual session
 was not restarted.
+
+## Null film validation before Escape
+
+Pinned `tinlib.cpp::Play` asserts a nonzero film handle before the escaped-call
+and dead-actor checks. PLAY/TOPPLAY now reject a null handle at the same point
+with a checked runtime error. Escaped nonzero handles still skip resource
+access, including unavailable resources. The film regression covers both
+opcodes and blocking modes, null rejection after Escape, existing live-reel
+ownership and snapshot continuation. Core tests (320 passed, one ignored),
+formatting and core Clippy pass; logs: `assets/logs/null-film-*`.
+The running cbb7d6b full-route audits and its distributable archives predate
+this malformed-input validation correction.
