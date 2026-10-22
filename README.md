@@ -72,6 +72,18 @@ local slot. After reloading the page, select the ISO/SoundFont again and use
 **Load device save**. Imported native saves require the same ISO and SoundFont.
 Hidden pages pause; return and press Play to resume.
 
+To create a portable browser ZIP from a clean, committed checkout:
+
+```sh
+python3 scripts/package-web.py assets/packages/discworld-web.zip
+```
+
+Extract it and serve the extracted directory with `python3 -m http.server 8765`.
+The bundle includes the runtime, license notices, exact tracked source archive,
+and a SHA-256 file manifest. Supply your own game ISO and music SoundFont.
+The output path must not already exist. This is a development distribution;
+physical iPad acceptance and broader compatibility remain unfinished.
+
 ![Browser player with the original Luggage inventory](docs/media/browser-player.png)
 
 The host is tested in Chrome and Playwright WebKit at a landscape tablet-sized viewport.

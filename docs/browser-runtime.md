@@ -396,3 +396,32 @@ ends it. Existing ordinary header-drag save/load cases also pass, including
 Chrome's real browser touch dispatch. Four targeted browser cases, workspace
 tests, Clippy and WASM build pass; logs: assets/logs/swapped-drag-*.log.
 This is browser input lifecycle evidence, not physical iPad acceptance.
+
+
+## Standalone browser distribution
+
+`scripts/package-web.py OUTPUT.zip` builds from a clean tracked checkout with
+locked Cargo dependencies and wasm-bindgen-cli 0.2.129. It includes only the
+static host files, generated WASM/glue, LICENSE/NOTICE, instructions, a SHA-256
+manifest and a `git archive` of the exact source revision. Existing destinations
+are rejected. Game data and the user music SoundFont are excluded; the source
+archive retains the vendored synthesizer's tiny empty SoundFont test fixture.
+Untracked files are not included in the source archive.
+
+The local development bundle `assets/packages/discworld-web-d8e6f1e.zip` is pinned
+to d8e6f1e235e0f713496cd08196f7f99e2375c9f8 (2,826,559 bytes; SHA-256
+`0cfb529673b03f1fa67f9c350921425f0d8e16603a770d8291b28e1d2d0738ce`).
+All 14 manifested files passed hash checks; the source archive matched a fresh
+archive of that revision byte-for-byte. An attempted second publication to the
+same path was rejected.
+
+The extracted bundle was served from `assets/packages/verified-d8e6f1e`, outside
+`web/`, with no source-directory HTTP fallback. The existing production-player
+integration test passed in both Chrome and Playwright WebKit (2/2). It checks
+native save import and exact export, native inventory pixels, simulation and
+finite nonzero audio scheduling, pause/mute controls, local save persistence
+across page reload, corrupt-save rejection without state replacement, landscape
+canvas bounds and actual touch input with save roundtrip. Evidence is in
+`assets/logs/browser-package-test.log`; the isolated test configuration is
+`assets/packages/package.config.mjs`. This does not establish physical iPad
+acceptance, full manual gameplay coverage or native application packaging.
