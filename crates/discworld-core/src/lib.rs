@@ -27,6 +27,7 @@ pub mod menu_slider;
 pub mod menu_toggle;
 pub mod mouse;
 pub mod mover;
+pub mod mover_reel;
 pub mod music;
 pub mod music_player;
 pub mod nodepath;

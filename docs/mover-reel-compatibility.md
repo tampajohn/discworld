@@ -1,6 +1,7 @@
 # V1 mover reel compatibility gap
 
-Status: specification from source inspection, not implemented. Reference revision:
+Status: reference-derived transition model implemented in `mover_reel.rs`;
+live mover/engine and snapshot integration remain pending. Reference revision:
 `96b42d42bc8533953bdd701db059cc33c839a9ff`. This applies to V1; later-version
 branches in the same functions must not be imported implicitly.
 
@@ -90,3 +91,19 @@ separate ad hoc talk and custom-walk exceptions would diverge on replacement.
 The existing start-to-credits route does not establish these alternate-order
 semantics. This is a remaining compatibility requirement, not a reason to
 relax the complete-runtime goal or silently accept unsupported calls.
+
+
+## Transition model evidence
+
+The pure `mover_reel::State` model returns an animation operation and candidate
+state without mutating its caller. Resource installation must succeed before
+committing either. It distinguishes normal movement, special animation, and
+custom walking, and retains the reference's single pushed-film slot.
+
+Six regression sequences cover normal walking speech/standing-before-pop,
+stationary restoration and repeated POP, overlapping PUSH operations, a new
+walk while speech is pending, custom walking followed by zero-film requests
+and speech, and zero PUSH with state serialization/continuation. These test
+reel decisions only; displacement, hidden actor scheduling, resource validation
+and full engine snapshots remain acceptance gates. No unsupported runtime
+call has been enabled by this foundation alone.
