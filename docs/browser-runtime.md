@@ -471,3 +471,13 @@ menus, original saves, audio interruption and storage. Log:
 `assets/logs/browser-full-current.log`. The run used the 27d9924 engine with
 a2b6513 lifecycle changes and cc0fcfa viewport tests; it predates WALKPOLY
 runtime integration. Physical-device acceptance remains outstanding.
+
+
+## Current extracted browser package
+
+`assets/packages/discworld-web-d39a279.zip` contains runtime d39a279. All
+manifested files and the exact source archive pass hash checks after extraction
+outside the checkout. See [package evidence](validation/packages-d39a279.json).
+The complete Chrome/WebKit UI suite is running against an HTTP server rooted
+in that extracted package, rather than the checkout's web directory. Its result
+is pending; no physical iPad acceptance is inferred.

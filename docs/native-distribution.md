@@ -39,3 +39,15 @@ not evidence that all supported hardware or OS versions work. Finder `.app`
 packaging, distribution signing/notarization, and broader OS/device acceptance
 remain outstanding. This archive is a development deliverable, not completion
 of the runtime goal.
+
+
+## Current development package
+
+`assets/packages/discworld-native-d39a279.tar.gz` contains runtime d39a279,
+including current mover creation, SPLAY lifecycle, FRAMEGRAB/RUNMODE and
+scripted subtitle handling. All manifested file hashes and its exact source
+archive were verified after extraction outside the checkout; executable
+permissions and strict signature verification pass. See
+[package evidence](validation/packages-d39a279.json) for size and SHA-256.
+The full recorded-route run of this extracted executable is pending; integrity
+checks alone do not establish gameplay acceptance.

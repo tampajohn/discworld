@@ -1,0 +1,33 @@
+{
+  "schema": 1,
+  "runtime_revision": "d39a27965f5d8c4d86eea61df98e85679a2e01e0",
+  "packages": [
+    {
+      "file_count": 5,
+      "sha256": "18218286f18a4ae64f1ff2accf85a5fbf7d5589bf4b50b95c629fdb21da885c8",
+      "bytes": 3992894,
+      "path": "assets/packages/discworld-native-d39a279.tar.gz"
+    },
+    {
+      "file_count": 14,
+      "sha256": "30da36ac9f5d9f8221dcf9dc1b95a09e59ea7a93944fb60ef40b27d343616edf",
+      "bytes": 2958564,
+      "path": "assets/packages/discworld-web-d39a279.zip"
+    }
+  ],
+  "checks": {
+    "manifest_hashes": "Every extracted file matched its manifest SHA-256; no unmanifested archive files except manifest.json.",
+    "source_archive": "Both source.tar.gz files matched a fresh git archive of the pinned revision byte-for-byte.",
+    "native_binary": "Extracted outside checkout, executable permission retained, strict codesign verified; packaging checked arm64 architecture and system-only linked dependencies."
+  },
+  "pending_acceptance": {
+    "native": "Full recorded route through extracted executable using --from-tick 2630000, then 30 SDL dummy-video frames.",
+    "browser": "44 existing Playwright Chrome/WebKit tests served from extracted static package."
+  },
+  "local_artifacts": "assets/validation/package-d39a279",
+  "limits": [
+    "Package integrity does not establish gameplay or UI acceptance. Running checks are not reported as passed.",
+    "Physical iPad, visible native interaction and device audio remain unverified.",
+    "No Finder app, notarization or Intel delivery. Existing visible session not restarted."
+  ]
+}

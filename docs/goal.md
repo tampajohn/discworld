@@ -44,6 +44,25 @@ Keep the user's visible native session current with newly verified engine builds
 
 ## Current progress (2026-10-22)
 
+Automatic mover creation runtime `0ccdf9f` completed the native recorded route:
+all 1,652 inputs accepted, 5,048 engine and 5,048 audio continuation checks,
+and restart/title at tick 2,630,000. Final engine bytes match `6167511`;
+see [mover creation route evidence](validation/created-mover-0ccdf9f.json).
+This includes implicit film-coordinate correction and automatic creation of
+declared movers during PLAY/SPLAY/TOPPLAY. Dedicated tests cover creation
+arbitration, explicit hiding and independent SPLAY secondary cleanup. Broader
+mixed-column and live-reference comparisons remain outstanding.
+
+Subsequent runtime `d39a279` implements FRAMEGRAB, RUNMODE and scripted
+SUBTITLES in continuing master and scene processes. Subtitle changes share
+live/retained menu state and survive resource-validated save/load. Workspace
+checks (330 core tests), Clippy, the original-menu regression and all 20
+original-asset web tests pass; both release hosts build. The completed route
+above predates these library additions. See [script runtime](script-runtime.md).
+
+The audits below retain their revision-specific scope; newer builds do not
+inherit a claim of full-route or device acceptance from an older audit.
+
 SPLAY runtime `6167511` completed the native recorded route with all 1,652
 inputs accepted, 5,048 engine and 5,048 audio continuation checks, and final
 restart/title at tick 2,630,000. Its production browser host passed four Node
@@ -58,8 +77,9 @@ checks, and restart/title at tick 2,630,000. See
 [PLAY movement route evidence](validation/play-movement-a768ad9.json). This
 run predates the STAND visibility correction and SPLAY infrastructure. SPLAY
 now connects dispatch, restoration and v19 cleanup state. Focused blocking,
-nonblocking, Escape and replacement tests pass; secondary-actor and expanded
-route coverage remain outstanding.
+nonblocking, Escape and replacement tests pass. Subsequent secondary-actor
+cleanup tests are described in [mover compatibility](mover-reel-compatibility.md);
+broader alternate-route coverage remains outstanding.
 
 WALKPOLY runtime `b692a3b` completed the recorded native route through title
 restart at tick 2,630,000, accepting all 1,652 inputs and passing 5,048 engine
