@@ -1,0 +1,26 @@
+{
+  "runtime": "bad0d45",
+  "failed_route": "assets/validation/mover-retry-bad0d45",
+  "setup": "assets/validation/mover-retry-recovery1/setup-input.json",
+  "setup_report": "assets/validation/mover-retry-recovery1/setup.json",
+  "retry": "assets/validation/mover-retry-recovery1/retry-input.json",
+  "retry_report": "assets/validation/mover-retry-recovery1/retry.json",
+  "result": {
+    "tick": 1125725,
+    "scene": "pasthide.scn",
+    "status": "Running",
+    "control": true,
+    "accepted_inputs": 20,
+    "visited": [
+      "brethren.scn",
+      "dragon.scn"
+    ],
+    "final_png_inspected": true
+  },
+  "change": "Wait for original NPC to reveal hideout, return map72 -> pastlibr36 -> library36, repeat book/exit and timed visitor sequence after observed theft/control return. Only normal recorded interactions; no engine, scripts, flags or inventory edited.",
+  "full_candidate": "assets/validation/mover-retry-recovery1/full-input.json",
+  "full_candidate_sha256": "95e5cb3b9d44015a50b18cbba05dbf3b76051c3a892e37d545b16bb347365551",
+  "full_candidate_inputs": 1657,
+  "full_candidate_end_tick": 2635725,
+  "scope": "Short recovery succeeds through brotherhood/dragon cutscenes. Entire revised start-to-credits route still unverified."
+}
