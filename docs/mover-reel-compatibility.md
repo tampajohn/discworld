@@ -791,3 +791,41 @@ Validation: workspace suite (326 core tests) and Clippy pass. Focused logs
 are assets/logs/splay-secondary-focused.log and splay-nodes-focused.log;
 broader logs use assets/logs/splay-expanded-*. Production hosts remain at
 6167511 because this change adds tests and documentation only.
+
+
+## Film entry before mover creation
+
+Pinned actors.cpp::GetActorPos delegates to GetMoverPosition whenever an actor
+has a registered mover, even before creation. GetMoverPosition returns the
+object's animation coordinates if actorObj exists, otherwise (0,0). It does
+not use the stored actor film position or mover logical objX/Y. The runtime's
+implicit film placement now follows this distinction; explicit and embedded
+film coordinates keep their existing precedence. Tests distinguish ordinary
+actors, declared/uncreated movers, logical versus animation coordinates,
+explicit sentinel-axis placement, and retained stored film coordinates.
+
+Automatic creation remains outstanding. t1PlayReel first places its play object
+and calls HideMovingActor, then creates a missing mover via
+Stand(actor, MAGICX=-101, MAGICY=-102, TF_NONE). MoverProcessHelper calls
+InitMover and InitialPathChecks at those sentinel coordinates. InitMover clears
+bHidden; SetMoverStanding selects a special reel, and the MAGIC-coordinate case
+skips the temporary HideMover sequence at helper exit. Thus this newly created
+mover is not equivalent to an existing mover hidden by PLAY.
+
+Depth selection also distinguishes it: t1PlayReel's bNewMover makes the primary
+use actor masking rather than mover path depth, and NoNameFunc applies the same
+distinction to secondary columns. Creation happens after duplicate, alive and
+film-arbitration checks; rejected requests must not create movers.
+
+The current Rust mover loop forces all film-owned movers hidden to migrate older
+snapshots. Correct creation support therefore needs an explicit way to preserve
+the new mover's initialized visibility and special-reel animation state across
+ticks and saves, without changing existing hidden-owner behavior or depth.
+Creating a mover at the film coordinates and reusing the existing hide path
+would not match the pinned source. This source audit does not implement creation.
+
+Implicit film-position validation passes: workspace suite (327 core tests),
+20 original-asset web tests, Clippy, WASM checking, and native release build.
+Logs use assets/logs/film-position-*. Production web/pkg remains at 6167511
+while its full Chrome/WebKit UI suite is running; rebuild after that audit.
+The 6167511 native full-route audit also predates this coordinate correction.

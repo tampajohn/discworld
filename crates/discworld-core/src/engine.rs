@@ -3440,7 +3440,15 @@ impl Engine {
                 reel.object.x = position[0];
                 reel.object.y = position[1];
             } else if !embedded {
-                stored = self.actors.get(reel.object.id as u32)?.position;
+                stored = if let Some(mover) = self.movers.get(&reel.object.id) {
+                    [mover.animation.object.x, mover.animation.object.y]
+                } else if self.declarations.movers.contains_key(&reel.object.id) {
+                    // V1 GetActorPos delegates to GetMoverPosition even before
+                    // actorObj exists; that case reports zero coordinates.
+                    [0, 0]
+                } else {
+                    self.actors.get(reel.object.id as u32)?.position
+                };
                 reel.object.x = stored[0];
                 reel.object.y = stored[1];
             }
@@ -12040,6 +12048,59 @@ mod tests {
             assert_eq!(engine, restored);
         }
     }
+    #[test]
+    fn implicit_film_position_uses_mover_animation_or_uncreated_zero() {
+        let (master, scene) = fixtures();
+        let base = 2u32 << 23;
+        let mut film = vec![0; 64];
+        for (at, word) in [
+            (0, 24u32),
+            (4, 1),
+            (8, base + 24),
+            (12, base + 48),
+            (32, 1),
+            (48, 10),
+        ] {
+            film[at..at + 4].copy_from_slice(&word.to_le_bytes());
+        }
+        let resources = Resources(vec![&master, &scene, &film]);
+        let mut engine = Engine::bootstrap(&resources).unwrap();
+        engine.actors = crate::actor::Actors::new(1).unwrap();
+        engine.actors.get_mut(1).unwrap().position = [90, 100];
+        let position = |engine: &Engine, at| {
+            let reels = engine
+                .prepare_actor_film(&resources, Handle(base), at)
+                .unwrap();
+            assert_eq!(
+                reels[0].source.as_ref().unwrap().position,
+                [reels[0].object.x, reels[0].object.y]
+            );
+            [reels[0].object.x, reels[0].object.y]
+        };
+        assert_eq!(position(&engine, [-1, -1]), [90, 100]);
+        engine
+            .declarations
+            .movers
+            .insert(1, [[Handle(base); 12]; 10]);
+        assert_eq!(position(&engine, [-1, -1]), [0, 0]);
+        let placement = crate::mover::Placement::initial(
+            &engine.declarations,
+            &engine.polygons,
+            1,
+            [40, 50],
+            Handle(base),
+        )
+        .unwrap();
+        let mut mover = crate::mover::Mover::new(&resources, placement).unwrap();
+        mover.animation.object.x = 45;
+        mover.animation.object.y = 55;
+        engine.movers.insert(1, mover);
+        assert_eq!(position(&engine, [-1, -1]), [45, 55]);
+        assert_eq!(position(&engine, [1, -1]), [1, -1]);
+        assert_eq!(engine.actors.get(1).unwrap().position, [90, 100]);
+        assert_eq!(engine.movers[&1].placement.position, [40, 50]);
+    }
+
     #[test]
     fn splay_secondary_mover_cleanup_outlives_primary_and_restores_independently() {
         use crate::save::Snapshot;
