@@ -129,6 +129,28 @@ def capture(frame, location, dictionary):
             dialogs = vm.Dereference().GetChildMemberWithName('_dialogs').Dereference()
             frames.RECORDS[-1]['inventory'] = [frames.unsigned(dialogs.GetChildMemberWithName(name))
                                                for name in ['_inventoryState', '_activeInv']]
+        if LOOK:
+            try:
+                mixer_type = target.FindFirstType('Audio::MixerImpl')
+                mixer = vm.Dereference().GetChildMemberWithName('_mixer').Cast(
+                    mixer_type.GetPointerType()).Dereference()
+                channels = mixer.GetChildMemberWithName('_channels')
+                if channels.GetNumChildren() != 32:
+                    raise RuntimeError('reference mixer channels unavailable')
+                speech = []
+                for index in range(32):
+                    pointer = channels.GetChildAtIndex(index)
+                    if frames.unsigned(pointer) == 0:
+                        continue
+                    channel = pointer.Dereference()
+                    if frames.unsigned(channel.GetChildMemberWithName('_type')) == 3:
+                        speech.append({name: frames.unsigned(channel.GetChildMemberWithName(name))
+                                       for name in ['_samplesConsumed', '_samplesDecoded', '_mixerTimeStamp']})
+                frames.RECORDS[-1]['mixer_speech'] = speech
+                frames.RECORDS[-1]['mixer_rate'] = frames.unsigned(mixer.GetChildMemberWithName('_sampleRate'))
+            except Exception as error:
+                frames.FAILURES.append(str(error))
+                return True
         for name in ['g_TaggedActor', 'g_hTaggedPolygon']:
             value = target.FindFirstGlobalVariable('Tinsel::' + name)
             if value.IsValid():
@@ -206,8 +228,8 @@ def finish(debugger):
 
 
 def __lldb_init_module(debugger, dictionary):
-    if frames.BACKEND != 'surfacesdl' or frames.LIMIT != 72:
-        raise ValueError('hover probe requires surfacesdl and exactly 72 frames')
+    if frames.BACKEND != 'surfacesdl' or not 72 <= frames.LIMIT <= 240:
+        raise ValueError('hover probe requires surfacesdl and 72..240 frames')
     frames.OUTPUT.mkdir()
     target = debugger.GetSelectedTarget()
     points = [

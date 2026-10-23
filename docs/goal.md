@@ -14,6 +14,12 @@ The long-term user-facing target is comfortable, complete play on an iPad in lan
 
 Touch gestures and presentation technology remain implementation decisions to validate with gameplay; the shared deterministic engine must not depend on a particular gesture or device API.
 
+## Latest validation follow-up
+
+The inventory-close runtime (`0a87557`) completed the unchanged 2,630,000-tick route in native, Chrome, and WebKit: all 1,652 inputs accepted, 5,048 engine and 5,048 audio snapshot checks, and identical final engine state and pixels. See [route evidence](validation/inventory-close-route.json). This does not establish full-game original-engine equivalence or physical iPad acceptance.
+
+The extended voiced LOOK diagnostic records all 144 frames and reference mixer sample counts. The reference consumed the full original recording but ended speech at different game cycles with different debugger instrumentation. The instrumented capture failed the fixed cursor-position acceptance gate when speech restored the cursor at frame 70. This is recorded as an observation, not a fidelity pass; no runtime speech duration was changed. See [speech completion evidence](validation/reference-look-completion-observation.json). Sample-driven completion validation remains open.
+
 ## Architecture
 
 The engine core forbids unsafe Rust and has no host filesystem, window, audio device, or wall-clock dependencies. Asset readers validate lengths, offsets, identifiers, and resource handles. A deterministic cooperative scheduler owns explicit, serializable script stacks and suspended operations. Save state includes scripts, actors, inventory, timers, scene state, and random generator state.

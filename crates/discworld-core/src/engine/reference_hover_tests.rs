@@ -40,6 +40,9 @@ fn capture_original_debug_room_hover() {
     let inventory_mode = std::env::var_os("DISCWORLD_HOVER_INVENTORY").is_some();
     let look_mode = std::env::var_os("DISCWORLD_HOVER_LOOK").is_some();
     assert!(!(inventory_mode && look_mode));
+    let frame_limit =
+        std::env::var("DISCWORLD_HOVER_FRAMES").map_or(72, |s| s.parse::<usize>().unwrap());
+    assert!((72..=240).contains(&frame_limit));
     let mut audio_states = Vec::new();
     let mut start = None;
     let mut rows = Vec::new();
@@ -431,12 +434,12 @@ fn capture_original_debug_room_hover() {
                 .unwrap()
                 .map_or("null".to_owned(), |c| c.polygon.to_string());
             rows.push(format!("{{\"tick\":{},\"scene\":{},\"rgb_sha256\":\"{:x}\",\"polygon_candidate\":{},\"cursor\":{:?}}}", engine.ticks, engine.scene.0, Sha256::digest(&rgb), polygon, engine.control.cursor));
-            if rows.len() == 72 {
+            if rows.len() == frame_limit {
                 break;
             }
         }
     }
-    assert_eq!(rows.len(), 72, "room did not reach active tags");
+    assert_eq!(rows.len(), frame_limit, "room did not reach active tags");
     std::fs::write(
         directory.join("audio-states.json"),
         format!("[{}]\n", audio_states.join(",")),
@@ -464,7 +467,7 @@ fn capture_original_debug_room_hover() {
     .unwrap();
     std::fs::write(directory.join("capture.json"), format!("{{\"scope\":\"Integrated runtime output; controlled original scene entry and immediate cursor movement, not ordinary host-input replay\",\"hover_start_tick\":{},\"frames\":[{}]}}\n", start.unwrap(), rows.join(","))).unwrap();
     println!(
-        "Captured 72 hover frames beginning at tick {}",
+        "Captured {frame_limit} hover frames beginning at tick {}",
         start.unwrap()
     );
 }
