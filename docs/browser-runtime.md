@@ -9,7 +9,9 @@ Chrome and WebKit startup, legacy-load, save export and audio-control checks
 pass. The matching browser UI build passes 49 Playwright and four Node tests;
 one unsupported WebKit multitouch-injection case is skipped.
 See [package evidence](validation/packages-3df76c8.json). Physical iPad acceptance
-and the latest complete-route audit remain separate checks.
+and the latest complete-route audit remain separate checks. The
+[physical iPad procedure](ipad-acceptance.md) records the required touch,
+save/load, audio and lifecycle checks; it has not yet been executed.
 
 
 `discworld-web` exports `BrowserGame` through wasm-bindgen 0.2.129. It uses the
