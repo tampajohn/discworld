@@ -1,0 +1,102 @@
+{
+  "previous_runtime": "f5b9a91",
+  "reference_revision": "96b42d42bc8533953bdd701db059cc33c839a9ff",
+  "cause": "Rust retained a cursor object during scene entry and CONTROL_ON advanced it before the reference CursorStoppedCheck initialized its replacement.",
+  "correction": "Remove the cursor at scene entry; CONTROL_ON restores only an existing cursor. Initialize the replacement after the scene script pass when a background exists, without stepping it.",
+  "save_format_change": false,
+  "door_capture": "assets/validation/rust-door-exit-deferred1",
+  "reference_capture": "assets/validation/reference-door-exit-callers1",
+  "comparison": "assets/validation/door-exit-deferred-compare1.json",
+  "door_same_cycle_frames": 240,
+  "door_previous_same_cycle_frames": 177,
+  "save_continuations": 240,
+  "regression_cases": [
+    {
+      "name": "luggage",
+      "reference": "reference-luggage-resize1",
+      "rust": "rust-cursor-entry-luggage-check1",
+      "comparison": "cursor-entry-luggage-check-compare1.json",
+      "frames": 72
+    },
+    {
+      "name": "fixed",
+      "reference": "reference-inventory-fixed-corner1",
+      "rust": "rust-cursor-entry-fixed-check1",
+      "comparison": "cursor-entry-fixed-check-compare1.json",
+      "frames": 72
+    },
+    {
+      "name": "header",
+      "reference": "reference-inventory-drag2",
+      "rust": "rust-cursor-entry-header-check1",
+      "comparison": "cursor-entry-header-check-compare1.json",
+      "frames": 72
+    },
+    {
+      "name": "inventory",
+      "reference": "reference-inventory3",
+      "rust": "rust-cursor-entry-inventory-check1",
+      "comparison": "cursor-entry-inventory-check-compare1.json",
+      "frames": 72
+    },
+    {
+      "name": "look",
+      "reference": "reference-look2",
+      "rust": "rust-cursor-entry-look-check1",
+      "comparison": "cursor-entry-look-check-compare1.json",
+      "frames": 72
+    },
+    {
+      "name": "walk",
+      "reference": "reference-player-walk2",
+      "rust": "rust-cursor-entry-walk-check1",
+      "comparison": "cursor-entry-walk-check-compare1.json",
+      "frames": 72
+    },
+    {
+      "name": "cached",
+      "reference": "reference-cached-actor1",
+      "rust": "rust-cursor-entry-cached-check1",
+      "comparison": "cursor-entry-cached-check-compare1.json",
+      "frames": 72
+    },
+    {
+      "name": "door",
+      "reference": "reference-door-action2",
+      "rust": "rust-cursor-entry-door-check1",
+      "comparison": "cursor-entry-door-check-compare1.json",
+      "frames": 72
+    },
+    {
+      "name": "top-left",
+      "reference": "reference-luggage-top-left1",
+      "rust": "rust-cursor-entry-top-left-check1",
+      "comparison": "cursor-entry-top-left-check-compare1.json",
+      "frames": 72
+    },
+    {
+      "name": "shrink",
+      "reference": "reference-luggage-shrink1",
+      "rust": "rust-cursor-entry-shrink-check1",
+      "comparison": "cursor-entry-shrink-check-compare1.json",
+      "frames": 72
+    },
+    {
+      "name": "top-left-shrink",
+      "reference": "reference-luggage-top-left-shrink1",
+      "rust": "rust-cursor-entry-top-left-shrink-check1",
+      "comparison": "cursor-entry-top-left-shrink-check-compare1.json",
+      "frames": 72
+    }
+  ],
+  "validation": {
+    "workspace": "passed",
+    "clippy": "passed",
+    "format": "passed",
+    "original_assets": "running",
+    "native_build": "running",
+    "web_build": "running",
+    "full_routes": "not yet run for this correction"
+  },
+  "limitations": "Controlled captures do not prove whole-game fidelity or physical iPad acceptance. Previous full routes cover f5b9a91, not this change."
+}

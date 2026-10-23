@@ -571,5 +571,7 @@ Package `ea6d560` contains runtime `f5b9a91` with corrected hidden-cursor trail
 lifetime. An isolated checkout kept the ongoing UI suite's files unchanged.
 All 14 extracted manifest files and exact source verify. Chrome and WebKit pass
 startup, legacy loading, save export and audio-headroom checks with no page
-errors. Full-route audits and the broader UI suite are still running; physical
-iPad acceptance remains open. See [package evidence](validation/packages-ea6d560.json).
+errors. Full-route audits now pass with identical final engine state and pixels
+in native, Chrome and WebKit; see [route evidence](validation/hidden-trails-route.json).
+The UI suite passes 49 cases with one known WebKit multi-touch injection skip,
+plus four Node tests. Physical iPad acceptance remains open. See [package evidence](validation/packages-ea6d560.json).

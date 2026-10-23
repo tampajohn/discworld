@@ -3918,11 +3918,9 @@ impl Engine {
         self.background = None;
         self.background_film = None;
         self.background_palette = None;
-        self.cursor_animation = if let Some((handle, _)) = &self.declarations.cursor {
-            Self::start_film(resources, *handle, true)?.pop()
-        } else {
-            None
-        };
+        // EndScene removes the cursor object. CursorStoppedCheck recreates it
+        // after the new scene's initial scripts have run.
+        self.cursor_animation = None;
         if let Some(trails) = &mut self.cursor_trails {
             trails.reset_scene(self.control.cursor);
         }
@@ -5228,6 +5226,11 @@ impl Engine {
         if let Some(call) = blocked {
             self.processes.end_pass()?;
             return Ok(Status::Unsupported(call));
+        }
+        if self.cursor_animation.is_none() && self.background.is_some() {
+            if let Some((handle, _)) = &self.declarations.cursor {
+                self.cursor_animation = Self::start_film(resources, *handle, true)?.pop();
+            }
         }
         if self.active_inventory.is_some() {
             if self.inventory_dirty && !self.conversation.hidden {
@@ -6915,7 +6918,7 @@ impl Engine {
                 14 => {
                     let mode = args(&process.vm, 1)?[0];
                     self.apply_control(mode, self.control_inventory_active(), self.world_origin)?;
-                    if mode == 1 {
+                    if mode == 1 && self.cursor_animation.is_some() {
                         if let Some((handle, _)) = &self.declarations.cursor {
                             self.cursor_animation =
                                 Self::start_film(resources, *handle, true)?.pop();
