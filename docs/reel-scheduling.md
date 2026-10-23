@@ -134,6 +134,43 @@ and both host builds pass. Full recorded-route results remain pending.
   change. Those checks complement the reference comparisons; they do not
   replace ordering evidence or prove all alternative game interactions.
 
+## Scene reconstruction follow-up
+
+The pinned `savescn.cpp::sortActors` (lines 182–204) establishes actor life and
+queues saved reels, then restores auxiliary scales and calls STAND for active
+saved movers. `play.cpp::RestoreActorReels` (lines 1109–1135) only records
+parameters, calls `NewestFilm`, and creates a `PlayProcess`; it does not claim
+the actor or create a mover synchronously. Thus the restored mover state is
+present when those queued reels eventually resolve their placement and hide
+their moving actor. The order of queued restored columns also follows scheduler
+insertion, rather than the order in which an eager reconstruction loop appends
+drawable objects.
+
+The current `rebuild_scene_objects` calls the synchronous `restore_actor_reel`
+before `restore_scene_movers`. This can initialize/hide a mover before the mover
+map is replaced. Moving restored reels into queued jobs must defer those side
+effects until after mover restoration, not just defer their first frame.
+
+There is a second integration requirement: the reference
+`DoRestoreSceneFrame` reconstructs objects at `RS_COUNT` and calls
+`ResumeInterprets` at count 1. `ResumeInterprets` creates interpreter processes
+in the existing scheduler; it does not discard the running reel jobs. The Rust
+`restore_scene_scripts` currently replaces its script queue. Once restored
+reels join that queue, script restoration must preserve their identities,
+sleep state and relative ordering, including the atomic `rebuild_scene` API.
+
+The restore request must also retain the saved depth. A nonzero `ppi.z` bypasses
+normal depth calculation without updating the shared first-column depth/factor;
+zero uses normal dispatch-time depth calculation (`t1PlayReel`, lines 541–596).
+Reusing PLAY's default request and overwriting Z after its ordinary startup
+would incorrectly alter that shared state.
+
+Required targeted cases include a restored film on an already restored mover,
+multiple saved actors, saved explicit and zero depths, dead actors, duplicate
+requests, pending save/reload before the reel runs, and the later interpreter
+resume retaining the live reel job. These are source-derived requirements;
+the current startup comparison and recorded-route runs do not establish them.
+
 ## Additional trace instrumentation
 
 `tools/reference_frames_lldb.py` now records a shared ordered event stream for
