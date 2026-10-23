@@ -1,0 +1,40 @@
+{
+  "runtime_revision": "9186705",
+  "reference_revision": "96b42d42bc8533953bdd701db059cc33c839a9ff",
+  "reference_binary_sha256": "1e8b098f0e9f6da44062aa19c195a5771a4a5dbc806cb3d3a9c3eb0e8fb6f524",
+  "reference_probe_sha256": "e145aceb18c0c5a416282f9209ca74800c748bf29c504088a8cc20a2d44e0e85",
+  "reference_capture_accepted": true,
+  "scope": "Controlled scene/cursor injection, resolved pockets open, original drag-start/WALKTO/release events, then close. Not physical input or full-game equivalence.",
+  "sequence": [
+    {
+      "elapsed": 0,
+      "action": "Open pockets via lead actor WALKTO"
+    },
+    {
+      "elapsed": 12,
+      "action": "Left press on header at140,110"
+    },
+    {
+      "elapsed": 24,
+      "action": "Move held pointer to170,130"
+    },
+    {
+      "elapsed": 36,
+      "action": "Move to180,135 and release"
+    },
+    {
+      "elapsed": 48,
+      "action": "Move outside to10,10 and close inventory"
+    }
+  ],
+  "frames": 72,
+  "rgb_content_matches": 72,
+  "same_cycle_matches": 72,
+  "full_save_restore_next_tick_checks": 72,
+  "rust_drag_start_and_release_asserted": true,
+  "engine_changed": false,
+  "clippy": "core all-target check passed",
+  "comparison_sha256": "ce8dbaaf741670efe0055eb8758bd60ca536b75c828de9952831937452a6b381",
+  "reference_capture_sha256": "7978b040cfdbb78cd57851a4f6e95ec4c479a6cc8d57905bf3fbe06da71311ef",
+  "rust_capture_sha256": "2b3ce43e373314bf17945f866fe7efb48945451ce0a84931c829ad56be06c45b"
+}

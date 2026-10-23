@@ -37,6 +37,17 @@ fn capture_original_debug_room_hover() {
         [10, 10],
     ];
     let direct_entry = std::env::var_os("DISCWORLD_HOVER_DIRECT_ENTRY").is_some();
+    let inventory_drag = std::env::var_os("DISCWORLD_HOVER_INVENTORY_DRAG").is_some();
+    if inventory_drag {
+        points = [
+            [50, 120],
+            [140, 110],
+            [170, 130],
+            [180, 135],
+            [10, 10],
+            [10, 10],
+        ];
+    }
     let inventory_mode = std::env::var_os("DISCWORLD_HOVER_INVENTORY").is_some();
     let look_mode = std::env::var_os("DISCWORLD_HOVER_LOOK").is_some();
     let walk_delay =
@@ -155,7 +166,19 @@ fn capture_original_debug_room_hover() {
                             .unwrap()
                     );
                 }
-                if inventory_mode && elapsed == 36 {
+                if inventory_drag && elapsed == 12 {
+                    engine
+                        .mouse_button(&resources, crate::mouse::Button::Left, true)
+                        .unwrap();
+                    assert!(engine.inventory_dragging());
+                }
+                if inventory_drag && elapsed == 36 {
+                    engine
+                        .mouse_button(&resources, crate::mouse::Button::Left, false)
+                        .unwrap();
+                    assert!(!engine.inventory_dragging());
+                }
+                if inventory_mode && elapsed == (if inventory_drag { 48 } else { 36 }) {
                     assert_eq!(engine.active_inventory(), Some(2));
                     let before = engine.clone();
                     assert!(

@@ -15,6 +15,7 @@ sys.path.insert(0, str(Path(__file__).resolve().parent))
 import reference_frames_lldb as frames
 
 INVENTORY = os.environ.get("DISCWORLD_REFERENCE_INVENTORY") == "1"
+INVENTORY_DRAG = os.environ.get("DISCWORLD_REFERENCE_INVENTORY_DRAG") == "1"
 LOOK = os.environ.get("DISCWORLD_REFERENCE_LOOK") == "1"
 WALK = os.environ.get("DISCWORLD_REFERENCE_WALK") == "1"
 WALK_FROM_ACTOR = os.environ.get("DISCWORLD_REFERENCE_WALK_FROM_ACTOR") == "1"
@@ -27,6 +28,9 @@ POINTS = [[50, 120], [147, 110], [294, 56], [250, 160], [149, 60], [10, 10]]
 
 if WALK:
     POINTS[0] = [200, 140] if WALK_FROM_ACTOR else [250, 180]
+
+if INVENTORY_DRAG:
+    POINTS = [[50, 120], [140, 110], [170, 130], [180, 135], [10, 10], [10, 10]]
 
 
 def invoke(frame, expression):
@@ -105,7 +109,12 @@ def cycle(frame, location, dictionary):
                     PENDING.append('Tinsel::ActorEvent(7, (Tinsel::TINSEL_EVENT)9, (Tinsel::PLR_EVENT)16)')
                 if LOOK and elapsed == 0:
                     PENDING.append('Tinsel::ActorEvent(7, (Tinsel::TINSEL_EVENT)10, (Tinsel::PLR_EVENT)16)')
-                if INVENTORY and elapsed == 36:
+                if INVENTORY_DRAG and elapsed == 12:
+                    PENDING.extend(['Tinsel::PlayerEvent((Tinsel::PLR_EVENT)11, Tinsel::_vm->_mousePos)',
+                                    'Tinsel::PlayerEvent((Tinsel::PLR_EVENT)1, Tinsel::_vm->_mousePos)'])
+                if INVENTORY_DRAG and elapsed == 36:
+                    PENDING.append('Tinsel::PlayerEvent((Tinsel::PLR_EVENT)12, Tinsel::_vm->_mousePos)')
+                if INVENTORY and elapsed == (48 if INVENTORY_DRAG else 36):
                     PENDING.append('Tinsel::_vm->_dialogs->closeInventory()')
                 return True
         if frames.CYCLES >= 4000:
@@ -247,7 +256,7 @@ def finish(debugger):
     path = frames.OUTPUT / 'capture.json'
     report = json.loads(path.read_text())
     report.update(scope='Controlled original debug scene entry, logical driver writes and original DoCursorMove; not normal host input or full gameplay equivalence.',
-                  injected_actions=ACTIONS, hover_start_cycle=START, inventory_diagnostic=INVENTORY, look_diagnostic=LOOK, walk_diagnostic=WALK, walk_delay=WALK_DELAY, walk_from_actor=WALK_FROM_ACTOR)
+                  injected_actions=ACTIONS, hover_start_cycle=START, inventory_diagnostic=INVENTORY, inventory_drag=INVENTORY_DRAG, look_diagnostic=LOOK, walk_diagnostic=WALK, walk_delay=WALK_DELAY, walk_from_actor=WALK_FROM_ACTOR)
     path.write_text(json.dumps(report, indent=2) + '\n')
 
 
