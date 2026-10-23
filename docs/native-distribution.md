@@ -84,3 +84,10 @@ that source were verified. See [integrity evidence](validation/finder-pinned-pac
 The earlier bundle's dummy-video startup/load checks are recorded separately in
 [first-bundle evidence](validation/finder-first-package.json); they do not prove
 visible Finder launch for either artifact.
+
+The cached-click engine correction is packaged in
+`assets/packages/discworld-finder-07e395f.zip`. Its extracted runtime passes
+muted dummy-video startup and legacy-save loading outside the checkout. Deep
+signature, all manifested hashes and exact source verification pass. This does
+not establish visible Finder/file-picker behavior. See
+[package evidence](validation/packages-07e395f.json).

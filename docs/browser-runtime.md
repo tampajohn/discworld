@@ -539,3 +539,11 @@ HTTP or HTTPS as described in its README. Physical iPad landscape acceptance,
 visible native/Finder interaction and broader original-engine fidelity remain
 open. The browser-host fixes do not change the deterministic engine validated
 by the `0a87557` full-route audit.
+
+The cached-click correction is now included in
+`assets/packages/discworld-web-07e395f.zip`. After extraction outside the
+checkout, all 14 manifest hashes and exact source were verified. Chrome and
+WebKit both pass fresh startup, legacy-save loading, export and audio-headroom
+controls without page errors. Full-route audits of frozen modules from this
+revision are separate and still running. See
+[package evidence](validation/packages-07e395f.json).
