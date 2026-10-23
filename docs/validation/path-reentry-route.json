@@ -1,0 +1,13 @@
+{
+  "runtime_revision": "1fb2e26",
+  "scope": "Native full route only; browser route for subsequent scheduled mover runtime is in progress.",
+  "binary_sha256": "ee0544e700c0258f93490dd5e6e9065681e103cca1a106b84013641c87e9cc79",
+  "trace_sha256": "30c227553695638a78495f4cf56731f841e89188c8faa75821e50c164ddf4ddb",
+  "report_sha256": "20c4268b3b974cb607b6ad282abb013643ee05bd57fe297d67fd2032ff6c5a95",
+  "ticks": 2630000,
+  "status": "Running",
+  "scene": 92274688,
+  "has_restarted": true,
+  "snapshot_checks": 5048,
+  "audio_snapshot_checks": 5048
+}

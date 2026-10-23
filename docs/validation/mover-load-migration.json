@@ -1,0 +1,33 @@
+{
+  "runtime_base": "10b3a2c",
+  "status": "Validated implementation; package and broader goal acceptance remain open.",
+  "scope": "Explicit player load upgrades legacy movers into persistent scheduler entries. Exact snapshot decoding/re-export does not migrate.",
+  "policy": [
+    "Pre-v26 saves lack mover creation positions. Preserve their known ascending-actor order before existing script peers instead of inventing original historical positions.",
+    "Preserve mover animation/walk state, existing process identities, peer order and sleep counts.",
+    "Already scheduled movers retain their saved positions. New scenes create movers at original process positions.",
+    "Migration runs on a clone and commits only after validation. Process-capacity failure leaves the engine unchanged."
+  ],
+  "checks": [
+    "Original-room migration/save/restore/next-tick checks pass, including idempotence and full-queue rollback.",
+    "Workspace release suite passes.",
+    "Workspace all-target Clippy passes.",
+    "All25 original-asset browser-core tests pass.",
+    "Browser WASM check passes.",
+    "Native/tools release and browser WASM builds pass.",
+    "Eight targeted browser UI cases pass across Chrome/WebKit: six in initial run, two import/persistence cases after updating the expected wrapper from24to26.",
+    "Preceding scheduler build passes all44 browser UI cases and4 Node tests."
+  ],
+  "artifacts": [
+    "assets/logs/mover-migration-room2.log",
+    "assets/logs/mover-migration-workspace.log",
+    "assets/logs/mover-migration-clippy.log",
+    "assets/logs/mover-migration-browser-ui.log",
+    "assets/logs/mover-migration-browser-import-retry.log"
+  ],
+  "remaining": [
+    "Refresh and smoke-test distributable packages.",
+    "Observe and record the frozen10b3a2c full-route tests.",
+    "Broader reference fidelity, visible session and physical iPad acceptance."
+  ]
+}

@@ -142,12 +142,75 @@ fn capture_original_debug_room_hover() {
             // trail component's serde representation.
             let mut legacy_engine = engine.clone();
             legacy_engine.cursor_trails = None;
-            legacy_engine.clear_mover_tasks();
+            // A real pre-v26 engine had no mover process placeholders.
+            for (id, _) in legacy_engine.mover_tasks() {
+                legacy_engine.processes.cancel(id).unwrap();
+            }
             let legacy_bytes = crate::save::Snapshot::capture(&legacy_engine, [7; 32])
                 .to_bytes()
                 .unwrap();
             let legacy = crate::save::Snapshot::from_bytes(&legacy_bytes, [7; 32]).unwrap();
             assert_eq!(legacy.to_bytes().unwrap(), legacy_bytes);
+            if rows.is_empty() {
+                let mut migrated = legacy.state().clone();
+                let peers: Vec<_> = migrated
+                    .processes
+                    .entries()
+                    .map(|(id, p)| (id, p.clone(), migrated.processes.sleep_for(id)))
+                    .collect();
+                let movers = migrated.movers.clone();
+                migrated.prepare_user_load().unwrap();
+                assert_eq!(migrated.movers, movers, "migration does not reset movement");
+                let surviving: Vec<_> = migrated
+                    .processes
+                    .entries()
+                    .filter(|(id, _)| peers.iter().any(|(old, _, _)| old == id))
+                    .map(|(id, p)| (id, p.clone(), migrated.processes.sleep_for(id)))
+                    .collect();
+                assert_eq!(surviving, peers);
+                assert_eq!(
+                    migrated
+                        .mover_tasks()
+                        .iter()
+                        .map(|(_, actor)| *actor)
+                        .collect::<Vec<_>>(),
+                    movers.keys().copied().collect::<Vec<_>>()
+                );
+                assert!(matches!(
+                    migrated.processes.entries().next().unwrap().1.scene_task,
+                    Some(SceneTask::Mover(7))
+                ));
+                let once = migrated.clone();
+                migrated.prepare_user_load().unwrap();
+                assert_eq!(migrated, once);
+                let bytes = crate::save::Snapshot::capture(&migrated, [7; 32])
+                    .to_bytes()
+                    .unwrap();
+                assert_eq!(u32::from_le_bytes(bytes[8..12].try_into().unwrap()), 26);
+                let mut restored = crate::save::Snapshot::from_bytes(&bytes, [7; 32])
+                    .unwrap()
+                    .restore_with_strings(&resources, &bank, &tracks, &strings)
+                    .unwrap();
+                migrated
+                    .tick_content(&resources, Some(&bank), Some(&tracks), Some(&strings))
+                    .unwrap();
+                restored
+                    .tick_content(&resources, Some(&bank), Some(&tracks), Some(&strings))
+                    .unwrap();
+                assert_eq!(migrated, restored);
+                let mut full = legacy.state().clone();
+                while full.processes.states().count() < 1024 {
+                    full.processes
+                        .spawn(None, ScriptProcess::new(Handle(0)))
+                        .unwrap();
+                }
+                let before = full.clone();
+                assert_eq!(
+                    full.prepare_user_load(),
+                    Err(Error("process capacity exceeded"))
+                );
+                assert_eq!(full, before, "failed mover migration is atomic");
+            }
             let mut saved_engine = engine.clone();
             let save_bytes = crate::save::Snapshot::capture(&saved_engine, [7; 32])
                 .to_bytes()

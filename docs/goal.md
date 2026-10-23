@@ -44,6 +44,27 @@ Keep the user's visible native session current with newly verified engine builds
 
 ## Current progress (2026-10-23)
 
+Latest engine build `10b3a2c` schedules movers at their original process insertion
+positions and preserves that order in version 26 saves. Together with hidden
+standing-reel suspension and destination path-entry completion, this matches
+all 72 controlled reference-room frames at the same rendered cycles. The
+workspace suite, 25 original-asset checks, Clippy and WASM checks pass. Its
+native/Chrome/WebKit full-route runs are still in progress; all 44 browser UI
+cases and four Node audio/clock tests pass.
+The preceding hidden-standing build completed all three routes with identical
+final engine state and pixels; the path-entry build completed the native route.
+See [scheduled movers](validation/scheduled-movers.json),
+[hidden-standing route](validation/hidden-standing-route.json), and
+[path-entry route](validation/path-reentry-route.json).
+
+Legacy player-load migration passes original-asset and targeted browser UI
+checks. Old saves did not retain
+mover creation positions, so migration preserves their known ascending-actor
+order before existing script peers; it cannot reconstruct missing historical
+order. Exact snapshot decoding/re-export remains unchanged. Updated packages,
+the visible session, broader original-reference comparisons, and real iPad
+acceptance remain unfinished. The goal is not complete.
+
 The bytecode audit identified missing world hover (843 PRINTTAG sites). New
 scenes now schedule PointProcess/TagProcess, dispatch original POINTED scripts,
 register PRINTTAG, render cached original-font labels with actor priority and

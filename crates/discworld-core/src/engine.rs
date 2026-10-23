@@ -3344,6 +3344,24 @@ impl Engine {
             }
             next.world_hover = Some(crate::world_hover::State::new(&next.polygons));
         }
+        // Historical saves did not record mover process creation positions.
+        // Preserve their known ascending-actor, pre-script dispatch order on
+        // explicit player load. New scenes use original creation positions.
+        let first = next.processes.entries().next().map(|(id, _)| id);
+        let scheduled: std::collections::BTreeSet<_> = next
+            .mover_tasks()
+            .into_iter()
+            .map(|(_, actor)| actor)
+            .collect();
+        let actors: Vec<_> = next.movers.keys().copied().collect();
+        for actor in actors {
+            if !scheduled.contains(&actor) {
+                let mut process = ScriptProcess::new(Handle(0));
+                process.scene_task = Some(SceneTask::Mover(actor));
+                next.processes
+                    .insert_idle_before(first, Some(next.generation), process)?;
+            }
+        }
         next.end_intro();
         next.validate_snapshot_structure()?;
         *self = next;

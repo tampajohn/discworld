@@ -625,3 +625,34 @@ and script address. Once all restored requests dispatch, snapshots use version
 their interpretation. A regression saves before dispatch, checks exact re-encoding
 and resource validation, rejects a mislabeled version-21 header, and compares
 exact engine state after both copies dispatch the restored animation.
+
+## Version 26: scheduled movers
+
+Movers created by STAND, SWALK, reel playback, or scene restoration have a
+persistent task in the cooperative queue. Their updates run at that task's
+position, including the first update in the creation pass. Disabling an actor
+cancels its mover task; scene teardown cancels the scene's tasks.
+
+The outer payload is `(inner, mover_tasks)`: an inner v1–v25 snapshot and an
+ordered list of `(ProcessId, actor_id)` associations. The inner snapshot keeps
+each process's identity, position, and sleep count as an empty native-task
+placeholder. The outer layer restores the mover associations before resource
+validation. Empty lists, duplicate associations or actors, absent processes or
+movers, noncanonical order, recursive v26 nesting, and trailing payload bytes
+are rejected. Older task wrappers cannot contain the new mover variant.
+
+Exact decoding and re-export of older snapshots remain unchanged. An explicit
+player load migrates unscheduled movers in ascending actor order before the
+existing script peers, preserving the dispatch order known to those older
+engines. Those saves did not record original mover creation positions, so this
+migration does not claim to reconstruct them. Existing scheduled movers retain
+their positions, and new scenes use original creation order. Migration preserves
+movement state and existing peer sleeps, is idempotent, and commits only after
+validation; process-capacity failure leaves the engine unchanged.
+
+The original-room diagnostic checks creation-cycle movement, path completion,
+standing animation clocks, malformed wrappers, and complete save/restore
+continuation. Its 72 rendered frames match the pinned reference at the same
+cycles. Broader gameplay and host validation are tracked in
+[scheduled movers](validation/scheduled-movers.json) and
+[load migration](validation/mover-load-migration.json).

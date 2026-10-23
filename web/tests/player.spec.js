@@ -56,7 +56,7 @@ test('real WASM canvas, native save import/export, audio controls and device per
   await page.locator('summary').click();
   const legacy = await fs.readFile(save);
   const original = await exported(page);
-  expect(coreVersions(original)[0]).toBe(24);
+  expect(coreVersions(original)[0]).toBe(26);
   expect(original).not.toEqual(legacy);
   // Migration must not change the current frame or tick; further exports and
   // re-imports of the upgraded checkpoint must remain byte identical.
@@ -146,8 +146,8 @@ test('inventory header drag renders immediately and roundtrips an active drag', 
   const loadedTick = Number(await canvas.getAttribute('data-tick'));
   await page.locator('#pause').click();
   await expect(page.locator('#pause')).toHaveText('Pause');
-  // A legacy snapshot gains trail state on its first cursor update. Wait for
-  // that update explicitly; a fast drag/pause can otherwise export v24.
+  // Wait for simulation to resume before starting a drag. Player load has
+  // already migrated the legacy mover order into the v26 scheduler wrapper.
   await expect.poll(async () => Number(await canvas.getAttribute('data-tick'))).toBeGreaterThan(loadedTick);
   await move(140, 110);
   await page.mouse.down();
@@ -157,7 +157,7 @@ test('inventory header drag renders immediately and roundtrips an active drag', 
   await expect(page.locator('#pause')).toHaveText('Play');
   await page.waitForTimeout(150);
   const pending = await exportHeld();
-  expect(coreVersions(pending)[0]).toBe(25);
+  expect(coreVersions(pending)[0]).toBe(26);
   expect(coreVersions(pending)).toContain(5);
   const pixels = await canvas.evaluate(c => c.toDataURL());
   await page.screenshot({ path: path.join(root, `assets/previews/browser-${testInfo.project.name}-inventory-drag.png`) });
