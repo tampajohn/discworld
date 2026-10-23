@@ -27,6 +27,7 @@ def main():
     mode.add_argument('--inventory-drag', action='store_true', help='open inventory, drag its header, release and close')
     mode.add_argument('--inventory-resize', action='store_true', help='directly open Luggage inventory, resize its corner, release and close')
     mode.add_argument('--inventory-fixed-corner', action='store_true', help='attempt to resize fixed-size pockets, release and close')
+    mode.add_argument('--door-exit', action='store_true', help='open the starting-room door then walk through it')
     mode.add_argument('--door-action', action='store_true', help='dispatch original starting-room door ACTION')
     mode.add_argument('--look', action='store_true', help='dispatch original lead LOOK with speech and subtitles')
     mode.add_argument('--walk', action='store_true', help='send a player WALKTO on the room floor')
@@ -34,8 +35,12 @@ def main():
     parser.add_argument('--walk-delay', type=int, choices=[0, 1], default=1, help='cycles between cursor injection and WALKTO')
     parser.add_argument('--resize-corner', choices=['bottom-right', 'top-left'], default='bottom-right', help='corner used by --inventory-resize')
     parser.add_argument('--resize-delta', type=int, choices=[-26, 26], default=26, help='signed size change for --inventory-resize')
-    parser.add_argument('--frames', type=int, default=72, help='capture 72..240 frames')
+    parser.add_argument('--frames', type=int, default=None, help='capture 72..240 frames (default72; door exit240)')
     args = parser.parse_args()
+    if args.door_exit:
+        args.door_action = True
+    if args.frames is None:
+        args.frames = 240 if args.door_exit else 72
     if (args.resize_corner != 'bottom-right' or args.resize_delta != 26) and not args.inventory_resize:
         parser.error('resize options require --inventory-resize')
     if args.inventory_fixed_corner or args.inventory_resize:
@@ -89,7 +94,8 @@ def main():
     environment['DISCWORLD_REFERENCE_RESIZE_CORNER'] = args.resize_corner
     environment['DISCWORLD_REFERENCE_RESIZE_DELTA'] = str(args.resize_delta)
     environment['DISCWORLD_REFERENCE_DOOR_ACTION'] = '1' if args.door_action else '0'
-    metadata = dict(door_action=args.door_action, resize_delta=args.resize_delta, resize_corner=args.resize_corner, inventory_resize=args.inventory_resize, inventory_fixed_corner=args.inventory_fixed_corner, inventory_drag=args.inventory_drag, walk_from_actor=args.walk_from_actor, walk_delay=args.walk_delay, walk_diagnostic=args.walk, frame_limit=args.frames, look_diagnostic=args.look, inventory_diagnostic=args.inventory, reference_revision=REVISION, binary_sha256=BINARY_SHA256,
+    environment['DISCWORLD_REFERENCE_DOOR_EXIT'] = '1' if args.door_exit else '0'
+    metadata = dict(door_exit=args.door_exit, door_action=args.door_action, resize_delta=args.resize_delta, resize_corner=args.resize_corner, inventory_resize=args.inventory_resize, inventory_fixed_corner=args.inventory_fixed_corner, inventory_drag=args.inventory_drag, walk_from_actor=args.walk_from_actor, walk_delay=args.walk_delay, walk_diagnostic=args.walk, frame_limit=args.frames, look_diagnostic=args.look, inventory_diagnostic=args.inventory, reference_revision=REVISION, binary_sha256=BINARY_SHA256,
                     probe_sha256=digest(probe), config_sha256=digest(config), command=command,
                     scope='Controlled scene and logical cursor injection; not ordinary input acceptance.')
     metadata_path = output / 'launch.json'
@@ -131,12 +137,14 @@ def main():
     # constant driver position after all controlled input has ended.
     accepted = (metadata.get('exit_code') == 0 and report.get('complete') is True
                 and report.get('errors') == [] and len(frames) == args.frames
-                and len(report.get('injected_actions', [])) == (13 if args.inventory_drag else 10 if args.inventory or args.walk_from_actor else 9 if args.look or args.walk or args.door_action else 8)
-                and all(f['scene'] == 18 << 23
-                        and ((args.look and i >= 72)
+                and len(report.get('injected_actions', [])) == (13 if args.inventory_drag else 10 if args.inventory or args.walk_from_actor or args.door_exit else 9 if args.look or args.walk or args.door_action else 8)
+                and all((f['scene'] in (18 << 23, 61 << 23) if args.door_exit else f['scene'] == 18 << 23)
+                        and (((args.look or args.door_exit) and i >= 72)
                              or f['driver_cursor'] == ([250, 180] if args.walk_from_actor and 1 <= i < 12
                                                       else points[min(i // 12, len(points) - 1)]))
                         for i, f in enumerate(frames)))
+    if accepted and args.door_exit:
+        accepted = frames[0]['scene'] == 18 << 23 and frames[-1]['scene'] == 61 << 23
     if accepted and args.inventory:
         accepted = (frames[12]['inventory'] == [2, 1 if args.inventory_resize else 2]
                     and frames[48]['inventory'][0] == 1)

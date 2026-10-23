@@ -1,0 +1,43 @@
+{
+  "runtime_commit": "f5b9a91",
+  "reference_revision": "96b42d42bc8533953bdd701db059cc33c839a9ff",
+  "scope": "Controlled original-script door ACTION followed by resolved polygon WALKTO at elapsed72; not raw player input or full-game fidelity.",
+  "reference_capture": "assets/validation/reference-door-exit1",
+  "rust_capture": "assets/validation/rust-door-exit1",
+  "comparison": "assets/validation/door-exit-compare2.json",
+  "reference_accepted": true,
+  "reference_complete": true,
+  "reference_errors": [],
+  "frames": 240,
+  "same_cycle_matches": 177,
+  "content_matches_any_tick": 210,
+  "transition": {
+    "from": "rinceroo.scn",
+    "to": "unseen.scn",
+    "reference_cycle": 1362,
+    "rust_tick": 1362
+  },
+  "rust_checks": [
+    "240 resource-validated save/load and next-tick continuations",
+    "control taken and restored",
+    "destination unseen.scn"
+  ],
+  "unresolved": {
+    "first_cycle": 1364,
+    "mismatched_frames": 63,
+    "maximum_different_pixels": 14,
+    "union_bounds": [
+      5,
+      5,
+      15,
+      15
+    ],
+    "observation": "Differences are confined to cursor location (10,10) after scene entry, predominantly alternating frames. Cursor clock initialization/order needs tracing; cause not yet proven."
+  },
+  "validation": [
+    "Original-asset diagnostic passed",
+    "discworld-core all-target Clippy passed",
+    "Browser UI: 49 passed, one known WebKit multi-touch injection skip; four Node tests passed"
+  ],
+  "production_change": false
+}

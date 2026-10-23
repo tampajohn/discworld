@@ -96,7 +96,8 @@ fn capture_original_debug_room_hover() {
         points = [[50, 120], corner, moved, moved, [10, 10], [10, 10]];
     }
     let inventory_mode = inventory_drag || std::env::var_os("DISCWORLD_HOVER_INVENTORY").is_some();
-    let door_action = std::env::var_os("DISCWORLD_HOVER_DOOR_ACTION").is_some();
+    let door_exit = std::env::var_os("DISCWORLD_HOVER_DOOR_EXIT").is_some();
+    let door_action = door_exit || std::env::var_os("DISCWORLD_HOVER_DOOR_ACTION").is_some();
     let look_mode = std::env::var_os("DISCWORLD_HOVER_LOOK").is_some();
     let walk_delay =
         std::env::var("DISCWORLD_HOVER_WALK_DELAY").map_or(1, |s| s.parse::<u64>().unwrap());
@@ -117,8 +118,10 @@ fn capture_original_debug_room_hover() {
             [250, 180]
         };
     }
-    let frame_limit =
-        std::env::var("DISCWORLD_HOVER_FRAMES").map_or(72, |s| s.parse::<usize>().unwrap());
+    let frame_limit = std::env::var("DISCWORLD_HOVER_FRAMES")
+        .map_or(if door_exit { 240 } else { 72 }, |s| {
+            s.parse::<usize>().unwrap()
+        });
     assert!((72..=240).contains(&frame_limit));
     let mut audio_states = Vec::new();
     let mut look_pcm = Vec::new();
@@ -151,6 +154,13 @@ fn capture_original_debug_room_hover() {
         }
         if let Some(start) = start {
             let elapsed = engine.ticks - start;
+            if door_exit && elapsed == 72 {
+                assert!(
+                    engine
+                        .interact_polygon(&resources, 6, PolygonInteraction::WalkTo)
+                        .unwrap()
+                );
+            }
             if walk_mode && walk_delay == 1 && elapsed == 1 {
                 let click_point = if walk_from_actor {
                     assert_eq!(
@@ -400,7 +410,7 @@ fn capture_original_debug_room_hover() {
             .tick_content(&resources, Some(&bank), Some(&tracks), Some(&strings))
             .unwrap();
         crate::animation::trace_tick(None);
-        if door_action && start.is_some() {
+        if door_action && start.is_some() && engine.scene == room {
             door_control_off |= !engine.control.enabled;
             if engine.control.hidden {
                 assert_eq!(
@@ -710,10 +720,7 @@ fn capture_original_debug_room_hover() {
             let polygon = engine
                 .world_hover
                 .as_ref()
-                .unwrap()
-                .tags
-                .candidate(&engine.polygons)
-                .unwrap()
+                .and_then(|hover| hover.tags.candidate(&engine.polygons).unwrap())
                 .map_or("null".to_owned(), |c| c.polygon.to_string());
             rows.push(format!("{{\"tick\":{},\"scene\":{},\"rgb_sha256\":\"{:x}\",\"polygon_candidate\":{},\"cursor\":{:?}}}", engine.ticks, engine.scene.0, Sha256::digest(&rgb), polygon, engine.control.cursor));
             if rows.len() == frame_limit {
@@ -722,6 +729,9 @@ fn capture_original_debug_room_hover() {
         }
     }
     assert_eq!(rows.len(), frame_limit, "room did not reach active tags");
+    if door_exit {
+        assert_eq!(index[engine.scene.resource()].name, "unseen.scn");
+    }
     if door_action {
         assert!(!door_calls.is_empty(), "original door script must execute");
         assert!(

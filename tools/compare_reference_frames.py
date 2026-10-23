@@ -46,6 +46,10 @@ def main():
         key = (frame['scene'], frame['rgb_sha256'])
         row = {'frame': frame['frame'], 'scene': frame['scene'],
                'matching_rust_ticks': by_image[key]}
+        if 'cycle' in frame:
+            row.update(cycle=frame['cycle'],
+                       same_cycle_available=frame['cycle'] in rust_by_tick,
+                       same_cycle_equal=rust_by_tick.get(frame['cycle']) == key)
         if 'cycle' in frame and frame['scene'] in starts:
             reference_starts.setdefault(frame['scene'], frame['cycle'])
             tick = starts[frame['scene']] + frame['cycle'] - reference_starts[frame['scene']]
@@ -65,6 +69,8 @@ def main():
               'rust_capture_sha256': digest(rust_bytes),
               'reference_frames': len(rows),
               'pixel_matched_frames': sum(bool(row['matching_rust_ticks']) for row in rows),
+              'same_cycle_matched_frames': sum(row.get('same_cycle_equal') is True for row in rows),
+              'same_cycle_mismatches': [r['frame'] for r in rows if r.get('same_cycle_equal') is False],
               'distinct_scene_images': len({(f['scene'], f['rgb_sha256']) for f in ref['frames']}),
               'scene_aligned_mismatches': [r['frame'] for r in rows if r.get('scene_aligned_equal') is False],
               'frames': rows,
