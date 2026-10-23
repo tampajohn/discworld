@@ -3391,6 +3391,13 @@ impl Engine {
         background: bool,
     ) -> Result<Vec<Animation>, Error> {
         let film = Film::read(resources, handle)?;
+        if film.reels.is_empty() {
+            return if background {
+                Err(Error("empty background or cursor film"))
+            } else {
+                Ok(Vec::new())
+            };
+        }
         let period = 24 / film.rate as u32;
         film.reels
             .iter()
@@ -11170,6 +11177,58 @@ mod tests {
             [284, 285]
         );
     }
+    #[test]
+    fn empty_play_returns_without_yield_or_actor_side_effects() {
+        let base = 2u32 << 23;
+        for call in [49u8, 71, 81] {
+            for blocking in [0u8, 1] {
+                for rate in [0i32, -1, 24] {
+                    let (master, mut scene) = fixtures();
+                    let mut code = vec![0x41, 77];
+                    if call == 71 {
+                        code.push(3); // SPLAY slow factor
+                    }
+                    code.push(1);
+                    code.extend(base.to_le_bytes());
+                    code.extend([0x41, 255, 0x41, 255, 2, 2, 0x41, blocking]);
+                    code.extend([0x4e, call, 0x4c, 0, 0]);
+                    scene[32..32 + code.len()].copy_from_slice(&code);
+                    let mut film = rate.to_le_bytes().to_vec();
+                    film.extend(0u32.to_le_bytes());
+                    let resources = Resources(vec![&master, &scene, &film]);
+                    let mut engine = Engine::bootstrap(&resources).unwrap();
+                    let mut expected = engine.clone();
+                    expected.globals[0] = 77;
+                    let mut caller = ScriptProcess::new(Handle((1 << 23) | 32));
+                    assert_eq!(
+                        engine.run_process(&resources, None, None, None, &mut caller),
+                        Ok(Status::Halted),
+                        "call={call}, blocking={blocking}, rate={rate}"
+                    );
+                    assert_eq!(engine, expected);
+                    assert!(caller.play_wait.is_none());
+                    assert!(caller.vm.operands().is_empty());
+                    engine.launch_film(&resources, Handle(base)).unwrap();
+                    assert_eq!(engine, expected);
+                    assert_eq!(
+                        Engine::start_film(&resources, Handle(base), true),
+                        Err(Error("empty background or cursor film"))
+                    );
+                    let saved = crate::save::Snapshot::capture(&engine, [7; 32])
+                        .to_bytes()
+                        .unwrap();
+                    assert_eq!(
+                        crate::save::Snapshot::from_bytes(&saved, [7; 32])
+                            .unwrap()
+                            .to_bytes()
+                            .unwrap(),
+                        saved
+                    );
+                }
+            }
+        }
+    }
+
     #[test]
     fn splay_checks_stale_escape_before_null_film() {
         let (master, mut scene) = fixtures();

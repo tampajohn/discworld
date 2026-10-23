@@ -28,7 +28,9 @@ impl Film {
         let header = resources.resolve(handle, 8)?;
         let rate = word(header, 0)? as i32;
         let count = word(header, 4)? as usize;
-        if rate <= 0 || count == 0 || count > 4096 {
+        // V1 PlayFilm/PlayFilmc return on zero columns before reading frate.
+        // Consumers that require an actual reel must check for it themselves.
+        if count > 4096 || (count != 0 && rate <= 0) {
             return Err(Error("invalid film header"));
         }
         let data = resources.resolve(handle, 8 + count * 8)?;
@@ -81,6 +83,26 @@ pub fn frame(resources: &Resources<'_>, handle: Handle) -> Result<Vec<Handle>, E
 #[cfg(test)]
 mod tests {
     use super::*;
+    #[test]
+    fn empty_films_do_not_require_a_playback_rate() {
+        for rate in [0i32, -1, 24, i32::MIN] {
+            let mut bytes = rate.to_le_bytes().to_vec();
+            bytes.extend(0u32.to_le_bytes());
+            let resources = Resources(vec![&bytes]);
+            let film = Film::read(&resources, Handle(0)).unwrap();
+            assert_eq!(film.rate, rate);
+            assert!(film.reels.is_empty());
+            assert!(Film::read(&Resources(vec![&bytes[..7]]), Handle(0)).is_err());
+            bytes[4..8].copy_from_slice(&1u32.to_le_bytes());
+            assert!(Film::read(&Resources(vec![&bytes]), Handle(0)).is_err());
+            bytes.extend([0; 8]);
+            assert_eq!(
+                Film::read(&Resources(vec![&bytes]), Handle(0)).is_ok(),
+                rate > 0
+            );
+        }
+    }
+
     #[test]
     fn validates_film_and_frame_bounds() {
         let b = [12u32, 1, 24, 48]

@@ -5,9 +5,41 @@ Status: implementation work remains. The startup first-step discrepancy in
 confirmed. This document records the source-derived ordering needed to fix it;
 it does not claim that the current engine satisfies that ordering.
 
+The empty-film return described below is implemented and tested. The deferred
+dispatch integration for nonempty films remains outstanding.
+
 Reference: ScummVM `96b42d42bc8533953bdd701db059cc33c839a9ff`,
 `common/coroutines.cpp` and `engines/tinsel/play.cpp`. The reference source and
 executable are unmodified.
+
+## Empty films
+
+Both `PlayFilm` and `PlayFilmc` return when `numreels` is zero, before converting
+the frame rate or spawning anything (play.cpp lines 986 and 1048). The runtime
+now accepts a complete eight-byte empty-film header and returns without a wait,
+including blocking PLAY/SPLAY/TOPPLAY. Unused rate values do not cause a
+division by zero or a validation failure. Nonempty films still require a
+positive rate and a complete, bounded reel table.
+
+The generic reader no longer imposes a first-reel requirement on every film.
+Background/cursor initialization and mover reel restoration still require one
+and reject empty films explicitly. Mover resource validation now uses checked
+first-reel access. Other first-reel consumers were audited for checked access
+before rate division.
+
+The bytecode regression covers all three calls, blocking and nonblocking forms,
+rates 0, -1 and 24, stack consumption, continuation in the same dispatch, exact
+engine state except the script's subsequent global assignment, internal film
+launch, and snapshot round-trip. It failed with `invalid film header` before
+the fix. Reader tests cover truncation and nonempty invalid rates; the mover
+fixture verifies rejection of an empty saved reel. These synthetic cases do
+not establish whether the supplied game's recorded route encounters an empty
+film or resolve the separate first-frame scheduling discrepancy.
+
+Validation passes: workspace tests (335 core), all 20 original-asset web tests,
+Clippy across all targets, WASM checking, and native/tools/browser release
+builds. Logs are under `assets/logs/empty-film-*`. No new full-route,
+live-reference, visible-session or physical-iPad result is claimed.
 
 ## Dispatch ordering
 

@@ -208,7 +208,8 @@ impl Mover {
                     if film.rate > 24 {
                         return Err(Error("invalid mover reel rate"));
                     }
-                    resources.resolve(film.reels[0].script, 4)?;
+                    let reel = film.reels.first().ok_or(Error("empty mover reel film"))?;
+                    resources.resolve(reel.script, 4)?;
                 }
             }
             if state.mode() != crate::mover_reel::Mode::Normal && self.last_film.0 == 0 {
@@ -2019,6 +2020,15 @@ mod tests {
             },
         )
         .unwrap();
+        // Empty PLAY films are legal, but cannot provide a mover's saved reel.
+        // The checked save-resource path must reject them rather than index [0].
+        let mut empty_reel = mover.clone();
+        empty_reel.last_film = Handle(384);
+        empty_reel.reel_state = Some(crate::mover_reel::State::default());
+        assert_eq!(
+            empty_reel.validate_reel_resources(&resources),
+            Err(Error("empty mover reel film"))
+        );
         // Applying explicit reel state must not discard an interrupted route.
         let mut talking = mover.clone();
         talking.walk_target = Some([200, 178]);
