@@ -2,6 +2,7 @@
 """Build an ad-hoc-signed Finder app from the verified native distribution."""
 import argparse
 import hashlib
+import io
 import json
 import os
 from pathlib import Path
@@ -31,7 +32,15 @@ def main():
         # exact source archive and signature before returning this package.
         run('python3', 'scripts/package-native.py', str(archive))
         app = work / 'Discworld.app'
-        run('/usr/bin/osacompile', '-o', str(app), str(ROOT / 'packaging/launcher.applescript'))
+        # Compile the launcher from the same immutable source snapshot as the
+        # runtime, even if the working checkout changes after its build.
+        with tarfile.open(archive) as bundle:
+            source_bytes = bundle.extractfile('source.tar.gz').read()
+        with tarfile.open(fileobj=io.BytesIO(source_bytes)) as source:
+            launcher_bytes = source.extractfile('discworld-source/packaging/launcher.applescript').read()
+        launcher = work / 'launcher.applescript'
+        launcher.write_bytes(launcher_bytes)
+        run('/usr/bin/osacompile', '-o', str(app), str(launcher))
         runtime = app / 'Contents/Resources/runtime'
         runtime.mkdir()
         with tarfile.open(archive) as bundle:

@@ -1,0 +1,28 @@
+{
+  "source_revision": "bf06ef1b34dffbafb95d5b9dd275d1df62c5bcf7",
+  "archive_sha256": "c9ff9f3804934af366c11467271e4f16939da97708316fdd2a015c0fe3759eba",
+  "archive_bytes": 4539321,
+  "extracted_path": "/var/folders/1j/8_5gj1n12qn9xxxqp9n_0nq80000gp/T/discworld-finder-check-a7ztviug/Discworld.app",
+  "strict_deep_signature_verified": true,
+  "native_manifest_files_verified": 5,
+  "exact_source_verified": true,
+  "runs": {
+    "startup": {
+      "exit_code": 0,
+      "tail": [
+        "M: mute/unmute sound. Inventory: wheel or Up/Down scrolls rows; Page Up/Page Down, Home/End navigate; click scrollbar arrows or track.",
+        "F6: quick-save. F9: load. Save file: /var/folders/1j/8_5gj1n12qn9xxxqp9n_0nq80000gp/T/discworld-finder-check-a7ztviug/writable saves/startup.dws",
+        "Window closed after 30 frames, tick 14, scene psygnosi.scn, stopped=false"
+      ]
+    },
+    "legacy_load": {
+      "exit_code": 0,
+      "tail": [
+        "M: mute/unmute sound. Inventory: wheel or Up/Down scrolls rows; Page Up/Page Down, Home/End navigate; click scrollbar arrows or track.",
+        "F6: quick-save. F9: load. Save file: /var/folders/1j/8_5gj1n12qn9xxxqp9n_0nq80000gp/T/discworld-finder-check-a7ztviug/writable saves/legacy_load.dws",
+        "Window closed after 30 frames, tick 33214, scene rinceroo.scn, stopped=false"
+      ]
+    }
+  },
+  "scope": "Extracted bundle runtime only, SDL dummy video/audio. Finder launch, picker cancellation, Gatekeeper, visible interaction and device audio remain unverified."
+}
