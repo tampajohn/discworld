@@ -93,10 +93,12 @@
     "workspace": "passed",
     "clippy": "passed",
     "format": "passed",
-    "original_assets": "running",
-    "native_build": "running",
-    "web_build": "running",
-    "full_routes": "not yet run for this correction"
+    "original_assets": "25 passed",
+    "native_build": "passed",
+    "web_build": "passed",
+    "full_routes": "Native, Chrome and WebKit running against frozen 6061cc3 artifacts in assets/validation/cursor-entry-6061cc3",
+    "web_replay_build": "passed",
+    "browser_ui": "running"
   },
   "limitations": "Controlled captures do not prove whole-game fidelity or physical iPad acceptance. Previous full routes cover f5b9a91, not this change."
 }
