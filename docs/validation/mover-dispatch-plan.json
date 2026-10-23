@@ -1,0 +1,38 @@
+{
+  "status": "Implementation preparation; scheduler integration not yet applied.",
+  "runtime_base": "1fb2e26",
+  "evidence": [
+    "mover-reset-callers.json",
+    "path-reentry-completion.json"
+  ],
+  "required_behavior": [
+    "Create a persistent mover process when the mover first exists, at the creating script/reel process insertion point.",
+    "Each mover process executes once per scheduler cycle; hidden special reels remain suspended, ordinary walking continues according to mover rules.",
+    "Preserve mover process identity/order/sleep across complete game saves.",
+    "Cancel mover tasks at scene teardown; reject duplicate tasks or tasks for absent actors."
+  ],
+  "implementation": [
+    "Single-mover update extracted as advance_mover; existing ascending-actor pre-script loop retained for now.",
+    "Append a Mover(actor) scene task variant without changing existing variant tags. Spawn it from all actual mover creation paths, not every STAND.",
+    "Exclude scheduled actors from the legacy mover loop; dispatch through advance_mover in run_scene_task.",
+    "Add a new save wrapper carrying mover task identities while retaining legacy process placeholders and pre-v26 decoding. Validate task mapping, actor existence, canonical order, nesting and size.",
+    "Determine and test explicit legacy player-load migration; never mutate historical decoding/re-export implicitly."
+  ],
+  "creation_paths": [
+    "stand_mover",
+    "create_claimed_mover",
+    "SWALK fallback creation",
+    "restored scene mover initialization"
+  ],
+  "acceptance": [
+    "Controlled reference room first displacement at cycle1113 and standing reset/ordinary step order at1125.",
+    "New-versus-existing mover creation, hidden/talking/walking ownership, multiple actor dispatch ordering, scene teardown.",
+    "Malformed save rejection, byte-preserving old saves, new mid-walk save/load next-tick equality.",
+    "Workspace, original assets, native and browser full route and UI/package checks."
+  ],
+  "warning": "Simply moving the global mover loop after all scripts would not preserve process creation order or interactions with reel processes.",
+  "preparation_checks": [
+    "Workspace release suite and workspace all-target Clippy pass.",
+    "Original room diagnostic passes; capture, animation clocks/events and mover state files are byte-identical to pre-extraction artifacts."
+  ]
+}

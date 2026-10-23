@@ -4127,6 +4127,63 @@ impl Engine {
         Ok(Some(reel))
     }
 
+    /// Advance one mover at its current dispatch position. Kept separate
+    /// from queue traversal so native mover processes can share this behavior.
+    fn advance_mover(&mut self, resources: &Resources<'_>, actor: i32) -> Result<(), Error> {
+        if self.reel_owners.contains_key(&actor) && !self.created_reel_movers.contains_key(&actor) {
+            // Older snapshots predate independent mover visibility. PLAY
+            // hides its mover but does not suspend ordinary walking.
+            self.movers.get_mut(&actor).unwrap().hidden = true;
+        }
+        let special = self.movers[&actor].special_reel();
+        if special && self.movers[&actor].hidden {
+            return Ok(());
+        }
+        if self.movers[&actor].walk_target.is_some() && !special {
+            let footprints = if self.no_blocking {
+                Vec::new()
+            } else {
+                self.movers
+                    .values()
+                    .map(|m| m.footprint(resources))
+                    .collect::<Result<Vec<_>, _>>()?
+            };
+            let mover = self.movers.get_mut(&actor).ok_or(Error("missing mover"))?;
+            mover.advance_direct_walk(
+                resources,
+                &self.declarations,
+                &self.polygons,
+                &footprints,
+            )?;
+            // SetMoverWalkReel clears PLAY ownership when a new walking
+            // reel reveals the mover. Otherwise keep the film's stored
+            // actor position distinct from the underlying moving object.
+            if !mover.hidden {
+                self.reel_owners.remove(&actor);
+                self.created_reel_movers.remove(&actor);
+                self.reel_escape.remove(&actor);
+            }
+            let pending_restore = self
+                .films
+                .iter()
+                .chain(
+                    self.processes
+                        .states()
+                        .filter_map(|p| p.play_wait.as_ref().map(|w| &w.1)),
+                )
+                .any(|a| a.object.id == actor && self.splay_reels.contains(&a.playback));
+            if !self.reel_owners.contains_key(&actor) && !pending_restore {
+                self.actors.get_mut(actor as u32)?.position = mover.placement.position;
+            }
+        } else if special || self.movers[&actor].reel_state.is_none() {
+            self.movers
+                .get_mut(&actor)
+                .ok_or(Error("missing mover"))?
+                .animation
+                .tick(resources)?;
+        }
+        Ok(())
+    }
     fn run_scene_task(
         &mut self,
         resources: &Resources<'_>,
@@ -4851,60 +4908,7 @@ impl Engine {
         self.migrate_legacy_talk_reels(resources)?;
         let mover_ids: Vec<_> = self.movers.keys().copied().collect();
         for actor in mover_ids {
-            if self.reel_owners.contains_key(&actor)
-                && !self.created_reel_movers.contains_key(&actor)
-            {
-                // Older snapshots predate independent mover visibility. PLAY
-                // hides its mover but does not suspend ordinary walking.
-                self.movers.get_mut(&actor).unwrap().hidden = true;
-            }
-            let special = self.movers[&actor].special_reel();
-            if special && self.movers[&actor].hidden {
-                continue;
-            }
-            if self.movers[&actor].walk_target.is_some() && !special {
-                let footprints = if self.no_blocking {
-                    Vec::new()
-                } else {
-                    self.movers
-                        .values()
-                        .map(|m| m.footprint(resources))
-                        .collect::<Result<Vec<_>, _>>()?
-                };
-                let mover = self.movers.get_mut(&actor).ok_or(Error("missing mover"))?;
-                mover.advance_direct_walk(
-                    resources,
-                    &self.declarations,
-                    &self.polygons,
-                    &footprints,
-                )?;
-                // SetMoverWalkReel clears PLAY ownership when a new walking
-                // reel reveals the mover. Otherwise keep the film's stored
-                // actor position distinct from the underlying moving object.
-                if !mover.hidden {
-                    self.reel_owners.remove(&actor);
-                    self.created_reel_movers.remove(&actor);
-                    self.reel_escape.remove(&actor);
-                }
-                let pending_restore = self
-                    .films
-                    .iter()
-                    .chain(
-                        self.processes
-                            .states()
-                            .filter_map(|p| p.play_wait.as_ref().map(|w| &w.1)),
-                    )
-                    .any(|a| a.object.id == actor && self.splay_reels.contains(&a.playback));
-                if !self.reel_owners.contains_key(&actor) && !pending_restore {
-                    self.actors.get_mut(actor as u32)?.position = mover.placement.position;
-                }
-            } else if special || self.movers[&actor].reel_state.is_none() {
-                self.movers
-                    .get_mut(&actor)
-                    .ok_or(Error("missing mover"))?
-                    .animation
-                    .tick(resources)?;
-            }
+            self.advance_mover(resources, actor)?;
         }
         let effect_positions = self
             .movers
