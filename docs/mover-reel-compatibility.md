@@ -939,3 +939,18 @@ and use frozen binaries/modules. Logs use `assets/logs/animation-reset-*`.
 Validation passes: workspace suite (332 core tests), 20 original-asset web
 regressions, Clippy and both release host builds. Existing serialized flips
 remain intact on load; they are reset only when a script is restarted.
+
+
+## Completed internal-film cross-host route audit
+
+Frozen runtime 9ba83fb completed the original recorded route in native, Chrome
+and WebKit: tick 2,630,000, all 1,652 inputs accepted, restart to title. Final
+engine save bytes and RGBA match across all three hosts. Native performed
+5,048 engine and 5,048 audio continuation audits; each browser generated
+4,832,625,000 finite stereo samples. Combined sessions differ in DSP state,
+so cross-platform audio equality is not claimed. The native final title image
+was inspected. See [audit evidence](validation/internal-film-9ba83fb.json).
+
+This validates internal/restored mover creation on the recorded route and
+predates the d702cd1 animation orientation correction. It adds no alternate
+inputs and does not establish visible manual-session or physical iPad acceptance.

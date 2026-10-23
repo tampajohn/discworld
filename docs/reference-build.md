@@ -73,3 +73,7 @@ Validation passes: workspace tests (333 core), Clippy, 20 original-asset web
 tests and native/browser release builds. The comparison command rejects the
 deliberately corrupted trace. These checks do not replace the broader live
 reference acceptance criteria.
+
+The [recorded comparison evidence](validation/reference-animation-prefixes.json)
+contains capture and input hashes, matched operation counts, individual
+instance coverage and deliberate-corruption rejection.

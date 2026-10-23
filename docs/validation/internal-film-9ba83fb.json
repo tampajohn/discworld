@@ -1,0 +1,62 @@
+{
+  "schema": 1,
+  "runtime_revision": "9ba83fbde2dc55323580829fe51bc91d48c4f377",
+  "route_sha256": "30c227553695638a78495f4cf56731f841e89188c8faa75821e50c164ddf4ddb",
+  "binary_sha256": "137d6edd11ff8d829fff511ce53ec12e6a28a89135ce6b6b191e460e6d0c7296",
+  "local_artifacts": "assets/validation/internal-film-9ba83fb",
+  "native": {
+    "ticks": 2630000,
+    "status": "Running",
+    "scene_name": "title.scn",
+    "has_restarted": true,
+    "snapshot_checks": 5048,
+    "audio_snapshot_checks": 5048,
+    "snapshot_max_bytes": 48155,
+    "audio_snapshot_max_bytes": 317221,
+    "accepted_inputs": 1652,
+    "core_sha256": "d4a60d7dd6637c3c8f5cd5131b29868e40afd06f45559e7cd8dafa42711de4eb",
+    "report_sha256": "813a2c8939e528a719cfc8d44d2a308d0ead92e015de9b17ad774313fde40ee1"
+  },
+  "browsers": [
+    {
+      "browser": "chrome",
+      "browser_version": "156.0.8078.47",
+      "ticks": 2630000,
+      "scene": "title.scn",
+      "has_restarted": true,
+      "accepted_inputs": 1652,
+      "audio_samples": 4832625000,
+      "nonfinite_audio_samples": 0,
+      "core_sha256": "d4a60d7dd6637c3c8f5cd5131b29868e40afd06f45559e7cd8dafa42711de4eb",
+      "rgba_sha256": "8833cac8d0cc20ebbfa5e7158676914ad7d9a82222812a3a91568cbb5a6e8978",
+      "engine_bytes_equal": true,
+      "rgba_equal": true,
+      "combined_save_equal": false,
+      "report_sha256": "67e8e5578f9be30d0baa35b6a705fd43b3dba58de6567456b59c9f1f618e6610",
+      "comparison_sha256": "24331961401614107274e82733b35bda5a5bc3b0ea4fb193a07be093d03d60e4"
+    },
+    {
+      "browser": "webkit",
+      "browser_version": "27.2",
+      "ticks": 2630000,
+      "scene": "title.scn",
+      "has_restarted": true,
+      "accepted_inputs": 1652,
+      "audio_samples": 4832625000,
+      "nonfinite_audio_samples": 0,
+      "core_sha256": "d4a60d7dd6637c3c8f5cd5131b29868e40afd06f45559e7cd8dafa42711de4eb",
+      "rgba_sha256": "8833cac8d0cc20ebbfa5e7158676914ad7d9a82222812a3a91568cbb5a6e8978",
+      "engine_bytes_equal": true,
+      "rgba_equal": true,
+      "combined_save_equal": false,
+      "report_sha256": "155a58636cb7a55a37035b3e73b71a6cb4cea5760819428d904a94a7dda075a6",
+      "comparison_sha256": "24331961401614107274e82733b35bda5a5bc3b0ea4fb193a07be093d03d60e4"
+    }
+  ],
+  "scope": [
+    "Recorded route through frozen native binary and accelerated Chrome/WebKit workers, including internal/restored mover creation.",
+    "Final engine save bytes and RGBA match across all three hosts; native final title image inspected.",
+    "Native engine/DSP continuation audited; browser audio finite, not delivered to a device. Cross-platform DSP equality not established.",
+    "Predates animation flip-reset correction d702cd1 and tracing instrumentation. No additional alternate-route inputs, physical iPad or visible manual-session acceptance."
+  ]
+}

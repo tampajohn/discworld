@@ -1,0 +1,97 @@
+{
+  "comparisons": [
+    {
+      "observed_operations": 55,
+      "record": 0,
+      "script": 117453384,
+      "simulated_ticks": 55
+    },
+    {
+      "observed_operations": 55,
+      "record": 1,
+      "script": 117453332,
+      "simulated_ticks": 55
+    },
+    {
+      "observed_operations": 1,
+      "record": 2,
+      "script": 374236,
+      "simulated_ticks": 1
+    },
+    {
+      "observed_operations": 56,
+      "record": 3,
+      "script": 125903660,
+      "simulated_ticks": 111
+    },
+    {
+      "observed_operations": 111,
+      "record": 4,
+      "script": 125903956,
+      "simulated_ticks": 111
+    },
+    {
+      "observed_operations": 82,
+      "record": 6,
+      "script": 134406720,
+      "simulated_ticks": 163
+    },
+    {
+      "observed_operations": 163,
+      "record": 7,
+      "script": 134407120,
+      "simulated_ticks": 163
+    },
+    {
+      "observed_operations": 9,
+      "record": 9,
+      "script": 100744836,
+      "simulated_ticks": 9
+    },
+    {
+      "observed_operations": 9,
+      "record": 10,
+      "script": 100744888,
+      "simulated_ticks": 9
+    },
+    {
+      "observed_operations": 55,
+      "record": 12,
+      "script": 92283816,
+      "simulated_ticks": 55
+    },
+    {
+      "observed_operations": 2,
+      "record": 14,
+      "script": 109398748,
+      "simulated_ticks": 3
+    },
+    {
+      "observed_operations": 2,
+      "record": 15,
+      "script": 109399256,
+      "simulated_ticks": 3
+    },
+    {
+      "observed_operations": 3,
+      "record": 16,
+      "script": 109399788,
+      "simulated_ticks": 3
+    }
+  ],
+  "iso_sha256": "5354f74582375b1f6350e33b4dfd5df6b2bcd79a30f471a9307e017235570e05",
+  "matched_operations": 603,
+  "matched_records": 13,
+  "scope": "Per-instance observed opcode prefixes using original scripts. Does not compare frame pixels, object state, timing, scheduler ordering, input replay or audio. Trace provenance must be verified separately.",
+  "trace_sha256": "b09ccc7e1718f98427e0a7016ea3d140f781850b0284d8790fa6730cb44df0cd",
+  "unobserved_records": 5,
+  "schema": 1,
+  "runtime_revision": "2ddcb48c03dfb836a75143056de0facb8e961291",
+  "reference_revision": "96b42d42bc8533953bdd701db059cc33c839a9ff",
+  "reference_console_sha256": "1594403f832d74b1d13a17cbdaaa84b2fb5bccf3c55b30a349344d083e053704",
+  "reference_capture": "Historical live startup capture; input events present; reference executable hash not recorded.",
+  "normalization_reverified": true,
+  "corrupted_trace_rejected": true,
+  "comparison_report_sha256": "a3f42493d41e2e41bafce6bac179e27564c0c2e727b872469c1bec3c8df7fcc7",
+  "tool_binary_sha256": "31302eab33d8c87ed4adcdcac6115952fbb555f330777bf02ae77bb6fc0936d3"
+}

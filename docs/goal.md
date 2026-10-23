@@ -44,6 +44,20 @@ Keep the user's visible native session current with newly verified engine builds
 
 ## Current progress (2026-10-22)
 
+Runtime `9ba83fb` completed the recorded route in native, Chrome and WebKit,
+accepting all 1,652 inputs. Final engine save bytes and pixels match. Native
+passed 5,048 engine and 5,048 DSP continuation checks; browser audio was finite.
+See [cross-host evidence](validation/internal-film-9ba83fb.json). This run
+predates the animation orientation correction at `d702cd1`.
+
+A new diagnostic compares the production animation interpreter with the
+historical live ScummVM capture: all 603 observed opcode/index pairs match
+across 13 instances; five unobserved instances are excluded. Raw-log hashing,
+normalization and deliberate-corruption rejection were checked. See
+[reference comparison](validation/reference-animation-prefixes.json). This is
+instruction-prefix evidence, not frame, timing, scheduling or audio equivalence.
+
+
 Automatic mover creation runtime `0ccdf9f` completed the native recorded route:
 all 1,652 inputs accepted, 5,048 engine and 5,048 audio continuation checks,
 and restart/title at tick 2,630,000. Final engine bytes match `6167511`;
