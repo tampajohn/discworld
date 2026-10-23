@@ -586,6 +586,7 @@ Physical iPad acceptance remains open. See [package evidence](validation/package
 
 Package `bad0d45` includes the same-tick movement retry. Extracted native
 startup/legacy-load checks and Chrome/WebKit startup, load, export and
-audio-headroom checks pass. Manifests and exact source verify. Full routes
-and the broader UI suite are running separately; visible Finder and physical
-iPad acceptance remain unverified. See [package evidence](validation/packages-bad0d45.json).
+audio-headroom checks pass. Manifests and exact source verify. The UI suite
+passes 49 cases with one known skip, plus four Node tests. All three full routes
+reject recorded input at tick1,109,020; see [rejection evidence](validation/mover-retry-route-rejection.json).
+Visible Finder and physical iPad acceptance remain unverified. See [package evidence](validation/packages-bad0d45.json).

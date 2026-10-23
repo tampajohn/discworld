@@ -1,0 +1,27 @@
+{
+  "runtime": "bad0d45",
+  "directory": "assets/validation/mover-retry-bad0d45",
+  "hosts": {
+    "native": {
+      "status": "failed",
+      "exit_code": 1
+    },
+    "chrome": {
+      "status": "failed",
+      "exit_code": 1
+    },
+    "webkit": {
+      "status": "failed",
+      "exit_code": 1
+    }
+  },
+  "rejected_tick": 1109020,
+  "accepted_prior_inputs": 544,
+  "rejected_input": {
+    "scene": "pastankh.scn",
+    "polygon": 80,
+    "event": "walkto"
+  },
+  "observation": "All three hosts stop at the same recorded input after the movement retry correction. Native refuses to save an incomplete run and leaves report.json empty. No claim yet whether replay timing or engine behavior is responsible.",
+  "next_diagnostic": "assets/validation/mover-retry-rejection1: replay unchanged prefix to1109019 and save immediately before rejection. Running."
+}
