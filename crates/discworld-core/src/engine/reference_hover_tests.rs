@@ -12,6 +12,14 @@ fn capture_original_debug_room_hover() {
     let index = crate::resource::parse_index(iso.file("/DISCWLD/INDEX").unwrap()).unwrap();
     assert_eq!(index[18].name, "rinceroo.scn");
     let inventory_resize = std::env::var_os("DISCWORLD_HOVER_INVENTORY_RESIZE").is_some();
+    let resize_corner = std::env::var("DISCWORLD_HOVER_RESIZE_CORNER")
+        .unwrap_or_else(|_| "bottom-right".to_owned());
+    assert!(matches!(
+        resize_corner.as_str(),
+        "bottom-right" | "top-left"
+    ));
+    let resize_top_left = resize_corner == "top-left";
+    assert!(!resize_top_left || inventory_resize);
     let mut resources = Resources(
         index
             .iter()
@@ -74,14 +82,25 @@ fn capture_original_debug_room_hover() {
         ];
     }
     if inventory_resize {
-        points = [
-            [50, 120],
-            [194, 172],
-            [220, 198],
-            [220, 198],
-            [10, 10],
-            [10, 10],
-        ];
+        points = if resize_top_left {
+            [
+                [50, 120],
+                [100, 100],
+                [74, 74],
+                [74, 74],
+                [10, 10],
+                [10, 10],
+            ]
+        } else {
+            [
+                [50, 120],
+                [194, 172],
+                [220, 198],
+                [220, 198],
+                [10, 10],
+                [10, 10],
+            ]
+        };
     }
     let inventory_mode = inventory_drag || std::env::var_os("DISCWORLD_HOVER_INVENTORY").is_some();
     let look_mode = std::env::var_os("DISCWORLD_HOVER_LOOK").is_some();
@@ -246,7 +265,11 @@ fn capture_original_debug_room_hover() {
                                 .0
                                 .layout
                                 .inventory_area_at(position),
-                            crate::conversation_window::Area::BottomRight
+                            if resize_top_left {
+                                crate::conversation_window::Area::TopLeft
+                            } else {
+                                crate::conversation_window::Area::BottomRight
+                            }
                         );
                     }
                     engine
@@ -274,6 +297,14 @@ fn capture_original_debug_room_hover() {
                         assert_eq!(
                             engine.declarations.windows[1].as_ref().unwrap().size,
                             [4, 3]
+                        );
+                        assert_eq!(
+                            engine.declarations.windows[1].as_ref().unwrap().position,
+                            if resize_top_left {
+                                [74, 74]
+                            } else {
+                                [100, 100]
+                            }
                         );
                     }
                 }

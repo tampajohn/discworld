@@ -1,0 +1,67 @@
+{
+  "runtime_revision": "30c2f69",
+  "reference_revision": "96b42d42bc8533953bdd701db059cc33c839a9ff",
+  "reference_binary_sha256": "1e8b098f0e9f6da44062aa19c195a5771a4a5dbc806cb3d3a9c3eb0e8fb6f524",
+  "reference_probe_sha256": "f2213b93a24abe1cf1dfd142f9daaecb1ca78862dacb411ee3d24c637d621933",
+  "reference_capture_accepted": true,
+  "scope": "Controlled entry, direct inventory1 API/library open, cursor injection and original mouse edges. Verifies top-left resize with origin compensation, not gameplay unlock or physical input.",
+  "sequence": [
+    {
+      "elapsed": 0,
+      "action": "Directly open Luggage"
+    },
+    {
+      "elapsed": 12,
+      "action": "Move to100,100 and press top-left corner"
+    },
+    {
+      "elapsed": 24,
+      "action": "Move held pointer to74,74"
+    },
+    {
+      "elapsed": 36,
+      "action": "Release"
+    },
+    {
+      "elapsed": 48,
+      "action": "Move to10,10 and close"
+    }
+  ],
+  "frames": 72,
+  "same_cycle_matches": 72,
+  "rgb_content_matches": 72,
+  "full_save_restore_next_tick_checks": 72,
+  "rust_size_before": [
+    3,
+    2
+  ],
+  "rust_size_after": [
+    4,
+    3
+  ],
+  "rust_origin_before": [
+    100,
+    100
+  ],
+  "rust_origin_after": [
+    74,
+    74
+  ],
+  "reference_drag_states": {
+    "12": 7,
+    "24": 7,
+    "36": 0
+  },
+  "engine_changed": false,
+  "released_frame_inspected": true,
+  "bottom_right_regression_matches": 72,
+  "clippy": "core all-target passed",
+  "reference_command": "python3 tools/capture_reference_hover.py NEW_OUTPUT --inventory-resize --resize-corner top-left",
+  "rust_environment": {
+    "DISCWORLD_HOVER_INVENTORY_RESIZE": "1",
+    "DISCWORLD_HOVER_RESIZE_CORNER": "top-left"
+  },
+  "comparison_sha256": "3f6b1b3bf53adce694ef0b454e31f72b3adcb37633bba7045ea2c9a390931b77",
+  "reference_capture_sha256": "a886ed87e2ad97b4536ea1005beb76547d34bf4ce755e7f2784788cd232961c8",
+  "rust_capture_sha256": "d11b74f7ba09fbb70fd60bed33b03e82ae831545316c2af78caa354fe9727bc8"
+}

@@ -18,6 +18,7 @@ INVENTORY = os.environ.get("DISCWORLD_REFERENCE_INVENTORY") == "1"
 INVENTORY_DRAG = os.environ.get("DISCWORLD_REFERENCE_INVENTORY_DRAG") == "1"
 INVENTORY_FIXED_CORNER = os.environ.get("DISCWORLD_REFERENCE_INVENTORY_FIXED_CORNER") == "1"
 INVENTORY_RESIZE = os.environ.get("DISCWORLD_REFERENCE_INVENTORY_RESIZE") == "1"
+RESIZE_CORNER = os.environ.get("DISCWORLD_REFERENCE_RESIZE_CORNER", "bottom-right")
 LOOK = os.environ.get("DISCWORLD_REFERENCE_LOOK") == "1"
 WALK = os.environ.get("DISCWORLD_REFERENCE_WALK") == "1"
 WALK_FROM_ACTOR = os.environ.get("DISCWORLD_REFERENCE_WALK_FROM_ACTOR") == "1"
@@ -38,7 +39,9 @@ if INVENTORY_FIXED_CORNER:
     POINTS = [[50, 120], [169, 147], [189, 167], [189, 167], [10, 10], [10, 10]]
 
 if INVENTORY_RESIZE:
-    POINTS = [[50, 120], [194, 172], [220, 198], [220, 198], [10, 10], [10, 10]]
+    POINTS = ([[50, 120], [100, 100], [74, 74], [74, 74], [10, 10], [10, 10]]
+              if RESIZE_CORNER == 'top-left' else
+              [[50, 120], [194, 172], [220, 198], [220, 198], [10, 10], [10, 10]])
 
 
 def invoke(frame, expression):
@@ -268,7 +271,7 @@ def finish(debugger):
     path = frames.OUTPUT / 'capture.json'
     report = json.loads(path.read_text())
     report.update(scope='Controlled original debug scene entry, logical driver writes and original DoCursorMove; not normal host input or full gameplay equivalence.',
-                  injected_actions=ACTIONS, hover_start_cycle=START, inventory_diagnostic=INVENTORY, inventory_drag=INVENTORY_DRAG, inventory_resize=INVENTORY_RESIZE, inventory_fixed_corner=INVENTORY_FIXED_CORNER, look_diagnostic=LOOK, walk_diagnostic=WALK, walk_delay=WALK_DELAY, walk_from_actor=WALK_FROM_ACTOR)
+                  injected_actions=ACTIONS, hover_start_cycle=START, inventory_diagnostic=INVENTORY, inventory_drag=INVENTORY_DRAG, resize_corner=RESIZE_CORNER, inventory_resize=INVENTORY_RESIZE, inventory_fixed_corner=INVENTORY_FIXED_CORNER, look_diagnostic=LOOK, walk_diagnostic=WALK, walk_delay=WALK_DELAY, walk_from_actor=WALK_FROM_ACTOR)
     path.write_text(json.dumps(report, indent=2) + '\n')
 
 
