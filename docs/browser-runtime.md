@@ -545,13 +545,14 @@ The cached-click correction is now included in
 checkout, all 14 manifest hashes and exact source were verified. Chrome and
 WebKit both pass fresh startup, legacy-save loading, export and audio-headroom
 controls without page errors. Full-route audits of frozen modules from this
-revision are separate and still running. See
+revision passed; see [route evidence](validation/cached-click-route.json). See
 [package evidence](validation/packages-07e395f.json).
 
 `assets/packages/discworld-web-9186705.zip` includes the inventory trail
 movement correction. The extracted package passes manifest/source checks and
 Chrome/WebKit startup, legacy-load, save-export and audio-headroom smoke checks.
-Full-route audits use separately frozen modules from9186705 and remain running.
+Full-route audits of separately frozen modules from 9186705 passed; see
+[route evidence](validation/inventory-trails-route.json).
 See [package evidence](validation/packages-9186705.json).
 
 
@@ -560,5 +561,7 @@ cursor updates. All 14 extracted manifest files and bundled source verify.
 Chrome 156.0.8078.47 and WebKit 27.2 pass startup, legacy save load, save export
 and audio-headroom checks without page errors. The host UI suite passes 49 cases
 and four Node tests; one unsupported WebKit multi-touch injection is skipped.
-Full-route audits for this runtime are still running; physical iPad acceptance
-remains open. See [package evidence](validation/packages-cc0e3db.json).
+Full-route audits pass in native, Chrome and WebKit with identical final engine
+state/pixels, all 1,652 inputs accepted and 5,048 engine plus 5,048 DSP save/load
+checks. See [route evidence](validation/resize-cursor-route.json). Physical iPad
+acceptance remains open. See [package evidence](validation/packages-cc0e3db.json).
