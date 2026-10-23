@@ -30,6 +30,6 @@
   "scope": [
     "Synthetic restored-column and original-asset integration regressions; not a new full-route audit.",
     "Existing 85b728a browser route completions predate this change.",
-    "Multiple restored actors, live-reference restore ordering, signed-short saved field semantics, physical iPad and visible-session acceptance remain outstanding."
+    "Live-reference restore ordering, physical iPad and visible-session acceptance remain outstanding. Subsequent four-actor ordering and signed-field regression evidence is documented in reel-scheduling.md."
   ]
 }

@@ -40,12 +40,59 @@
   "frozen_host_hashes_verified": 17,
   "source_reports": {
     "assets/validation/reel-dispatch-85b728a/chrome/report.json": "b362bfec47a93dec181a8164db73af4a0ede1540b726c2257f520c254b2daa8f",
-    "assets/validation/reel-dispatch-85b728a/webkit/report.json": "ccf0db0c6913a5a61565d288ccd832bf112a9cea766e4bec8ebcd48a2131e60d"
+    "assets/validation/reel-dispatch-85b728a/webkit/report.json": "ccf0db0c6913a5a61565d288ccd832bf112a9cea766e4bec8ebcd48a2131e60d",
+    "assets/validation/reel-dispatch-85b728a/report.json": "829eb620996ec466d456e411e88e0399f4b39da41554e79113e94aa7b9fea4d1"
   },
   "scope": [
     "Accelerated browser worker runs; no device audio or manual UI/physical iPad acceptance.",
-    "Native audit still running; no native equivalence claimed yet.",
-    "Predates interpreter queue preservation and deferred restored-column changes."
+    "Predates interpreter queue preservation and deferred restored-column changes.",
+    "Native and browser engine bytes and RGBA match exactly; combined DSP saves differ and audio equivalence is not claimed."
   ],
-  "final_image_inspected": "Chrome browser-final.png displays Discworld title screen."
+  "final_image_inspected": "Chrome browser-final.png displays Discworld title screen.",
+  "native": {
+    "ticks": 2630000,
+    "status": "Running",
+    "scene_name": "title.scn",
+    "has_restarted": true,
+    "snapshot_checks": 5048,
+    "audio_snapshot_checks": 5048,
+    "accepted_inputs": 1652
+  },
+  "native_comparisons": {
+    "chrome": {
+      "ticks": 2630000,
+      "ticks_equal": true,
+      "native_status": "Running",
+      "scene": "title.scn",
+      "scene_equal": true,
+      "has_restarted": true,
+      "restart_equal": true,
+      "accepted_inputs": 1652,
+      "native_inputs": 1652,
+      "native_inputs_accepted": true,
+      "engine_bytes_equal": true,
+      "rgba_equal": true,
+      "combined_save_equal": false,
+      "core_sha256": "4d75b536cdacaa1069778c07872c960255e3a44b29d598ec12c5a1233e538f13",
+      "audio_scope": "WASM checked for finite samples; cross-platform audio equality not established"
+    },
+    "webkit": {
+      "ticks": 2630000,
+      "ticks_equal": true,
+      "native_status": "Running",
+      "scene": "title.scn",
+      "scene_equal": true,
+      "has_restarted": true,
+      "restart_equal": true,
+      "accepted_inputs": 1652,
+      "native_inputs": 1652,
+      "native_inputs_accepted": true,
+      "engine_bytes_equal": true,
+      "rgba_equal": true,
+      "combined_save_equal": false,
+      "core_sha256": "4d75b536cdacaa1069778c07872c960255e3a44b29d598ec12c5a1233e538f13",
+      "audio_scope": "WASM checked for finite samples; cross-platform audio equality not established"
+    }
+  },
+  "native_binary_and_trace_hashes_verified": true
 }

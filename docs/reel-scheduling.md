@@ -188,8 +188,11 @@ Targeted regressions now check a restored film on an already restored mover,
 explicit and zero depths, dead actors, duplicate requests, pending save/reload,
 and interpreter resume preserving the pending job. They check that explicit
 depth leaves shared column depth unchanged and that an unreadable unrelated
-column is never initialized. Multi-actor reconstruction ordering still needs
-a dedicated restored-column case and live-reference comparison. The recorded
+column is never initialized. A four-actor reconstruction regression checks reverse saved-actor insertion,
+explicit depths mixed with zero-depth recalculation, and three exact
+save/reload continuation passes. It also checks signed 16-bit depth/coordinate
+wrapping already implemented at scene capture, matching `Actor::SaveActors`.
+Live-reference reconstruction comparison remains outstanding. The recorded
 route at `85b728a` predates this restoration change.
 
 ## Additional trace instrumentation
@@ -216,3 +219,15 @@ The earlier frozen Chrome and WebKit full routes both completed at 2,630,000
 ticks with identical final engine bytes and RGBA;
 [reel-dispatch-browsers.json](validation/reel-dispatch-browsers.json) records
 their narrower scope.
+
+The frozen `85b728a` native audit also completed: 2,630,000 ticks, 1,652
+accepted inputs and 5,048 engine plus 5,048 DSP snapshot audits. Both browsers
+match its final engine bytes and RGBA exactly. Combined DSP save bytes differ;
+audio equivalence is not established. Native and browser title images were
+inspected. This route predates the restoration fixes. A new frozen native,
+Chrome and WebKit audit of `fad89dc` is running in
+`assets/validation/deferred-restore-fad89dc`; its completion is not yet claimed.
+
+The added four-actor regression and all 338 core tests pass; core Clippy with
+all targets passes (`assets/logs/restored-actor-order*.log`). These additions
+change tests only; the native and production browser builds remain `fad89dc`.

@@ -10882,6 +10882,118 @@ mod tests {
     }
 
     #[test]
+    fn scene_restore_reverses_saved_actor_insertion_and_narrows_original_fields() {
+        let (master, scene) = fixtures();
+        let base = 2u32 << 23;
+        let mut film = vec![0; 176];
+        for (at, word) in [
+            (0, 24u32),
+            (4, 2),
+            (8, base + 64),
+            (12, base + 160),
+            (16, base + 88),
+            (20, base + 160),
+            (24, 24),
+            (28, 2),
+            (32, base + 112),
+            (36, base + 160),
+            (40, base + 136),
+            (44, base + 160),
+            (72, 1),
+            (96, 2),
+            (120, 3),
+            (144, 4),
+            (160, 10),
+            (164, 1),
+            (168, (-2i32) as u32),
+        ] {
+            film[at..at + 4].copy_from_slice(&word.to_le_bytes());
+        }
+        let resources = Resources(vec![&master, &scene, &film]);
+        let mut engine = Engine::bootstrap(&resources).unwrap();
+        engine.processes = Scheduler::default();
+        engine.master_stopped = true;
+        engine.actors = crate::actor::Actors::new(4).unwrap();
+        engine.actors.get_mut(4).unwrap().masking = 4;
+        for handle in [base, base + 24] {
+            engine.launch_film(&resources, Handle(handle)).unwrap();
+        }
+        dispatch_reel_fixture(&mut engine, &resources);
+        for reel in &mut engine.films {
+            let index = reel.object.id as usize - 1;
+            let source = reel.source.as_mut().unwrap();
+            source.depth = [32768, 0, 65536, -32769][index];
+            source.position = [32768 + index as i32, -32769 - index as i32];
+            reel.object.z = source.depth;
+        }
+        let saved = engine.capture_scene().unwrap();
+        assert_eq!(
+            saved.reels.iter().map(|(id, _, _)| *id).collect::<Vec<_>>(),
+            [1, 2, 3, 4]
+        );
+        assert_eq!(
+            saved
+                .reels
+                .iter()
+                .map(|(_, _, s)| s.depth)
+                .collect::<Vec<_>>(),
+            [-32768, 0, 0, 32767]
+        );
+        for (index, (_, _, source)) in saved.reels.iter().enumerate() {
+            assert_eq!(
+                source.position,
+                [-32768 + index as i32, 32767 - index as i32]
+            );
+        }
+        engine.reel_dispatch_depth = [777, 8];
+        engine.rebuild_scene(&resources, &[], &saved).unwrap();
+        assert!(engine.films.is_empty());
+        assert_eq!(
+            engine
+                .reel_tasks()
+                .iter()
+                .map(|(_, task)| match task {
+                    ReelTask::Restored { actor, .. } => *actor,
+                    _ => panic!("expected queued restored actor"),
+                })
+                .collect::<Vec<_>>(),
+            [4, 3, 2, 1]
+        );
+        let bytes = crate::save::Snapshot::capture(&engine, [7; 32])
+            .to_bytes()
+            .unwrap();
+        let decoded = crate::save::Snapshot::from_bytes(&bytes, [7; 32]).unwrap();
+        decoded
+            .state()
+            .validate_snapshot_scripts(&resources)
+            .unwrap();
+        let mut restored = decoded.state().clone();
+        for _ in 0..3 {
+            for instance in [&mut engine, &mut restored] {
+                instance.tick(&resources).unwrap();
+                assert_eq!(
+                    instance
+                        .films
+                        .iter()
+                        .map(|a| a.object.id)
+                        .collect::<Vec<_>>(),
+                    [4, 3, 2, 1]
+                );
+                assert_eq!(
+                    instance
+                        .films
+                        .iter()
+                        .map(|a| a.object.z)
+                        .collect::<Vec<_>>(),
+                    [32767, 2, 3, -32768]
+                );
+                assert_eq!(instance.reel_dispatch_depth, [2, 0]);
+            }
+            assert_eq!(engine, restored);
+        }
+    }
+
+    #[test]
     fn queued_films_keep_column_and_peer_order_across_passes() {
         let (master, mut scene) = fixtures();
         let base = 2u32 << 23;
