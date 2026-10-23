@@ -44,15 +44,37 @@ Keep the user's visible native session current with newly verified engine builds
 
 ## Current progress (2026-10-23)
 
-The orientation-corrected native route at `29be6d6` is complete: 1,652 accepted
-inputs, 5,048 engine/DSP continuation checks each, final restart/title at
-2,630,000 ticks. See [route evidence](validation/orientation-29be6d6.json).
+Runtime `fad89dc` defers restored actor animations until after saved movers
+are installed and preserves reel jobs across interpreter restoration. Pending
+restored jobs have version-22 save support; explicit saved depths leave shared
+column depth unchanged. The subsequent `c9fdccf` regression covers four-actor
+queue order, signed 16-bit saved fields, and exact save/load continuation.
+All 338 core tests and core Clippy pass. The production change also passed the
+workspace, 20 original-asset checks, WASM checking, and native/browser builds.
+See [restoration evidence](validation/deferred-restored-reels.json) and
+[reel scheduling](reel-scheduling.md).
 
-Independent startup comparison now covers 120 reference draws across Psygnosis
-and TWG: every image has an exact Rust match, but 17 scene-aligned draws differ.
-A live cycle/animation probe confirms a one-tick delay in Rust's first step
-of a new nonblocking reel. This scheduling gap is unresolved and is the next
-engine compatibility correction; see [phase evidence](validation/reference-startup-phase.json).
+The earlier `85b728a` recorded route completed on native, Chrome and WebKit:
+1,652 accepted inputs, restart/title at 2,630,000 ticks, identical final engine
+bytes and RGBA. Native passed 5,048 engine and 5,048 DSP continuation checks;
+browser audio was finite, but cross-platform audio equality is not established.
+See [cross-host evidence](validation/reel-dispatch-browsers.json).
+Fresh frozen full-route audits of `fad89dc` are running in
+`assets/validation/deferred-restore-fad89dc`. Their completion and the current
+browser interaction suite remain unverified until terminal results are checked.
+
+The startup scheduling correction resolves the 17 scene-aligned mismatches
+reported in [historical phase evidence](validation/reference-startup-phase.json).
+A fresh capture from `fad89dc` matches all 120 existing independent reference
+draws across Psygnosis and TWG, with zero scene-aligned mismatches. See
+[startup recheck](validation/deferred-restore-startup.json). This is startup-only
+evidence, not proof of general scheduling or wall-clock equivalence.
+
+The goal remains incomplete. Live-reference reconstruction ordering, broader
+scene/state/audio comparisons, alternate interactions and remaining library
+operations, updated packaged hosts, visible-session acceptance, and physical
+iPad landscape/touch/lifecycle acceptance remain outstanding. Historical
+results below retain their own revision and validation scope.
 
 A fresh, read-only LLDB capture from the pinned ScummVM executable provides
 an independent pixel comparison: the complete 320x200 Psygnosis logo at Rust

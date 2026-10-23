@@ -1,0 +1,18 @@
+{
+  "reference_capture_sha256": "e646c3a0c90535abbca8f409d9eb2a104e6639b85bfc4d931fc473fa9517f3b8",
+  "rust_capture_sha256": "f0c3e5f6f5600df4754284600dcdf10a38c3cf2ffe31d27ca3100e4b1ec5f77f",
+  "reference_frames": 120,
+  "pixel_matched_frames": 120,
+  "distinct_scene_images": 25,
+  "scene_aligned_mismatches": [],
+  "scope": "Exact full RGB content matches within the same scene. Scene-start alignment is diagnostic, not an assumed proof of scheduler or wall-clock equivalence.",
+  "runtime_revision": "fad89dca5c3bb706de37b3f88cc02e77634f9f43",
+  "native_tools_sha256": "d7fe4ded9424a6253bfb4795b8f3d608b7c70fe0b1855a0ddef312b59c6622e4",
+  "rust_capture": "assets/validation/deferred-restore-startup",
+  "reference_capture": "assets/validation/reference-frames-step-cycles/frames",
+  "comparison": "assets/validation/deferred-restore-startup-comparison.json",
+  "limitations": [
+    "Existing independent reference capture, not a new live reference session.",
+    "Psygnosis and TWG startup only; scene restoration, later scenes and audio are not covered."
+  ]
+}
