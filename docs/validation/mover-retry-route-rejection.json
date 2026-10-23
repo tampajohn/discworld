@@ -23,5 +23,33 @@
     "event": "walkto"
   },
   "observation": "All three hosts stop at the same recorded input after the movement retry correction. Native refuses to save an incomplete run and leaves report.json empty. No claim yet whether replay timing or engine behavior is responsible.",
-  "next_diagnostic": "assets/validation/mover-retry-rejection1: replay unchanged prefix to1109019 and save immediately before rejection. Running."
+  "next_diagnostic": "Previous6061cc3 prefix replay to1109019 running; compare state and puzzle prerequisites before adjusting input timing.",
+  "checkpoint": {
+    "path": "assets/validation/mover-retry-rejection1/before.dws",
+    "tick": 1109019,
+    "scene": "pastankh.scn",
+    "status": "Running",
+    "control_enabled": true,
+    "held_object": 288,
+    "destination_polygon80_enabled": false,
+    "npc74_position": [
+      171,
+      86
+    ],
+    "npc74_target": [
+      194,
+      74
+    ]
+  },
+  "idle_observation": {
+    "polygon80_disabled_at": [
+      1109020,
+      1109050,
+      1109100,
+      1109300
+    ],
+    "polygon80_enabled_at": 1110000,
+    "inputs": "none after checkpoint",
+    "scope": "Supports a recorded-timing mismatch, not yet a complete replay correction or proof against the prior runtime."
+  }
 }
