@@ -5,6 +5,7 @@ scene-entry/cursor functions. It records every invocation and does not claim
 ordinary player-input equivalence. Frame reads use the passive capture helper.
 """
 import json
+import os
 from pathlib import Path
 import sys
 
@@ -13,6 +14,7 @@ import lldb
 sys.path.insert(0, str(Path(__file__).resolve().parent))
 import reference_frames_lldb as frames
 
+INVENTORY = os.environ.get("DISCWORLD_REFERENCE_INVENTORY") == "1"
 START = None
 ACTIONS = []
 PENDING = []
@@ -71,6 +73,13 @@ def cycle(frame, location, dictionary):
                 PENDING.append(f'Tinsel::_vm->_mousePos.x = {x}, '
                                f'Tinsel::_vm->_mousePos.y = {y}, '
                                'Tinsel::_vm->_cursor->DoCursorMove()')
+                if INVENTORY and elapsed == 0:
+                    # LLDB does not expose these enumerators in this build.
+                    # events.h: WALKTO=9, PLR_NOEVENT=16. The resolved pockets
+                    # command bypasses raw-click double-click arbitration.
+                    PENDING.append('Tinsel::ActorEvent(7, (Tinsel::TINSEL_EVENT)9, (Tinsel::PLR_EVENT)16)')
+                if INVENTORY and elapsed == 36:
+                    PENDING.append('Tinsel::_vm->_dialogs->closeInventory()')
                 return True
         if frames.CYCLES >= 4000:
             raise RuntimeError('hover diagnostic cycle budget exhausted')
@@ -113,6 +122,10 @@ def capture(frame, location, dictionary):
             return True
         frames.RECORDS[-1]['driver_cursor'] = [
             mouse.GetChildMemberWithName(axis).GetValueAsSigned() for axis in ['x', 'y']]
+        if INVENTORY:
+            dialogs = vm.Dereference().GetChildMemberWithName('_dialogs').Dereference()
+            frames.RECORDS[-1]['inventory'] = [frames.unsigned(dialogs.GetChildMemberWithName(name))
+                                               for name in ['_inventoryState', '_activeInv']]
         for name in ['g_TaggedActor', 'g_hTaggedPolygon']:
             value = target.FindFirstGlobalVariable('Tinsel::' + name)
             if value.IsValid():
@@ -177,7 +190,7 @@ def finish(debugger):
     path = frames.OUTPUT / 'capture.json'
     report = json.loads(path.read_text())
     report.update(scope='Controlled original debug scene entry, logical driver writes and original DoCursorMove; not normal host input or full gameplay equivalence.',
-                  injected_actions=ACTIONS, hover_start_cycle=START)
+                  injected_actions=ACTIONS, hover_start_cycle=START, inventory_diagnostic=INVENTORY)
     path.write_text(json.dumps(report, indent=2) + '\n')
 
 

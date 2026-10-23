@@ -37,6 +37,7 @@ fn capture_original_debug_room_hover() {
         [10, 10],
     ];
     let direct_entry = std::env::var_os("DISCWORLD_HOVER_DIRECT_ENTRY").is_some();
+    let inventory_mode = std::env::var_os("DISCWORLD_HOVER_INVENTORY").is_some();
     let mut start = None;
     let mut rows = Vec::new();
     let mut clocks = Vec::new();
@@ -73,6 +74,33 @@ fn capture_original_debug_room_hover() {
                     .move_to(&resources, position, false)
                     .unwrap();
                 engine.move_cursor(position);
+                if inventory_mode && elapsed == 0 {
+                    engine
+                        .interact_actor(&resources, 7, PolygonInteraction::WalkTo)
+                        .unwrap();
+                }
+                if inventory_mode && elapsed == 36 {
+                    assert_eq!(engine.active_inventory(), Some(2));
+                    let before = engine.clone();
+                    assert!(
+                        engine
+                            .close_inventory_input(&Resources(Vec::new()))
+                            .is_err()
+                    );
+                    assert_eq!(engine, before, "failed cursor restoration is atomic");
+                    let mut scripted = engine.clone();
+                    scripted.close_inventory();
+                    assert_eq!(
+                        scripted.cursor_animation, before.cursor_animation,
+                        "script CLOSEINV kills the window without restoring the cursor"
+                    );
+                    engine.close_inventory_input(&resources).unwrap();
+                    assert_eq!(
+                        engine.cursor_animation.as_ref().unwrap().diagnostic_clock(),
+                        (374236, 1, 2, 2),
+                        "player close restores and steps the normal cursor"
+                    );
+                }
             }
         }
         if engine.ticks >= 449 {
@@ -151,7 +179,7 @@ fn capture_original_debug_room_hover() {
                 .unwrap();
             let legacy = crate::save::Snapshot::from_bytes(&legacy_bytes, [7; 32]).unwrap();
             assert_eq!(legacy.to_bytes().unwrap(), legacy_bytes);
-            if rows.is_empty() {
+            if rows.is_empty() && !inventory_mode {
                 let mut migrated = legacy.state().clone();
                 let peers: Vec<_> = migrated
                     .processes
@@ -241,7 +269,7 @@ fn capture_original_debug_room_hover() {
                     .to_bytes()
                     .unwrap()
             );
-            if rows.is_empty() {
+            if rows.is_empty() && !inventory_mode {
                 std::fs::write(directory.join("mover-state-v26.dws"), &save_bytes).unwrap();
                 let mut input = engine.clone();
                 input

@@ -1733,10 +1733,12 @@ impl Engine {
             } else if !next.conversation.hidden {
                 if next.active_inventory == Some(0) {
                     if let Some(polygon) = next.conversation.close_input() {
-                        next.close_conversation();
+                        next.close_inventory_input(resources)?;
                         next.queue_converse(resources, polygon)?;
                     }
-                } else if next.active_inventory.is_some() || next.top_window.is_some() {
+                } else if next.active_inventory.is_some() {
+                    next.close_inventory_input(resources)?;
+                } else if next.top_window.is_some() {
                     next.close_inventory();
                 }
             }
@@ -2003,7 +2005,7 @@ impl Engine {
                     next.left_event()?;
                     if !next.inventory_contains_point(point) && action != PolygonInteraction::Action
                     {
-                        next.close_inventory();
+                        next.close_inventory_input(resources)?;
                     } else if let Some(scroll) = next.inventory_scroll_at(point) {
                         if action == PolygonInteraction::WalkTo
                             || (action == PolygonInteraction::Action
@@ -2086,7 +2088,7 @@ impl Engine {
             } else if let Some(slot) = self.inventory_slot_at(point) {
                 self.interact_inventory(resources, slot, PolygonInteraction::WalkTo)?;
             } else if !self.inventory_contains_point(point) {
-                self.close_inventory();
+                self.close_inventory_input(resources)?;
             }
         } else if self.control.enabled && self.active_inventory.is_none() {
             self.interact_world(resources, point, PolygonInteraction::WalkTo)?;
@@ -3008,6 +3010,34 @@ impl Engine {
         self.active_inventory
     }
 
+    /// Player CloseInventory also restores and restarts the main cursor.
+    /// Script CLOSEINV uses killInventory instead, via close_inventory below.
+    pub fn close_inventory_input(&mut self, resources: &Resources<'_>) -> Result<(), Error> {
+        if self.active_inventory.is_none() || self.conversation.hidden {
+            return Ok(());
+        }
+        let mut next = self.clone();
+        next.close_inventory();
+        if let Some(cursor) = &mut next.cursor_animation {
+            let (_, film) = next
+                .declarations
+                .cursor
+                .as_ref()
+                .ok_or(Error("missing normal cursor film"))?;
+            let script = film
+                .reels
+                .first()
+                .ok_or(Error("empty normal cursor film"))?
+                .script;
+            cursor.set_script(script, 24 / film.rate as u32)?;
+            cursor.tick(resources)?;
+        }
+        next.control.hidden = false;
+        next.control.frozen = false;
+        *self = next;
+        Ok(())
+    }
+
     /// Close the active window without a conversation postamble (scripted CLOSEINVENTORY).
     pub fn close_inventory(&mut self) {
         if let Some(menu) = &mut self.configuration {
@@ -3177,7 +3207,7 @@ impl Engine {
             next.conversation.select(window, topic)?
         } else {
             let polygon = next.conversation.close_input();
-            next.close_conversation();
+            next.close_inventory_input(resources)?;
             polygon
         };
         let Some(polygon) = polygon else {

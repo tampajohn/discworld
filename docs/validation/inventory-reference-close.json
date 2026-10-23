@@ -1,0 +1,39 @@
+{
+  "runtime_base": "eccb808",
+  "scope": "Controlled room dispatch and resolved lead WALKTO (not raw click arbitration), logical cursor moves, and original CloseInventory. Not ordinary-input or full-game parity.",
+  "reference_capture": "assets/validation/reference-inventory3/frames/capture.json",
+  "reference_capture_sha256": "5cd0577009c9c525e33f237a23e613fbff6206c380a026bfbd38c73f18b90b8a",
+  "reference_accepted": true,
+  "before": "assets/validation/inventory-reference-before-fix.json",
+  "after": "assets/validation/inventory-reference-compare2.json",
+  "frames": 72,
+  "exact_content_before": 36,
+  "exact_content_after": 72,
+  "capture_aligned_after": 72,
+  "finding": "Original player close calls RestoreMainCursor unconditionally after killing the window. Rust previously reset only when leaving a custom resize cursor, leaving normal cursor animation out of phase.",
+  "change": [
+    "New checked close_inventory_input resets/steps the main cursor and clears hidden/frozen flags.",
+    "Native, browser, replay and engine player-close paths use it.",
+    "Script CLOSEINV still only kills the inventory, matching original tinlib.cpp.",
+    "Failure restoring cursor resources is atomic; no new save schema needed."
+  ],
+  "diagnostic_corrections": [
+    "Attempt1 failed because LLDB did not expose named enumerators; zero frames excluded.",
+    "Attempt2 completed72 frames but the first raw PLR_WALKTO waited for double-click arbitration. Also rejected by a mistaken ACTIVE_INV/IDLE_INV numeric expectation. Not used as matched-input evidence.",
+    "Attempt3 uses verified enum values WALKTO9 and PLR_NOEVENT16, matching resolved actor dispatch, and checks ACTIVE_INV2/slot2 plus IDLE_INV1 after close."
+  ],
+  "checks": [
+    "Original inventory capture passes72 save/load next-tick checks.",
+    "Script close preserves cursor clock; player close resets it to original script374236,index1,period2,remaining2.",
+    "Invalid cursor resources leave the engine unchanged.",
+    "Workspace all-target Clippy passes.",
+    "Workspace release suite passes (360 core tests).",
+    "All25 original-asset cases pass across initial run and corrected cursor-phase retry.",
+    "Native/tools release and browser WASM builds pass."
+  ],
+  "remaining": [
+    "Browser input/UI regression running; full-route check and package refresh remain.",
+    "Rebuild hosts, test UI, and full-route regression for new player-close semantics.",
+    "Updated packages and visible-session verification; broader reference and iPad acceptance."
+  ]
+}

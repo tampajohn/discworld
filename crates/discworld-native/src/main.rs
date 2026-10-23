@@ -549,7 +549,7 @@ fn run() -> Result<(), Box<dyn std::error::Error>> {
                     match key {
                         Key::I => {
                             if matches!(engine.active_inventory(), Some(1 | 2)) {
-                                engine.close_inventory();
+                                engine.close_inventory_input(&resources)?;
                             } else if let Some(lead) = &engine.declarations.lead {
                                 engine.interact_actor(
                                     &resources,
@@ -561,7 +561,7 @@ fn run() -> Result<(), Box<dyn std::error::Error>> {
                         Key::Space => engine.left_event()?,
                         Key::Backspace => {
                             if matches!(engine.active_inventory(), Some(1 | 2)) {
-                                engine.close_inventory();
+                                engine.close_inventory_input(&resources)?;
                             } else {
                                 engine.interact_conversation(&resources, None)?;
                             }

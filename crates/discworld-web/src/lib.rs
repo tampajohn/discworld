@@ -536,7 +536,7 @@ impl BrowserGame {
             "start" => engine.user_event().map_err(error)?,
             "pockets" => {
                 if matches!(engine.active_inventory(), Some(1 | 2)) {
-                    engine.close_inventory();
+                    engine.close_inventory_input(&resources).map_err(error)?;
                 } else if let Some(lead) = &engine.declarations.lead {
                     engine
                         .interact_actor(&resources, lead.id as u32, PolygonInteraction::WalkTo)
@@ -545,7 +545,7 @@ impl BrowserGame {
             }
             "close" => {
                 if matches!(engine.active_inventory(), Some(1 | 2)) {
-                    engine.close_inventory();
+                    engine.close_inventory_input(&resources).map_err(error)?;
                 } else {
                     engine
                         .interact_conversation(&resources, None)

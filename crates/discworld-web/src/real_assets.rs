@@ -1901,7 +1901,8 @@ fn inventory_hover_uses_original_arrows_freezes_during_drag_and_restores() {
     game.advance(2).unwrap();
     game.input("close").unwrap();
     game.advance(2).unwrap();
-    original_cursor(&mut game, None);
+    // Player close restores/steps immediately, then both engine ticks advance it.
+    original_cursor_phase(&mut game, None, 3);
     game.input("pockets").unwrap();
     game.advance(24).unwrap();
     assert_eq!(game.engine.active_inventory(), Some(2));
@@ -1910,8 +1911,8 @@ fn inventory_hover_uses_original_arrows_freezes_during_drag_and_restores() {
     let [x, y] = window.position;
     game.move_pointer(x, y + 25);
     game.advance(2).unwrap();
-    // Normal cursor is animated too: 28 ticks since close restored its script.
-    original_cursor_phase(&mut game, None, 28);
+    // Initial restore step plus 28 subsequent ticks.
+    original_cursor_phase(&mut game, None, 29);
     for (name, reel) in [
         ("DISCWORLD_TEST_HOVER_ARROW", Some(24)),
         ("DISCWORLD_TEST_HOVER_CORNER", Some(27)),

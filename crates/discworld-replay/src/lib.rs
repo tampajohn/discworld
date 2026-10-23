@@ -153,7 +153,7 @@ pub fn apply(
             InteractionEvent::CloseInventory => {
                 let open = matches!(engine.active_inventory(), Some(1 | 2));
                 if open {
-                    engine.close_inventory();
+                    engine.close_inventory_input(resources)?;
                 }
                 Ok(open)
             }

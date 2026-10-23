@@ -22,6 +22,7 @@ def main():
     parser = argparse.ArgumentParser(description=__doc__)
     parser.add_argument('output', type=Path, help='new diagnostic directory')
     parser.add_argument('--data', type=Path, default=ROOT / 'assets/game')
+    parser.add_argument('--inventory', action='store_true', help='dispatch original lead WALKTO and close inventory halfway through')
     args = parser.parse_args()
     binary = ROOT / f'.reference/scummvm-{REVISION}/scummvm'
     if digest(binary) != BINARY_SHA256:
@@ -51,7 +52,8 @@ def main():
     environment = dict(os.environ, SDL_VIDEODRIVER='dummy', SDL_RENDER_DRIVER='software',
                        SDL_AUDIODRIVER='dummy', DISCWORLD_REFERENCE_FRAMES=str(output / 'frames'),
                        DISCWORLD_REFERENCE_FRAME_LIMIT='72', DISCWORLD_REFERENCE_BACKEND='surfacesdl')
-    metadata = dict(reference_revision=REVISION, binary_sha256=BINARY_SHA256,
+    environment['DISCWORLD_REFERENCE_INVENTORY'] = '1' if args.inventory else '0'
+    metadata = dict(inventory_diagnostic=args.inventory, reference_revision=REVISION, binary_sha256=BINARY_SHA256,
                     probe_sha256=digest(probe), config_sha256=digest(config), command=command,
                     scope='Controlled scene and logical cursor injection; not ordinary input acceptance.')
     metadata_path = output / 'launch.json'
@@ -77,9 +79,12 @@ def main():
     points = [[50, 120], [147, 110], [294, 56], [250, 160], [149, 60], [10, 10]]
     accepted = (metadata.get('exit_code') == 0 and report.get('complete') is True
                 and report.get('errors') == [] and len(frames) == 72
-                and len(report.get('injected_actions', [])) == 8
+                and len(report.get('injected_actions', [])) == (10 if args.inventory else 8)
                 and all(f['scene'] == 18 << 23 and f['driver_cursor'] == points[i // 12]
                         for i, f in enumerate(frames)))
+    if accepted and args.inventory:
+        accepted = (frames[12]['inventory'] == [2, 2]
+                    and frames[48]['inventory'][0] == 1)
     metadata['accepted'] = accepted
     metadata_path.write_text(json.dumps(metadata, indent=2) + '\n')
     print(json.dumps(dict(status=metadata['status'], accepted=accepted, frames=len(frames))))
