@@ -23,7 +23,7 @@
   ],
   "full_route": {
     "directory": "assets/validation/idle-active-3df76c8",
-    "status": "running; not a pass",
+    "status": "Native failed at88000 in square.scn: interaction scene mismatch; browser runs pending",
     "ticks": 2635725,
     "runs": {
       "run.json": {
@@ -44,5 +44,6 @@
     }
   },
   "limits": "Synthetic cursor activity tests an active player route. It does not replace idle-cutscene acceptance, touch-only play, or full original-reference fidelity.",
-  "runtime": "3df76c8"
+  "runtime": "3df76c8",
+  "next_step": "Inspect route and state before88000; cursor movement may wake WAITKEY or change cached input state. Preserve failure and diagnose before revising trace."
 }

@@ -16,7 +16,7 @@ Touch gestures and presentation technology remain implementation decisions to va
 
 ## Latest validation follow-up
 
-Cursor activity is now representable in replay traces through the ordinary checked movement API. A revised route preserves all1657 scene-checked actions and adds2616 cursor samples; its65000-tick prefix passes with175 engine/DSP save checks. Full native/Chrome/WebKit audits are running on3df76c8; see [active-player replay](validation/idle-cursor-replay.json). Idle behavior remains covered separately.
+Cursor activity is now representable in replay traces through the ordinary checked movement API. A revised route preserves all1657 scene-checked actions and adds2616 cursor samples; its65000-tick prefix passes with175 engine/DSP save checks. The full native audit rejects an input at88000 in square.scn; browser runs are pending and the input-state effect needs diagnosis; see [active-player replay](validation/idle-cursor-replay.json). Idle behavior remains covered separately.
 
 IDLETIME now preserves the reference55-unit elapsed-clock scaling using deterministic virtual milliseconds. The original idle close-up triggers at tick6985 and enters at6992, compared with11043/11050 before correction. Numbered script timers and save layout are unchanged. Workspace, Clippy, native/WASM builds,25 original-asset checks and the idle diagnostic pass. All three full routes reject the old recorded input at tick24500 after7 inputs because an idle close-up interrupts a long pause; ordinary-input recovery and package follow-up remain pending. See [idle-clock correction](validation/idle-clock-scaling.json).
 
