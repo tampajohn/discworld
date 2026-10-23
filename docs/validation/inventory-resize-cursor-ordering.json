@@ -1,0 +1,93 @@
+{
+  "reference_revision": "96b42d42bc8533953bdd701db059cc33c839a9ff",
+  "reference_binary_sha256": "1e8b098f0e9f6da44062aa19c195a5771a4a5dbc806cb3d3a9c3eb0e8fb6f524",
+  "change": "Resource-aware transactional host movement applies cursor trails and inventory cursor shape before button dispatch. Drag release immediately refreshes shape after reconstruction. Native and browser checked pointer paths use this method. No save-format change.",
+  "scope": "Controlled reference captures and host integration tests. Luggage probe directly opens inventory1; not gameplay-unlock or physical-device acceptance.",
+  "prior_luggage_matches": 47,
+  "corrected_luggage_matches": 72,
+  "reference_cases": [
+    {
+      "name": "luggage",
+      "reference": "reference-luggage-resize1",
+      "rust": "rust-resize-cursor-luggage-final1",
+      "comparison": "resize-cursor-luggage-final-compare1.json",
+      "frames": 72,
+      "reference_capture_sha256": "abc0fceab2a81621674b3323d4ee5501ce6658d66ff0ad2f30ae86ddf6d11ff7",
+      "rust_capture_sha256": "b576246e2ea475ac7fb408c3eac08f2d7f1b6485207b424d3eac49ad145a4edb",
+      "comparison_sha256": "e3beeb84515056ad7c1dec4bf40508f7ad3e8227d883cc4d625af2b41420882c"
+    },
+    {
+      "name": "fixed",
+      "reference": "reference-inventory-fixed-corner1",
+      "rust": "rust-resize-cursor-fixed-final1",
+      "comparison": "resize-cursor-fixed-final-compare1.json",
+      "frames": 72,
+      "reference_capture_sha256": "3602477ef37448819b4a749160c71a381764ce430c783ba67340d2fb3b0c9278",
+      "rust_capture_sha256": "51ed01d91c3c1c1d509404655cab9a4fe2d3ad1af7fd2b294e59e84ded8c0ba9",
+      "comparison_sha256": "2fca205d68028bfef74db875f87aa1e6f5414fbdc1a0668b8e8e13bd44fed931"
+    },
+    {
+      "name": "header",
+      "reference": "reference-inventory-drag2",
+      "rust": "rust-resize-cursor-header-final1",
+      "comparison": "resize-cursor-header-final-compare1.json",
+      "frames": 72,
+      "reference_capture_sha256": "7d06c191e90b9c938719156f55a78fd1c873326dd95ce554975dc324b834b1eb",
+      "rust_capture_sha256": "2b3ce43e373314bf17945f866fe7efb48945451ce0a84931c829ad56be06c45b",
+      "comparison_sha256": "606aa2f90374be28f5456a28dd76570062e4a329929cfcd251730a7608d99adb"
+    },
+    {
+      "name": "inventory",
+      "reference": "reference-inventory3",
+      "rust": "rust-resize-cursor-inventory-final1",
+      "comparison": "resize-cursor-inventory-final-compare1.json",
+      "frames": 72,
+      "reference_capture_sha256": "5cd0577009c9c525e33f237a23e613fbff6206c380a026bfbd38c73f18b90b8a",
+      "rust_capture_sha256": "73e347169c67dafcb96099ad0df01e6ff3ac137ec46d31b3bf7cdb94c743b1e7",
+      "comparison_sha256": "32d65864d9055cba89b112812aa92e020ebb40bef664e4c6ac74296a4f5ca899"
+    },
+    {
+      "name": "look",
+      "reference": "reference-look2",
+      "rust": "rust-resize-cursor-look-final1",
+      "comparison": "resize-cursor-look-final-compare1.json",
+      "frames": 72,
+      "reference_capture_sha256": "43b193b1cdc38b04cd81419df0ff2162413afa0bcd18e881f3b3cd3886c6daf2",
+      "rust_capture_sha256": "a837258c0392f8461187acd0c13f33b1e4302517bedd1d0b13c49ef148153321",
+      "comparison_sha256": "d90409ae2b762afd16f8d7a699bef0571c37bada6ad9a0afd36038581ffc15e3"
+    },
+    {
+      "name": "walk",
+      "reference": "reference-player-walk2",
+      "rust": "rust-resize-cursor-walk-final1",
+      "comparison": "resize-cursor-walk-final-compare1.json",
+      "frames": 72,
+      "reference_capture_sha256": "116757670cf203a92d9feb4631489ec2747176c21007d19e578aded8e82c8c19",
+      "rust_capture_sha256": "95984319ad060c39a7d6881c68ef83e2520110ac0565663a892755df7fed1b61",
+      "comparison_sha256": "40857a75cd940726cdf2647b64d7893502cee1862265776e5a35106e98b721d5"
+    },
+    {
+      "name": "cached",
+      "reference": "reference-cached-actor1",
+      "rust": "rust-resize-cursor-cached-final1",
+      "comparison": "resize-cursor-cached-final-compare1.json",
+      "frames": 72,
+      "reference_capture_sha256": "da811b522bad36fdad8d463d8316baa18d2d13d6bf2b5c7e22ca0ecca78e9667",
+      "rust_capture_sha256": "41f492969c9e11ada8a5185fa69573b422fdecd3902b0d79fda2f8aeb65ba3db",
+      "comparison_sha256": "5f3caec55af9e22a3f12c1151cc3d7898a07b55ea6059a3d7b1c9c74f0b6deab"
+    }
+  ],
+  "save_restore_next_tick_checks_per_capture": 72,
+  "validation": {
+    "workspace": "passed; 360 core tests",
+    "original_asset_tests": "25 passed",
+    "clippy": "workspace all-target passed",
+    "native_tools_build": "passed",
+    "production_wasm_build": "passed",
+    "replay_wasm_build": "passed",
+    "browser_ui": "running; not counted as passed",
+    "full_routes": "pending on this change"
+  },
+  "test_adjustment": "Old hover test expected deferred normal-cursor restoration. Reference invDragEnd restores immediately; test now uses checked movement after release and expects immediate step plus two ticks. Initial old assertions failed and logs are retained.",
+  "limitations": "Visible native interaction and physical iPad landscape acceptance remain unverified. Full reference compatibility is not established."
+}

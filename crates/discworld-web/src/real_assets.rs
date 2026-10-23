@@ -928,7 +928,9 @@ fn engine_menu_opening_preserves_gates_warps_and_atomicity() {
     engine
         .open_configuration(&resources, &strings, &catalog, Key::Main)
         .unwrap();
-    engine.move_cursor_with_configuration([90, 59]).unwrap();
+    engine
+        .move_cursor_with_configuration(&resources, [90, 59])
+        .unwrap();
     engine
         .mouse_button_with_configuration(&resources, Button::Right, true)
         .unwrap();
@@ -942,7 +944,9 @@ fn engine_menu_opening_preserves_gates_warps_and_atomicity() {
         engine.configuration.as_ref().unwrap().page(),
         Some(Page::Save)
     );
-    engine.move_cursor_with_configuration([50, 63]).unwrap();
+    engine
+        .move_cursor_with_configuration(&resources, [50, 63])
+        .unwrap();
     assert!(
         engine
             .mouse_button_with_configuration(&resources, Button::Left, true)
@@ -954,7 +958,9 @@ fn engine_menu_opening_preserves_gates_warps_and_atomicity() {
     engine
         .mouse_button_with_configuration(&resources, Button::Left, false)
         .unwrap();
-    engine.move_cursor_with_configuration([50, 48]).unwrap();
+    engine
+        .move_cursor_with_configuration(&resources, [50, 48])
+        .unwrap();
     let saved = engine
         .mouse_button_with_configuration(&resources, Button::Left, true)
         .unwrap();
@@ -979,7 +985,9 @@ fn engine_menu_opening_preserves_gates_warps_and_atomicity() {
         engine.configuration.as_ref().unwrap().page(),
         Some(Page::Controls)
     );
-    engine.move_cursor_with_configuration([205, 53]).unwrap();
+    engine
+        .move_cursor_with_configuration(&resources, [205, 53])
+        .unwrap();
     engine
         .mouse_button_with_configuration(&resources, Button::Left, true)
         .unwrap();
@@ -987,11 +995,13 @@ fn engine_menu_opening_preserves_gates_warps_and_atomicity() {
     let before = engine.clone();
     assert!(
         engine
-            .move_cursor_with_configuration([i32::MIN, 53])
+            .move_cursor_with_configuration(&resources, [i32::MIN, 53])
             .is_err()
     );
     assert_eq!(engine, before);
-    engine.move_cursor_with_configuration([230, 53]).unwrap();
+    engine
+        .move_cursor_with_configuration(&resources, [230, 53])
+        .unwrap();
     assert!(
         engine
             .configuration
@@ -1018,7 +1028,9 @@ fn engine_menu_opening_preserves_gates_warps_and_atomicity() {
     }
     assert_eq!(engine, restored);
     engine.control.enabled = true;
-    engine.move_cursor_with_configuration([176, 112]).unwrap();
+    engine
+        .move_cursor_with_configuration(&resources, [176, 112])
+        .unwrap();
     engine
         .configuration_click([176, 112], Gesture::WalkTo)
         .unwrap();
@@ -1033,7 +1045,9 @@ fn engine_menu_opening_preserves_gates_warps_and_atomicity() {
         178 + discworld_core::menu_slider::offset(settings.double_click, 30).unwrap(),
         53,
     ];
-    engine.move_cursor_with_configuration(thumb).unwrap();
+    engine
+        .move_cursor_with_configuration(&resources, thumb)
+        .unwrap();
     engine
         .mouse_button_with_configuration(&resources, Button::Right, true)
         .unwrap();
@@ -1047,7 +1061,9 @@ fn engine_menu_opening_preserves_gates_warps_and_atomicity() {
     engine
         .open_configuration(&resources, &strings, &catalog, Key::Save)
         .unwrap();
-    engine.move_cursor_with_configuration([262, 69]).unwrap();
+    engine
+        .move_cursor_with_configuration(&resources, [262, 69])
+        .unwrap();
     engine
         .configuration_click([262, 69], Gesture::WalkTo)
         .unwrap();
@@ -1093,7 +1109,7 @@ fn engine_menu_opening_preserves_gates_warps_and_atomicity() {
     );
     let before_subtitles = subtitle_probe.subtitles;
     subtitle_probe
-        .move_cursor_with_configuration([163, 77])
+        .move_cursor_with_configuration(&resources, [163, 77])
         .unwrap();
     subtitle_probe
         .configuration_click([163, 77], Gesture::WalkTo)
@@ -1131,7 +1147,9 @@ fn engine_menu_opening_preserves_gates_warps_and_atomicity() {
     // This diagnostic runs alongside startup scripts, which may take control
     // during navigation; isolate confirmation dispatch from that cutscene gate.
     engine.control.enabled = true;
-    engine.move_cursor_with_configuration([170, 85]).unwrap();
+    engine
+        .move_cursor_with_configuration(&resources, [170, 85])
+        .unwrap();
     engine
         .configuration_click([170, 85], Gesture::WalkTo)
         .unwrap();
@@ -1697,14 +1715,15 @@ fn inventory_resize_outline_rounding_and_active_save() {
                 .unwrap()
                 .contents
                 .clone();
-            game.move_pointer(point[0], point[1]);
+            game.move_pointer_checked(point[0], point[1]).unwrap();
             game.input("left-down").unwrap();
             assert!(game.inventory_dragging(), "{point:?}");
             let before_outline = game.frame().unwrap();
-            game.move_pointer(
+            game.move_pointer_checked(
                 point[0] + direction[0] * distance,
                 point[1] + direction[1] * distance,
-            );
+            )
+            .unwrap();
             let frame = game.frame().unwrap();
             // EMPTY draws only the outline: old contents and translucent
             // backdrop remain pixel-identical before the next animation tick.
@@ -1741,16 +1760,16 @@ fn inventory_resize_outline_rounding_and_active_save() {
     }
     // Resizing the maximized window makes the result the new normal size.
     game.load(&initial).unwrap();
-    game.move_pointer(120, 110);
+    game.move_pointer_checked(120, 110).unwrap();
     for _ in 0..2 {
         game.input("left-down").unwrap();
         game.input("left-up").unwrap();
     }
     game.advance(24).unwrap();
-    game.move_pointer(298, 192);
+    game.move_pointer_checked(298, 192).unwrap();
     game.input("left-down").unwrap();
     assert!(game.inventory_dragging());
-    game.move_pointer(272, 166);
+    game.move_pointer_checked(272, 166).unwrap();
     roundtrip_pending(&mut game, 3);
     game.input("left-up").unwrap();
     assert_eq!(
@@ -1763,7 +1782,7 @@ fn inventory_resize_outline_rounding_and_active_save() {
             .as_ref()
             .unwrap()
             .position;
-        game.move_pointer(x + 20, y + 10);
+        game.move_pointer_checked(x + 20, y + 10).unwrap();
         for _ in 0..2 {
             game.input("left-down").unwrap();
             game.input("left-up").unwrap();
@@ -1891,9 +1910,10 @@ fn inventory_hover_uses_original_arrows_freezes_during_drag_and_restores() {
         original_cursor(&mut game, Some(reel));
         roundtrip_pending(&mut game, 3);
         game.input("left-up").unwrap();
-        game.move_pointer(300, 0);
+        game.move_pointer_checked(300, 0).unwrap();
         game.advance(2).unwrap();
-        original_cursor(&mut game, None);
+        // Release or movement outside restores immediately, before these ticks.
+        original_cursor_phase(&mut game, None, 3);
         roundtrip_pending(&mut game, 3);
     }
     game.load(&initial).unwrap();

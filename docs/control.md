@@ -1615,3 +1615,15 @@ trail position and suppression fields are saved unchanged; no new format is
 needed. The original actor/inventory comparison improves from 13 to all 72 exact
 frames, and the inventory-open/close, floor-walk and voiced-LOOK comparisons
 remain exact. See [validation](validation/inventory-trail-movement.json).
+
+
+The resource-aware host movement path now applies inventory cursor changes before
+a subsequent mouse edge. Original `DoCursorMove` calls `xMovement`/`yMovement`,
+which select the resize cursor before `invDragStart` freezes its shape. Deferred
+tick-end selection incorrectly retained the old cursor throughout a same-tick
+move/press. `invDragEnd` also refreshes immediately after reconstruction. Both
+native SDL events and browser checked pointer messages use the corrected shared
+transactional method. Low-level `move_cursor` remains a coordinate primitive;
+interactive hosts must use `move_cursor_with_configuration(resources, point)`.
+The controlled resize capture now matches all 72 frames, with save continuation
+on every frame. See [evidence](validation/inventory-resize-cursor-ordering.json).

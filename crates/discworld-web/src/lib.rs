@@ -286,7 +286,10 @@ impl BrowserGame {
     }
     pub fn move_pointer_checked(&mut self, x: i32, y: i32) -> Result<()> {
         self.engine
-            .move_cursor_with_configuration([x.clamp(0, 319), y.clamp(0, 199)])
+            .move_cursor_with_configuration(
+                &self.assets.resources(),
+                [x.clamp(0, 319), y.clamp(0, 199)],
+            )
             .map_err(error)
     }
     pub fn inventory_dragging(&self) -> bool {

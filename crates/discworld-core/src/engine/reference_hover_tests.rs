@@ -136,8 +136,9 @@ fn capture_original_debug_room_hover() {
                         engine.world_hover.as_ref().unwrap().display.selection(),
                         Some(crate::world_hover::Selection::Actor(7))
                     );
-                    engine.move_cursor([250, 180]);
-                    engine.move_cursor_trails(&resources).unwrap();
+                    engine
+                        .move_cursor_with_configuration(&resources, [250, 180])
+                        .unwrap();
                     [250, 180]
                 } else {
                     points[0]
@@ -151,8 +152,9 @@ fn capture_original_debug_room_hover() {
             if elapsed % 12 == 0 && elapsed / 12 < points.len() as u64 {
                 let position = points[(elapsed / 12) as usize];
                 // Match the probe's immediate original DoCursorMove call.
-                engine.move_cursor(position);
-                engine.move_cursor_trails(&resources).unwrap();
+                engine
+                    .move_cursor_with_configuration(&resources, position)
+                    .unwrap();
                 if walk_mode && walk_delay == 0 && elapsed == 0 {
                     assert_eq!(
                         engine.world_hover.as_ref().unwrap().display.selection(),
@@ -222,6 +224,19 @@ fn capture_original_debug_room_hover() {
                     );
                 }
                 if inventory_drag && elapsed == 12 {
+                    if inventory_resize {
+                        let parts =
+                            Film::read(&resources, engine.declarations.window_parts.unwrap())
+                                .unwrap();
+                        assert!(
+                            engine
+                                .cursor_animation
+                                .as_ref()
+                                .unwrap()
+                                .uses_script(parts.reels[27].script),
+                            "movement selects resize cursor before the button edge"
+                        );
+                    }
                     if inventory_fixed_corner || inventory_resize {
                         assert_eq!(
                             engine

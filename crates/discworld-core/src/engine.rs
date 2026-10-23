@@ -2101,7 +2101,11 @@ impl Engine {
     }
     /// Logical game coordinates. V1 WAITKEY also wakes on cursor movement.
     /// Transactional movement that also advances an active configuration drag.
-    pub fn move_cursor_with_configuration(&mut self, position: [i32; 2]) -> Result<(), Error> {
+    pub fn move_cursor_with_configuration(
+        &mut self,
+        resources: &Resources<'_>,
+        position: [i32; 2],
+    ) -> Result<(), Error> {
         let mut next = self.clone();
         let before = next.control.cursor;
         next.move_cursor(position);
@@ -2115,6 +2119,12 @@ impl Engine {
                     .ok_or(Error("menu cursor delta overflow"))?;
                 menu.drag_by([dx, dy])?;
             }
+        }
+        if next.control.cursor != before && !next.control.hidden && !next.control.frozen {
+            // DoCursorMove updates the inventory cursor before a subsequent
+            // button edge can freeze its shape for the duration of a drag.
+            next.move_cursor_trails(resources)?;
+            next.update_inventory_cursor(resources)?;
         }
         *self = next;
         Ok(())
@@ -2426,6 +2436,8 @@ impl Engine {
             }
         }
         self.inventory_drag = None;
+        // invDragEnd refreshes the shape immediately after reconstructing.
+        self.update_inventory_cursor(resources)?;
         Ok(())
     }
 

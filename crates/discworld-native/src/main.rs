@@ -468,13 +468,13 @@ fn run() -> Result<(), Box<dyn std::error::Error>> {
                     }
                 }
                 Event::MouseMotion { x, y, .. } if manual && !paused => {
-                    engine.move_cursor_with_configuration([x, y])?
+                    engine.move_cursor_with_configuration(&resources, [x, y])?
                 }
                 Event::MouseButtonDown {
                     mouse_btn, x, y, ..
                 } if manual && !paused => {
                     if let Some(button) = buttons.press(mouse_btn) {
-                        engine.move_cursor_with_configuration([x, y])?;
+                        engine.move_cursor_with_configuration(&resources, [x, y])?;
                         menu_requests.push_back(
                             engine.mouse_button_with_configuration(&resources, button, true)?,
                         );
@@ -486,7 +486,7 @@ fn run() -> Result<(), Box<dyn std::error::Error>> {
                 } if manual => {
                     if let Some(button) = buttons.release(mouse_btn) {
                         if !paused {
-                            engine.move_cursor_with_configuration([x, y])?;
+                            engine.move_cursor_with_configuration(&resources, [x, y])?;
                         }
                         menu_requests.push_back(
                             engine.mouse_button_with_configuration(&resources, button, false)?,
