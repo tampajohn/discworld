@@ -857,3 +857,22 @@ Integration validation passes: workspace suite (327 core tests), 20 original-ass
 web tests, Clippy, WASM checking and both release host builds. Logs use
 assets/logs/created-mover-integration-*. The completed 6167511 audits predate
 automatic creation; full-route acceptance of this change remains separate.
+
+
+## Creation guards and explicit hiding
+
+A 54-case dispatch matrix now covers PLAY/SPLAY/TOPPLAY across startup,
+WALKIN and WALKOUT events: normal entry, dead target, dead caller, stale
+Escape, dialogue arbitration and invalid mover resources. Rejected requests
+leave movers/creation markers absent; failed resource validation rolls back
+the entire tick. SPLAY's walk-event caller-lifetime exception is retained.
+Accepted duplicate calls leave the engine, mover and playback generation
+unchanged, rather than restarting initialization.
+
+The visible-frame fixture also checks that a film-created mover's special reel
+advances while initialized visible, then freezes after explicit HIDEACTOR.
+The creation marker survives this hide, and exact save/reload continuation
+preserves both marker and hidden animation state. These cases required no
+production code changes. Workspace tests (328 core) and Clippy pass; logs
+use assets/logs/film-creation-guards-*. Hosts remain at 0ccdf9f, whose full-route
+audit is still running.

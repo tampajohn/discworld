@@ -7281,6 +7281,8 @@ mod tests {
             (92, base + 100),
             (100, 2),
             (136, base + 64),
+            (140, 1),
+            (144, (-2i32) as u32),
             (170, 1),
             (200, base + 208),
             (208, 0x00040004),
@@ -7463,6 +7465,24 @@ mod tests {
             restored.preview(&resources).unwrap(),
             born.render(&resources).unwrap()
         );
+        let steps = born.movers[&1].animation.steps;
+        born.tick(&resources).unwrap();
+        assert!(born.movers[&1].animation.steps > steps);
+        let mut hide = ScriptProcess::new(Handle((1 << 23) | 32));
+        born.run_process(&resources, None, None, None, &mut hide)
+            .unwrap();
+        assert!(born.movers[&1].hidden);
+        assert!(born.created_reel_movers.contains_key(&1));
+        let hidden_animation = born.movers[&1].animation.clone();
+        let bytes = Snapshot::capture(&born, [7; 32]).to_bytes().unwrap();
+        let mut restored = Snapshot::from_bytes(&bytes, [7; 32])
+            .unwrap()
+            .state()
+            .clone();
+        born.tick(&resources).unwrap();
+        restored.tick(&resources).unwrap();
+        assert_eq!(born, restored);
+        assert_eq!(born.movers[&1].animation, hidden_animation);
         // An uncreated declared mover resets visibility on creation. Ordinary
         // actors use their own flag; hiding never changes alive state.
         engine.movers.clear();
@@ -12245,6 +12265,95 @@ mod tests {
             assert_eq!(engine, restored);
         }
     }
+    #[test]
+    fn film_creation_respects_escape_lifetime_arbitration_and_duplicates() {
+        let base = 2u32 << 23;
+        for call in [49u8, 71, 81] {
+            for event in [4, 5, 6] {
+                for case in 0..6 {
+                    let (master, mut scene) = fixtures();
+                    let mut code = vec![0x41, 77];
+                    if call == 71 {
+                        code.push(3);
+                    }
+                    code.push(1);
+                    code.extend(base.to_le_bytes());
+                    code.extend([0x41, 255, 0x41, 255, 2, 2, 2, 0x4e, call, 0x4c, 0, 0]);
+                    scene[32..32 + code.len()].copy_from_slice(&code);
+                    let mut film = vec![0; 64];
+                    for (at, word) in [
+                        (0, 24u32),
+                        (4, 1),
+                        (8, base + 24),
+                        (12, base + 48),
+                        (32, 1),
+                        (48, 10),
+                        (52, 1),
+                        (56, (-2i32) as u32),
+                    ] {
+                        film[at..at + 4].copy_from_slice(&word.to_le_bytes());
+                    }
+                    let resources = Resources(vec![&master, &scene, &film]);
+                    let mut engine = Engine::bootstrap(&resources).unwrap();
+                    engine.processes = Scheduler::default();
+                    engine.master_stopped = true;
+                    engine.actors = crate::actor::Actors::new(2).unwrap();
+                    let bank = if case == 5 {
+                        Handle(u32::MAX)
+                    } else {
+                        Handle(base)
+                    };
+                    engine.declarations.movers.insert(1, [[bank; 12]; 10]);
+                    engine.escape_events = Some(if case == 3 { 2 } else { 1 });
+                    if case == 1 {
+                        engine.actors.disable(1).unwrap();
+                    }
+                    if case == 2 {
+                        engine.actors.disable(2).unwrap();
+                    }
+                    if case == 4 {
+                        engine.playback.begin_talk(1, Handle(base + 64));
+                    }
+                    let mut caller = ScriptProcess::new(Handle((1 << 23) | 32));
+                    caller.event = event;
+                    caller.actor = Some(2);
+                    caller.vm.escape_enabled = true;
+                    caller.vm.escape_generation = Some(1);
+                    engine.processes.spawn(None, caller.clone()).unwrap();
+                    let before = engine.clone();
+                    let result = engine.tick(&resources);
+                    if case == 5 {
+                        assert!(result.is_err());
+                        assert_eq!(engine, before, "failed creation is atomic at tick boundary");
+                        continue;
+                    }
+                    result.unwrap();
+                    let killed_caller = case == 2 && !(call == 71 && matches!(event, 4 | 5));
+                    let created = case == 0 || (case == 2 && !killed_caller);
+                    assert_eq!(engine.globals[0], if killed_caller { 0 } else { 77 });
+                    assert_eq!(engine.movers.len(), usize::from(created));
+                    assert_eq!(engine.created_reel_movers.len(), usize::from(created));
+                    assert_eq!(engine.films.len(), usize::from(created));
+                    if created {
+                        assert_eq!(engine.movers[&1].placement.position, [-101, -102]);
+                        assert_eq!([engine.films[0].object.x, engine.films[0].object.y], [0, 0]);
+                        let before = engine.clone();
+                        assert_eq!(
+                            engine
+                                .run_process(&resources, None, None, None, &mut caller)
+                                .unwrap(),
+                            Status::Halted
+                        );
+                        assert_eq!(
+                            engine, before,
+                            "duplicate does not recreate or restart mover"
+                        );
+                    }
+                }
+            }
+        }
+    }
+
     #[test]
     fn implicit_film_position_uses_mover_animation_or_uncreated_zero() {
         let (master, scene) = fixtures();
