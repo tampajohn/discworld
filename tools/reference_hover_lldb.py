@@ -242,7 +242,8 @@ def animation_init(frame, location, dictionary):
     if frames.CYCLES < 450:
         return False
     result = frames.animation(frame, location, dictionary)
-    if not result and 1108 <= frames.CYCLES <= 1130:
+    if not result and (1108 <= frames.CYCLES <= 1130 or
+                       (DOOR_EXIT and 1358 <= frames.CYCLES <= 1366)):
         frames.EVENTS[-1]['callers'] = callers(frame)
     return result
 
@@ -267,7 +268,8 @@ def animation_step(frame, location, dictionary):
             'period': frames.unsigned(state.GetChildMemberWithName('aniRate')),
             'remaining': frames.unsigned(state.GetChildMemberWithName('aniDelta')),
         })
-        if 1108 <= frames.CYCLES <= 1130:
+        if (1108 <= frames.CYCLES <= 1130 or
+                (DOOR_EXIT and 1358 <= frames.CYCLES <= 1366)):
             frames.EVENTS[-1]['callers'] = callers(frame)
         return False
     except Exception as error:

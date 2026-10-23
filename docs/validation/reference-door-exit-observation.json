@@ -39,5 +39,18 @@
     "discworld-core all-target Clippy passed",
     "Browser UI: 49 passed, one known WebKit multi-touch injection skip; four Node tests passed"
   ],
-  "production_change": false
+  "production_change": false,
+  "cursor_clock_evidence": {
+    "script": 374236,
+    "reference_initialization_cycle": 1362,
+    "reference_before_step_1363": {
+      "index": 0,
+      "remaining": 1
+    },
+    "rust_before_tick_1363": {
+      "index": 1,
+      "remaining": 2
+    },
+    "interpretation": "Rust has advanced the new cursor once before the reference first step. Entry call-site capture launched to determine initialization/restoration ordering before altering production scheduling."
+  }
 }
