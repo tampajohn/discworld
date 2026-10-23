@@ -527,10 +527,9 @@ restoration remains separate from exact runtime snapshots.
 Tests cover blocking/nonblocking holders, legacy visibility state, multiple
 superseded generations, exact state and byte round-trips, identical inner
 legacy bytes, malformed wrappers, duplicate live reel identities, and returning
-to the original bytes after clearing metadata. This is persistence infrastructure:
-SPLAY dispatch and exit-side-effect handling are not connected yet.
+to the original bytes after clearing metadata. SPLAY dispatch and exit-side-effect handling now populate and consume these
+identities; see the mover lifecycle document for integration coverage.
 
 Validation passes: workspace suite (324 core tests), 20 original-asset web
-tests, Clippy and WASM checks. Logs use assets/logs/splay-codec-*. Native and
-browser release hosts remain at the preceding STAND correction until SPLAY
-lifecycle integration; this extension alone does not change gameplay.
+tests, Clippy and WASM checks. Logs use assets/logs/splay-codec-*. Subsequent SPLAY lifecycle integration rebuilt native and browser release
+hosts and passed the same checks; logs use assets/logs/splay-lifecycle-*.

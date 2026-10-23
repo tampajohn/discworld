@@ -627,10 +627,9 @@ checks. See [route evidence](validation/walkpoly-b692a3b.json). That run predate
 HIDEACTOR integration and does not exercise additional WALKPOLY inputs.
 
 
-## SPLAY and movement under PLAY: remaining compatibility gap
+## SPLAY and movement under PLAY: source audit and integration
 
-Source audit at adda50c/fdbdae2 identifies work still required; SPLAY is not
-implemented by this audit. DW1 operand 71 consumes seven arguments: slow factor,
+The initial source audit at adda50c/fdbdae2 established the following contract. DW1 operand 71 consumes seven arguments: slow factor,
 film, x, y, two unused values, and completion mode. WALKIN/WALKOUT force calling
 actor zero; other events pass the calling actor. SPlay checks stale Escape
 before calling Play, unlike direct PLAY's null-film check before Escape.
@@ -650,7 +649,7 @@ coordinates advance, round-trip exact saves, and terminate film ownership when
 a path scale change selects a new walking reel. Legacy visibility state is
 covered separately. Special hidden TALK behavior retains its existing tests.
 Route turns, arrival combinations, and live reference comparisons need broader
-coverage; SPLAY coordinate restoration remains unimplemented.
+coverage. SPLAY lifecycle integration is described below.
 
 MoveActor applies a global hidden-movement counter before stepping, comparing
 it with the mover's SlowFactor. However the pinned PlayFilm/PlayFilmc APIs
@@ -730,3 +729,37 @@ ambiguous reel identities. Existing saves are unchanged when the set is empty.
 The runtime still does not set or consume these flags through SPLAY dispatch;
 lifecycle integration, retained replaced films, and exit-side-effect tests remain
 required before SPLAY support can be claimed.
+
+
+## SPLAY runtime integration
+
+Scene operand 71 now consumes seven arguments and shares PLAY scheduling with
+the reference-specific differences preserved: stale Escape is checked before
+the null-film guard; completion is converted to bool; WALKIN/WALKOUT do not
+kill the calling process merely because its associated actor is dead. The
+pinned slow-factor bool conversion permits every hidden movement step.
+
+Each claimed primary or secondary reel is marked for restoration in v19 saves.
+Nonblocking superseded reels are retained until their next turn; they stop
+drawing immediately when ownership changes. Finish, Escape, and replacement
+all run the restoration helper using stored actor coordinates. Only the current
+owner unhides its mover on release. A restarted walk can cancel the replacement
+film through the usual walking-reel selection. Mover updates preserve the stored
+film position while SPLAY cleanup is pending, even after ownership changes.
+Actor removal clears obsolete cleanup identities.
+
+Tests invoke actual SPLAY scripts with blocking/nonblocking and noncanonical
+true completion values, retain lower stack values, save and restore active and
+replaced reels, and exercise natural completion, Escape and replacement. They
+check route restart, serial change, visibility and cleanup. A separate test
+checks escaped-null-film ordering. Earlier sections describing disconnected
+helpers/codecs record intermediate work; these pieces are now connected.
+
+Remaining coverage includes multi-actor secondary reels, node-path/out-of-path
+restoration, actor creation during SPLAY, broader cancellation/arrival ordering,
+and a live reference comparison. The full game objective is not complete.
+
+Integration validation: 325 core tests, the workspace suite, all 20 original-asset
+web tests, Clippy, WASM checking and native/browser release builds pass. Logs
+use assets/logs/splay-lifecycle-*. This does not establish full-route SPLAY
+coverage, live reference equivalence, or visible/physical iPad acceptance.

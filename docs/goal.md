@@ -49,8 +49,9 @@ route: all 1,652 inputs accepted, 5,048 engine and 5,048 audio continuation
 checks, and restart/title at tick 2,630,000. See
 [PLAY movement route evidence](validation/play-movement-a768ad9.json). This
 run predates the STAND visibility correction and SPLAY infrastructure. SPLAY
-has a tested restoration helper and v19 save metadata; dispatch and cleanup
-lifecycle integration are still outstanding.
+now connects dispatch, restoration and v19 cleanup state. Focused blocking,
+nonblocking, Escape and replacement tests pass; secondary-actor and expanded
+route coverage remain outstanding.
 
 WALKPOLY runtime `b692a3b` completed the recorded native route through title
 restart at tick 2,630,000, accepting all 1,652 inputs and passing 5,048 engine
