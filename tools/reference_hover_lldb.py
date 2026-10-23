@@ -82,7 +82,7 @@ def cycle(frame, location, dictionary):
     global START
     frames.CYCLES += 1
     try:
-        if ARCH_INVENTORY and frames.CYCLES == 6000:
+        if ARCH_INVENTORY and frames.CYCLES == 4000:
             value = frame.EvaluateExpression('Tinsel::ControlIsOn()')
             if value.GetError().Fail() or not value.GetValueAsUnsigned():
                 raise RuntimeError('entry dialogue has not returned control before pockets input')
@@ -170,7 +170,7 @@ def cycle(frame, location, dictionary):
                 if INVENTORY and elapsed == (48 if INVENTORY_DRAG else 36):
                     PENDING.append('Tinsel::_vm->_dialogs->closeInventory()')
                 return True
-        if frames.CYCLES >= (6100 if ARCH_INVENTORY else 4000):
+        if frames.CYCLES >= (4100 if ARCH_INVENTORY else 4000):
             raise RuntimeError('hover diagnostic cycle budget exhausted')
         return False
     except Exception as error:
@@ -201,7 +201,7 @@ def drive(debugger):
 def capture(frame, location, dictionary):
     if START is None:
         return False
-    if ARCH_INVENTORY and len(frames.RECORDS) >= 480 and frames.CYCLES < 6000:
+    if ARCH_INVENTORY and len(frames.RECORDS) >= 480 and frames.CYCLES < 4000:
         return False
     result = frames.capture(frame, location, dictionary)
     if frames.RECORDS:

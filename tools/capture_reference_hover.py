@@ -31,7 +31,7 @@ def main():
     mode.add_argument('--university-walk', action='store_true', help='exit the starting room then click the university floor')
     mode.add_argument('--university-retarget', action='store_true', help='change destination during the university floor walk')
     mode.add_argument('--arch-entry', action='store_true', help='walk through the university and enter the archchancellor room')
-    mode.add_argument('--arch-inventory', action='store_true', help='open pockets at cycle6000 after entry dialogue; capture initial480 and final24 frames')
+    mode.add_argument('--arch-inventory', action='store_true', help='open pockets at cycle4000 after entry dialogue; capture initial480 and final24 frames')
     mode.add_argument('--arch-skip', action='store_true', help='press Escape during the archchancellor entry speech')
     mode.add_argument('--door-action', action='store_true', help='dispatch original starting-room door ACTION')
     mode.add_argument('--look', action='store_true', help='dispatch original lead LOOK with speech and subtitles')
@@ -167,7 +167,7 @@ def main():
     if accepted and args.door_exit:
         accepted = frames[0]['scene'] == 18 << 23 and frames[-1]['scene'] == (60 << 23 if args.arch_entry else 61 << 23)
     if accepted and args.arch_inventory:
-        accepted = frames[-1].get('inventory') == [2, 2] and frames[-1]['cycle'] == 6023
+        accepted = frames[-1].get('inventory') == [2, 2] and frames[-1]['cycle'] == 4023
     if accepted and args.inventory:
         accepted = (frames[12]['inventory'] == [2, 1 if args.inventory_resize else 2]
                     and frames[48]['inventory'][0] == 1)

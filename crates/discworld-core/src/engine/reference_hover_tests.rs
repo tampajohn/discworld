@@ -817,7 +817,7 @@ fn capture_original_debug_room_hover() {
         let mut timeline = Vec::new();
         let mut previous = None;
         let mut control_tick = None;
-        while engine.ticks < if arch_idle { 12000 } else { 5999 } {
+        while engine.ticks < if arch_idle { 12000 } else { 3999 } {
             let status = engine
                 .tick_content(&resources, Some(&bank), Some(&tracks), Some(&strings))
                 .unwrap();

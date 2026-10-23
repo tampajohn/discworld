@@ -1,0 +1,23 @@
+{
+  "engine": "18d3f91",
+  "runtime": "3df76c8",
+  "reference": "assets/validation/reference-arch-inventory-cycle4000",
+  "rust": "assets/validation/rust-arch-inventory-cycle4000",
+  "input_cycle": 4000,
+  "capture_cycles": [
+    [
+      1257,
+      1736
+    ],
+    [
+      4000,
+      4023
+    ]
+  ],
+  "reason": "Open after the observed dialogue completion and before the long unattended interval reaches the reference idle threshold. Both hosts assert control before dispatch; no direct state changes.",
+  "rust_status": "passed; 504 frames and final overlay save/load continuation",
+  "reference_status": "running; comparison pending",
+  "reference_pid": 6522,
+  "reference_session": 81974,
+  "production_change": false
+}
