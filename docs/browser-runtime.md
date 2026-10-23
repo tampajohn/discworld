@@ -579,8 +579,10 @@ plus four Node tests. Physical iPad acceptance remains open. See [package eviden
 Package `6061cc3` includes the scene-entry cursor timing correction. All extracted
 manifest files and bundled source verify. Chrome and WebKit pass fresh startup,
 legacy-load, save-export and audio-headroom checks without page errors.
-Full-route and broader UI audits are running separately; physical iPad acceptance
-remains open. See [package evidence](validation/packages-6061cc3.json).
+The three full-route audits completed with matching final engine state and pixels;
+see [route evidence](validation/cursor-entry-route.json). The UI suite passed 49
+cases plus four Node tests, with one known WebKit multi-touch injection skip.
+Physical iPad acceptance remains open. See [package evidence](validation/packages-6061cc3.json).
 
 Package `bad0d45` includes the same-tick movement retry. Extracted native
 startup/legacy-load checks and Chrome/WebKit startup, load, export and
