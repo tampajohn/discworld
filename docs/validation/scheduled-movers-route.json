@@ -1,0 +1,41 @@
+{
+  "runtime_revision": "10b3a2c",
+  "scope": "Full unchanged input route with mover scheduler/save audits; not independent original-engine full-game equivalence or physical iPad acceptance.",
+  "binary_sha256": "ba831bcdc44819d33ccdcff0160b6b742cf4bc0b2754ce9557f548efc8e52414",
+  "trace_sha256": "30c227553695638a78495f4cf56731f841e89188c8faa75821e50c164ddf4ddb",
+  "ticks": 2630000,
+  "scene": "title.scn",
+  "status": "Running",
+  "has_restarted": true,
+  "accepted_inputs": 1652,
+  "engine_snapshot_checks": 5048,
+  "audio_snapshot_checks": 5048,
+  "frozen_web_files_verified": 17,
+  "final_png_inspected": true,
+  "comparisons": {
+    "chrome": {
+      "browser_version": "156.0.8078.47",
+      "ticks": 2630000,
+      "scene": "title.scn",
+      "has_restarted": true,
+      "core_sha256": "828ce67dc12956e2729bba8f76de25dfa8739e731ba891170bd23abd274d1427",
+      "rgba_sha256": "a550cf7a6115492595cf4dd6dfa97c05a3033d6b42cd96c2cd5fcce7fb6176d4",
+      "nonfinite_audio_samples": 0,
+      "engine_bytes_equal": true,
+      "rgba_equal": true,
+      "combined_save_equal": false
+    },
+    "webkit": {
+      "browser_version": "27.2",
+      "ticks": 2630000,
+      "scene": "title.scn",
+      "has_restarted": true,
+      "core_sha256": "828ce67dc12956e2729bba8f76de25dfa8739e731ba891170bd23abd274d1427",
+      "rgba_sha256": "a550cf7a6115492595cf4dd6dfa97c05a3033d6b42cd96c2cd5fcce7fb6176d4",
+      "nonfinite_audio_samples": 0,
+      "engine_bytes_equal": true,
+      "rgba_equal": true,
+      "combined_save_equal": false
+    }
+  }
+}

@@ -49,8 +49,9 @@ positions and preserves that order in version 26 saves. Together with hidden
 standing-reel suspension and destination path-entry completion, this matches
 all 72 controlled reference-room frames at the same rendered cycles. The
 workspace suite, 25 original-asset checks, Clippy and WASM checks pass. Its
-native/Chrome/WebKit full-route runs are still in progress; all 44 browser UI
-cases and four Node audio/clock tests pass.
+native/Chrome/WebKit full-route runs pass with all 1,652 inputs accepted and
+identical final engine state and pixels; all 44 browser UI cases and four Node
+audio/clock tests pass. See [scheduled-mover route](validation/scheduled-movers-route.json).
 The preceding hidden-standing build completed all three routes with identical
 final engine state and pixels; the path-entry build completed the native route.
 See [scheduled movers](validation/scheduled-movers.json),
@@ -61,8 +62,9 @@ Legacy player-load migration passes original-asset and targeted browser UI
 checks. Old saves did not retain
 mover creation positions, so migration preserves their known ascending-actor
 order before existing script peers; it cannot reconstruct missing historical
-order. Exact snapshot decoding/re-export remains unchanged. Updated packages,
-the visible session, broader original-reference comparisons, and real iPad
+order. Exact snapshot decoding/re-export remains unchanged. Packages at `70fa619` pass extracted startup and legacy-load checks in native,
+Chrome and WebKit; see [package evidence](validation/packages-70fa619.json).
+The visible session, broader original-reference comparisons, and real iPad
 acceptance remain unfinished. The goal is not complete.
 
 The bytecode audit identified missing world hover (843 PRINTTAG sites). New

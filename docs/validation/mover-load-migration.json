@@ -16,7 +16,9 @@
     "Browser WASM check passes.",
     "Native/tools release and browser WASM builds pass.",
     "Eight targeted browser UI cases pass across Chrome/WebKit: six in initial run, two import/persistence cases after updating the expected wrapper from24to26.",
-    "Preceding scheduler build passes all44 browser UI cases and4 Node tests."
+    "Preceding scheduler build passes all44 browser UI cases and4 Node tests.",
+    "Packaged native/Chrome/WebKit startup and legacy-load checks pass outside checkout; see packages-70fa619.json.",
+    "Frozen10b3a2c full route passes native/Chrome/WebKit; see scheduled-movers-route.json."
   ],
   "artifacts": [
     "assets/logs/mover-migration-room2.log",
@@ -26,8 +28,6 @@
     "assets/logs/mover-migration-browser-import-retry.log"
   ],
   "remaining": [
-    "Refresh and smoke-test distributable packages.",
-    "Observe and record the frozen10b3a2c full-route tests.",
     "Broader reference fidelity, visible session and physical iPad acceptance."
   ]
 }

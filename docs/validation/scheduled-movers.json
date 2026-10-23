@@ -27,10 +27,11 @@
     "72 full runtime save/load and next-tick equality checks pass in original-room diagnostic.",
     "Explicit reference walking/completion/standing-clock assertions pass.",
     "Native/tools release build passes.",
-    "Browser UI suite:44 Playwright cases pass across Chrome/WebKit, plus4 Node audio/clock tests (assets/logs/scheduled-movers-browser-ui.log)."
+    "Browser UI suite:44 Playwright cases pass across Chrome/WebKit, plus4 Node audio/clock tests (assets/logs/scheduled-movers-browser-ui.log).",
+    "Full native/Chrome/WebKit route passes; see scheduled-movers-route.json.",
+    "Updated packages70fa619 pass extracted startup/load checks; see packages-70fa619.json."
   ],
   "remaining": [
-    "Full-route checks and updated native/browser packages for this runtime.",
     "Other original reference timing/fidelity checks, visible session and physical iPad acceptance remain open."
   ],
   "followup": "mover-load-migration.json"
