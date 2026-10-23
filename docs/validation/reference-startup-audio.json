@@ -1,0 +1,85 @@
+{
+  "schema": 1,
+  "reference_revision": "96b42d42bc8533953bdd701db059cc33c839a9ff",
+  "runtime_revision": "9bf9b3f",
+  "scope": "Read-only capture of raw PCM at pinned sound.cpp:165, before makeRawStream. No-input startup, 1000 reference frames.",
+  "artifacts": {
+    "assets/validation/reference-audio-events-retry1/frames/capture.json": "73730d16400901a1b2a8dc3511fc7ac16ea9fc1344b3d6fe1205a8c610ffe3f5",
+    "assets/validation/rust-audio-events/capture.json": "da48fe49e76e6b7b3d3b0248398b64e38f8a1033863701682c9904f310c76271",
+    "assets/validation/audio-events-frame-comparison.json": "c0d5241ca0ad02ead1d898566235f7479639a67570ad75600bda9497ff207464",
+    "tools/reference_frames_lldb.py": "c355b6477bf3ef42f84d06da87327c27047260ac2736692e6d3c5c91e8d838ed",
+    "crates/discworld-tools/src/frame_capture.rs": "2bd28a6465f17e6313be41ecd2a42714dd27422abdffbbec373835276053fe50"
+  },
+  "sample_starts": [
+    {
+      "reference": {
+        "cycle": 67,
+        "kind": "sample_pcm",
+        "id": 6839,
+        "type": 2,
+        "bytes": 122636,
+        "sha256": "1590ae9cfd570725d4ca37fd11cf31cf95e5904a4d57b07bafa93c4a1132f4aa"
+      },
+      "rust": {
+        "tick": 66,
+        "id": 6839,
+        "position": 0
+      },
+      "original_bank_payload_matches": true
+    },
+    {
+      "reference": {
+        "cycle": 195,
+        "kind": "sample_pcm",
+        "id": 6838,
+        "type": 2,
+        "bytes": 139972,
+        "sha256": "4ed1a4622dab0a1648ef78e7a757212556d2ff6d248ec488ee8e97b3bb11e6df"
+      },
+      "rust": {
+        "tick": 194,
+        "id": 6838,
+        "position": 0
+      },
+      "original_bank_payload_matches": true
+    }
+  ],
+  "reference_stop_cycles": [
+    2,
+    58,
+    170,
+    334,
+    390,
+    638
+  ],
+  "reference_frames": 1000,
+  "aligned_frame_mismatches": 0,
+  "frame_sequence_equal_previous_scroll_reference": true,
+  "attempts": [
+    {
+      "directory": "assets/validation/reference-audio-events",
+      "frames": 0,
+      "complete": false,
+      "failure": "Reference SDL graphics initialization failed before gameplay; error breakpoint stop, then launcher killed its owned process."
+    },
+    {
+      "directory": "assets/validation/reference-audio-events-retry1",
+      "frames": 1000,
+      "complete": true,
+      "errors": []
+    }
+  ],
+  "checks": [
+    "tools release build passed",
+    "tools Clippy all targets -D warnings passed",
+    "cargo fmt --all -- --check passed",
+    "Python syntax check passed",
+    "All twelve reference breakpoint locations unique; sample callbacks successfully read live target memory"
+  ],
+  "limits": [
+    "The two samples are SFX (reference type 2), not Rincewind speech.",
+    "Sample identity, start tick and source bytes match; decoded mixer output, device output and asynchronous completion timing were not compared.",
+    "No denoising or runtime audio modification was made.",
+    "Intermittent reference graphics initialization remains unresolved."
+  ]
+}

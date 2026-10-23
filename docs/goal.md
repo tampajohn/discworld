@@ -49,9 +49,17 @@ startup-frame mismatches: all 1,000 reference frames match at aligned ticks.
 Save version 23 retains task order and scroll initialization; older formats
 remain byte-exact until scene entry. Workspace checks (341 core tests), all 24
 original-asset integration tests, Clippy, WASM and host builds pass. All 44 browser
-UI checks pass in Chrome/WebKit. Native, Chrome and WebKit full-route audits
-are running against frozen builds for this change; see
+UI checks pass in Chrome/WebKit. The native full-route audit passes 2,630,000
+ticks, all 1,652 inputs and 5,048 engine plus 5,048 audio save/load checks.
+Chrome and WebKit also pass all 2,630,000 ticks and 1,652 inputs, with exact final
+engine bytes and pixels matching native. Both generate finite audio; combined
+DSP saves differ, so cross-platform audio equality is not established. See
 [scheduled-scroll.json](validation/scheduled-scroll.json).
+
+The independent reference probe also verifies the two startup SFX sample starts
+and raw PCM payloads against Rust, while retaining all 1,000 aligned image
+matches. Rincewind speech, mixed audio output and device listening remain
+separate acceptance work; see [reference-startup-audio.json](validation/reference-startup-audio.json).
 
 The preceding second-credits investigation traced the mismatch to camera scheduling:
 the reference scroll process applies the first movement in the requesting

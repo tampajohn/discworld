@@ -4,6 +4,14 @@ The original DOS CD sample bank is unsigned 8-bit mono PCM at 22050 Hz. ENGLISH.
 
 The supplied image contains 6850 index entries and 5741 present samples totaling 344695006 PCM bytes. Every present sample passes bounds validation. Per-sample hashes and lengths are recorded in evidence/audio-audit.json. Formats and single-channel behavior follow the pinned ScummVM sound.cpp.
 
+A read-only reference run confirms both startup SFX requests against Rust:
+sample 6839 at reference cycle 67/Rust tick 66 (122636 bytes), and sample 6838
+at cycle 195/tick 194 (139972 bytes). Live reference sample-buffer hashes match
+the original bank payloads exactly. All 1,000 captured images retain aligned
+equality with Rust. This establishes request timing and source-byte agreement
+for those two SFX, not Rincewind speech quality, mixer output or asynchronous
+completion timing. See [reference-startup-audio.json](validation/reference-startup-audio.json).
+
 ## Playback state
 
 The core sample player tracks sample ID, playback position, and fractional output timing. Each 24 Hz engine tick generates 918 or 919 signed 16-bit samples, totaling exactly 22050 samples per second. Conversion is `(unsigned_byte - 128) * 256`. Starting a sample replaces the existing V1 channel. Scene transitions and STOPSAMPLE stop it.

@@ -71,7 +71,9 @@ pub fn startup(
         )?;
         frames.push(json!({"tick":engine.ticks,"scene":engine.scene.0,
             "scene_name":index[engine.scene.resource()].name,"rgb_sha256":format!("{:x}",Sha256::digest(&rgb)), "films": engine.films,
-            "world_origin": engine.world_origin}));
+            "world_origin": engine.world_origin,
+            "sample": {"id":engine.sample_player.id,"serial":engine.sample_player.serial,
+                "position":engine.sample_player.position}}));
     }
     let report = json!({"iso_sha256":format!("{:x}",Sha256::digest(&data)),"ticks":ticks,"frames":frames,"scene_calls":engine.scene_calls,
         "scope":"Unscaled 320x200 RGB after each startup engine tick, no user input. Original PCM/MIDI state advances; no SoundFont synthesis or device audio."});

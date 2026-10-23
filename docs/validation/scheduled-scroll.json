@@ -32,35 +32,89 @@
       "menu_fixture": "assets/validation/title-palette-menu/checkpoint.dws (unchanged legacy save with corrected native palette expectation)"
     },
     "full_route": {
-      "status": "running",
+      "status": "passed",
       "directory": "assets/validation/scheduled-scroll-9bf9b3f",
       "manifest": "assets/validation/scheduled-scroll-9bf9b3f/run.json",
-      "ticks_requested": 2630000,
-      "snapshot_audit": true
+      "ticks": 2630000,
+      "scene": "title.scn",
+      "runtime_status": "Running",
+      "has_restarted": true,
+      "accepted_inputs": 1652,
+      "snapshot_checks": 5048,
+      "audio_snapshot_checks": 5048,
+      "final_frame_inspected": true,
+      "report_sha256": "aec20838bf61727edd5f53e7bafcb489051d860cc18de9093828c2deade06d39"
     },
     "browser_routes": {
       "chrome": {
-        "status": "running",
-        "manifest": "assets/validation/scheduled-scroll-9bf9b3f/chrome-run.json",
-        "ticks_requested": 2630000
+        "status": "passed",
+        "browser_version": "156.0.8078.47",
+        "ticks": 2630000,
+        "accepted_inputs": 1652,
+        "scene": "title.scn",
+        "has_restarted": true,
+        "audio_samples": 4832625000,
+        "nonfinite_audio_samples": 0,
+        "comparison": {
+          "ticks": 2630000,
+          "ticks_equal": true,
+          "native_status": "Running",
+          "scene": "title.scn",
+          "scene_equal": true,
+          "has_restarted": true,
+          "restart_equal": true,
+          "accepted_inputs": 1652,
+          "native_inputs": 1652,
+          "native_inputs_accepted": true,
+          "engine_bytes_equal": true,
+          "rgba_equal": true,
+          "combined_save_equal": false,
+          "core_sha256": "0f255ab4d23847bb9647487e4bff1d523229640376c420bed330e052d509cb7c",
+          "audio_scope": "WASM checked for finite samples; cross-platform audio equality not established"
+        },
+        "report_sha256": "1e1af9b82b934bb00d0e3188ca66462a89ea2870af41c88774ec25c754d43311"
       },
       "webkit": {
-        "status": "running",
-        "manifest": "assets/validation/scheduled-scroll-9bf9b3f/webkit-run.json",
-        "ticks_requested": 2630000
+        "status": "passed",
+        "browser_version": "27.2",
+        "ticks": 2630000,
+        "accepted_inputs": 1652,
+        "scene": "title.scn",
+        "has_restarted": true,
+        "audio_samples": 4832625000,
+        "nonfinite_audio_samples": 0,
+        "comparison": {
+          "ticks": 2630000,
+          "ticks_equal": true,
+          "native_status": "Running",
+          "scene": "title.scn",
+          "scene_equal": true,
+          "has_restarted": true,
+          "restart_equal": true,
+          "accepted_inputs": 1652,
+          "native_inputs": 1652,
+          "native_inputs_accepted": true,
+          "engine_bytes_equal": true,
+          "rgba_equal": true,
+          "combined_save_equal": false,
+          "core_sha256": "0f255ab4d23847bb9647487e4bff1d523229640376c420bed330e052d509cb7c",
+          "audio_scope": "WASM checked for finite samples; cross-platform audio equality not established"
+        },
+        "report_sha256": "d2542a411300547a03e83f16bcad84c1f0256cc27f596c8f5f5984d008ece126"
       }
     },
     "replay_wasm_build": "passed"
   },
   "limits": [
     "1000 no-input startup frames are not full-game scheduling equivalence.",
-    "Automatic camera following, new dynamic task interactions and the full route still require broader validation.",
+    "Full recorded route passes on native and both browsers; alternate interactions, independent gameplay reference comparison and physical-device acceptance remain incomplete.",
     "No physical iPad or visible manual-session update claimed."
   ],
   "runtime_revision": "9bf9b3f",
   "frozen_web_manifest": {
     "path": "assets/validation/scheduled-scroll-9bf9b3f/web-build.json",
     "sha256": "8e38c786707265be80e65c26526bf3602683780e06200db42effc178b84c0d6e",
-    "files": 17
+    "files": 17,
+    "verified_unchanged_after_runs": true
   }
 }

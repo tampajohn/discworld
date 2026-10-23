@@ -102,6 +102,28 @@ def scroll_position(frame, location, dictionary):
     return scroll_event(frame, 'playfield_position', ['which', 'newXpos', 'newYpos'])
 
 
+def sample_pcm(frame, location, dictionary):
+    try:
+        size = unsigned(frame.FindVariable('sampleLen'))
+        if not 0 < size <= 16 * 1024 * 1024:
+            raise RuntimeError('unexpected reference PCM sample size')
+        data = read(frame.GetThread().GetProcess(),
+                    unsigned(frame.FindVariable('sampleBuf')), size)
+        EVENTS.append({'cycle': CYCLES, 'kind': 'sample_pcm',
+                       'id': unsigned(frame.FindVariable('id')),
+                       'type': unsigned(frame.FindVariable('type')),
+                       'bytes': size, 'sha256': hashlib.sha256(data).hexdigest()})
+        return False
+    except Exception as error:
+        FAILURES.append(str(error))
+        return True
+
+
+def samples_stop(frame, location, dictionary):
+    EVENTS.append({'cycle': CYCLES, 'kind': 'samples_stop'})
+    return False
+
+
 def animation(frame, location, dictionary):
     try:
         record = {'cycle': CYCLES,
@@ -218,8 +240,12 @@ def __lldb_init_module(debugger, dictionary):
     scroll = target.BreakpointCreateByName('Tinsel::Scroll::ScrollTo')
     scroll_step = target.BreakpointCreateByName('Tinsel::Scroll::ScrollImage')
     position = target.BreakpointCreateByName('Tinsel::Background::PlayfieldSetPos')
-    if any(bp.GetNumLocations() != 1 for bp in [pal, draw, tick, anim, advance, scheduled, entered, scroll, scroll_step, position]):
+    pcm = target.BreakpointCreateByLocation('sound.cpp', 165)
+    stop = target.BreakpointCreateByName('Tinsel::SoundManager::stopAllSamples')
+    if any(bp.GetNumLocations() != 1 for bp in [pal, draw, tick, anim, advance, scheduled, entered, scroll, scroll_step, position, pcm, stop]):
         raise RuntimeError('pinned reference breakpoint locations not unique')
+    pcm.SetScriptCallbackFunction(__name__ + '.sample_pcm')
+    stop.SetScriptCallbackFunction(__name__ + '.samples_stop')
     scroll.SetScriptCallbackFunction(__name__ + '.scroll_to')
     scroll_step.SetScriptCallbackFunction(__name__ + '.scroll_image')
     position.SetScriptCallbackFunction(__name__ + '.scroll_position')
