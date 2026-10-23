@@ -1,0 +1,74 @@
+{
+  "finder": {
+    "source_revision": "3df76c8835dc29a8bbc42a27dec16fa1a5c5485c",
+    "archive_sha256": "40c61667bec933368cf8ece09e0cd0bd3dde3ae3b1894f104652fa42c72113da",
+    "archive_bytes": 4636173,
+    "verified_files": 5,
+    "exact_source_verified": true,
+    "extracted_directory": "/var/folders/1j/8_5gj1n12qn9xxxqp9n_0nq80000gp/T/discworld-3df76c8-packages-vwqsovy3/finder",
+    "strict_deep_signature_verified": true,
+    "runs": {
+      "startup": {
+        "exit_code": 0,
+        "last_line": "Window closed after 30 frames, tick 13, scene psygnosi.scn, stopped=false"
+      },
+      "legacy_load": {
+        "exit_code": 0,
+        "last_line": "Window closed after 30 frames, tick 33213, scene rinceroo.scn, stopped=false"
+      }
+    },
+    "archive": "assets/packages/discworld-finder-3df76c8.zip"
+  },
+  "web": {
+    "source_revision": "3df76c8835dc29a8bbc42a27dec16fa1a5c5485c",
+    "archive_sha256": "fa145ecda2e4313178737a7b3cc89a740ba8d65f30fceb5a3a9d4752c5f93bb2",
+    "archive_bytes": 3189833,
+    "verified_files": 14,
+    "exact_source_verified": true,
+    "extracted_directory": "/var/folders/1j/8_5gj1n12qn9xxxqp9n_0nq80000gp/T/discworld-3df76c8-packages-vwqsovy3/web",
+    "runs": [
+      {
+        "scenario": "startup",
+        "browser": "chrome",
+        "version": "156.0.8078.47",
+        "tick": "13",
+        "headroom": true,
+        "errors": []
+      },
+      {
+        "scenario": "startup",
+        "browser": "webkit",
+        "version": "27.2",
+        "tick": "13",
+        "headroom": true,
+        "errors": []
+      },
+      {
+        "scenario": "legacy-save",
+        "browser": "chrome",
+        "version": "156.0.8078.47",
+        "tick": "33213",
+        "headroom": true,
+        "errors": []
+      },
+      {
+        "scenario": "legacy-save",
+        "browser": "webkit",
+        "version": "27.2",
+        "tick": "33213",
+        "headroom": true,
+        "errors": []
+      }
+    ],
+    "archive": "assets/packages/discworld-web-3df76c8.zip"
+  },
+  "scope": "Extracted native dummy-video/audio startup and legacy save load; extracted Chrome/WebKit startup/load/save/audio-control smoke. Not visible Finder or physical iPad acceptance; full-route audits are separate.",
+  "full_route_status": "Revised idle-aware cursor route still running; package smoke is not whole-game acceptance.",
+  "browser_ui_status": "Full UI suite still running, session40572; assets/logs/idle-clock-browser-ui.log",
+  "limitations": [
+    "No visible Finder/Gatekeeper/file-picker validation",
+    "No physical iPad acceptance",
+    "App is ad-hoc signed, not notarized",
+    "Original ISO and SoundFont remain user supplied"
+  ]
+}
