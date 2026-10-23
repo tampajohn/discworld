@@ -96,7 +96,9 @@ fn capture_original_debug_room_hover() {
         points = [[50, 120], corner, moved, moved, [10, 10], [10, 10]];
     }
     let inventory_mode = inventory_drag || std::env::var_os("DISCWORLD_HOVER_INVENTORY").is_some();
-    let university_walk = std::env::var_os("DISCWORLD_HOVER_UNIVERSITY_WALK").is_some();
+    let university_retarget = std::env::var_os("DISCWORLD_HOVER_UNIVERSITY_RETARGET").is_some();
+    let university_walk =
+        university_retarget || std::env::var_os("DISCWORLD_HOVER_UNIVERSITY_WALK").is_some();
     let door_exit = university_walk || std::env::var_os("DISCWORLD_HOVER_DOOR_EXIT").is_some();
     let door_action = door_exit || std::env::var_os("DISCWORLD_HOVER_DOOR_ACTION").is_some();
     let look_mode = std::env::var_os("DISCWORLD_HOVER_LOOK").is_some();
@@ -156,6 +158,22 @@ fn capture_original_debug_room_hover() {
         }
         if let Some(start) = start {
             let elapsed = engine.ticks - start;
+            if university_retarget && elapsed == 192 {
+                assert!(
+                    engine.movers[&7].walk_target.is_some(),
+                    "retarget an active walk"
+                );
+                engine
+                    .move_cursor_with_configuration(&resources, [110, 180])
+                    .unwrap();
+            }
+            if university_retarget && elapsed == 193 {
+                assert!(
+                    engine
+                        .world_click(&resources, [110, 180], PolygonInteraction::WalkTo)
+                        .unwrap()
+                );
+            }
             if university_walk && elapsed == 168 {
                 assert_eq!(index[engine.scene.resource()].name, "unseen.scn");
                 university_walk_start = Some(engine.movers[&7].placement.position);
