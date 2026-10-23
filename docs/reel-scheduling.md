@@ -155,9 +155,25 @@ There is a second integration requirement: the reference
 `DoRestoreSceneFrame` reconstructs objects at `RS_COUNT` and calls
 `ResumeInterprets` at count 1. `ResumeInterprets` creates interpreter processes
 in the existing scheduler; it does not discard the running reel jobs. The Rust
-`restore_scene_scripts` currently replaces its script queue. Once restored
-reels join that queue, script restoration must preserve their identities,
-sleep state and relative ordering, including the atomic `rebuild_scene` API.
+`restore_scene_scripts` now clones the existing queue, removes only interpreter
+and other non-reel tasks, and inserts the restored scripts ahead of retained
+reels. Reel identities, sleep state and relative order survive. Validation and
+queue construction occur before committing the replacement, so invalid saved
+contexts leave the original queue unchanged. Cancelled click state and departed
+POINTED label waits are removed after successful restoration. This also avoids
+resetting the process identity counter and accidentally reusing departed IDs.
+
+The regression retains four active reel jobs with sleep 3 and two pending
+duplicate jobs with sleep 1 across interpreter restoration. It checks identities,
+ordering, waits, unchanged state on invalid restoration, and exact version-21
+save/load continuation through wakeup. Moving `restore_actor_reel` itself to a
+deferred request remains outstanding; this change establishes the queue
+preservation that integration requires, including for atomic `rebuild_scene`.
+
+Validation: 337 core tests, all 20 original-asset checks, Clippy, WASM checking
+and native/tools/browser release builds pass. See
+[restore-reel-queue.json](validation/restore-reel-queue.json). The ongoing
+full-route audits remain pinned to the earlier `85b728a` runtime.
 
 The restore request must also retain the saved depth. A nonzero `ppi.z` bypasses
 normal depth calculation without updating the shared first-column depth/factor;

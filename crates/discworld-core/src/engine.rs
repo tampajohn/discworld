@@ -1256,7 +1256,17 @@ impl Engine {
         if saved.scene != self.scene {
             return Err(Error("script snapshot belongs to another scene"));
         }
-        let mut processes = Scheduler::default();
+        // ResumeInterprets adds scripts to the existing coroutine list. Keep
+        // reel jobs, including their sleep and identity, while replacing VMs.
+        self.processes.validate_snapshot_structure()?;
+        let mut processes = self.processes.clone();
+        let scripts: Vec<_> = processes
+            .entries()
+            .filter_map(|(id, p)| p.reel_task.is_none().then_some(id))
+            .collect();
+        for id in scripts {
+            processes.cancel(id)?;
+        }
         // spawn inserts at the front while idle; preserve captured queue order.
         for context in saved.contexts.iter().rev() {
             scene::script_bytes(resources, context.code)?;
@@ -1285,9 +1295,9 @@ impl Engine {
             processes.spawn(Some(self.generation), process)?;
         }
         self.processes = processes;
-        // V1 saved interpreter contexts exclude POINTED. New scheduler IDs
-        // may reuse old numbers, so retaining process-keyed hover waits here
-        // could attach a departed label to an unrelated restored script.
+        self.clicks.cleanup(&self.processes);
+        // V1 saved interpreter contexts exclude POINTED; their old label waits
+        // do not belong to the newly restored interpreters.
         self.inventory_hover.waits.clear();
         Ok(())
     }
@@ -10894,6 +10904,62 @@ mod tests {
         );
         assert_eq!(engine.reel_dispatch_depth, [1024, 2]);
         assert_eq!(engine.globals, [0]);
+        // Scene interpreter resumption must not replace the queue containing
+        // live reel jobs. Give those jobs a non-default sleep to detect reset.
+        let mut rebuilt = engine.clone();
+        let scripts = rebuilt.capture_scene_scripts();
+        // Pending duplicate children must survive too, without restarting the
+        // already running films when their first dispatch arrives.
+        rebuilt.launch_film(&resources, Handle(base)).unwrap();
+        rebuilt.processes.begin().unwrap();
+        while let Some(id) = rebuilt.processes.ready().unwrap() {
+            let sleep = if matches!(
+                rebuilt.processes.state_mut(id).unwrap().reel_task,
+                Some(ReelTask::Active(_))
+            ) {
+                3
+            } else {
+                1
+            };
+            rebuilt.processes.finish(Some(sleep)).unwrap();
+        }
+        let tasks = rebuilt.reel_tasks();
+        assert_eq!(tasks.len(), 6);
+        let before = rebuilt.clone();
+        let mut invalid = scripts.clone();
+        invalid.contexts[0].actor = Some(999);
+        assert!(rebuilt.restore_scene_scripts(&resources, &invalid).is_err());
+        assert_eq!(rebuilt, before, "failed restore must preserve reel jobs");
+        rebuilt.restore_scene_scripts(&resources, &scripts).unwrap();
+        assert_eq!(
+            rebuilt.reel_tasks(),
+            tasks,
+            "interpreter restore must retain live reel identities and order"
+        );
+        for (id, task) in &tasks {
+            assert_eq!(
+                rebuilt.processes.sleep_for(*id),
+                Some(if matches!(task, ReelTask::Active(_)) {
+                    3
+                } else {
+                    1
+                })
+            );
+        }
+        let rebuilt_bytes = crate::save::Snapshot::capture(&rebuilt, [7; 32])
+            .to_bytes()
+            .unwrap();
+        let decoded = crate::save::Snapshot::from_bytes(&rebuilt_bytes, [7; 32]).unwrap();
+        decoded.verify_scripts(&resources).unwrap();
+        assert_eq!(decoded.to_bytes().unwrap(), rebuilt_bytes);
+        let mut continued = decoded.state().clone();
+        for steps in [1, 1, 2] {
+            rebuilt.tick(&resources).unwrap();
+            continued.tick(&resources).unwrap();
+            assert_eq!(rebuilt, continued);
+            assert_eq!(actors(&rebuilt), [3, 4, 1, 2]);
+            assert!(rebuilt.films.iter().all(|a| a.steps == steps));
+        }
         let bytes = crate::save::Snapshot::capture(&engine, [7; 32])
             .to_bytes()
             .unwrap();

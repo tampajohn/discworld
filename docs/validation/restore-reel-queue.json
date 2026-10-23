@@ -1,0 +1,29 @@
+{
+  "schema": 1,
+  "status": "Queue preservation implemented and validated; deferred saved-reel creation remains outstanding.",
+  "baseline_revision": "119ee6f56f7f92c8ffd3360725a991f86ee94eba",
+  "runtime_source_sha256": "d29ccdcec30139b6e4a5d9a8a79245eb48d8d81eeb94a4b47aa70340592bba9b",
+  "native_tools_sha256": "ef6a7210e50a448d6018bf6d7a92e35986cc0cf9e0206634f7aab8cb78fafc4b",
+  "browser_wasm_sha256": "3dce9f6ab88e892b395bb2fee0fb55f844792c519844da12fc4b0ea8f10813e8",
+  "reference_revision": "96b42d42bc8533953bdd701db059cc33c839a9ff",
+  "reference_basis": "savescn.cpp ResumeInterprets creates interpreters in the existing coroutine list, retaining other native jobs.",
+  "regression": {
+    "before": "The interpreter restore discarded all four active reel jobs.",
+    "after": "Four active jobs with sleep 3 and two pending duplicate jobs with sleep 1 retain identities, order and sleeps; malformed context restore is atomic; version-21 save/load continuation matches through wakeup."
+  },
+  "validation": {
+    "workspace": "passed, 337 core tests",
+    "original_assets": "20 passed",
+    "clippy": "passed, all targets with warnings denied",
+    "wasm_check": "passed",
+    "native_tools_release": "passed",
+    "browser_release": "passed"
+  },
+  "logs_prefix": "assets/logs/restore-reel-queue-",
+  "scope": [
+    "No save schema change.",
+    "This retains queued reels during interpreter restoration; restore_actor_reel itself still needs deferred dispatch integration.",
+    "The currently running native/Chrome/WebKit full routes are pinned to 85b728a and do not validate this later fix.",
+    "No new physical iPad, device audio or manual visible-session result is claimed."
+  ]
+}
