@@ -97,8 +97,10 @@ fn capture_original_debug_room_hover() {
     }
     let inventory_mode = inventory_drag || std::env::var_os("DISCWORLD_HOVER_INVENTORY").is_some();
     let university_retarget = std::env::var_os("DISCWORLD_HOVER_UNIVERSITY_RETARGET").is_some();
-    let university_walk =
-        university_retarget || std::env::var_os("DISCWORLD_HOVER_UNIVERSITY_WALK").is_some();
+    let arch_entry = std::env::var_os("DISCWORLD_HOVER_ARCH_ENTRY").is_some();
+    let university_walk = arch_entry
+        || university_retarget
+        || std::env::var_os("DISCWORLD_HOVER_UNIVERSITY_WALK").is_some();
     let door_exit = university_walk || std::env::var_os("DISCWORLD_HOVER_DOOR_EXIT").is_some();
     let door_action = door_exit || std::env::var_os("DISCWORLD_HOVER_DOOR_ACTION").is_some();
     let look_mode = std::env::var_os("DISCWORLD_HOVER_LOOK").is_some();
@@ -121,11 +123,17 @@ fn capture_original_debug_room_hover() {
             [250, 180]
         };
     }
-    let frame_limit = std::env::var("DISCWORLD_HOVER_FRAMES")
-        .map_or(if door_exit { 240 } else { 72 }, |s| {
-            s.parse::<usize>().unwrap()
-        });
-    assert!((72..=240).contains(&frame_limit));
+    let frame_limit = std::env::var("DISCWORLD_HOVER_FRAMES").map_or(
+        if arch_entry {
+            480
+        } else if door_exit {
+            240
+        } else {
+            72
+        },
+        |s| s.parse::<usize>().unwrap(),
+    );
+    assert!((72..=480).contains(&frame_limit));
     let mut audio_states = Vec::new();
     let mut look_pcm = Vec::new();
     let mut look_completion = None;
@@ -158,6 +166,18 @@ fn capture_original_debug_room_hover() {
         }
         if let Some(start) = start {
             let elapsed = engine.ticks - start;
+            if arch_entry && elapsed == 240 {
+                assert_eq!(index[engine.scene.resource()].name, "unseen.scn");
+                assert!(
+                    engine.control.enabled,
+                    "door exit must restore control before next entry"
+                );
+                assert!(
+                    engine
+                        .interact_polygon(&resources, 50, PolygonInteraction::WalkTo)
+                        .unwrap()
+                );
+            }
             if university_retarget && elapsed == 192 {
                 assert!(
                     engine.movers[&7].walk_target.is_some(),
@@ -782,7 +802,10 @@ fn capture_original_debug_room_hover() {
     }
     assert_eq!(rows.len(), frame_limit, "room did not reach active tags");
     if door_exit {
-        assert_eq!(index[engine.scene.resource()].name, "unseen.scn");
+        assert_eq!(
+            index[engine.scene.resource()].name,
+            if arch_entry { "arch.scn" } else { "unseen.scn" }
+        );
     }
     if university_walk {
         assert_ne!(
@@ -794,7 +817,7 @@ fn capture_original_debug_room_hover() {
     if door_action {
         assert!(!door_calls.is_empty(), "original door script must execute");
         assert!(
-            door_control_off && engine.control.enabled,
+            door_control_off && (arch_entry || engine.control.enabled),
             "door action must take and restore control"
         );
         std::fs::write(

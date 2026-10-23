@@ -23,6 +23,7 @@ RESIZE_DELTA = int(os.environ.get("DISCWORLD_REFERENCE_RESIZE_DELTA", "26"))
 DOOR_EXIT = os.environ.get("DISCWORLD_REFERENCE_DOOR_EXIT") == "1"
 UNIVERSITY_WALK = os.environ.get("DISCWORLD_REFERENCE_UNIVERSITY_WALK") == "1"
 UNIVERSITY_RETARGET = os.environ.get("DISCWORLD_REFERENCE_UNIVERSITY_RETARGET") == "1"
+ARCH_ENTRY = os.environ.get("DISCWORLD_REFERENCE_ARCH_ENTRY") == "1"
 DOOR_ACTION = os.environ.get("DISCWORLD_REFERENCE_DOOR_ACTION") == "1"
 LOOK = os.environ.get("DISCWORLD_REFERENCE_LOOK") == "1"
 WALK = os.environ.get("DISCWORLD_REFERENCE_WALK") == "1"
@@ -106,6 +107,9 @@ def cycle(frame, location, dictionary):
                 START = frames.CYCLES
         if START is not None:
             elapsed = frames.CYCLES - START
+            if ARCH_ENTRY and elapsed == 240:
+                PENDING.append('Tinsel::RunPolyTinselCode(50, (Tinsel::TINSEL_EVENT)9, (Tinsel::PLR_EVENT)16, false)')
+                return True
             if UNIVERSITY_RETARGET and elapsed == 192:
                 PENDING.append('Tinsel::_vm->_mousePos.x = 110, Tinsel::_vm->_mousePos.y = 180, Tinsel::_vm->_cursor->DoCursorMove()')
                 return True
@@ -297,13 +301,13 @@ def finish(debugger):
     path = frames.OUTPUT / 'capture.json'
     report = json.loads(path.read_text())
     report.update(scope='Controlled original debug scene entry, logical driver writes and original DoCursorMove; not normal host input or full gameplay equivalence.',
-                  injected_actions=ACTIONS, hover_start_cycle=START, inventory_diagnostic=INVENTORY, university_retarget=UNIVERSITY_RETARGET, university_walk=UNIVERSITY_WALK, inventory_drag=INVENTORY_DRAG, door_exit=DOOR_EXIT, door_action=DOOR_ACTION, resize_delta=RESIZE_DELTA, resize_corner=RESIZE_CORNER, inventory_resize=INVENTORY_RESIZE, inventory_fixed_corner=INVENTORY_FIXED_CORNER, look_diagnostic=LOOK, walk_diagnostic=WALK, walk_delay=WALK_DELAY, walk_from_actor=WALK_FROM_ACTOR)
+                  injected_actions=ACTIONS, hover_start_cycle=START, inventory_diagnostic=INVENTORY, arch_entry=ARCH_ENTRY, university_retarget=UNIVERSITY_RETARGET, university_walk=UNIVERSITY_WALK, inventory_drag=INVENTORY_DRAG, door_exit=DOOR_EXIT, door_action=DOOR_ACTION, resize_delta=RESIZE_DELTA, resize_corner=RESIZE_CORNER, inventory_resize=INVENTORY_RESIZE, inventory_fixed_corner=INVENTORY_FIXED_CORNER, look_diagnostic=LOOK, walk_diagnostic=WALK, walk_delay=WALK_DELAY, walk_from_actor=WALK_FROM_ACTOR)
     path.write_text(json.dumps(report, indent=2) + '\n')
 
 
 def __lldb_init_module(debugger, dictionary):
-    if frames.BACKEND != 'surfacesdl' or not 72 <= frames.LIMIT <= 240:
-        raise ValueError('hover probe requires surfacesdl and 72..240 frames')
+    if frames.BACKEND != 'surfacesdl' or not 72 <= frames.LIMIT <= 480:
+        raise ValueError('hover probe requires surfacesdl and 72..480 frames')
     frames.OUTPUT.mkdir()
     target = debugger.GetSelectedTarget()
     points = [
