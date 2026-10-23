@@ -16,6 +16,8 @@ Touch gestures and presentation technology remain implementation decisions to va
 
 ## Latest validation follow-up
 
+The final recorded close-up dismissal is redundant after cursor activity: reconstructed tick1859224 has control in square3.scn and idle flag278=0. Removing only that key passes25 subsequent inputs to dining.scn at1870000 with40 engine/DSP save checks. A4238-input full audit is running on all hosts; see [final dismissal recovery](validation/idle-last-closeup-recovery.json). The matched-cursor reference capture still differs in late animation phases; no full overlay pixel match is claimed.
+
 Updated Finder/browser packages from exact source3df76c8 pass extracted manifests/source integrity, macOS deep signature verification, native startup/legacy-load, and Chrome/WebKit startup/load/save/audio-control smoke. Browser UI passes49 Playwright cases plus4 Node tests, with1 known WebKit multi-touch injection skip. Full-route audits are still running; visible Finder and physical iPad acceptance remain open. See [package evidence](validation/packages-3df76c8.json).
 
 Paired replay proves the added cursor samples prevent the expected idle close-up before tick88000; they do not dismiss an already-started close-up in this case. Preserving that stationary interval passes through100000 with84 engine/DSP continuation checks. A4239-input candidate preserves all1657 original actions and stationary windows before all8 recorded close-up keys; all three full audits later reject the final close-up key at1859225 in square3.scn. Reconstruction of that state is running; this shorter stationary window is below the corrected idle threshold. See [close-up recovery](validation/idle-cursor-closeup-recovery.json).

@@ -872,6 +872,15 @@ fn capture_original_debug_room_hover() {
                 .unwrap()
         );
         for _ in 0..24 {
+            let states: Vec<_> = engine.snapshot_animations().map(|a| {
+                let (script, index, period, remaining) = a.diagnostic_clock();
+                format!("{{\"script\":{script},\"index\":{index},\"period\":{period},\"remaining\":{remaining},\"frame\":{},\"position\":[{},{}]}}", a.frame.0, a.object.x, a.object.y)
+            }).collect();
+            clocks.push(format!(
+                "{{\"before_tick\":{},\"animations\":[{}]}}",
+                engine.ticks + 1,
+                states.join(",")
+            ));
             engine
                 .tick_content(&resources, Some(&bank), Some(&tracks), Some(&strings))
                 .unwrap();

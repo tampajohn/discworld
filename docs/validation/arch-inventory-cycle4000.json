@@ -39,6 +39,11 @@
     "input": "Move both cursors to[200,190] before cycle3988, open pockets at4000; assert reference driver position throughout24 late frames",
     "reference_pid": 10201,
     "reference_session": 68146,
-    "status": "running; not a pass"
+    "status": "completed and accepted; 480/504 same-cycle matches, late24 remain different",
+    "comparison": "assets/validation/arch-inventory-cursor1-compare.json",
+    "final_different_pixels": 121,
+    "late_clock_report": "assets/validation/arch-inventory-late-clocks.json",
+    "clock_observation": "Rincewind standing349552, cursor374236 and scene503440144 differ at all24 observed late ticks; scene503442960 and503443012 match24/24. Reference cursor restore initialization occurs3926, Rust control return3843. Asynchronous speech timing prevents assuming equal post-dialogue animation phases.",
+    "limitation": "No exact late overlay match established. Borders/background are visually present, but animation phase and composite pixels remain to isolate."
   }
 }

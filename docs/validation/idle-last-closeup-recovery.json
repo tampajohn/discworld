@@ -1,0 +1,49 @@
+{
+  "runtime": "3df76c8",
+  "engine": "18d3f91",
+  "production_change": false,
+  "before": {
+    "report": "assets/validation/idle-last-closeup1/before.json",
+    "save": "assets/validation/idle-last-closeup1/before.dws",
+    "tick": 1859224,
+    "scene": "square3.scn",
+    "control": true,
+    "idle_global278": 0,
+    "accepted_inputs": 2879,
+    "png_inspected": true
+  },
+  "removed_input": {
+    "tick": 1859225,
+    "scene": "closeup.scn",
+    "event": "key"
+  },
+  "reason": "Recorded dismissal targets an idle close-up that cursor activity prevented; no puzzle action or script/state edited.",
+  "recovery": {
+    "report": "assets/validation/idle-last-closeup1/retry.json",
+    "end_tick": 1870000,
+    "scene": "dining.scn",
+    "control": true,
+    "accepted_inputs": 25,
+    "engine_snapshot_checks": 40,
+    "audio_snapshot_checks": 40
+  },
+  "candidate": "assets/validation/idle-last-closeup1/full-input.json",
+  "candidate_sha256": "cc2f8d6ec8a1a755b64a0e6da505db57bef72e77156395b9a48da3683a0fbe03",
+  "candidate_inputs": 4238,
+  "full_route": {
+    "directory": "assets/validation/idle-final-3df76c8",
+    "status": "running; not a pass",
+    "run.json": {
+      "pid": 14024,
+      "status": "running"
+    },
+    "chrome-run.json": {
+      "pid": 14062,
+      "status": "running"
+    },
+    "webkit-run.json": {
+      "pid": 14063,
+      "status": "running"
+    }
+  }
+}
