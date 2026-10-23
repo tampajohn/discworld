@@ -19,6 +19,17 @@ is absent. Inventory hover and actor hit testing are separate implemented paths.
 The recorded full-game route does not prove world-hover fidelity. See
 [bytecode-library-audit.json](validation/bytecode-library-audit.json).
 
+The new `world_hover::Tags` state machine implements polygon entry/leave,
+one-time PRINTTAG registration, default-text fallback, immediate disable-state
+clearing, and table-order polygon arbitration. It follows the pinned
+`pdisplay.cpp::PointProcess/PolyTag` and `tinlib.cpp::PrintTag`: every overlapping
+TAG/EXIT enters, leaving does not dispatch UNPOINT, an unlabeled pointed
+polygon can win, and a delayed PRINTTAG can register after departure. Four
+regressions cover these transitions and checked, non-mutating failure paths.
+This module is not yet wired into the engine: scheduler processes, the library
+handler, actor priority, cached text rendering and save-version integration
+remain required before world hover works in either host.
+
 The safe Rust bytecode machine implements the V1 instructions handled by the pinned ScummVM interpreter. Its state includes a 128-word stack, stack and base pointers, an instruction pointer, and a pending library call. Invalid operations leave the machine and globals unchanged.
 
 Operands are signed 8, 16, or 32 bit values. The 8-bit flag takes precedence if both width flags are set. Jumps and procedure targets are offsets from the current script start. Calls write static and dynamic links and a return address without raising the stack pointer; the callee claims this storage with ALLOC. These semantics follow the pinned [pcode.cpp](https://github.com/scummvm/scummvm/blob/96b42d42bc8533953bdd701db059cc33c839a9ff/engines/tinsel/pcode.cpp).

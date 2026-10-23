@@ -50,6 +50,7 @@ pub mod text;
 pub mod timers;
 
 pub mod walk;
+pub mod world_hover;
 
 pub mod save;
 mod save_array;

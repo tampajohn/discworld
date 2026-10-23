@@ -53,6 +53,12 @@ are absent. The next compatibility pass must implement original world-hover
 scripts, label rendering and save/load state. See
 [bytecode-library-audit.json](validation/bytecode-library-audit.json).
 
+The polygon hover state machine is now implemented separately, with regression
+coverage for overlapping entry, departure, late PRINTTAG, unlabeled priority,
+default text and disabling. It is not connected to a running engine yet. Next:
+scheduled Point/Tag processes, PRINTTAG dispatch, actor/text rendering and
+versioned save/load integration; then original-asset interaction validation.
+
 PLAY/TOPPLAY completion arguments now match the pinned V1 integer dispatch:
 `1` blocks, `2` errors, other values play asynchronously. A 42-case bytecode
 regression covers caller precedence and queued save/load continuation. All 342
