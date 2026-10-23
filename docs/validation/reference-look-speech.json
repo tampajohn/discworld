@@ -1,0 +1,38 @@
+{
+  "runtime_revision": "0a87557",
+  "scope": "Controlled resolved actor LOOK, subtitles enabled; 72 rendered frames and speech onset/raw PCM comparison. Not device audio, full speech completion or full-game fidelity.",
+  "reference_capture": "assets/validation/reference-look2/frames/capture.json",
+  "reference_sha256": "43b193b1cdc38b04cd81419df0ff2162413afa0bcd18e881f3b3cd3886c6daf2",
+  "rust_audio": "assets/validation/rust-look-reference1/audio-states.json",
+  "rust_audio_sha256": "4813a2b9e3ca818e914b0a9966746b66c806a4fabb75040af275968f868d8c85",
+  "comparison": "assets/validation/look-reference-compare1.json",
+  "reference_frames": 72,
+  "exact_content_matches": 72,
+  "capture_aligned_matches": 72,
+  "reference_speech": {
+    "cycle": 1257,
+    "kind": "sample_pcm",
+    "id": 3636,
+    "type": 3,
+    "bytes": 101171,
+    "sha256": "fc6c030b946847e3f7ad29c066e24606dbe6c333b449bf16de367fd2d87fefa5"
+  },
+  "rust_speech_start": {
+    "tick": 1257,
+    "id": 3636,
+    "serial": 37,
+    "position": 0,
+    "bytes": 101171,
+    "sha256": "fc6c030b946847e3f7ad29c066e24606dbe6c333b449bf16de367fd2d87fefa5"
+  },
+  "pcm_equal": true,
+  "checks": [
+    "Original-room complete save/load next-tick equality passes during speech.",
+    "Core all-target Clippy passes."
+  ],
+  "failed_capture": "reference-look1 stopped at an unbound audio callback with0frames. Rejected; wrappers registered in the imported debugger module fix reference-look2.",
+  "remaining": [
+    "Extend through speech completion and return to idle.",
+    "Broader original-reference comparisons, visible session and physical iPad."
+  ]
+}

@@ -38,6 +38,9 @@ fn capture_original_debug_room_hover() {
     ];
     let direct_entry = std::env::var_os("DISCWORLD_HOVER_DIRECT_ENTRY").is_some();
     let inventory_mode = std::env::var_os("DISCWORLD_HOVER_INVENTORY").is_some();
+    let look_mode = std::env::var_os("DISCWORLD_HOVER_LOOK").is_some();
+    assert!(!(inventory_mode && look_mode));
+    let mut audio_states = Vec::new();
     let mut start = None;
     let mut rows = Vec::new();
     let mut clocks = Vec::new();
@@ -78,6 +81,13 @@ fn capture_original_debug_room_hover() {
                     engine
                         .interact_actor(&resources, 7, PolygonInteraction::WalkTo)
                         .unwrap();
+                }
+                if look_mode && elapsed == 0 {
+                    assert!(
+                        engine
+                            .interact_actor(&resources, 7, PolygonInteraction::Look)
+                            .unwrap()
+                    );
                 }
                 if inventory_mode && elapsed == 36 {
                     assert_eq!(engine.active_inventory(), Some(2));
@@ -166,6 +176,14 @@ fn capture_original_debug_room_hover() {
         assert!(!matches!(status, Status::Unsupported(_) | Status::Quit));
         if start.is_some() {
             let surface = engine.render(&resources).unwrap();
+            let sample = &engine.sample_player;
+            let id = sample.id.map_or("null".to_owned(), |id| id.to_string());
+            let pcm = sample.id.and_then(|id| bank.sample(id).unwrap());
+            let hash = pcm.map_or("null".to_owned(), |data| {
+                format!("\"{:x}\"", Sha256::digest(data))
+            });
+            audio_states.push(format!("{{\"tick\":{},\"id\":{id},\"serial\":{},\"position\":{},\"bytes\":{},\"sha256\":{hash}}}",
+                engine.ticks, sample.serial, sample.position, pcm.map_or(0, |data| data.len())));
             // Exercise the complete versioned game-save path, not only the
             // trail component's serde representation.
             let mut legacy_engine = engine.clone();
@@ -179,7 +197,7 @@ fn capture_original_debug_room_hover() {
                 .unwrap();
             let legacy = crate::save::Snapshot::from_bytes(&legacy_bytes, [7; 32]).unwrap();
             assert_eq!(legacy.to_bytes().unwrap(), legacy_bytes);
-            if rows.is_empty() && !inventory_mode {
+            if rows.is_empty() && !inventory_mode && !look_mode {
                 let mut migrated = legacy.state().clone();
                 let peers: Vec<_> = migrated
                     .processes
@@ -269,7 +287,7 @@ fn capture_original_debug_room_hover() {
                     .to_bytes()
                     .unwrap()
             );
-            if rows.is_empty() && !inventory_mode {
+            if rows.is_empty() && !inventory_mode && !look_mode {
                 std::fs::write(directory.join("mover-state-v26.dws"), &save_bytes).unwrap();
                 let mut input = engine.clone();
                 input
@@ -419,6 +437,11 @@ fn capture_original_debug_room_hover() {
         }
     }
     assert_eq!(rows.len(), 72, "room did not reach active tags");
+    std::fs::write(
+        directory.join("audio-states.json"),
+        format!("[{}]\n", audio_states.join(",")),
+    )
+    .unwrap();
     std::fs::write(
         directory.join("mover-states.json"),
         format!("[{}]\n", mover_states.join(",")),

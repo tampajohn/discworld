@@ -15,6 +15,7 @@ sys.path.insert(0, str(Path(__file__).resolve().parent))
 import reference_frames_lldb as frames
 
 INVENTORY = os.environ.get("DISCWORLD_REFERENCE_INVENTORY") == "1"
+LOOK = os.environ.get("DISCWORLD_REFERENCE_LOOK") == "1"
 START = None
 ACTIONS = []
 PENDING = []
@@ -78,6 +79,8 @@ def cycle(frame, location, dictionary):
                     # events.h: WALKTO=9, PLR_NOEVENT=16. The resolved pockets
                     # command bypasses raw-click double-click arbitration.
                     PENDING.append('Tinsel::ActorEvent(7, (Tinsel::TINSEL_EVENT)9, (Tinsel::PLR_EVENT)16)')
+                if LOOK and elapsed == 0:
+                    PENDING.append('Tinsel::ActorEvent(7, (Tinsel::TINSEL_EVENT)10, (Tinsel::PLR_EVENT)16)')
                 if INVENTORY and elapsed == 36:
                     PENDING.append('Tinsel::_vm->_dialogs->closeInventory()')
                 return True
@@ -137,6 +140,14 @@ def palette(frame, location, dictionary):
     return frames.palette(frame, location, dictionary)
 
 
+def sample_pcm(frame, location, dictionary):
+    return frames.sample_pcm(frame, location, dictionary)
+
+
+def samples_stop(frame, location, dictionary):
+    return frames.samples_stop(frame, location, dictionary)
+
+
 def print_tag(frame, location, dictionary):
     try:
         frames.EVENTS.append({'cycle': frames.CYCLES, 'kind': 'print_tag',
@@ -190,7 +201,7 @@ def finish(debugger):
     path = frames.OUTPUT / 'capture.json'
     report = json.loads(path.read_text())
     report.update(scope='Controlled original debug scene entry, logical driver writes and original DoCursorMove; not normal host input or full gameplay equivalence.',
-                  injected_actions=ACTIONS, hover_start_cycle=START, inventory_diagnostic=INVENTORY)
+                  injected_actions=ACTIONS, hover_start_cycle=START, inventory_diagnostic=INVENTORY, look_diagnostic=LOOK)
     path.write_text(json.dumps(report, indent=2) + '\n')
 
 
@@ -206,6 +217,8 @@ def __lldb_init_module(debugger, dictionary):
         (target.BreakpointCreateByName('Tinsel::PrintTag'), __name__ + '.print_tag'),
         (target.BreakpointCreateByName('Tinsel::StepAnimScript'), __name__ + '.animation_step'),
         (target.BreakpointCreateByName('Tinsel::InitStepAnimScript'), __name__ + '.animation_init'),
+        (target.BreakpointCreateByLocation('sound.cpp', 165), __name__ + '.sample_pcm'),
+        (target.BreakpointCreateByName('Tinsel::SoundManager::stopAllSamples'), __name__ + '.samples_stop'),
     ]
     for bp, callback in points:
         if bp.GetNumLocations() != 1:

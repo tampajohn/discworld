@@ -29,11 +29,12 @@
     "Workspace all-target Clippy passes.",
     "Workspace release suite passes (360 core tests).",
     "All25 original-asset cases pass across initial run and corrected cursor-phase retry.",
-    "Native/tools release and browser WASM builds pass."
+    "Native/tools release and browser WASM builds pass.",
+    "All12 targeted Chrome/WebKit UI cases pass (inventory-close-browser-ui.log).",
+    "Extracted native/Chrome/WebKit packages pass startup/load checks; see packages-0a87557.json."
   ],
   "remaining": [
-    "Browser input/UI regression running; full-route check and package refresh remain.",
-    "Rebuild hosts, test UI, and full-route regression for new player-close semantics.",
-    "Updated packages and visible-session verification; broader reference and iPad acceptance."
+    "Full-route native/Chrome/WebKit tests are running.",
+    "Visible session, broader reference fidelity and physical iPad acceptance remain open."
   ]
 }
