@@ -2005,8 +2005,6 @@ impl Engine {
             if !cursor.uses_script(script) {
                 let cursor = self.cursor_animation.as_mut().unwrap();
                 cursor.set_script(script, 2)?;
-                cursor.flip_x = false;
-                cursor.flip_y = false;
             }
         } else if custom {
             let (_, normal) = self
@@ -2021,8 +2019,6 @@ impl Engine {
                 .script;
             let cursor = self.cursor_animation.as_mut().unwrap();
             cursor.set_script(script, 24 / normal.rate as u32)?;
-            cursor.flip_x = false;
-            cursor.flip_y = false;
             // RestoreMainCursor steps immediately; SetTempCursor waits until
             // the next AnimateProcess. Preserve that asymmetry.
             cursor.tick(resources)?;

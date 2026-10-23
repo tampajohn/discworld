@@ -142,11 +142,13 @@ impl Animation {
     pub(crate) fn uses_script(&self, script: Handle) -> bool {
         self.script == script
     }
-    /// InitStepAnimScript changes the script/clock, retaining the multi-object.
+    /// InitStepAnimScript resets script, clock and flips, retaining the multi-object.
     pub fn set_script(&mut self, script: Handle, period: u32) -> Result<(), Error> {
         if period == 0 {
             return Err(Error("zero animation period"));
         }
+        self.flip_x = false;
+        self.flip_y = false;
         self.script = script;
         self.period = period;
         self.remaining = 1;
@@ -345,6 +347,38 @@ mod tests {
         let mut finished = valid;
         assert_eq!(finished.tick(&resources).unwrap(), Tick::Finished);
         finished.validate_snapshot_resources(&resources).unwrap();
+    }
+    #[test]
+    fn script_restart_clears_flips_and_rearms_clock_without_replacing_object() {
+        let data = fixture(&[4, 32, 0]);
+        let resources = Resources(vec![&data]);
+        for flags in [(false, false), (true, false), (false, true), (true, true)] {
+            let mut animation = anim(&data, 2);
+            animation.tick(&resources).unwrap();
+            (animation.flip_x, animation.flip_y) = flags;
+            animation.object.x = 17;
+            animation.object.y = 23;
+            let before = animation.clone();
+            assert!(animation.set_script(Handle(68), 0).is_err());
+            assert_eq!(animation, before);
+            animation.set_script(Handle(68), 3).unwrap();
+            assert_eq!((animation.flip_x, animation.flip_y), (false, false));
+            assert_eq!(animation.object, before.object);
+            assert_eq!(animation.frame, before.frame);
+            assert_eq!(animation.capacity, before.capacity);
+            assert_eq!(animation.steps, 0);
+            let bytes = postcard::to_allocvec(&animation).unwrap();
+            let mut restored: Animation = postcard::from_bytes(&bytes).unwrap();
+            for expected in [Tick::Frame, Tick::Waiting, Tick::Waiting, Tick::Finished] {
+                assert_eq!(animation.tick(&resources).unwrap(), expected);
+                assert_eq!(restored.tick(&resources).unwrap(), expected);
+                assert_eq!(animation, restored);
+                assert!(!animation.flip_x && !animation.flip_y);
+            }
+            // Restarting the same script also resets its finished state.
+            animation.set_script(Handle(68), 3).unwrap();
+            assert_eq!(animation.tick(&resources).unwrap(), Tick::Frame);
+        }
     }
     #[test]
     fn timing_and_relative_loop() {

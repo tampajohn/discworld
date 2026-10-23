@@ -912,3 +912,30 @@ The d39a279 packaged-host checks predate this correction.
 Validation passes: workspace suite (331 core tests), all 20 original-asset web
 tests, Clippy, and native/browser release builds. The focused test's pre-fix
 failure and post-fix success are retained in the local logs.
+
+
+## Animation restart orientation
+
+Pinned `anim.cpp::InitStepAnimScript` clears DMA_FLIPH and DMA_FLIPV on
+every object in the multipart shape while resetting its script index and
+clock. `Animation::set_script` previously reset the index and clock but left
+`flip_x` and `flip_y` intact. Walking, standing and talking reel replacement
+could therefore inherit the old orientation; these callers reuse an animation
+object rather than constructing a new one. Cursor transitions already cleared
+both flags separately.
+
+The shared reset now clears both flags; redundant cursor resets are removed.
+It retains the object, frame, capacity and position. A four-orientation matrix
+checks reset, immediate first step, period countdown, finished-script restart,
+serialized continuation and atomic rejection of zero period. The new test
+fails on the old behavior and passes after correction. The mover regression
+also checks reset when installing a talk reel and returning from a custom
+walk film, while a suppressed reel selection preserves its current flips.
+
+This is a pinned-source behavioral correction, not a live frame comparison.
+The running 9ba83fb native/Chrome/WebKit route audits predate this correction
+and use frozen binaries/modules. Logs use `assets/logs/animation-reset-*`.
+
+Validation passes: workspace suite (332 core tests), 20 original-asset web
+regressions, Clippy and both release host builds. Existing serialized flips
+remain intact on load; they are reset only when a script is restarted.
