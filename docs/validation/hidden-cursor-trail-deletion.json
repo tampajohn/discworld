@@ -124,8 +124,8 @@
     "native_tools_build": "passed",
     "production_wasm_build": "passed",
     "replay_wasm_build": "passed",
-    "browser_ui": "running; not counted as passed",
-    "full_routes": "Native, Chrome and WebKit running on frozen f5b9a91 artifacts; not yet counted as passed."
+    "browser_ui": "49 Playwright passed, one known WebKit multi-touch injection skip; four Node tests passed.",
+    "full_routes": "Native, Chrome and WebKit completed; see hidden-trails-route.json."
   },
   "regression": "Deletion survives serialization and later ticks without resurrecting frames; next emission keeps prior ring index and driver position; inventory suppression is retained. Original-asset door test asserts no trails remain while cursor is hidden and control is eventually restored.",
   "scope": "Controlled reference scenes/cursor and resolved actions, not physical input or complete reference coverage. Existing package/full-route results predate this correction; physical iPad acceptance remains open.",
