@@ -180,6 +180,7 @@ pub(crate) enum SceneTask {
     },
     Point,
     Tags,
+    Mover(i32),
 }
 
 #[derive(serde::Serialize, serde::Deserialize, Debug, Clone, PartialEq, Eq)]
@@ -378,6 +379,45 @@ impl Engine {
             .and_then(|hover| hover.display.layout())
     }
 
+    pub(crate) fn mover_tasks(&self) -> Vec<(crate::scheduler::ProcessId, i32)> {
+        self.processes
+            .entries()
+            .filter_map(|(id, p)| match p.scene_task {
+                Some(SceneTask::Mover(actor)) => Some((id, actor)),
+                _ => None,
+            })
+            .collect()
+    }
+    pub(crate) fn clear_mover_tasks(&mut self) {
+        for p in self.processes.states_mut() {
+            if matches!(p.scene_task, Some(SceneTask::Mover(_))) {
+                p.scene_task = None;
+            }
+        }
+    }
+    pub(crate) fn restore_mover_tasks(
+        &mut self,
+        tasks: Vec<(crate::scheduler::ProcessId, i32)>,
+    ) -> Result<(), Error> {
+        if tasks.is_empty() || tasks.len() > 1024 {
+            return Err(Error("invalid mover task count"));
+        }
+        for &(id, actor) in &tasks {
+            let p = self
+                .processes
+                .state_mut(id)
+                .ok_or(Error("missing mover task process"))?;
+            if p != &ScriptProcess::new(Handle(0)) {
+                return Err(Error("invalid mover task process"));
+            }
+            p.scene_task = Some(SceneTask::Mover(actor));
+        }
+        if self.mover_tasks() != tasks {
+            return Err(Error("noncanonical mover task order"));
+        }
+        self.validate_snapshot_structure()
+    }
+
     pub(crate) fn scene_tasks(&self) -> Vec<(crate::scheduler::ProcessId, SceneTask)> {
         self.processes
             .entries()
@@ -397,6 +437,9 @@ impl Engine {
     ) -> Result<(), Error> {
         let expected = tasks.clone();
         for (id, task) in tasks {
+            if matches!(task, SceneTask::Mover(_)) {
+                return Err(Error("mover task requires versioned extension"));
+            }
             let process = self
                 .processes
                 .state_mut(id)
@@ -594,6 +637,7 @@ impl Engine {
         let mut scene_tasks = std::collections::BTreeSet::new();
         let mut scroll_tasks = 0;
         let mut hover_tasks = [0; 2];
+        let mut mover_tasks = std::collections::BTreeSet::new();
         for process in self.processes.states() {
             if let Some(task) = &process.scene_task {
                 let mut expected = ScriptProcess::new(Handle(0));
@@ -602,6 +646,11 @@ impl Engine {
                     return Err(Error("invalid reel task process"));
                 }
                 match task {
+                    SceneTask::Mover(actor) => {
+                        if !self.movers.contains_key(actor) || !mover_tasks.insert(*actor) {
+                            return Err(Error("invalid mover task actor"));
+                        }
+                    }
                     SceneTask::Point | SceneTask::Tags => {
                         hover_tasks[usize::from(matches!(task, SceneTask::Tags))] += 1;
                     }
@@ -1280,6 +1329,20 @@ impl Engine {
                 return Err(Error("duplicate saved mover"));
             }
         }
+        let mut processes = self.processes.clone();
+        let old_tasks: Vec<_> = processes
+            .entries()
+            .filter_map(|(id, p)| matches!(p.scene_task, Some(SceneTask::Mover(_))).then_some(id))
+            .collect();
+        for id in old_tasks {
+            processes.cancel(id)?;
+        }
+        for &(actor, _, _) in &saved.active {
+            let mut process = ScriptProcess::new(Handle(0));
+            process.scene_task = Some(SceneTask::Mover(actor));
+            processes.spawn(Some(self.generation), process)?;
+        }
+        self.processes = processes;
         self.declarations.movers = declarations.movers;
         self.movers = movers;
         self.actors = actors;
@@ -4127,6 +4190,19 @@ impl Engine {
         Ok(Some(reel))
     }
 
+    fn ensure_mover_task(&mut self, actor: i32) -> Result<(), Error> {
+        if !self
+            .processes
+            .states()
+            .any(|p| p.scene_task == Some(SceneTask::Mover(actor)))
+        {
+            let mut process = ScriptProcess::new(Handle(0));
+            process.scene_task = Some(SceneTask::Mover(actor));
+            self.processes.spawn(Some(self.generation), process)?;
+        }
+        Ok(())
+    }
+
     /// Advance one mover at its current dispatch position. Kept separate
     /// from queue traversal so native mover processes can share this behavior.
     fn advance_mover(&mut self, resources: &Resources<'_>, actor: i32) -> Result<(), Error> {
@@ -4190,6 +4266,10 @@ impl Engine {
         strings: Option<&crate::text::Strings<'_>>,
         task: SceneTask,
     ) -> Result<Option<SceneTask>, Error> {
+        if let SceneTask::Mover(actor) = task {
+            self.advance_mover(resources, actor)?;
+            return Ok(Some(task));
+        }
         if matches!(task, SceneTask::Point | SceneTask::Tags) {
             if task == SceneTask::Point {
                 self.point_world(resources)?;
@@ -4213,7 +4293,7 @@ impl Engine {
         }
         let starting = !matches!(task, SceneTask::Active(_));
         let reel = match task {
-            SceneTask::Scroll { .. } | SceneTask::Point | SceneTask::Tags => {
+            SceneTask::Scroll { .. } | SceneTask::Point | SceneTask::Tags | SceneTask::Mover(_) => {
                 unreachable!("scene monitor dispatched above")
             }
             SceneTask::Pending(request) => self.begin_reel(resources, &request, 0)?,
@@ -4566,6 +4646,7 @@ impl Engine {
             crate::mover_reel::Operation::Normal(mover.placement.standing),
         )?;
         self.movers.insert(actor, mover);
+        self.ensure_mover_task(actor)?;
         self.created_reel_movers.insert(actor, reel.playback);
         Ok(())
     }
@@ -4604,6 +4685,14 @@ impl Engine {
     }
     fn disable_actor(&mut self, id: u32) -> Result<(), Error> {
         self.actors.disable(id)?;
+        let tasks: Vec<_> = self
+            .mover_tasks()
+            .into_iter()
+            .filter_map(|(task, actor)| (actor == id as i32).then_some(task))
+            .collect();
+        for task in tasks {
+            self.processes.cancel(task)?;
+        }
         self.movers.remove(&(id as i32));
         self.reel_owners.remove(&(id as i32));
         self.created_reel_movers.remove(&(id as i32));
@@ -4908,6 +4997,13 @@ impl Engine {
         self.migrate_legacy_talk_reels(resources)?;
         let mover_ids: Vec<_> = self.movers.keys().copied().collect();
         for actor in mover_ids {
+            if self
+                .processes
+                .states()
+                .any(|p| p.scene_task == Some(SceneTask::Mover(actor)))
+            {
+                continue;
+            }
             self.advance_mover(resources, actor)?;
         }
         let effect_positions = self
@@ -5114,6 +5210,7 @@ impl Engine {
             )?;
             self.movers
                 .insert(actor, crate::mover::Mover::new(resources, placement)?);
+            self.ensure_mover_task(actor)?;
         }
         self.actors.get_mut(id)?.position = self.movers[&actor].placement.position;
         Ok(())
@@ -6306,6 +6403,7 @@ impl Engine {
                         return Ok(Status::Unsupported(call));
                     }
                     self.actors.get(actor as u32)?;
+                    let newly_created = !self.movers.contains_key(&actor);
                     let mut mover = match self.movers.get(&actor) {
                         Some(mover) => {
                             let mut mover = mover.clone();
@@ -6355,6 +6453,9 @@ impl Engine {
                     let moving = mover.walk_target.is_some();
                     let position = mover.placement.position;
                     self.movers.insert(actor, mover);
+                    if newly_created {
+                        self.ensure_mover_task(actor)?;
+                    }
                     self.acquire_walk_token(actor)?;
                     self.scroll.follow_cursor = false;
                     self.actors.get_mut(actor as u32)?.position = position;
@@ -11953,7 +12054,10 @@ mod tests {
                 .iter()
                 .filter_map(|(_, task)| match task {
                     SceneTask::Restored { actor, .. } => Some(*actor),
-                    SceneTask::Scroll { .. } | SceneTask::Point | SceneTask::Tags => None,
+                    SceneTask::Scroll { .. }
+                    | SceneTask::Point
+                    | SceneTask::Tags
+                    | SceneTask::Mover(_) => None,
                     _ => panic!("expected queued restored actor"),
                 })
                 .collect::<Vec<_>>(),
@@ -12218,7 +12322,7 @@ mod tests {
         let saved = crate::save::Snapshot::capture(&engine, [7; 32])
             .to_bytes()
             .unwrap();
-        assert_eq!(u32::from_le_bytes(saved[8..12].try_into().unwrap()), 21);
+        assert_eq!(u32::from_le_bytes(saved[8..12].try_into().unwrap()), 26);
         let snapshot = crate::save::Snapshot::from_bytes(&saved, [7; 32]).unwrap();
         snapshot.verify_scripts(&resources).unwrap();
         assert_eq!(snapshot.to_bytes().unwrap(), saved);
@@ -12230,6 +12334,9 @@ mod tests {
         assert_eq!(engine.actor_steps[&1], 2);
 
         use sha2::{Digest, Sha256};
+        // Inspect the original reel-task layer inside the new mover wrapper.
+        let (saved, _): (Vec<u8>, Vec<(crate::scheduler::ProcessId, i32)>) =
+            postcard::from_bytes(&saved[80..]).unwrap();
         type Tasks = Vec<(crate::scheduler::ProcessId, SceneTask)>;
         let (inner, tasks, depth): (Vec<u8>, Tasks, [i64; 2]) =
             postcard::from_bytes(&saved[80..]).unwrap();

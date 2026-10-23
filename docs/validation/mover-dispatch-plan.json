@@ -1,5 +1,5 @@
 {
-  "status": "Implementation preparation; scheduler integration not yet applied.",
+  "status": "Scheduler and version26 save implementation applied; see scheduled-movers.json for evidence and remaining acceptance.",
   "runtime_base": "1fb2e26",
   "evidence": [
     "mover-reset-callers.json",

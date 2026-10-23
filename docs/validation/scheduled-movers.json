@@ -1,0 +1,36 @@
+{
+  "runtime_base": "aef3f8a",
+  "change": "Persistent mover scene tasks execute at their scheduler insertion position instead of the legacy global pre-script mover phase.",
+  "save_version": 26,
+  "save_contract": [
+    "Outer wrapper records ordered process IDs and actor IDs. Inner saves retain process placeholders and existing schemas.",
+    "Historical snapshots still decode/re-export unchanged. Movers without a scheduled task retain their legacy phase; explicit player-load migration remains open.",
+    "Reject empty/duplicate/noncanonical task mappings, absent actor/process, recursive wrapper and trailing payload.",
+    "Actor disable cancels its mover task; scene reset cancels scene-owned tasks."
+  ],
+  "reference_capture": "assets/validation/reference-hover-movement1/frames/capture.json",
+  "diagnostic": "assets/validation/scheduled-movers-room2",
+  "comparison": "assets/validation/scheduled-movers-compare2.json",
+  "results": {
+    "reference_frames": 72,
+    "exact_content_matches": 72,
+    "capture_aligned_matches": 72,
+    "first_walk_cycle": 1113,
+    "path_completion_cycle": 1124,
+    "standing_reset_and_step_cycle": 1125,
+    "first_rendered_cycle_both_hosts": 1257
+  },
+  "checks": [
+    "Workspace release tests pass (360 core tests;2 opt-in tests ignored).",
+    "All25 original-asset browser-core tests pass.",
+    "Workspace all-target Clippy and browser WASM checking pass.",
+    "72 full runtime save/load and next-tick equality checks pass in original-room diagnostic.",
+    "Explicit reference walking/completion/standing-clock assertions pass.",
+    "Native/tools release build passes."
+  ],
+  "remaining": [
+    "Full-route checks and updated native/browser packages for this runtime.",
+    "Explicit legacy player-load mover scheduling migration.",
+    "Other original reference timing/fidelity checks, visible session and physical iPad acceptance remain open."
+  ]
+}

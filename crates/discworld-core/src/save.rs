@@ -30,6 +30,7 @@ const RESTORED_REEL_VERSION: u32 = 22;
 const SCROLL_TASK_VERSION: u32 = 23;
 const WORLD_HOVER_VERSION: u32 = 24;
 const CURSOR_TRAILS_VERSION: u32 = 25;
+const MOVER_TASK_VERSION: u32 = 26;
 const HEADER: usize = 80;
 pub const MAX_SAVE_BYTES: usize = 16 * 1024 * 1024;
 
@@ -148,6 +149,24 @@ impl Snapshot {
 
     pub fn to_bytes(&self) -> Result<Vec<u8>, Error> {
         self.state.validate_snapshot_structure()?;
+        let mover_tasks = self.state.mover_tasks();
+        if !mover_tasks.is_empty() {
+            let mut legacy = self.clone();
+            legacy.state.clear_mover_tasks();
+            let payload = postcard::to_allocvec(&(legacy.to_bytes()?, mover_tasks))
+                .map_err(|_| Error("snapshot mover tasks encode failed"))?;
+            if payload.len() > MAX_SAVE_BYTES - HEADER {
+                return Err(Error("save size limit"));
+            }
+            let mut bytes = Vec::with_capacity(HEADER + payload.len());
+            bytes.extend_from_slice(MAGIC);
+            bytes.extend_from_slice(&MOVER_TASK_VERSION.to_le_bytes());
+            bytes.extend_from_slice(&self.asset_id);
+            bytes.extend_from_slice(&(payload.len() as u32).to_le_bytes());
+            bytes.extend_from_slice(&Sha256::digest(&payload));
+            bytes.extend_from_slice(&payload);
+            return Ok(bytes);
+        }
         if let Some(trails) = &self.state.cursor_trails {
             let mut legacy = self.clone();
             legacy.state.cursor_trails = None;
@@ -532,6 +551,7 @@ impl Snapshot {
             SCROLL_TASK_VERSION,
             WORLD_HOVER_VERSION,
             CURSOR_TRAILS_VERSION,
+            MOVER_TASK_VERSION,
         ]
         .contains(&word(8))
         {
@@ -546,6 +566,21 @@ impl Snapshot {
         }
         if Sha256::digest(payload)[..] != bytes[48..80] {
             return Err(Error("save checksum mismatch"));
+        }
+        if word(8) == MOVER_TASK_VERSION {
+            type Tasks = Vec<(crate::scheduler::ProcessId, i32)>;
+            let ((legacy, tasks), remaining) =
+                postcard::take_from_bytes::<(Vec<u8>, Tasks)>(payload)
+                    .map_err(|_| Error("invalid snapshot mover tasks payload"))?;
+            if !remaining.is_empty()
+                || legacy.len() < HEADER
+                || u32::from_le_bytes(legacy[8..12].try_into().unwrap()) > CURSOR_TRAILS_VERSION
+            {
+                return Err(Error("invalid snapshot mover tasks extension"));
+            }
+            let mut snapshot = Self::from_bytes(&legacy, asset_id)?;
+            snapshot.state.restore_mover_tasks(tasks)?;
+            return Ok(snapshot);
         }
         if word(8) == CURSOR_TRAILS_VERSION {
             let ((legacy, trails), remaining) =

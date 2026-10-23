@@ -39,7 +39,7 @@
     ]
   },
   "remaining": [
-    "Full-route regression for this constructor change.",
+    "Full-route native/Chrome/WebKit regression passed; see hidden-standing-route.json.",
     "Resolve mover reset/step scheduling gap.",
     "Refresh verified hosts and visible session; retain full goal acceptance requirements."
   ]

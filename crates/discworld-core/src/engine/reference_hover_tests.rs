@@ -87,6 +87,23 @@ fn capture_original_debug_room_hover() {
             ));
         }
         let tick = engine.ticks + 1;
+        if !direct_entry {
+            // Original read-only cycle snapshots and StepAnimScript trace:
+            // SWALK advances in its caller's cycle and completes on re-entry.
+            if tick == 1114 {
+                assert_eq!(engine.movers[&7].placement.position, [244, 178]);
+            }
+            if tick == 1125 {
+                assert_eq!(engine.movers[&7].placement.position, [200, 178]);
+                assert_eq!(engine.movers[&7].walk_target, None);
+            }
+            if tick == 1126 {
+                assert_eq!(
+                    engine.movers[&7].animation.diagnostic_clock(),
+                    (349552, 1, 2, 1)
+                );
+            }
+        }
         if (1108..=1130).contains(&tick) {
             let mover = &engine.movers[&7];
             let target = mover
@@ -125,6 +142,7 @@ fn capture_original_debug_room_hover() {
             // trail component's serde representation.
             let mut legacy_engine = engine.clone();
             legacy_engine.cursor_trails = None;
+            legacy_engine.clear_mover_tasks();
             let legacy_bytes = crate::save::Snapshot::capture(&legacy_engine, [7; 32])
                 .to_bytes()
                 .unwrap();
@@ -136,7 +154,7 @@ fn capture_original_debug_room_hover() {
                 .unwrap();
             assert_eq!(
                 u32::from_le_bytes(save_bytes[8..12].try_into().unwrap()),
-                25
+                26
             );
             let decoded = crate::save::Snapshot::from_bytes(&save_bytes, [7; 32]).unwrap();
             assert_eq!(decoded.to_bytes().unwrap(), save_bytes);
@@ -161,7 +179,7 @@ fn capture_original_debug_room_hover() {
                     .unwrap()
             );
             if rows.is_empty() {
-                std::fs::write(directory.join("trail-state-v25.dws"), &save_bytes).unwrap();
+                std::fs::write(directory.join("mover-state-v26.dws"), &save_bytes).unwrap();
                 let mut input = engine.clone();
                 input
                     .cursor_trails
@@ -235,11 +253,16 @@ fn capture_original_debug_room_hover() {
                         .to_bytes()
                         .is_err()
                 );
+                let mut trail_engine = saved_engine.clone();
+                trail_engine.clear_mover_tasks();
+                let trail_bytes = crate::save::Snapshot::capture(&trail_engine, [7; 32])
+                    .to_bytes()
+                    .unwrap();
                 // An extension may not recursively contain itself, and trailing
                 // bytes must be rejected even with a valid envelope checksum.
                 for nested in [true, false] {
                     let (mut inner, state): (Vec<u8>, crate::cursor_trails::Trails) =
-                        postcard::from_bytes(&save_bytes[80..]).unwrap();
+                        postcard::from_bytes(&trail_bytes[80..]).unwrap();
                     if nested {
                         inner[8..12].copy_from_slice(&25u32.to_le_bytes());
                     }
@@ -247,11 +270,37 @@ fn capture_original_debug_room_hover() {
                     if !nested {
                         payload.push(0);
                     }
-                    let mut malformed = save_bytes[..80].to_vec();
+                    let mut malformed = trail_bytes[..80].to_vec();
                     malformed[44..48].copy_from_slice(&(payload.len() as u32).to_le_bytes());
                     malformed[48..80].copy_from_slice(&Sha256::digest(&payload));
                     malformed.extend(payload);
                     assert!(crate::save::Snapshot::from_bytes(&malformed, [7; 32]).is_err());
+                }
+                // The outer mover wrapper must reject empty/duplicate actors,
+                // absent processes/actors, recursive nesting and trailing bytes.
+                for case in 0..6 {
+                    let (mut inner, mut tasks): (Vec<u8>, Vec<(crate::scheduler::ProcessId, i32)>) =
+                        postcard::from_bytes(&save_bytes[80..]).unwrap();
+                    match case {
+                        0 => tasks.clear(),
+                        1 => tasks.push(tasks[0]),
+                        2 => tasks[0].1 = i32::MAX,
+                        3 => inner[8..12].copy_from_slice(&26u32.to_le_bytes()),
+                        4 => tasks[0].0 = postcard::from_bytes(&[0]).unwrap(),
+                        _ => (),
+                    }
+                    let mut payload = postcard::to_allocvec(&(inner, tasks)).unwrap();
+                    if case == 5 {
+                        payload.push(0);
+                    }
+                    let mut malformed = save_bytes[..80].to_vec();
+                    malformed[44..48].copy_from_slice(&(payload.len() as u32).to_le_bytes());
+                    malformed[48..80].copy_from_slice(&Sha256::digest(&payload));
+                    malformed.extend(payload);
+                    assert!(
+                        crate::save::Snapshot::from_bytes(&malformed, [7; 32]).is_err(),
+                        "mover extension case {case}"
+                    );
                 }
             }
             let rgb: Vec<_> = surface
