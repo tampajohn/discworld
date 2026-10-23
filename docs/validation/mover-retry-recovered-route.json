@@ -1,0 +1,53 @@
+{
+  "runtime_revision": "bad0d45",
+  "binary_sha256": "bd713d1eea334ed44894ccf990cbdf0c14e7d71b9552890d231c67519c8d7eb3",
+  "trace_sha256": "95e5cb3b9d44015a50b18cbba05dbf3b76051c3a892e37d545b16bb347365551",
+  "scope": "Full revised ordinary-input route, including discovery/return/retry of the timed visitor sequence, with same-tick stationary mover retry and version26 saves.",
+  "ticks": 2635725,
+  "scene": "title.scn",
+  "status": "Running",
+  "has_restarted": true,
+  "accepted_inputs": 1657,
+  "engine_snapshot_checks": 5065,
+  "audio_snapshot_checks": 5065,
+  "frozen_web_files_verified": 17,
+  "final_png_inspected": true,
+  "comparisons": {
+    "chrome": {
+      "ticks": 2635725,
+      "ticks_equal": true,
+      "native_status": "Running",
+      "scene": "title.scn",
+      "scene_equal": true,
+      "has_restarted": true,
+      "restart_equal": true,
+      "accepted_inputs": 1657,
+      "native_inputs": 1657,
+      "native_inputs_accepted": true,
+      "engine_bytes_equal": true,
+      "rgba_equal": true,
+      "combined_save_equal": false,
+      "core_sha256": "28d7ec04aa0baf016602f520660ff15f3a95d73bf352bd29836f66c1749ed093",
+      "audio_scope": "WASM checked for finite samples; cross-platform audio equality not established"
+    },
+    "webkit": {
+      "ticks": 2635725,
+      "ticks_equal": true,
+      "native_status": "Running",
+      "scene": "title.scn",
+      "scene_equal": true,
+      "has_restarted": true,
+      "restart_equal": true,
+      "accepted_inputs": 1657,
+      "native_inputs": 1657,
+      "native_inputs_accepted": true,
+      "engine_bytes_equal": true,
+      "rgba_equal": true,
+      "combined_save_equal": false,
+      "core_sha256": "28d7ec04aa0baf016602f520660ff15f3a95d73bf352bd29836f66c1749ed093",
+      "audio_scope": "WASM checked for finite samples; cross-platform audio equality not established"
+    }
+  },
+  "input": "evidence/mover-retry-recovered-input.json",
+  "limitations": "Resolved-input route; does not establish full original-reference fidelity or physical iPad/visible native acceptance. Combined DSP saves differ; acoustic equality is not established."
+}

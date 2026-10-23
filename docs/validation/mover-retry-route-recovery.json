@@ -22,7 +22,7 @@
   "full_candidate_sha256": "95e5cb3b9d44015a50b18cbba05dbf3b76051c3a892e37d545b16bb347365551",
   "full_candidate_inputs": 1657,
   "full_candidate_end_tick": 2635725,
-  "scope": "Short recovery succeeds through brotherhood/dragon cutscenes. Entire revised start-to-credits route still unverified.",
+  "scope": "Recovery and entire revised route now pass on native, Chrome and WebKit; see mover-retry-recovered-route.json for final-state equality and limitations.",
   "full_audits": {
     "directory": "assets/validation/mover-retry-recovered-bad0d45",
     "runtime": "bad0d45",
@@ -31,6 +31,7 @@
       "chrome",
       "webkit"
     ],
-    "status": "running; not counted as passed"
+    "status": "completed; all three hosts exit0, final engine bytes and RGBA match",
+    "evidence": "docs/validation/mover-retry-recovered-route.json"
   }
 }

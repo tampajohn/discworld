@@ -1,0 +1,19 @@
+{
+  "runtime": "bad0d45",
+  "status": "diagnostic precondition failed; no overlay comparison claimed",
+  "attempts": [
+    {
+      "directory": "assets/validation/rust-arch-inventory1",
+      "log": "assets/logs/rust-arch-inventory1.log",
+      "result": "Control remains disabled at elapsed468 after Escape at460; inventory dispatch was not attempted."
+    },
+    {
+      "directory": "assets/validation/rust-arch-inventory-timing1",
+      "log": "assets/logs/rust-arch-inventory-timing1.log",
+      "result": "No enabled-control tick from elapsed468 through the 2000-frame capture; adaptive inventory dispatch never ran and final inventory assertion failed."
+    }
+  ],
+  "probe_patch": "assets/logs/arch-inventory-timing-probe.patch",
+  "production_change": false,
+  "next_step": "Inspect original entry conversation and its required player responses before choosing a valid inventory-opening point. Do not bypass control or force inventory open to claim a gameplay overlay test."
+}
