@@ -28,14 +28,23 @@
       "served_from": "Extracted static package outside checkout",
       "log_sha256": "9dbe0f5e6c07760d25242b589cdc7faedc705449bbe479b4a346b8b6134f3de7",
       "scope": "Existing UI suite: menus, saves, inventory, lifecycle, audio and tablet viewport. Not full-route or physical-device acceptance."
+    },
+    "native_route": {
+      "accepted_inputs": 1652,
+      "last_input_tick": 2601000,
+      "preparation_ticks": 2630000,
+      "presentation_frames": 30,
+      "final_tick": 2630013,
+      "scene": "title.scn",
+      "stopped": false,
+      "exit_code": 0,
+      "log_sha256": "7c135ee62fd32c5760a766cb0a3ff849cc0ab9aebd89e79d313131500e492ded",
+      "scope": "Extracted packaged executable, original route through accelerated native preparation, then muted SDL dummy-video host loop. No snapshot audits or device interaction in this run."
     }
-  },
-  "pending_acceptance": {
-    "native": "Full recorded route through extracted executable using --from-tick 2630000, then 30 SDL dummy-video frames."
   },
   "local_artifacts": "assets/validation/package-d39a279",
   "limits": [
-    "Package integrity does not establish gameplay or UI acceptance. Running checks are not reported as passed.",
+    "Recorded native route and existing browser UI suite passed; no full browser route in this package audit.",
     "Physical iPad, visible native interaction and device audio remain unverified.",
     "No Finder app, notarization or Intel delivery. Existing visible session not restarted."
   ]

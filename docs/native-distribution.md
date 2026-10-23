@@ -49,5 +49,9 @@ scripted subtitle handling. All manifested file hashes and its exact source
 archive were verified after extraction outside the checkout; executable
 permissions and strict signature verification pass. See
 [package evidence](validation/packages-d39a279.json) for size and SHA-256.
-The full recorded-route run of this extracted executable is pending; integrity
-checks alone do not establish gameplay acceptance.
+The extracted executable accepted all 1,652 recorded inputs through tick
+2,630,000, then ran 30 muted SDL dummy-video presentation frames and exited
+with tick 2,630,013, title.scn, stopped=false. This validates accelerated native
+route preparation and the headless host loop; it is not visible interaction,
+device audio, or a snapshot audit. The later internal/restored-film creation
+correction at 9ba83fb is not included in this package.
