@@ -44,6 +44,14 @@ Keep the user's visible native session current with newly verified engine builds
 
 ## Current progress (2026-10-22)
 
+Continued movement under PLAY at `a768ad9` completed the recorded native
+route: all 1,652 inputs accepted, 5,048 engine and 5,048 audio continuation
+checks, and restart/title at tick 2,630,000. See
+[PLAY movement route evidence](validation/play-movement-a768ad9.json). This
+run predates the STAND visibility correction and SPLAY infrastructure. SPLAY
+has a tested restoration helper and v19 save metadata; dispatch and cleanup
+lifecycle integration are still outstanding.
+
 WALKPOLY runtime `b692a3b` completed the recorded native route through title
 restart at tick 2,630,000, accepting all 1,652 inputs and passing 5,048 engine
 and 5,048 audio snapshot checks. See [route evidence](validation/walkpoly-b692a3b.json).

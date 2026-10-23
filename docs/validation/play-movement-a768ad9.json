@@ -1,0 +1,26 @@
+{
+  "runtime_revision": "a768ad95b174a510f871df352093d2da182cb6e8",
+  "route": "evidence/act4-ending-input.json",
+  "route_sha256": "30c227553695638a78495f4cf56731f841e89188c8faa75821e50c164ddf4ddb",
+  "binary_sha256": "c3548f7eaa799c2ea33fd659d80342a141d74f2a97be0a48e0884e4aac8bbea3",
+  "schema": 1,
+  "local_artifacts": "assets/validation/play-movement-a768ad9",
+  "native": {
+    "ticks": 2630000,
+    "status": "Running",
+    "scene_name": "title.scn",
+    "has_restarted": true,
+    "snapshot_checks": 5048,
+    "audio_snapshot_checks": 5048,
+    "snapshot_max_bytes": 48155,
+    "audio_snapshot_max_bytes": 317221,
+    "accepted_inputs": 1652,
+    "core_sha256": "d4a60d7dd6637c3c8f5cd5131b29868e40afd06f45559e7cd8dafa42711de4eb",
+    "report_sha256": "0d56aa96e4af901e4e12f18a7bf4dffb9e83a33f571eb0649a81f03aec7a8763"
+  },
+  "scope": [
+    "Recorded native full route; no additional PLAY or SPLAY inputs.",
+    "Includes continued movement under PLAY; predates STAND visibility correction and SPLAY infrastructure.",
+    "Final title image inspected. Not manual UI, browser or physical iPad acceptance."
+  ]
+}
