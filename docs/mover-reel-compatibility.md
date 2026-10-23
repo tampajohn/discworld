@@ -888,3 +888,27 @@ engine bytes match the preceding 6167511 audit. See
 automatic mover-creation implementation and implicit film-position correction,
 but adds no special mover-creation interactions to the route. Alternate paths,
 live-reference comparisons and physical iPad acceptance remain separate.
+
+
+## Internal playback and restored actor reels
+
+The mover-creation hook now also runs after successful claims in `launch_film`
+and `restore_actor_reel`. The first path launches dialogue films and restores
+normal films after speech; the second recreates a saved actor column during
+scene restoration. Pinned `PlayFilm` and V1 `RestoreActorReels` both enter the
+same `t1PlayReel` initialization, including Stand(MAGICX, MAGICY, TF_NONE)
+for a declared mover that has no object yet. Restricting that initialization
+to script PLAY/SPLAY/TOPPLAY left these two paths inconsistent.
+
+The regression failed before the hook was connected and passes afterward.
+Both paths check initialized sentinel position and visibility, the creation
+generation, duplicate/dead-actor rejection, exact save encoding and next-tick
+continuation, and cleanup on actor removal. Restored reels preserve explicit
+position and depth, and invalid mover resources leave the public restoration
+operation unchanged. This focused coverage does not establish every dialogue
+sequence or mixed-column timing. Logs use `assets/logs/internal-film-creation-*`.
+The d39a279 packaged-host checks predate this correction.
+
+Validation passes: workspace suite (331 core tests), all 20 original-asset web
+tests, Clippy, and native/browser release builds. The focused test's pre-fix
+failure and post-fix success are retained in the local logs.

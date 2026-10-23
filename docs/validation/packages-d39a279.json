@@ -18,11 +18,20 @@
   "checks": {
     "manifest_hashes": "Every extracted file matched its manifest SHA-256; no unmanifested archive files except manifest.json.",
     "source_archive": "Both source.tar.gz files matched a fresh git archive of the pinned revision byte-for-byte.",
-    "native_binary": "Extracted outside checkout, executable permission retained, strict codesign verified; packaging checked arm64 architecture and system-only linked dependencies."
+    "native_binary": "Extracted outside checkout, executable permission retained, strict codesign verified; packaging checked arm64 architecture and system-only linked dependencies.",
+    "browser": {
+      "playwright_passed": 44,
+      "browsers": [
+        "Chrome",
+        "WebKit"
+      ],
+      "served_from": "Extracted static package outside checkout",
+      "log_sha256": "9dbe0f5e6c07760d25242b589cdc7faedc705449bbe479b4a346b8b6134f3de7",
+      "scope": "Existing UI suite: menus, saves, inventory, lifecycle, audio and tablet viewport. Not full-route or physical-device acceptance."
+    }
   },
   "pending_acceptance": {
-    "native": "Full recorded route through extracted executable using --from-tick 2630000, then 30 SDL dummy-video frames.",
-    "browser": "44 existing Playwright Chrome/WebKit tests served from extracted static package."
+    "native": "Full recorded route through extracted executable using --from-tick 2630000, then 30 SDL dummy-video frames."
   },
   "local_artifacts": "assets/validation/package-d39a279",
   "limits": [

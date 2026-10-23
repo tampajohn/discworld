@@ -478,6 +478,7 @@ runtime integration. Physical-device acceptance remains outstanding.
 `assets/packages/discworld-web-d39a279.zip` contains runtime d39a279. All
 manifested files and the exact source archive pass hash checks after extraction
 outside the checkout. See [package evidence](validation/packages-d39a279.json).
-The complete Chrome/WebKit UI suite is running against an HTTP server rooted
-in that extracted package, rather than the checkout's web directory. Its result
-is pending; no physical iPad acceptance is inferred.
+All 44 Chrome/WebKit UI cases pass against an HTTP server rooted in that
+extracted package. Hashes were rechecked after the tests. This covers existing
+menu, save/load, inventory, lifecycle, audio and tablet-viewport regressions,
+not a browser full-route replay or physical iPad acceptance.

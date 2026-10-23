@@ -1239,6 +1239,7 @@ impl Engine {
         next.schedule_actor_film(actor, source.film);
         let started = next.playback.start(actor, source.film) && next.claim_reel(&mut reel)?;
         if started {
+            next.create_claimed_mover(resources, &reel)?;
             next.films.push(reel);
         }
         *self = next;
@@ -3574,6 +3575,7 @@ impl Engine {
         }
         for mut reel in reels {
             if self.playback.start(reel.object.id, film) && self.claim_reel(&mut reel)? {
+                self.create_claimed_mover(resources, &reel)?;
                 self.films.push(reel);
             }
         }
@@ -12519,6 +12521,100 @@ mod tests {
             assert_eq!(engine, restored);
         }
     }
+    #[test]
+    fn internal_and_restored_films_create_declared_movers() {
+        let (master, scene) = fixtures();
+        let base = 2u32 << 23;
+        let mut film = vec![0; 64];
+        for (at, word) in [
+            (0, 24u32),
+            (4, 1),
+            (8, base + 24),
+            (12, base + 48),
+            (32, 1),
+            (48, 10),
+            (52, 1),
+            (56, (-2i32) as u32),
+        ] {
+            film[at..at + 4].copy_from_slice(&word.to_le_bytes());
+        }
+        let resources = Resources(vec![&master, &scene, &film]);
+        for restoring in [false, true] {
+            for rejected in [false, true] {
+                let mut engine = Engine::bootstrap(&resources).unwrap();
+                engine.processes = Scheduler::default();
+                engine.master_stopped = true;
+                engine.actors = crate::actor::Actors::new(1).unwrap();
+                engine
+                    .declarations
+                    .movers
+                    .insert(1, [[Handle(base); 12]; 10]);
+                if rejected {
+                    engine.actors.disable(1).unwrap();
+                }
+                let source = crate::animation::ReelSource {
+                    film: Handle(base),
+                    column: 0,
+                    position: [12, 34],
+                    depth: 4321,
+                };
+                let start = |engine: &mut Engine| {
+                    if restoring {
+                        engine
+                            .restore_actor_reel(&resources, 1, &source)
+                            .map(|_| ())
+                    } else {
+                        engine.launch_film(&resources, Handle(base))
+                    }
+                };
+                if restoring && !rejected {
+                    let mut invalid = engine.clone();
+                    invalid
+                        .declarations
+                        .movers
+                        .insert(1, [[Handle(u32::MAX); 12]; 10]);
+                    let before = invalid.clone();
+                    assert!(start(&mut invalid).is_err());
+                    assert_eq!(invalid, before, "failed restored creation is atomic");
+                }
+                start(&mut engine).unwrap();
+                if rejected {
+                    assert!(engine.movers.is_empty());
+                    assert!(engine.created_reel_movers.is_empty());
+                    assert!(engine.films.is_empty());
+                    continue;
+                }
+                assert_eq!(engine.movers[&1].placement.position, [-101, -102]);
+                assert!(!engine.movers[&1].hidden);
+                assert!(engine.movers[&1].reel_state.is_some());
+                assert_eq!(engine.created_reel_movers[&1], engine.films[0].playback);
+                let reel = &engine.films[0];
+                assert_eq!(
+                    [reel.object.x, reel.object.y],
+                    if restoring { [12, 34] } else { [0, 0] }
+                );
+                if restoring {
+                    assert_eq!(reel.object.z, 4321);
+                }
+                let before = engine.clone();
+                start(&mut engine).unwrap();
+                assert_eq!(engine, before, "duplicate must preserve the new mover");
+                let bytes = crate::save::Snapshot::capture(&engine, [7; 32])
+                    .to_bytes()
+                    .unwrap();
+                let decoded = crate::save::Snapshot::from_bytes(&bytes, [7; 32]).unwrap();
+                assert_eq!(decoded.to_bytes().unwrap(), bytes);
+                let mut restored = decoded.state().clone();
+                engine.tick(&resources).unwrap();
+                restored.tick(&resources).unwrap();
+                assert_eq!(engine, restored);
+                assert!(!engine.movers[&1].hidden);
+                engine.disable_actor(1).unwrap();
+                assert!(engine.created_reel_movers.is_empty());
+            }
+        }
+    }
+
     #[test]
     fn film_creation_respects_escape_lifetime_arbitration_and_duplicates() {
         let base = 2u32 << 23;
