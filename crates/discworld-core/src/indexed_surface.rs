@@ -152,6 +152,48 @@ impl IndexedSurface {
 mod tests {
     use super::*;
     #[test]
+    #[ignore = "requires DISCWORLD_REFERENCE_BACKDROPS original WrtTrans capture"]
+    fn original_inventory_backdrop_pixels() {
+        let directory =
+            std::path::PathBuf::from(std::env::var_os("DISCWORLD_REFERENCE_BACKDROPS").unwrap());
+        let mut checked = 0;
+        for entry in std::fs::read_dir(&directory).unwrap() {
+            let entry = entry.unwrap();
+            let name = entry.file_name();
+            let Some(stem) = name.to_str().unwrap().strip_suffix(".before.idx") else {
+                continue;
+            };
+            let before = std::fs::read(entry.path()).unwrap();
+            let after = std::fs::read(directory.join(format!("{stem}.after.idx"))).unwrap();
+            assert_eq!(before.len(), 320 * 200);
+            assert_eq!(after.len(), 320 * 200);
+            let lookup = std::fs::read(directory.join(format!("{stem}.table"))).unwrap();
+            let bounds = std::fs::read(directory.join(format!("{stem}.bounds"))).unwrap();
+            assert_eq!(bounds.len(), 16);
+            let bounds = std::array::from_fn(|i| {
+                i32::from_le_bytes(bounds[i * 4..i * 4 + 4].try_into().unwrap())
+            });
+            let mut surface = IndexedSurface {
+                width: 320,
+                height: 200,
+                pixels: before,
+            };
+            surface
+                .translucent_rect(
+                    &Translucency {
+                        lookup: lookup.try_into().unwrap(),
+                    },
+                    bounds,
+                )
+                .unwrap();
+            assert_eq!(surface.pixels(), after, "reference backdrop {stem}");
+            checked += 1;
+        }
+        assert!(checked > 0, "no reference backdrop pairs found");
+        println!("Matched {checked} original WrtTrans framebuffer pairs");
+    }
+
+    #[test]
     fn translucent_thresholds_and_shorter_palette_preserve_reference_state() {
         let mut table = Translucency::default();
         let colors = [0, 62, 63, 125, 126, 188, 189, 251, 252, 255].map(|v| [0, v, 0]);

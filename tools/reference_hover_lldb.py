@@ -5,6 +5,8 @@ scene-entry/cursor functions. It records every invocation and does not claim
 ordinary player-input equivalence. Frame reads use the passive capture helper.
 """
 import json
+import struct
+import hashlib
 import os
 from pathlib import Path
 import sys
@@ -31,6 +33,9 @@ LOOK = os.environ.get("DISCWORLD_REFERENCE_LOOK") == "1"
 WALK = os.environ.get("DISCWORLD_REFERENCE_WALK") == "1"
 WALK_FROM_ACTOR = os.environ.get("DISCWORLD_REFERENCE_WALK_FROM_ACTOR") == "1"
 WALK_DELAY = int(os.environ.get("DISCWORLD_REFERENCE_WALK_DELAY", "1"))
+TRACE_BACKDROP = os.environ.get("DISCWORLD_REFERENCE_TRACE_BACKDROP") == "1"
+BACKDROP_PENDING = None
+BACKDROPS = []
 START = None
 ACTIONS = []
 PENDING = []
@@ -312,10 +317,81 @@ def animation_step(frame, location, dictionary):
         return True
 
 
+def backdrop_before(frame, location, dictionary):
+    global BACKDROP_PENDING
+    if not 4000 <= frames.CYCLES <= 4023:
+        return False
+    try:
+        if BACKDROP_PENDING is not None:
+            raise RuntimeError('nested translucent rectangle capture')
+        target = frame.GetThread().GetProcess().GetTarget()
+        process = frame.GetThread().GetProcess()
+        surface = target.FindFirstGlobalVariable('Tinsel::_vm').Dereference().GetChildMemberWithName('_screenSurface')
+        base = frames.unsigned(surface.GetChildMemberWithName('pixels'))
+        pitch = frames.unsigned(surface.GetChildMemberWithName('pitch'))
+        if pitch != 320:
+            raise RuntimeError('unexpected backdrop pitch')
+        obj = frame.FindVariable('pObj').Dereference()
+        width = obj.GetChildMemberWithName('width').GetValueAsSigned()
+        height = obj.GetChildMemberWithName('height').GetValueAsSigned()
+        if frames.unsigned(frame.FindVariable('applyClipping')):
+            width -= sum(obj.GetChildMemberWithName(n).GetValueAsSigned() for n in ['leftClip', 'rightClip'])
+            height -= sum(obj.GetChildMemberWithName(n).GetValueAsSigned() for n in ['topClip', 'botClip'])
+        offset = frames.unsigned(frame.FindVariable('destP')) - base
+        x, y = offset % 320, offset // 320
+        if not (0 < width <= 320 - x and 0 < height <= 200 - y and y >= 0):
+            raise RuntimeError(f'unexpected backdrop bounds: {x,y,width,height}')
+        table = target.FindFirstGlobalVariable('Tinsel::g_transPalette')
+        lookup = frames.read(process, table.GetLoadAddress(), 256)
+        before = frames.read(process, base, 64000)
+        stem = f'backdrop-{len(BACKDROPS):04d}'
+        (frames.OUTPUT / (stem + '.before.idx')).write_bytes(before)
+        (frames.OUTPUT / (stem + '.table')).write_bytes(lookup)
+        (frames.OUTPUT / (stem + '.bounds')).write_bytes(struct.pack('<4i', x, y, width, height))
+        BACKDROP_PENDING = dict(stem=stem, cycle=frames.CYCLES, bounds=[x,y,width,height], base=base,
+                               before=before, lookup=lookup)
+        return False
+    except Exception as error:
+        frames.FAILURES.append(str(error))
+        return True
+
+
+def backdrop_after(frame, location, dictionary):
+    global BACKDROP_PENDING
+    if BACKDROP_PENDING is None:
+        return False
+    try:
+        record = BACKDROP_PENDING
+        after = frames.read(frame.GetThread().GetProcess(), record.pop('base'), 64000)
+        before, lookup = record.pop('before'), record.pop('lookup')
+        expected = bytearray(before)
+        x,y,width,height = record['bounds']
+        for yy in range(y,y+height):
+            for xx in range(x,x+width):
+                at = yy*320+xx
+                expected[at] = lookup[before[at]]
+        (frames.OUTPUT / (record['stem'] + '.after.idx')).write_bytes(after)
+        record.update(before_sha256=hashlib.sha256(before).hexdigest(), after_sha256=hashlib.sha256(after).hexdigest(),
+                      table_sha256=hashlib.sha256(lookup).hexdigest(), mapped_pixels=sum(a!=b for a,b in zip(before,after)),
+                      lookup_exact=after==expected)
+        BACKDROPS.append(record)
+        BACKDROP_PENDING = None
+        if not record['lookup_exact']:
+            raise RuntimeError('original backdrop differs from observed lookup mapping')
+        return False
+    except Exception as error:
+        frames.FAILURES.append(str(error))
+        return True
+
+
 def finish(debugger):
     frames.finish(debugger)
     path = frames.OUTPUT / 'capture.json'
     report = json.loads(path.read_text())
+    report['backdrops'] = BACKDROPS
+    if BACKDROP_PENDING is not None:
+        report['errors'].append('unfinished backdrop capture')
+        report['complete'] = False
     report.update(scope='Controlled original debug scene entry, logical driver writes and original DoCursorMove; not normal host input or full gameplay equivalence.',
                   arch_inventory=ARCH_INVENTORY, injected_actions=ACTIONS, hover_start_cycle=START, inventory_diagnostic=INVENTORY, arch_skip=ARCH_SKIP, arch_entry=ARCH_ENTRY, university_retarget=UNIVERSITY_RETARGET, university_walk=UNIVERSITY_WALK, inventory_drag=INVENTORY_DRAG, door_exit=DOOR_EXIT, door_action=DOOR_ACTION, resize_delta=RESIZE_DELTA, resize_corner=RESIZE_CORNER, inventory_resize=INVENTORY_RESIZE, inventory_fixed_corner=INVENTORY_FIXED_CORNER, look_diagnostic=LOOK, walk_diagnostic=WALK, walk_delay=WALK_DELAY, walk_from_actor=WALK_FROM_ACTOR)
     path.write_text(json.dumps(report, indent=2) + '\n')
@@ -336,6 +412,9 @@ def __lldb_init_module(debugger, dictionary):
         (target.BreakpointCreateByLocation('sound.cpp', 165), __name__ + '.sample_pcm'),
         (target.BreakpointCreateByName('Tinsel::SoundManager::stopAllSamples'), __name__ + '.samples_stop'),
     ]
+    if TRACE_BACKDROP:
+        points.extend([(target.BreakpointCreateByName('Tinsel::WrtTrans'), __name__ + '.backdrop_before'),
+                       (target.BreakpointCreateByLocation('graphics.cpp', 1262), __name__ + '.backdrop_after')])
     for bp, callback in points:
         if bp.GetNumLocations() != 1:
             raise RuntimeError(f'nonunique hover breakpoint: {callback}')
