@@ -97,7 +97,8 @@ fn capture_original_debug_room_hover() {
     }
     let inventory_mode = inventory_drag || std::env::var_os("DISCWORLD_HOVER_INVENTORY").is_some();
     let university_retarget = std::env::var_os("DISCWORLD_HOVER_UNIVERSITY_RETARGET").is_some();
-    let arch_entry = std::env::var_os("DISCWORLD_HOVER_ARCH_ENTRY").is_some();
+    let arch_skip = std::env::var_os("DISCWORLD_HOVER_ARCH_SKIP").is_some();
+    let arch_entry = arch_skip || std::env::var_os("DISCWORLD_HOVER_ARCH_ENTRY").is_some();
     let university_walk = arch_entry
         || university_retarget
         || std::env::var_os("DISCWORLD_HOVER_UNIVERSITY_WALK").is_some();
@@ -166,6 +167,13 @@ fn capture_original_debug_room_hover() {
         }
         if let Some(start) = start {
             let elapsed = engine.ticks - start;
+            if arch_skip && elapsed == 460 {
+                assert!(
+                    engine.sample_player.id.is_some(),
+                    "skip during active speech"
+                );
+                engine.escape_input(&resources, &strings, &[]).unwrap();
+            }
             if arch_entry && elapsed == 240 {
                 assert_eq!(index[engine.scene.resource()].name, "unseen.scn");
                 assert!(
