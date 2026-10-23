@@ -1,0 +1,53 @@
+{
+  "reference_revision": "96b42d42bc8533953bdd701db059cc33c839a9ff",
+  "scope": "Timed world-click target fidelity with controlled room entry/cursor injection. Not ordinary SDL input acceptance or full-game reference parity.",
+  "reference_click": {
+    "cycle": 1257,
+    "expression": "Tinsel::PlayerEvent((Tinsel::PLR_EVENT)1, Tinsel::_vm->_mousePos)",
+    "error": "success",
+    "target_before_dispatch": {
+      "g_TaggedActor": 0,
+      "g_hTaggedPolygon": 8
+    }
+  },
+  "before": "Fresh coordinate hit-testing selected floor walking; original cached polygon8 dispatched its script. Earlier immediate probe matched0/72 RGB frames.",
+  "implementation": "world_click dispatches cached scheduled actor/polygon selection before coordinate fallback; explicit interact_world remains freshly resolved. Legacy states without hover state retain their previous fallback.",
+  "save_format_changed": false,
+  "comparisons": {
+    "immediate": {
+      "frames": 72,
+      "rgb_content_matches": 72,
+      "same_cycle_matches": 72,
+      "comparison_sha256": "748c793bda0744c5c77bde4d23ca7d876c50e42b5f410ca0bb1fc43ef0c275a0"
+    },
+    "after_hover_update": {
+      "frames": 72,
+      "rgb_content_matches": 72,
+      "same_cycle_matches": 72,
+      "comparison_sha256": "40857a75cd940726cdf2647b64d7893502cee1862265776e5a35106e98b721d5"
+    }
+  },
+  "validation": {
+    "workspace": "passed",
+    "original_asset_web_tests": 25,
+    "clippy": "final workspace all-target check passed",
+    "wasm_release_build": "passed",
+    "native_tools_release_build": "passed",
+    "browser_ui": {
+      "passed": 49,
+      "skipped": 1,
+      "skip_reason": "WebKit multi-contact input injection unavailable",
+      "node_tests": 4
+    },
+    "full_route": "not yet rerun on this change"
+  },
+  "save_validation": "Full pre-click snapshot restore yields identical cached-polygon dispatch;72 per-frame save/restore next-tick checks in each scenario.",
+  "logs": {
+    "cached-click-workspace.log": "65e17927bba29e462f7403191e1969af5aa45dafea181d02ef5b93de6f09a674",
+    "cached-click-assets.log": "5e2e54d5b5132e4262c41d94ee84b69fc64b05df3275023ddc298be049f1cf2a",
+    "cached-click-final-clippy.log": "07484230581fa6282a5199b18b64aca252f6d1097511bc8a066123ceefdbdd0e",
+    "cached-click-web-build.log": "358bf46203d8aafca3d71bcbe036283077f6e6c14f825759e6049a1cc520029c",
+    "cached-click-native-build.log": "ad093bb3746469b23a952f867c0f7c5f5cbba29583425a56f535e9448784a08d",
+    "cached-click-browser-ui.log": "215e68fa51be6f6ba9c5ac76cd32a16924ffe08db215a56d3082481c5f24be8c"
+  }
+}

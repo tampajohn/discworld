@@ -16,6 +16,8 @@ Touch gestures and presentation technology remain implementation decisions to va
 
 ## Latest validation follow-up
 
+Timed world clicks now use the original scheduled cached tag before coordinate fallback. The immediate move/click discrepancy is resolved: both immediate and delayed scenarios match all 72 reference frames at the same cycles, with pre-click and per-frame save continuation checks. Workspace, 25 original-asset cases, Clippy, native/WASM builds and 49 browser UI cases pass; one unsupported WebKit multi-touch injection case is skipped. Full-route reruns for this engine change are pending. See [cached-click evidence](validation/cached-world-click.json).
+
 A controlled player WALKTO on the starting-room floor now matches the pinned reference in all 72 full RGB frames at the same cycles, including walking and the standing transition. This uses one hover-update cycle before clicking; immediate move/click cached-tag behavior remains separate. No engine change was needed. See [walking evidence](validation/reference-player-walk.json).
 
 Browser package `a4020ae` includes focus/audio interruption cleanup and primary-touch ownership. Its extracted site passes 17 Chrome/WebKit original-asset checks; WebKit simultaneous-touch injection is explicitly skipped. See [browser package](validation/browser-package-a4020ae.json). The pinned Finder bundle passes extracted signature, manifest, source and compiled-launcher integrity checks; [visible Finder interaction remains unverified](validation/finder-pinned-package.json).

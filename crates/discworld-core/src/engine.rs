@@ -2517,13 +2517,33 @@ impl Engine {
         point: [i32; 2],
         event: PolygonInteraction,
     ) -> Result<bool, Error> {
+        self.dispatch_world(resources, point, event, false)
+    }
+
+    fn dispatch_world(
+        &mut self,
+        resources: &Resources<'_>,
+        point: [i32; 2],
+        event: PolygonInteraction,
+        cached_tags: bool,
+    ) -> Result<bool, Error> {
         if !self.control.enabled
             || self.control_inventory_active()
             || self.last_interaction_tick == Some(self.ticks)
         {
             return Ok(false);
         }
-        if let Some(actor) = self.actor_at(resources, point)? {
+        if cached_tags && self.world_hover.is_some() {
+            match self.world_hover.as_ref().unwrap().display.selection() {
+                Some(crate::world_hover::Selection::Actor(actor)) => {
+                    return self.interact_actor(resources, actor, event);
+                }
+                Some(crate::world_hover::Selection::Polygon(polygon)) => {
+                    return self.interact_polygon(resources, polygon, event);
+                }
+                None => {}
+            }
+        } else if let Some(actor) = self.actor_at(resources, point)? {
             return self.interact_actor(resources, actor, event);
         }
         let world = [
@@ -2558,7 +2578,10 @@ impl Engine {
     }
 
     /// Timed world click: actor/polygon scripts participate in V1 double-click
-    /// cancellation, while bare-ground movement remains immediate. Inventory
+    /// cancellation, while bare-ground movement remains immediate. Like V1
+    /// ProcessUserEvent, use the scheduled tag selection before coordinate
+    /// fallback; resolved interact_world commands deliberately hit-test anew.
+    /// Inventory
     /// routing and raw physical button delivery are separate integration work.
     pub fn world_click(
         &mut self,
@@ -2569,7 +2592,7 @@ impl Engine {
         let mut next = self.clone();
         next.left_event()?;
         let before: Vec<_> = next.processes.entries().map(|(id, _)| id).collect();
-        let accepted = next.interact_world(resources, point, event)?;
+        let accepted = next.dispatch_world(resources, point, event, true)?;
         if accepted && event != PolygonInteraction::Look {
             let scripted = next
                 .processes

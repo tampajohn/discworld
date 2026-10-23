@@ -1575,3 +1575,28 @@ Validation: workspace tests (324 core), all 20 original-asset web tests,
 Clippy, WASM checking, and native/browser release builds pass. Logs use
 assets/logs/fademidi-*. This does not establish new full-route, live-reference,
 or physical-device acceptance.
+
+## Cached world-click target
+
+V1 `events.cpp::ProcessUserEvent` checks `GetTaggedActor()` and
+`GetTaggedPoly()` before looking for a polygon at the cursor or starting a
+floor walk. Those IDs are maintained by the scheduled tag process. Moving the
+driver cursor and clicking before that process runs can therefore select the
+previous tag. A read-only reference trace confirms polygon 8 at the first
+starting-room click after moving the driver to [250,180].
+
+Timed `world_click` now dispatches that cached actor/polygon selection. The
+existing serialized hover display supplies the selection, so no save version
+changes. With no cached selection, polygon/exit/floor fallback remains; old
+states without a hover state preserve the previous coordinate resolution until
+player-load migration installs it. Explicit `interact_world` commands retain
+fresh coordinate resolution, including the recorded resolved-input route.
+
+The immediate-click trace now matches all 72 reference RGB frames at the same
+cycles; the one-cycle-delayed floor walk also retains all 72 matches. A complete
+pre-click save/reload produces identical cached-polygon dispatch, while an
+explicit resolved command starts the floor-walk process. Each capture also
+checks 72 complete save/restore next-tick continuations. These controlled
+captures do not establish raw SDL input delivery or every alternate route.
+
+Validation and remaining full-route scope: [cached-click evidence](validation/cached-world-click.json).

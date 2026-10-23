@@ -26,6 +26,7 @@ def main():
     mode.add_argument('--inventory', action='store_true', help='dispatch original lead WALKTO and close inventory halfway through')
     mode.add_argument('--look', action='store_true', help='dispatch original lead LOOK with speech and subtitles')
     mode.add_argument('--walk', action='store_true', help='send a player WALKTO on the room floor')
+    parser.add_argument('--walk-delay', type=int, choices=[0, 1], default=1, help='cycles between cursor injection and WALKTO')
     parser.add_argument('--frames', type=int, default=72, help='capture 72..240 frames')
     args = parser.parse_args()
     if not 72 <= args.frames <= 240:
@@ -64,7 +65,8 @@ def main():
     environment['DISCWORLD_REFERENCE_INVENTORY'] = '1' if args.inventory else '0'
     environment['DISCWORLD_REFERENCE_LOOK'] = '1' if args.look else '0'
     environment['DISCWORLD_REFERENCE_WALK'] = '1' if args.walk else '0'
-    metadata = dict(walk_diagnostic=args.walk, frame_limit=args.frames, look_diagnostic=args.look, inventory_diagnostic=args.inventory, reference_revision=REVISION, binary_sha256=BINARY_SHA256,
+    environment['DISCWORLD_REFERENCE_WALK_DELAY'] = str(args.walk_delay)
+    metadata = dict(walk_delay=args.walk_delay, walk_diagnostic=args.walk, frame_limit=args.frames, look_diagnostic=args.look, inventory_diagnostic=args.inventory, reference_revision=REVISION, binary_sha256=BINARY_SHA256,
                     probe_sha256=digest(probe), config_sha256=digest(config), command=command,
                     scope='Controlled scene and logical cursor injection; not ordinary input acceptance.')
     metadata_path = output / 'launch.json'

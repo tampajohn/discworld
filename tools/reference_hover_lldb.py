@@ -17,6 +17,7 @@ import reference_frames_lldb as frames
 INVENTORY = os.environ.get("DISCWORLD_REFERENCE_INVENTORY") == "1"
 LOOK = os.environ.get("DISCWORLD_REFERENCE_LOOK") == "1"
 WALK = os.environ.get("DISCWORLD_REFERENCE_WALK") == "1"
+WALK_DELAY = int(os.environ.get("DISCWORLD_REFERENCE_WALK_DELAY", "1"))
 START = None
 ACTIONS = []
 PENDING = []
@@ -33,9 +34,20 @@ def invoke(frame, expression):
     options.SetTimeoutInMicroSeconds(5000000)
     # Give LLDB a concrete result: void expressions can return an unavailable
     # SBValue even when the target function completed.
+    before = None
+    if 'Tinsel::PlayerEvent(' in expression:
+        target = frame.GetThread().GetProcess().GetTarget()
+        before = {}
+        for name in ['g_TaggedActor', 'g_hTaggedPolygon']:
+            value = target.FindFirstGlobalVariable('Tinsel::' + name)
+            if not value.IsValid() or value.GetError().Fail():
+                raise RuntimeError('reference click target unavailable: ' + name)
+            before[name] = value.GetValueAsSigned()
     value = frame.EvaluateExpression(f'({expression}, 0)', options)
     record = {'cycle': frames.CYCLES, 'expression': expression,
               'error': str(value.GetError())}
+    if before is not None:
+        record['target_before_dispatch'] = before
     ACTIONS.append(record)
     if value.GetError().Fail():
         raise RuntimeError(f'target diagnostic invocation failed: {record}')
@@ -71,7 +83,7 @@ def cycle(frame, location, dictionary):
                 START = frames.CYCLES
         if START is not None:
             elapsed = frames.CYCLES - START
-            if WALK and elapsed == 1:
+            if WALK and WALK_DELAY == 1 and elapsed == 1:
                 PENDING.append('Tinsel::PlayerEvent((Tinsel::PLR_EVENT)1, Tinsel::_vm->_mousePos)')
                 return True
             if elapsed % 12 == 0 and elapsed // 12 < len(POINTS):
@@ -81,6 +93,8 @@ def cycle(frame, location, dictionary):
                 PENDING.append(f'Tinsel::_vm->_mousePos.x = {x}, '
                                f'Tinsel::_vm->_mousePos.y = {y}, '
                                'Tinsel::_vm->_cursor->DoCursorMove()')
+                if WALK and WALK_DELAY == 0 and elapsed == 0:
+                    PENDING.append('Tinsel::PlayerEvent((Tinsel::PLR_EVENT)1, Tinsel::_vm->_mousePos)')
                 if INVENTORY and elapsed == 0:
                     # LLDB does not expose these enumerators in this build.
                     # events.h: WALKTO=9, PLR_NOEVENT=16. The resolved pockets
@@ -230,7 +244,7 @@ def finish(debugger):
     path = frames.OUTPUT / 'capture.json'
     report = json.loads(path.read_text())
     report.update(scope='Controlled original debug scene entry, logical driver writes and original DoCursorMove; not normal host input or full gameplay equivalence.',
-                  injected_actions=ACTIONS, hover_start_cycle=START, inventory_diagnostic=INVENTORY, look_diagnostic=LOOK, walk_diagnostic=WALK)
+                  injected_actions=ACTIONS, hover_start_cycle=START, inventory_diagnostic=INVENTORY, look_diagnostic=LOOK, walk_diagnostic=WALK, walk_delay=WALK_DELAY)
     path.write_text(json.dumps(report, indent=2) + '\n')
 
 

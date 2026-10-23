@@ -80,6 +80,10 @@ impl State {
 }
 
 impl Display {
+    pub(crate) fn selection(&self) -> Option<Selection> {
+        self.selection
+    }
+
     pub fn layout(&self) -> Option<&Layout> {
         self.layout.as_ref()
     }
