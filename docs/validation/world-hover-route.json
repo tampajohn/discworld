@@ -1,0 +1,112 @@
+{
+  "date": "2026-10-23",
+  "runtime_revision": "cdd5b02",
+  "scope": "Complete unchanged original-input route on frozen world-hover runtime; not an independent ScummVM gameplay comparison",
+  "ticks": 2630000,
+  "scene": "title.scn",
+  "status": "Running",
+  "has_restarted": true,
+  "accepted_inputs": 1652,
+  "native_engine_snapshot_checks": 5048,
+  "native_audio_snapshot_checks": 5048,
+  "comparisons": {
+    "chrome": {
+      "ticks": 2630000,
+      "ticks_equal": true,
+      "native_status": "Running",
+      "scene": "title.scn",
+      "scene_equal": true,
+      "has_restarted": true,
+      "restart_equal": true,
+      "accepted_inputs": 1652,
+      "native_inputs": 1652,
+      "native_inputs_accepted": true,
+      "engine_bytes_equal": true,
+      "rgba_equal": true,
+      "combined_save_equal": false,
+      "core_sha256": "a31f35c814340532983084d00f5a929d44b8c6c386f6f25938639db10fe004cf",
+      "audio_scope": "WASM checked for finite samples; cross-platform audio equality not established"
+    },
+    "webkit": {
+      "ticks": 2630000,
+      "ticks_equal": true,
+      "native_status": "Running",
+      "scene": "title.scn",
+      "scene_equal": true,
+      "has_restarted": true,
+      "restart_equal": true,
+      "accepted_inputs": 1652,
+      "native_inputs": 1652,
+      "native_inputs_accepted": true,
+      "engine_bytes_equal": true,
+      "rgba_equal": true,
+      "combined_save_equal": false,
+      "core_sha256": "a31f35c814340532983084d00f5a929d44b8c6c386f6f25938639db10fe004cf",
+      "audio_scope": "WASM checked for finite samples; cross-platform audio equality not established"
+    }
+  },
+  "browsers": {
+    "chrome": {
+      "browser_version": "156.0.8078.47",
+      "audio_samples": 4832625000,
+      "nonfinite_audio_samples": 0,
+      "elapsed_seconds": 584.561799999997,
+      "rgba_sha256": "a550cf7a6115492595cf4dd6dfa97c05a3033d6b42cd96c2cd5fcce7fb6176d4",
+      "core_sha256": "a31f35c814340532983084d00f5a929d44b8c6c386f6f25938639db10fe004cf"
+    },
+    "webkit": {
+      "browser_version": "27.2",
+      "audio_samples": 4832625000,
+      "nonfinite_audio_samples": 0,
+      "elapsed_seconds": 604.14,
+      "rgba_sha256": "a550cf7a6115492595cf4dd6dfa97c05a3033d6b42cd96c2cd5fcce7fb6176d4",
+      "core_sha256": "a31f35c814340532983084d00f5a929d44b8c6c386f6f25938639db10fe004cf"
+    }
+  },
+  "frozen_web_files_verified": 17,
+  "final_native_image_visually_checked": true,
+  "limitations": [
+    "Post-route non-moving actor blocking-PLAY hover fix is validated separately; this route predates it",
+    "Combined DSP saves differ; cross-platform audio equality not established",
+    "Accelerated browser replay does not output through Web Audio",
+    "Independent interactive hover/reference state comparison, visible manual session, native packaging and physical iPad acceptance remain incomplete"
+  ],
+  "artifacts": {
+    "run.json": {
+      "path": "assets/validation/world-hover-cdd5b02/run.json",
+      "sha256": "d5baad3d7d1e96ff36937b07e44196909a1752982b517e7a6933b5fafcb72d45"
+    },
+    "report.json": {
+      "path": "assets/validation/world-hover-cdd5b02/report.json",
+      "sha256": "97d1facd73d982cd215410d696625c107e0098bddddfa90b028fe2a5e2b4f479"
+    },
+    "final.png": {
+      "path": "assets/validation/world-hover-cdd5b02/final.png",
+      "sha256": "d447e78212245c97d78b24d8051494248773699e56288dc67479cdc23a2fb426"
+    },
+    "final.dws": {
+      "path": "assets/validation/world-hover-cdd5b02/final.dws",
+      "sha256": "6bf9292b2a44abe6ce1ff065408c05a632e53bcb5e2315bb4f8798af77b8cc27"
+    },
+    "chrome/report.json": {
+      "path": "assets/validation/world-hover-cdd5b02/chrome/report.json",
+      "sha256": "59d2daba9a16e09083ae3b6ed7f987afc9ba8cdf1cd31c8ca249b5d6c7e916d8"
+    },
+    "webkit/report.json": {
+      "path": "assets/validation/world-hover-cdd5b02/webkit/report.json",
+      "sha256": "34181669ee1fbe93b798894d8f0147e44daa74559b5df83fa5ce896e0fb763eb"
+    },
+    "chrome-comparison.json": {
+      "path": "assets/validation/world-hover-cdd5b02/chrome-comparison.json",
+      "sha256": "d30dcca915e26fd8323ab83623275a0df2a6f6876280335fb34a33784effe80d"
+    },
+    "webkit-comparison.json": {
+      "path": "assets/validation/world-hover-cdd5b02/webkit-comparison.json",
+      "sha256": "d30dcca915e26fd8323ab83623275a0df2a6f6876280335fb34a33784effe80d"
+    },
+    "web-build.json": {
+      "path": "assets/validation/world-hover-cdd5b02/web-build.json",
+      "sha256": "4b5960c6c44b324860797109b19f29600d748d09a7488d27a2b2ddfdc021e7b3"
+    }
+  }
+}

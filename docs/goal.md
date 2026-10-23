@@ -56,14 +56,21 @@ order/sleeps and active scrolling. Exact replay restoration stays unchanged.
 Validation: 354 core tests, 25 original-asset tests, and all 44 Chrome/WebKit
 UI cases pass (40 in the full rerun, four corrected cases in a targeted rerun); see
 [hover-migration.json](validation/hover-migration.json).
-Remaining hover work: verify deferred POINTED scripts and additional actor animation paths,
-compare interactive hover frames to the independent reference, and finish the
-new full-route checks. Native/Chrome/WebKit replays are running on frozen
-revision cdd5b02 under assets/validation/world-hover-cdd5b02, targeting
-2,630,000 ticks with the unchanged original-input trace. Each has passed
-tick 600,000 (unseen.scn); this is progress, not a completed route audit. The visible session has not been
-restarted or verified with this build. Existing full-route evidence predates
-world hover and does not prove its fidelity.
+Deferred POINTED save continuation passes, and a regression exposed/fixed
+missing hover geometry for non-moving actors in blocking PLAY. Current validation:
+356 core tests, 25 original-asset tests, Clippy, WASM and rebuilt hosts pass. See
+[blocking-actor-hover.json](validation/blocking-actor-hover.json).
+
+The frozen cdd5b02 native/Chrome/WebKit full-route audits completed 2,630,000
+ticks, accepted all 1,652 inputs, restarted and returned to title.scn. Final core
+bytes and RGBA match exactly; native completed 5,048 engine and 5,048 DSP save
+checks. Browser audio is finite, but DSP saves are not byte-identical across
+platforms. This audit predates the small blocking-PLAY hover lookup fix above.
+See [world-hover-route.json](validation/world-hover-route.json). Remaining:
+independent interactive hover/reference comparison, updated visible session,
+refreshed delivery packages, physical iPad acceptance and broader fidelity gates.
+No visible native process was running at the last process check; a current
+manual session still needs to be launched and verified advancing.
 
 PLAY/TOPPLAY completion arguments now match the pinned V1 integer dispatch:
 `1` blocks, `2` errors, other values play asynchronously. A 42-case bytecode

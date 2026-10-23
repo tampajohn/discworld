@@ -2504,16 +2504,19 @@ impl Engine {
             {
                 continue;
             }
-            let animation = self
-                .movers
-                .get(&(id as i32))
-                .map(|m| &m.animation)
-                .or_else(|| {
-                    self.films
-                        .iter()
-                        .rev()
-                        .find(|a| a.object.id == id as i32 && self.owns_reel(a))
-                });
+            let animation =
+                self.movers
+                    .get(&(id as i32))
+                    .map(|m| &m.animation)
+                    .or_else(|| {
+                        self.films
+                            .iter()
+                            .rev()
+                            .chain(self.processes.states().filter_map(|process| {
+                                process.play_wait.as_ref().map(|(_, film)| film)
+                            }))
+                            .find(|a| a.object.id == id as i32 && self.owns_reel(a))
+                    });
             if let Some(bounds) = animation
                 .map(|a| a.bounds(resources))
                 .transpose()?
@@ -7860,8 +7863,7 @@ mod tests {
         assert_eq!(engine, before);
     }
 
-    #[test]
-    fn world_hover_runs_overlapping_scripts_before_labels_and_roundtrips_v24() {
+    fn world_hover_files() -> (Vec<u8>, Vec<u8>, Vec<u8>) {
         let (master, mut scene) = fixtures();
         scene[8] = 0;
         for (offset, text) in [(32, 1u8), (48, 2)] {
@@ -7880,10 +7882,12 @@ mod tests {
         font[16..20].copy_from_slice(&1190u32.to_le_bytes());
         font[1190..1206].fill(1);
         font[1220..1224].copy_from_slice(&(base + 1100u32).to_le_bytes());
-        let resources = Resources(vec![&master, &scene, &font]);
-        let string_bytes = [1, 0, 52, 51, 0, 0, 0, 0, 0, 1, b'W', 2, b'W', b'W'];
-        let strings = crate::text::Strings::new(&string_bytes).unwrap();
-        let mut engine = Engine::bootstrap(&resources).unwrap();
+        (master, scene, font)
+    }
+
+    fn world_hover_engine(resources: &Resources<'_>) -> Engine {
+        let base = 2 << 23;
+        let mut engine = Engine::bootstrap(resources).unwrap();
         engine.polygons = crate::polygon::Polygons::new(
             [32, 48]
                 .into_iter()
@@ -7910,7 +7914,7 @@ mod tests {
         engine.declarations.tag_font = Some(Handle(base));
         engine.cursor_animation = Some(
             Animation::new(
-                &resources,
+                resources,
                 &crate::film::Reel {
                     object: Handle(base + 1120),
                     script: Handle(base + 1168),
@@ -7924,6 +7928,135 @@ mod tests {
         engine.control.tags_enabled = true;
         engine.control.enabled = false;
         engine.control.hidden = true;
+        engine
+    }
+
+    #[test]
+    fn actor_hover_finds_owned_blocking_play_and_ignores_superseded_reels() {
+        let (master, scene, font) = world_hover_files();
+        let resources = Resources(vec![&master, &scene, &font]);
+        let mut engine = world_hover_engine(&resources);
+        engine.actors = crate::actor::Actors::new(1).unwrap();
+        engine.actor_tags.insert(1, (Handle(2), 2));
+        let mut film = engine.cursor_animation.clone().unwrap();
+        let base = 2 << 23;
+        film.frame = Handle(base + 1220);
+        film.reel = Some(Handle(base + 1120));
+        film.object.id = 1;
+        film.object.x = 8;
+        film.object.y = 10;
+        assert!(engine.claim_reel(&mut film).unwrap());
+        let mut process = ScriptProcess::new(Handle(0));
+        process.play_wait = Some((
+            LibraryCall {
+                id: 49,
+                instruction: 0,
+                next: 2,
+            },
+            film.clone(),
+        ));
+        engine
+            .processes
+            .spawn(Some(engine.generation), process)
+            .unwrap();
+        assert_eq!(engine.actor_at(&resources, [10, 10]).unwrap(), Some(1));
+        let string_bytes = [1, 0, 52, 51, 0, 0, 0, 0, 0, 1, b'W', 2, b'W', b'W'];
+        let strings = crate::text::Strings::new(&string_bytes).unwrap();
+        engine.tag_world(&resources, Some(&strings)).unwrap();
+        assert_eq!(engine.world_tag_layout().unwrap().glyphs.len(), 2);
+        // A replacement changes both the display owner and the hit target;
+        // the old blocking caller can remain suspended until its next turn.
+        film.reel = Some(Handle(base + 1136));
+        film.object.x = 40;
+        assert!(engine.claim_reel(&mut film).unwrap());
+        engine.films.push(film);
+        assert_eq!(engine.actor_at(&resources, [10, 10]).unwrap(), None);
+        assert_eq!(engine.actor_at(&resources, [42, 10]).unwrap(), Some(1));
+        engine.actors.get_mut(1).unwrap().hidden = true;
+        assert_eq!(engine.actor_at(&resources, [42, 10]).unwrap(), None);
+    }
+
+    #[test]
+    fn suspended_pointed_scripts_preserve_late_printtag_across_saves() {
+        let (master, mut scene, font) = world_hover_files();
+        for (offset, text) in [(32, 1u8), (48, 2)] {
+            scene[offset..offset + 11].copy_from_slice(&[
+                0x4e, 48, // PAUSE: two scheduler resumptions before PRINTTAG.
+                0x41, text, 0x4e, 55, 0x41, text, 0x4c, 0, 0,
+            ]);
+        }
+        let resources = Resources(vec![&master, &scene, &font]);
+        let string_bytes = [1, 0, 52, 51, 0, 0, 0, 0, 0, 1, b'W', 2, b'W', b'W'];
+        let strings = crate::text::Strings::new(&string_bytes).unwrap();
+        for leave in [false, true] {
+            let mut engine = world_hover_engine(&resources);
+            for tick in 1..=4 {
+                if leave && tick == 2 {
+                    engine.control.cursor = [30, 30];
+                }
+                let saved = crate::save::Snapshot::capture(&engine, [7; 32])
+                    .to_bytes()
+                    .unwrap();
+                let decoded = crate::save::Snapshot::from_bytes(&saved, [7; 32]).unwrap();
+                assert_eq!(decoded.to_bytes().unwrap(), saved);
+                decoded.verify_scripts(&resources).unwrap();
+                assert_eq!(
+                    decoded.preview(&resources).unwrap(),
+                    engine.render(&resources).unwrap()
+                );
+                let mut restored = decoded.state().clone();
+                for e in [&mut engine, &mut restored] {
+                    e.tick_content(&resources, None, None, Some(&strings))
+                        .unwrap();
+                }
+                assert_eq!(engine, restored, "leave={leave}, tick={tick}");
+                assert_eq!(
+                    engine.render(&resources).unwrap(),
+                    restored.render(&resources).unwrap()
+                );
+                let waits: Vec<_> = engine
+                    .processes
+                    .states()
+                    .filter(|p| p.polygon.is_some())
+                    .map(|p| (p.event, p.wait.map(|(call, left)| (call.id, left))))
+                    .collect();
+                if tick < 3 {
+                    assert_eq!(
+                        waits,
+                        [(0, Some((48, 3 - tick))), (0, Some((48, 3 - tick)))]
+                    );
+                    assert_eq!(engine.globals, [0]);
+                } else {
+                    assert!(waits.is_empty());
+                    assert_eq!(engine.globals, [1]);
+                }
+                // Staying selects an unlabeled polygon on tick 1; V1 does not
+                // rebuild it for the delayed PRINTTAG. Leaving first clears
+                // selection, so the late registration creates a visible label
+                // even though the cursor is outside every hotspot.
+                assert_eq!(engine.world_tag_layout().is_some(), leave && tick >= 3);
+            }
+            assert_eq!(
+                engine
+                    .scene_calls
+                    .as_ref()
+                    .unwrap()
+                    .iter()
+                    .filter(|c| c.call.id == 55)
+                    .count(),
+                2
+            );
+        }
+    }
+
+    #[test]
+    fn world_hover_runs_overlapping_scripts_before_labels_and_roundtrips_v24() {
+        let (master, scene, font) = world_hover_files();
+        let base = 2 << 23;
+        let resources = Resources(vec![&master, &scene, &font]);
+        let string_bytes = [1, 0, 52, 51, 0, 0, 0, 0, 0, 1, b'W', 2, b'W', b'W'];
+        let strings = crate::text::Strings::new(&string_bytes).unwrap();
+        let mut engine = world_hover_engine(&resources);
         engine
             .tick_content(&resources, None, None, Some(&strings))
             .unwrap();

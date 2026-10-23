@@ -1,0 +1,76 @@
+{
+  "date": "2026-10-23",
+  "reference_commit": "96b42d42bc8533953bdd701db059cc33c839a9ff",
+  "behavior": "Non-moving actor hit testing and tag rendering include the current owned animation held by blocking PLAY",
+  "reference": [
+    "engines/tinsel/actors.cpp::GetActorLeft/GetActorRight/GetActorTop (V1 presObj)",
+    "engines/tinsel/actors.cpp::storeActorReel (non-movers record presentation object; movers use MoverProcess object)",
+    "engines/tinsel/play.cpp:528 (V1 stores reel object)"
+  ],
+  "regression": {
+    "before": "fails: actor_at returns None instead of actor 1",
+    "after": "passes: hit target, label, replacement ownership and hidden actor",
+    "deferred_pointed": "PAUSE/PRINTTAG save and pixel continuation passes for cursor staying and leaving before completion"
+  },
+  "validation": {
+    "core_tests": 356,
+    "original_asset_tests": 25,
+    "workspace": "passed",
+    "clippy": "passed",
+    "wasm": "passed",
+    "native_tools_build": "passed",
+    "browser_build": "passed"
+  },
+  "logs": {
+    "deferred-hover-test": {
+      "path": "assets/logs/deferred-hover-test.log",
+      "sha256": "1eba429ae6054726069024edddef8eacf2073e4ed8847775ffbde8ac23c50f3f"
+    },
+    "deferred-hover-core": {
+      "path": "assets/logs/deferred-hover-core.log",
+      "sha256": "508bf48c06405e999abd1761f4ded6dd028fc644691cda96c2e2dbc8cff7fe7f"
+    },
+    "deferred-hover-clippy": {
+      "path": "assets/logs/deferred-hover-clippy.log",
+      "sha256": "ca7955f095243809cffdf554fdaeee97353b3832e816e7274d716ab5b544ccc6"
+    },
+    "blocking-hover-before": {
+      "path": "assets/logs/blocking-hover-before.log",
+      "sha256": "7f53c349dc58ab3cd258c812fff42190ff06e5aadda34968984097b62652a7c1"
+    },
+    "blocking-hover-workspace": {
+      "path": "assets/logs/blocking-hover-workspace.log",
+      "sha256": "c1456f38cbea52ba31fb514578b91c495aa4b6c23feb1c65c4945e9720b8b9dc"
+    },
+    "blocking-hover-clippy": {
+      "path": "assets/logs/blocking-hover-clippy.log",
+      "sha256": "f1b90e8ee6ad1b08ddf65a54027dc2d66dc65240a84a89a94c415e6ff1e9639d"
+    },
+    "blocking-hover-wasm": {
+      "path": "assets/logs/blocking-hover-wasm.log",
+      "sha256": "85a134f116b3a0231dfbc16a70260012d4155b2f32c684e981cb4f4258e5eb4d"
+    },
+    "blocking-hover-hosts": {
+      "path": "assets/logs/blocking-hover-hosts.log",
+      "sha256": "8ff893c3bb2ca44e27bc1d8e202333e8bc9ad00e929fb4b6e87eff3a8674b61e"
+    },
+    "blocking-hover-web-build": {
+      "path": "assets/logs/blocking-hover-web-build.log",
+      "sha256": "72da08c9acdc5c6e28e9ea42d2ce0c6a09717a4e678fe073fa281501f4642338"
+    },
+    "blocking-hover-assets": {
+      "path": "assets/logs/blocking-hover-assets.log",
+      "sha256": "8df91f4f3638f8029ceac252b7fe21abff7a880fe6ae37cb2f2a2c5cbd2bc99d"
+    }
+  },
+  "limitations": [
+    "Frozen full-route evidence at cdd5b02 predates this small lookup fix",
+    "No independent hover screenshot/input comparison yet",
+    "Visible manual session and physical iPad unverified"
+  ],
+  "sha256": {
+    "crates/discworld-core/src/engine.rs": "ea6d656576296907509e1b325b79b6335a320d8837af8240bd59c317a5117226",
+    "target/release/discworld-native": "b84ef11aecc5b0cda92bc5fdbd45a3a5a55a1677ad1ec267767338674e9b8d67",
+    "target/release/discworld-tools": "29d91c5e1dfd16b599b1fd7c62698b02b4359bc56c0356b9306948142864c5c3"
+  }
+}

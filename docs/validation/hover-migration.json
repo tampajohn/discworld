@@ -79,8 +79,7 @@
     }
   },
   "remaining": [
-    "Full-route native/Chrome/WebKit replay running",
-    "Deferred POINTED continuation and independent reference hover/input comparison pending",
+    "Independent reference hover/input comparison pending; deferred POINTED regression now passes",
     "Visible manual session and physical iPad acceptance unverified"
   ],
   "ui_retry": {
@@ -91,7 +90,7 @@
   "full_route": {
     "revision": "cdd5b02",
     "directory": "assets/validation/world-hover-cdd5b02",
-    "status": "running",
+    "status": "completed",
     "ticks": 2630000,
     "native_pid": 30914,
     "chrome_pid": 30935,
@@ -105,12 +104,7 @@
       "chrome": 7954,
       "webkit": 52131
     },
-    "last_observed": {
-      "tick_lower_bound": 600000,
-      "scene": "unseen.scn",
-      "chrome_inputs": 281,
-      "webkit_inputs": 281
-    }
+    "result": "Native and both browsers match final core bytes and RGBA; 1652 accepted inputs, 5048 engine and DSP audits; see world-hover-route.json"
   },
   "sha256": {
     "crates/discworld-core/src/engine.rs": "54468160282fc17b26f59843de3cd1b8ca88b553e079948c9f2ba78a5b64e8bc",

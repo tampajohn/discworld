@@ -45,6 +45,20 @@ byte-identical saved continuation and identical frames after reload. These are
 compatibility tests, not an independent reference hover screenshot comparison
 or a new full-game replay. See [world-hover.json](validation/world-hover.json).
 
+The deferred-POINTED regression now saves at every boundary around PAUSE and
+PRINTTAG, validates pending bytecode and rendered resources, and compares exact
+continuation. It covers both a cursor that stays (the initially unlabeled
+selection stays unlabeled) and one that leaves before printing (late registration
+can show the label outside the hotspot).
+
+Actor hover now includes an owned animation held by a blocking PLAY caller,
+as well as independently scheduled films. The pinned V1 actor bounds use the
+registered presentation object regardless of blocking completion. A regression
+failed before this correction, then passed with actor label creation, replacement
+ownership and hidden-actor checks. Moving actors retain their mover geometry,
+matching `Actor::storeActorReel`'s separate presentation-object rule. See
+[blocking-actor-hover.json](validation/blocking-actor-hover.json).
+
 The safe Rust bytecode machine implements the V1 instructions handled by the pinned ScummVM interpreter. Its state includes a 128-word stack, stack and base pointers, an instruction pointer, and a pending library call. Invalid operations leave the machine and globals unchanged.
 
 Operands are signed 8, 16, or 32 bit values. The 8-bit flag takes precedence if both width flags are set. Jumps and procedure targets are offsets from the current script start. Calls write static and dynamic links and a return address without raising the stack pointer; the callee claims this storage with ALLOC. These semantics follow the pinned [pcode.cpp](https://github.com/scummvm/scummvm/blob/96b42d42bc8533953bdd701db059cc33c839a9ff/engines/tinsel/pcode.cpp).
