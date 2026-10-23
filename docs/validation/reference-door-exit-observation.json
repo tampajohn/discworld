@@ -51,6 +51,48 @@
       "index": 1,
       "remaining": 2
     },
-    "interpretation": "Rust has advanced the new cursor once before the reference first step. Entry call-site capture launched to determine initialization/restoration ordering before altering production scheduling."
+    "interpretation": "Rust has advanced the new cursor once before the reference first step. Entry call-site capture launched to determine initialization/restoration ordering before altering production scheduling.",
+    "reference_callsite_capture": "assets/validation/reference-door-exit-callers1",
+    "reference_events": [
+      {
+        "cycle": 1362,
+        "script": 374236,
+        "period": 2,
+        "kind": "init_animation",
+        "callers": [
+          "Tinsel::InitStepAnimScript(Tinsel::ANIM*, Tinsel::OBJECT*, unsigned int, int)",
+          "Tinsel::Cursor::InitCurObj()",
+          "Tinsel::CursorStoppedCheck(Common::CoroBaseContext*&)",
+          "Tinsel::CursorProcess(Common::CoroBaseContext*&, void const*)",
+          "Common::CoroutineScheduler::schedule()",
+          "Tinsel::TinselEngine::NextGameCycle()",
+          "Tinsel::TinselEngine::run()",
+          "runGame(Plugin const*, OSystem&, DetectedGame const&, void const*)",
+          "::scummvm_main(int, const char *const *)",
+          "main"
+        ]
+      },
+      {
+        "kind": "animation_step",
+        "cycle": 1363,
+        "address": 40984397152,
+        "script": 374236,
+        "index": 0,
+        "period": 2,
+        "remaining": 1,
+        "callers": [
+          "Tinsel::StepAnimScript(Tinsel::ANIM*)",
+          "Tinsel::Cursor::AnimateProcess()",
+          "Tinsel::CursorProcess(Common::CoroBaseContext*&, void const*)",
+          "Common::CoroutineScheduler::schedule()",
+          "Tinsel::TinselEngine::NextGameCycle()",
+          "Tinsel::TinselEngine::run()",
+          "runGame(Plugin const*, OSystem&, DetectedGame const&, void const*)",
+          "::scummvm_main(int, const char *const *)",
+          "main",
+          "start"
+        ]
+      }
+    ]
   }
 }
