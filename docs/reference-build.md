@@ -77,3 +77,54 @@ reference acceptance criteria.
 The [recorded comparison evidence](validation/reference-animation-prefixes.json)
 contains capture and input hashes, matched operation counts, individual
 instance coverage and deliberate-corruption rejection.
+
+
+## Fresh reference framebuffer capture
+
+`tools/reference_frames_lldb.py` reads the pinned executable's original
+320x200 indexed framebuffer and the OpenGL backend's current 256-color palette.
+It sets debugger breakpoints at palette updates and immediately before
+`Background::DrawBackgnd` calls `updateScreen`. It reads memory through LLDB
+without invoking target expressions or modifying reference source. A separate
+reference process is stopped after the requested draw count and killed by its
+owning batch command. This does not control the user's existing native session.
+
+A fresh 120-frame run captured the Psygnosis and TWG scenes without probe
+errors. All 156 extracted game files used by the reference matched their
+SHA-256 entries in the supplied ISO. The reference binary, probe, raw log,
+capture report and Rust renderer hashes are recorded in
+[pixel-comparison evidence](validation/reference-logo-pixels.json).
+
+The Rust tick-24 Psygnosis image matches every RGB pixel of reference draw
+ordinals 7–50: 320x200, no resizing, cropping or masked regions. The reference
+frame was visually inspected. This proves the fully visible logo composition
+and resolved palette for that image. Captured TWG animation and fade frames
+have not yet been compared; draw ordinals are not engine ticks. Debugger pauses
+alter wall-clock timing, and a live window can receive input. No PLR event was
+observed in this capture's action log, but that is not proof of input isolation.
+
+To reproduce a bounded frame capture on the same macOS/arm64 debug-symbol build,
+create a fresh parent directory and set `DISCWORLD_REFERENCE_FRAMES` to a
+nonexistent child directory within it. Set `DISCWORLD_REFERENCE_FRAME_LIMIT`
+to 120 (accepted range 1–1000), `SDL_VIDEODRIVER=cocoa` and
+`SDL_AUDIODRIVER=dummy`. From the repository root, invoke LLDB with:
+
+```sh
+lldb --batch \
+  -o 'settings set target.disable-aslr false' \
+  -o 'command script import tools/reference_frames_lldb.py' \
+  -o run \
+  -o 'script reference_frames_lldb.finish(lldb.debugger)' \
+  -o 'process kill' \
+  -- .reference/scummvm-96b42d42bc8533953bdd701db059cc33c839a9ff/scummvm \
+  --config=/absolute/fresh-parent/reference.ini --path=assets/game \
+  --gfx-mode=opengl --no-fullscreen --music-driver=null \
+  --debuglevel=5 --debugflags=actions --random-seed=1 tinsel:dw
+```
+
+Use a bounded process runner when automating this command; the successful run
+used a 60-second outer timeout. Check `capture.json.complete` and `errors`,
+not just LLDB's exit code. The hook writes `.idx` and `.pal` files plus hashes;
+it stops on an invalid framebuffer, unavailable symbols or failed memory read.
+The source-line breakpoint and debug member names are specific to the pinned
+reference build.

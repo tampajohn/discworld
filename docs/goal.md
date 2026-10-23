@@ -42,7 +42,15 @@ Initial scope is this exact ISO and Apple Silicon. Other releases, Intel Macs, a
 
 Keep the user's visible native session current with newly verified engine builds and replay milestones. After validation, reconstruct the latest useful watch segment, verify its window is advancing, then close the superseded instance. Preserve the user's playback speed and mute settings, and honor deliberate manual pauses. An automatic recorded-route endpoint pause may be replaced with the newly verified segment. Report preparation time and the new checkpoint; do not present unverified routes as working. This is ongoing user authorization to update the visible session without asking each time.
 
-## Current progress (2026-10-22)
+## Current progress (2026-10-23)
+
+A fresh, read-only LLDB capture from the pinned ScummVM executable provides
+an independent pixel comparison: the complete 320x200 Psygnosis logo at Rust
+tick 24 matches reference draw ordinals 7–50 exactly. All 156 reference asset
+files match the supplied ISO. See [reference pixel evidence](validation/reference-logo-pixels.json).
+This validates that one fully visible image; animated frames, fades, scheduler
+timing and later scenes remain outside its scope. The orientation-corrected
+full native route at 29be6d6 is running separately.
 
 Runtime `9ba83fb` completed the recorded route in native, Chrome and WebKit,
 accepting all 1,652 inputs. Final engine save bytes and pixels match. Native
