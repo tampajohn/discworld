@@ -1,0 +1,22 @@
+{
+  "control_return_tick": 3843,
+  "inventory_tick": 3868,
+  "inventory": 2,
+  "save_continuation": true,
+  "reference_compared": false,
+  "runtime": "bad0d45",
+  "scope": "Controlled bedroom entry, normal door/floor/arch transitions, one Escape during first entry speech, then wait without input until control returns. Open pockets through lead actor WALKTO.",
+  "capture": "assets/validation/rust-arch-inventory-completion2",
+  "prefix_comparison": "assets/validation/arch-inventory-prefix-compare1.json",
+  "prefix_same_cycle_reference_frames": 480,
+  "overlay_tick": 3867,
+  "overlay_rgb_sha256": "ca4264355ff30b0bfee14327eed54a74c428eb951de289e46d9b76d864aff8ac",
+  "overlay_png_inspected": true,
+  "validation": [
+    "Original-asset opt-in diagnostic passes",
+    "Core all-target Clippy passes",
+    "Resource-aware save/load preserves overlay pixels and next-tick engine state"
+  ],
+  "production_change": false,
+  "limitations": "The initial 480-frame prefix matches ScummVM. Later dialogue completion and pocket overlay have not yet been compared to the original reference. This is not physical-host acceptance."
+}

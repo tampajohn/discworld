@@ -97,7 +97,8 @@ fn capture_original_debug_room_hover() {
     }
     let inventory_mode = inventory_drag || std::env::var_os("DISCWORLD_HOVER_INVENTORY").is_some();
     let university_retarget = std::env::var_os("DISCWORLD_HOVER_UNIVERSITY_RETARGET").is_some();
-    let arch_skip = std::env::var_os("DISCWORLD_HOVER_ARCH_SKIP").is_some();
+    let arch_inventory = std::env::var_os("DISCWORLD_HOVER_ARCH_INVENTORY").is_some();
+    let arch_skip = arch_inventory || std::env::var_os("DISCWORLD_HOVER_ARCH_SKIP").is_some();
     let arch_entry = arch_skip || std::env::var_os("DISCWORLD_HOVER_ARCH_ENTRY").is_some();
     let university_walk = arch_entry
         || university_retarget
@@ -809,6 +810,55 @@ fn capture_original_debug_room_hover() {
         }
     }
     assert_eq!(rows.len(), frame_limit, "room did not reach active tags");
+    if arch_inventory {
+        // Escape skips one line, not the entire scripted introduction. Wait
+        // for the original script to return control before opening pockets.
+        while !engine.control.enabled && engine.ticks < 10000 {
+            let status = engine
+                .tick_content(&resources, Some(&bank), Some(&tracks), Some(&strings))
+                .unwrap();
+            assert!(!matches!(status, Status::Unsupported(_) | Status::Quit));
+        }
+        assert!(engine.control.enabled, "entry dialogue did not finish");
+        let control_tick = engine.ticks;
+        assert!(
+            engine
+                .interact_actor(&resources, 7, PolygonInteraction::WalkTo)
+                .unwrap()
+        );
+        for _ in 0..24 {
+            engine
+                .tick_content(&resources, Some(&bank), Some(&tracks), Some(&strings))
+                .unwrap();
+        }
+        assert_eq!(engine.active_inventory(), Some(2));
+        let overlay = engine.render(&resources).unwrap();
+        let rgb: Vec<_> = overlay
+            .rgba
+            .chunks_exact(4)
+            .flat_map(|pixel| pixel[..3].iter().copied())
+            .collect();
+        std::fs::write(directory.join("arch-inventory.rgb"), &rgb).unwrap();
+        let bytes = crate::save::Snapshot::capture(&engine, [7; 32])
+            .to_bytes()
+            .unwrap();
+        let mut restored = crate::save::Snapshot::from_bytes(&bytes, [7; 32])
+            .unwrap()
+            .restore_with_strings(&resources, &bank, &tracks, &strings)
+            .unwrap();
+        assert_eq!(
+            restored.render(&resources).unwrap(),
+            engine.render(&resources).unwrap()
+        );
+        engine
+            .tick_content(&resources, Some(&bank), Some(&tracks), Some(&strings))
+            .unwrap();
+        restored
+            .tick_content(&resources, Some(&bank), Some(&tracks), Some(&strings))
+            .unwrap();
+        assert_eq!(engine, restored);
+        std::fs::write(directory.join("arch-inventory.json"), format!("{{\"control_return_tick\":{control_tick},\"inventory_tick\":{},\"inventory\":2,\"save_continuation\":true,\"reference_compared\":false}}\n", engine.ticks)).unwrap();
+    }
     if door_exit {
         assert_eq!(
             index[engine.scene.resource()].name,
