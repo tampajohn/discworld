@@ -1,0 +1,27 @@
+{
+  "runtime_revision": "0ccdf9f4f0a250c25256e5a8bd1da25a5e3307c2",
+  "route": "evidence/act4-ending-input.json",
+  "route_sha256": "30c227553695638a78495f4cf56731f841e89188c8faa75821e50c164ddf4ddb",
+  "binary_sha256": "7d28791db8a715f61baedca8cb4cfb917de434f5cc5469750636e74f3f66f7b3",
+  "schema": 1,
+  "local_artifacts": "assets/validation/created-mover-0ccdf9f",
+  "native": {
+    "ticks": 2630000,
+    "status": "Running",
+    "scene_name": "title.scn",
+    "has_restarted": true,
+    "snapshot_checks": 5048,
+    "audio_snapshot_checks": 5048,
+    "snapshot_max_bytes": 48155,
+    "audio_snapshot_max_bytes": 317221,
+    "accepted_inputs": 1652,
+    "core_sha256": "d4a60d7dd6637c3c8f5cd5131b29868e40afd06f45559e7cd8dafa42711de4eb",
+    "report_sha256": "813a2c8939e528a719cfc8d44d2a308d0ead92e015de9b17ad774313fde40ee1"
+  },
+  "scope": [
+    "Recorded native full route, including automatic creation of declared movers during PLAY/SPLAY/TOPPLAY; no additional mover-creation inputs.",
+    "Final core matches the completed 6167511 audit. This does not prove all alternate interactions or live-reference equivalence.",
+    "Final title image inspected. Not manual UI, browser or physical iPad acceptance.",
+    "Predates FRAMEGRAB and RUNMODE implementation."
+  ]
+}

@@ -3146,6 +3146,14 @@ impl Engine {
                     let seconds = self.control.idle_seconds(self.ticks)?;
                     self.master.complete_library(call, 1, Some(seconds))?;
                 }
+                116 => {
+                    // V1 FRAMEGRAB is inert but consumes its argument.
+                    self.master.complete_library(call, 1, None)?;
+                }
+                122 => {
+                    // V1 RunMode returns zero into the caller's result slot.
+                    self.master.complete_library(call, 1, Some(0))?;
+                }
                 69 | 70 | 84 => {
                     // Release V1 SHOWPOS/SHOWSTRING and VIBRATE have no effect.
                     self.master.complete_library(call, 0, None)?;
@@ -6206,6 +6214,14 @@ impl Engine {
                         self.finish_reel(resources, &primary)?;
                     }
                     process.vm.complete_library(call, consumed, None)?;
+                }
+                116 => {
+                    // V1 FRAMEGRAB is inert but consumes its argument.
+                    process.vm.complete_library(call, 1, None)?;
+                }
+                122 => {
+                    // V1 RunMode returns zero into the caller's result slot.
+                    process.vm.complete_library(call, 1, Some(0))?;
                 }
                 69 | 70 | 84 => {
                     // Release V1 SHOWPOS/SHOWSTRING and VIBRATE have no effect.
@@ -11048,6 +11064,53 @@ mod tests {
             }
             assert!(engine.splay_reels.is_empty());
             assert!(engine.films.is_empty());
+        }
+    }
+
+    #[test]
+    fn framegrab_and_runmode_preserve_stack_without_yielding() {
+        for master_context in [false, true] {
+            for call in [116, 122] {
+                for present in [false, true] {
+                    let (master, mut scene) = fixtures();
+                    let code = if present {
+                        // Sentinel, argument/result slot, call, store result,
+                        // then store sentinel: both must finish in one tick.
+                        if call == 122 {
+                            vec![0x41, 77, 0x41, 99, 0x4e, call, 0x4c, 0, 0x4c, 1, 0]
+                        } else {
+                            vec![0x41, 77, 0x41, 99, 0x4e, call, 0x4c, 1, 0]
+                        }
+                    } else {
+                        vec![0x4e, call, 0]
+                    };
+                    scene[8..8 + code.len()].copy_from_slice(&code);
+                    let resources = Resources(vec![&master, &scene]);
+                    let mut engine = Engine::bootstrap(&resources).unwrap();
+                    engine.globals = vec![55, 0];
+                    engine.processes = Scheduler::default();
+                    engine.master_stopped = !master_context;
+                    engine.escape_events = Some(2);
+                    let mut process = ScriptProcess::new(Handle((1 << 23) | 8));
+                    process.vm.escape_enabled = true;
+                    process.vm.escape_generation = Some(1);
+                    if master_context {
+                        engine.master = process.vm;
+                        engine.master_code = process.code;
+                    } else {
+                        engine.processes.spawn(None, process).unwrap();
+                    }
+                    let before = engine.clone();
+                    let result = engine.tick(&resources);
+                    if present {
+                        result.unwrap();
+                        assert_eq!(engine.globals, vec![if call == 122 { 0 } else { 55 }, 77]);
+                    } else {
+                        assert_eq!(result, Err(Error("library argument underflow")));
+                        assert_eq!(engine, before);
+                    }
+                }
+            }
         }
     }
 

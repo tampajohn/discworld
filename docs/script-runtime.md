@@ -1,5 +1,9 @@
 # Discworld script execution
 
+The initial implementation notes below are historical. Current runtime and
+validation status is maintained in [goal.md](goal.md), the focused compatibility
+documents, and `docs/validation/`.
+
 The safe Rust bytecode machine implements the V1 instructions handled by the pinned ScummVM interpreter. Its state includes a 128-word stack, stack and base pointers, an instruction pointer, and a pending library call. Invalid operations leave the machine and globals unchanged.
 
 Operands are signed 8, 16, or 32 bit values. The 8-bit flag takes precedence if both width flags are set. Jumps and procedure targets are offsets from the current script start. Calls write static and dynamic links and a return address without raising the stack pointer; the callee claims this storage with ALLOC. These semantics follow the pinned [pcode.cpp](https://github.com/scummvm/scummvm/blob/96b42d42bc8533953bdd701db059cc33c839a9ff/engines/tinsel/pcode.cpp).
@@ -31,3 +35,22 @@ The startup command now executes the real master script through 891 VM steps and
 Startup state includes the six-reel cursor film, lead actor definition, two mover reel tables with auxiliary scales, scale transition reels, tag and talk fonts, window artwork, inventory and conversation dimensions, configuration strings, permanent topics, and actor speech colors. Data is stored in the core; rendering and input consumers are still pending. Inventory maximums follow the V1 reference limits of 10 by 6 cells and 150 contents. The lead alias -2 resolves to the registered lead actor for auxiliary-scale declarations.
 
 Film readers resolve reel object and animation-script handles; multipart object and frame readers are present. Animation stepping and a restricted headless scene runtime are now implemented; see initial-runtime.md. Actor resource limits, complete mover state, scene lifecycle effects, and permanent topics originating from inventory metadata still need integration. Startup evidence is in evidence/startup.json and is not a live reference comparison.
+
+
+## FRAMEGRAB and RUNMODE compatibility
+
+The continuing master and scene dispatchers now handle V1 FRAMEGRAB (116)
+and RUNMODE (122). In pinned `tinlib.cpp`, FRAMEGRAB returns -1 without
+performing work; it consumes exactly one argument. RunMode returns constant
+zero and its dispatch writes into the caller's existing result slot, leaving
+stack depth unchanged. Neither call yields or checks Escape. This is the
+reference behavior, not a placeholder for a capture feature. Startup bootstrap
+retains its separate declaration-oriented dispatch.
+
+The bytecode regression covers both process contexts, sentinel preservation,
+replacement of a nonzero result slot, completion within one tick despite stale
+Escape, and atomic failure when the required stack slot is missing. Workspace
+tests (329 core tests), all 20 original-asset web integration tests, and Clippy
+pass; native and browser release hosts rebuild.
+Logs use `assets/logs/framegrab-runmode-*`. The full-route 0ccdf9f audit
+predates these two calls and is not evidence of their coverage on the route.

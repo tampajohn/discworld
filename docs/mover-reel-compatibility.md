@@ -876,3 +876,15 @@ preserves both marker and hidden animation state. These cases required no
 production code changes. Workspace tests (328 core) and Clippy pass; logs
 use assets/logs/film-creation-guards-*. Hosts remain at 0ccdf9f, whose full-route
 audit is still running.
+
+
+## Completed automatic-creation route audit
+
+Runtime 0ccdf9f completed the native recorded route at 2,630,000 ticks,
+accepting all 1,652 inputs with 5,048 engine and 5,048 DSP snapshot audits.
+It restarted to the title scene, whose final image was inspected. The final
+engine bytes match the preceding 6167511 audit. See
+[recorded evidence](validation/created-mover-0ccdf9f.json). This includes the
+automatic mover-creation implementation and implicit film-position correction,
+but adds no special mover-creation interactions to the route. Alternate paths,
+live-reference comparisons and physical iPad acceptance remain separate.
