@@ -1,0 +1,55 @@
+{
+  "source_revision": "cc397ed",
+  "production_changes": false,
+  "rustc": "1.95.0 (59807616e 2026-04-14)",
+  "xcode": "26.6 (17F113)",
+  "sdk": "26.5",
+  "builds": {
+    "aarch64-apple-ios": {
+      "exit_code": 0,
+      "log": "assets/logs/ipad-device-libraries.log",
+      "files": {
+        "target/aarch64-apple-ios/release/libdiscworld_core.rlib": {
+          "bytes": 11354408,
+          "sha256": "d58249d957691c0a2d7ded10e827ba3bc4f4b2d10fd1ae28904ffda2a623b2d4"
+        },
+        "target/aarch64-apple-ios/release/libdiscworld_audio.rlib": {
+          "bytes": 358392,
+          "sha256": "429ab6ebabdfa09580188e535572f770cd1ee0c267811a61231cee0b8e18dd2d"
+        }
+      }
+    },
+    "aarch64-apple-ios-sim": {
+      "exit_code": 0,
+      "log": "assets/logs/ipad-simulator-libraries.log",
+      "files": {
+        "target/aarch64-apple-ios-sim/release/libdiscworld_core.rlib": {
+          "bytes": 11354384,
+          "sha256": "dbcb25362b5dc16cfa6688d5c0a897a494987e42e35858e3f12b4c3844d00362"
+        },
+        "target/aarch64-apple-ios-sim/release/libdiscworld_audio.rlib": {
+          "bytes": 358576,
+          "sha256": "cb44759c8c6348e315aa87c7110730d41b32642b5791c343d2586d37dad2c04c"
+        }
+      }
+    }
+  },
+  "test_resources": {
+    "bundle": "assets/private/ipad/GameData.bundle",
+    "files": {
+      "discworld.iso": {
+        "bytes": 396863488,
+        "sha256": "5354f74582375b1f6350e33b4dfd5df6b2bcd79a30f471a9307e017235570e05"
+      },
+      "music.sf2": {
+        "bytes": 5969788,
+        "sha256": "c5378b62028c920cb11e4803327983fee2f2cdff5dc89c708e39da417e51c854"
+      },
+      "SoundFont-COPYRIGHT.txt": {
+        "bytes": 2307,
+        "sha256": "6ef01652619cf29b289a9403cd2ab59550fa3e2c30844c67292eea5421f993e9"
+      }
+    }
+  },
+  "limitations": "Library compilation and verified local asset copies only. Native host, linking, signed installation, audio output, touch and real-device play remain unverified."
+}

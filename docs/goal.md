@@ -14,6 +14,11 @@ The long-term user-facing target is comfortable, complete play on an iPad in lan
 
 Touch gestures and presentation technology remain implementation decisions to validate with gameplay; the shared deterministic engine must not depend on a particular gesture or device API.
 
+The user also requests a native iPad test deployment with the ISO and audio
+resources included in one install. Track this in the
+[native iPad build notes](ipad-native.md). This adds a native host; it does not
+remove browser support or waive physical-device acceptance.
+
 Use the [physical iPad acceptance procedure](ipad-acceptance.md) to record device
 and touch-only playthrough evidence. Its current status is not executed.
 
