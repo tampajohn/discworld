@@ -264,3 +264,19 @@ The unchanged legacy save was separately rendered by the corrected native
 engine; Chrome and WebKit both pass exact-pixel/export checks against that
 new expectation. Historical save/image fixtures remain untouched. These are
 42 initial passes plus two rechecks, not one clean 44-case run.
+
+The subsequent read-only scroll trace establishes the remaining phase error.
+Reference cycle 640 calls ScrollTo(0,1499,2,2), then ScrollImage moves the
+camera to y=2 in that same cycle. The aligned Rust tick 639 requests scrolling
+but stays at y=0; its camera phase already ran before the entrance script.
+All 362 observed camera updates through reference cycle 1001 remain two pixels
+ahead of aligned Rust. The repeated reference capture has identical cycle,
+scene and RGB records for all 1,000 frames; the comparator still finds 351
+aligned mismatches despite all image content matching.
+
+This requires preserving the scroll process's scheduler position, including
+save/load and scene restoration, rather than applying a credits-specific offset.
+No runtime correction is claimed yet. The probe now records scroll requests,
+steps and playfield writes, and Rust startup captures include world origin.
+One reference launch failed during SDL initialization; the completed retry and
+failed attempt are both retained. See [scroll-phase.json](validation/scroll-phase.json).

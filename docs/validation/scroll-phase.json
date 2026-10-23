@@ -1,0 +1,200 @@
+{
+  "schema": 1,
+  "runtime_revision": "1a8d111",
+  "reference_revision": "96b42d42bc8533953bdd701db059cc33c839a9ff",
+  "scope": "No-input startup second credits visit. Read-only reference breakpoints; runtime unchanged.",
+  "artifacts": {
+    "assets/validation/reference-scroll-phase-retry1/frames/capture.json": "21d486458d3dada0770f455d526a53ec974c190de50bbcf1322089176ac9a2fc",
+    "assets/validation/reference-software-error-scummvm/frames/capture.json": "98c939ec1a9ee1b395eaa69148b0bd7efb16dda9c7aee98cec04dfeeb02a5d8c",
+    "assets/validation/rust-scroll-phase/capture.json": "9feec554797932f176266bc997f6aae634e6f25d28d5f7eade63f61aa1ec73f6",
+    "assets/validation/reference-scroll-phase-comparison.json": "1bf7397c80e28197ab142da2135ae7ae7cdaa2143e3ae0df7fabc0ad79feb8e3",
+    "tools/reference_frames_lldb.py": "db3320f15095b5b402ba4ff8b8c8fb372461772754f4f00547a2e1b7a3daee9b",
+    "crates/discworld-tools/src/frame_capture.rs": "8fac77494a34b1d7a29e3ff50e44abc5a3a2c5d881d7a7f01503db40c41235f2"
+  },
+  "capture_complete": true,
+  "reference_frames": 1000,
+  "all_reference_cycle_scene_rgb_records_equal_previous_capture": true,
+  "reference_events": [
+    {
+      "cycle": 638,
+      "kind": "scroll_image",
+      "_leftScroll": 0,
+      "_downScroll": 0
+    },
+    {
+      "cycle": 639,
+      "kind": "scroll_image",
+      "_leftScroll": 0,
+      "_downScroll": 0
+    },
+    {
+      "cycle": 640,
+      "kind": "scroll_to",
+      "x": 0,
+      "y": 1499,
+      "xIter": 2,
+      "yIter": 2
+    },
+    {
+      "cycle": 640,
+      "kind": "scroll_image",
+      "_leftScroll": 0,
+      "_downScroll": 1499
+    },
+    {
+      "cycle": 640,
+      "kind": "playfield_position",
+      "which": 0,
+      "newXpos": 0,
+      "newYpos": 2
+    },
+    {
+      "cycle": 641,
+      "kind": "scroll_image",
+      "_leftScroll": 0,
+      "_downScroll": 1497
+    },
+    {
+      "cycle": 641,
+      "kind": "playfield_position",
+      "which": 0,
+      "newXpos": 0,
+      "newYpos": 4
+    },
+    {
+      "cycle": 642,
+      "kind": "scroll_image",
+      "_leftScroll": 0,
+      "_downScroll": 1495
+    },
+    {
+      "cycle": 642,
+      "kind": "playfield_position",
+      "which": 0,
+      "newXpos": 0,
+      "newYpos": 6
+    },
+    {
+      "cycle": 643,
+      "kind": "scroll_image",
+      "_leftScroll": 0,
+      "_downScroll": 1493
+    },
+    {
+      "cycle": 643,
+      "kind": "playfield_position",
+      "which": 0,
+      "newXpos": 0,
+      "newYpos": 8
+    },
+    {
+      "cycle": 644,
+      "kind": "scroll_image",
+      "_leftScroll": 0,
+      "_downScroll": 1491
+    },
+    {
+      "cycle": 644,
+      "kind": "playfield_position",
+      "which": 0,
+      "newXpos": 0,
+      "newYpos": 10
+    }
+  ],
+  "rust_frames": [
+    {
+      "tick": 637,
+      "scene_name": "credits.scn",
+      "world_origin": [
+        0,
+        0
+      ]
+    },
+    {
+      "tick": 638,
+      "scene_name": "credits.scn",
+      "world_origin": [
+        0,
+        0
+      ]
+    },
+    {
+      "tick": 639,
+      "scene_name": "credits.scn",
+      "world_origin": [
+        0,
+        0
+      ]
+    },
+    {
+      "tick": 640,
+      "scene_name": "credits.scn",
+      "world_origin": [
+        0,
+        2
+      ]
+    },
+    {
+      "tick": 641,
+      "scene_name": "credits.scn",
+      "world_origin": [
+        0,
+        4
+      ]
+    },
+    {
+      "tick": 642,
+      "scene_name": "credits.scn",
+      "world_origin": [
+        0,
+        6
+      ]
+    },
+    {
+      "tick": 643,
+      "scene_name": "credits.scn",
+      "world_origin": [
+        0,
+        8
+      ]
+    },
+    {
+      "tick": 644,
+      "scene_name": "credits.scn",
+      "world_origin": [
+        0,
+        10
+      ]
+    }
+  ],
+  "conclusion": "Reference cycle 640 requests scroll and moves to y=2 in that same cycle. Aligned Rust tick 639 requests scroll but stays at y=0; tick 640 moves to y=2. Reference positions remain two pixels ahead of aligned Rust through cycle 1001. Scroll runs before scripts in Rust advance; reference ScrollProcess runs after this entrance script.",
+  "verified_position_pairs": 362,
+  "content_matches": 1000,
+  "scene_aligned_mismatches": 351,
+  "attempts": [
+    {
+      "directory": "assets/validation/reference-scroll-phase",
+      "frames": 0,
+      "complete": false,
+      "failure": "Reference SDL_BlitSurface initialization failure before gameplay; stopped at error breakpoint and killed by launcher."
+    },
+    {
+      "directory": "assets/validation/reference-scroll-phase-retry1",
+      "frames": 1000,
+      "complete": true,
+      "configuration": "Copied prior successful reference.ini before launch. One successful retry does not establish this fixes initialization."
+    }
+  ],
+  "validation": [
+    "cargo build --locked --release -p discworld-tools",
+    "cargo clippy -p discworld-tools --all-targets -- -D warnings",
+    "cargo fmt --all -- --check",
+    "Python probe syntax compiled; all ten reference probe breakpoint locations unique; callbacks read successfully in live capture",
+    "Raw reference/Rust image validation by compare_reference_frames.py"
+  ],
+  "remaining": [
+    "Implement scroll as an ordered scene task, including creation, restoration, cancellation and serialization; a global post-script camera phase does not establish correct order relative to dynamically spawned tasks.",
+    "Verify blocking completion, supersession, camera-follow and save/load ordering; repeat reference capture comparison and full route across hosts.",
+    "Reference initialization remains intermittently unsuccessful. No visible player session updated in this investigation."
+  ]
+}

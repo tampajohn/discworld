@@ -44,6 +44,14 @@ Keep the user's visible native session current with newly verified engine builds
 
 ## Current progress (2026-10-23)
 
+The remaining second-credits timing mismatch is now traced to camera scheduling:
+the reference scroll process applies the first movement in the requesting
+entrance script's cycle; Rust's earlier camera phase defers it one tick.
+A new independent capture reproduces all 1,000 prior reference images and
+confirms the offset across 362 camera updates. Read-only probes and Rust frame
+capture diagnostics now expose that ordering. Runtime correction remains open;
+see [scroll-phase.json](validation/scroll-phase.json).
+
 A new independent 1,000-frame reference capture exposed and drove a font
 palette correction. All 1,000 captured images now have exact RGB matches;
 351 second-credits frames still match one Rust tick late. The source and

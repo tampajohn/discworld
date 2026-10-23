@@ -70,7 +70,8 @@ pub fn startup(
             &rgb,
         )?;
         frames.push(json!({"tick":engine.ticks,"scene":engine.scene.0,
-            "scene_name":index[engine.scene.resource()].name,"rgb_sha256":format!("{:x}",Sha256::digest(&rgb)), "films": engine.films}));
+            "scene_name":index[engine.scene.resource()].name,"rgb_sha256":format!("{:x}",Sha256::digest(&rgb)), "films": engine.films,
+            "world_origin": engine.world_origin}));
     }
     let report = json!({"iso_sha256":format!("{:x}",Sha256::digest(&data)),"ticks":ticks,"frames":frames,"scene_calls":engine.scene_calls,
         "scope":"Unscaled 320x200 RGB after each startup engine tick, no user input. Original PCM/MIDI state advances; no SoundFont synthesis or device audio."});

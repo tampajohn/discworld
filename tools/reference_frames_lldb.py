@@ -71,6 +71,37 @@ def cycle(frame, location, dictionary):
     return False
 
 
+def scroll_event(frame, kind, names, member=False):
+    try:
+        obj = frame.FindVariable('this').Dereference() if member else None
+        record = {'cycle': CYCLES, 'kind': kind}
+        for name in names:
+            value = obj.GetChildMemberWithName(name) if member else frame.FindVariable(name)
+            if not value.IsValid() or value.GetError().Fail():
+                raise RuntimeError(f'scroll debug variable unavailable: {name}')
+            error = lldb.SBError()
+            record[name] = value.GetValueAsSigned(error)
+            if error.Fail():
+                raise RuntimeError(f'scroll debug value unavailable: {name}: {error}')
+        EVENTS.append(record)
+        return False
+    except Exception as error:
+        FAILURES.append(str(error))
+        return True
+
+
+def scroll_to(frame, location, dictionary):
+    return scroll_event(frame, 'scroll_to', ['x', 'y', 'xIter', 'yIter'])
+
+
+def scroll_image(frame, location, dictionary):
+    return scroll_event(frame, 'scroll_image', ['_leftScroll', '_downScroll'], True)
+
+
+def scroll_position(frame, location, dictionary):
+    return scroll_event(frame, 'playfield_position', ['which', 'newXpos', 'newYpos'])
+
+
 def animation(frame, location, dictionary):
     try:
         record = {'cycle': CYCLES,
@@ -184,8 +215,14 @@ def __lldb_init_module(debugger, dictionary):
     advance = target.BreakpointCreateByName('Tinsel::DoNextFrame')
     scheduled = target.BreakpointCreateByLocation('play.cpp', 1008)
     entered = target.BreakpointCreateByName('Tinsel::t1PlayReel')
-    if any(bp.GetNumLocations() != 1 for bp in [pal, draw, tick, anim, advance, scheduled, entered]):
+    scroll = target.BreakpointCreateByName('Tinsel::Scroll::ScrollTo')
+    scroll_step = target.BreakpointCreateByName('Tinsel::Scroll::ScrollImage')
+    position = target.BreakpointCreateByName('Tinsel::Background::PlayfieldSetPos')
+    if any(bp.GetNumLocations() != 1 for bp in [pal, draw, tick, anim, advance, scheduled, entered, scroll, scroll_step, position]):
         raise RuntimeError('pinned reference breakpoint locations not unique')
+    scroll.SetScriptCallbackFunction(__name__ + '.scroll_to')
+    scroll_step.SetScriptCallbackFunction(__name__ + '.scroll_image')
+    position.SetScriptCallbackFunction(__name__ + '.scroll_position')
     scheduled.SetScriptCallbackFunction(__name__ + '.schedule_reel')
     entered.SetScriptCallbackFunction(__name__ + '.enter_reel')
     advance.SetScriptCallbackFunction(__name__ + '.step')
