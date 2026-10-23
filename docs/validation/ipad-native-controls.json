@@ -1,0 +1,73 @@
+{
+  "simulator": "iPad Pro 11-inch (M5), iOS 26.5",
+  "test_result": "assets/validation/ipad-input3/results.xcresult",
+  "tests_passed": 2,
+  "tests_failed": 0,
+  "test": "DiscworldLayoutTests.testTappedPlaybackAudioAndPersistentSave",
+  "state_attachment": "assets/validation/ipad-input3/attachments/0D4D5108-F9BD-44FD-A097-FF01A68A9DD9.txt",
+  "observed_states": {
+    "loaded": {
+      "audio_ready": true,
+      "completed_audio_buffers": 79,
+      "frame_sha256": "4096e080ead45d66ed53d91f5c8591a83f5bb736b403e45e683f5f173e61e2f6",
+      "last_operation": "load",
+      "menu_requests": [],
+      "muted": true,
+      "paused": true,
+      "scene": "rinceroo.scn",
+      "tick": 8500
+    },
+    "muted": {
+      "audio_ready": true,
+      "completed_audio_buffers": 76,
+      "frame_sha256": "236ca92000c5b3e8c8b9b0b9bcf1e7e8dfd7029b1c8fdec417b6ace48f4d944b",
+      "last_operation": "advance",
+      "menu_requests": [],
+      "muted": true,
+      "paused": false,
+      "scene": "rinceroo.scn",
+      "tick": 8578
+    },
+    "playing": {
+      "audio_ready": true,
+      "completed_audio_buffers": 35,
+      "frame_sha256": "8ec83f0569b9437b117b91ccadae6937d4a328b33f20131d4c37d1eb40b35684",
+      "last_operation": "advance",
+      "menu_requests": [],
+      "muted": false,
+      "paused": false,
+      "scene": "rinceroo.scn",
+      "tick": 8537
+    },
+    "relaunched": {
+      "audio_ready": false,
+      "completed_audio_buffers": 0,
+      "frame_sha256": "4096e080ead45d66ed53d91f5c8591a83f5bb736b403e45e683f5f173e61e2f6",
+      "last_operation": "load",
+      "menu_requests": [],
+      "muted": true,
+      "paused": true,
+      "scene": "rinceroo.scn",
+      "tick": 8500
+    },
+    "saved": {
+      "audio_ready": false,
+      "completed_audio_buffers": 0,
+      "frame_sha256": "4096e080ead45d66ed53d91f5c8591a83f5bb736b403e45e683f5f173e61e2f6",
+      "last_operation": "save",
+      "menu_requests": [],
+      "muted": true,
+      "paused": true,
+      "scene": "rinceroo.scn",
+      "tick": 8500
+    }
+  },
+  "standalone_app": "assets/apps/Discworld-iPad-7.app",
+  "standalone_binary_sha256": "8a98c02b51d2e9d6dbfb6de9618398fb5a40820fbfb8af3615c1e9ad7c802827",
+  "source_files": {
+    "platform/ipad/App.swift": "e843e758187a98266daf9e0f0406c3e0d5dbbdff3e2ca3270d368e221e547303",
+    "platform/ipad/UITests.swift": "96dcc543a5617c7c36b3e48e05b8148830e6cb99d2daab4c5e935161fceb06f8"
+  },
+  "scope": "Synthesized XCTest taps activate Save, Sound off/on, Resume/Pause and Load. Simulation advances while muted, AVAudioPlayerNode dataPlayedBack callbacks occur, and disk saves restore identical frames both in-process and after app termination/relaunch. Orientation/containment test also passes.",
+  "limits": "No acoustic listening assessment or physical iPad validation. Game-canvas touch, inventory drag/resize, original menu integration, background/audio interruptions and device signing remain incomplete. Diagnostic state is exposed through accessibility only for smoke launches."
+}

@@ -19,12 +19,17 @@ xcrun simctl launch booted org.tampajohn.discworld.dev
 
 The script currently builds **only for the Apple Silicon simulator**. It
 includes the staged ISO and SoundFont in one ad-hoc-signed app. The observed
-prototype is `assets/apps/Discworld-iPad-6.app`. Startup reaches the bedroom;
+prototype is `assets/apps/Discworld-iPad-7.app`. Startup reaches the bedroom;
 quick-save/load preserves pixels, and a separate app launch loads the same
 save from the application container. See [application evidence](validation/ipad-app-prototype.json).
 
-Tap modes, mute, pause, and quick-save/load controls are implemented. Actual
-gesture and audible-device acceptance remain untested. The host now adapts to
+Tap modes, mute, pause, and quick-save/load controls are implemented. XCTest
+now activates Save, Resume/Pause, Sound off/on and Load through synthesized
+taps. Native audio-player completion callbacks occur; muting preserves ongoing
+simulation. Both immediate load and a separate app launch restore the saved
+tick and exact framebuffer. See [control evidence](validation/ipad-native-controls.json).
+This does not establish acoustic quality or physical-device input/audio behavior.
+Game-canvas touch and inventory gestures remain unverified. The host adapts to
 both landscape orientations and portrait, with the full game scene and controls
 visible in inspected full-screen simulator captures. XCTest verifies that all
 nine host buttons are hittable and wholly inside the window after each rotation.

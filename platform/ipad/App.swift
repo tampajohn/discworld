@@ -1,5 +1,6 @@
 import UIKit
 import AVFoundation
+import CryptoKit
 
 @main
 final class AppDelegate: UIResponder, UIApplicationDelegate {
@@ -37,6 +38,8 @@ final class GameController: UIViewController {
     var muted = true
     var audioReady = false
     var action = "walk"
+    var snapshot: [String: Any] = [:]
+    var completedAudioBuffers = 0
     let pauseButton = UIButton(type: .system)
 
     override var supportedInterfaceOrientations: UIInterfaceOrientationMask { .all }
@@ -68,6 +71,9 @@ final class GameController: UIViewController {
         picture.contentMode = .scaleAspectFit
         picture.layer.magnificationFilter = .nearest
         picture.isUserInteractionEnabled = true
+        picture.isAccessibilityElement = true
+        picture.accessibilityIdentifier = "game-frame"
+        picture.accessibilityLabel = "Discworld game"
         picture.addGestureRecognizer(UITapGestureRecognizer(target: self, action: #selector(tap(_:))))
         status.textColor = .white
         status.numberOfLines = 2
@@ -97,6 +103,7 @@ final class GameController: UIViewController {
             if !self.muted { self.startAudio() }
             self.player.volume = self.muted ? 0 : 1
             mute.setTitle(self.muted ? "Sound off" : "Sound on", for: .normal)
+            self.render()
         }, for: .touchUpInside)
         tools.addArrangedSubview(mute)
         let pause = pauseButton
@@ -105,6 +112,7 @@ final class GameController: UIViewController {
             guard let self else { return }
             self.paused.toggle(); self.resetAudio()
             pause.setTitle(self.paused ? "Resume" : "Pause", for: .normal)
+            self.render()
         }, for: .touchUpInside)
         tools.addArrangedSubview(pause)
         let stack = UIStackView(arrangedSubviews: [picture, row, tools, status])
@@ -141,10 +149,13 @@ final class GameController: UIViewController {
         for byte in bytes {
             guard dw_ipad_request_byte(byte) == 0 else { throw failure("Request is too large") }
         }
-        let result = dw_ipad_call()
+        let statusCode = dw_ipad_call()
         let response = Data(bytes: dw_ipad_response()!, count: dw_ipad_response_len())
-        if result != 0 { throw failure(String(decoding: response, as: UTF8.self)) }
-        return try JSONSerialization.jsonObject(with: response) as! [String: Any]
+        if statusCode != 0 { throw failure(String(decoding: response, as: UTF8.self)) }
+        let result = try JSONSerialization.jsonObject(with: response) as! [String: Any]
+        snapshot = result
+        snapshot["last_operation"] = request["op"]
+        return result
     }
     func failure(_ message: String) -> NSError { NSError(domain: "Discworld", code: 1, userInfo: [NSLocalizedDescriptionKey: message]) }
     func openGame() {
@@ -198,6 +209,19 @@ final class GameController: UIViewController {
                                   space: CGColorSpaceCreateDeviceRGB(), bitmapInfo: CGBitmapInfo(rawValue: CGImageAlphaInfo.last.rawValue),
                                   provider: provider, decode: nil, shouldInterpolate: false, intent: .defaultIntent) else { return }
         picture.image = UIImage(cgImage: image)
+        // Only diagnostic launches expose runtime counters to XCTest. Normal
+        // accessibility describes the game without internal implementation data.
+        if ProcessInfo.processInfo.arguments.contains(where: { $0.hasPrefix("--smoke-") }) {
+            var state = snapshot
+            state["frame_sha256"] = SHA256.hash(data: data).map { String(format: "%02x", $0) }.joined()
+            state["paused"] = paused
+            state["muted"] = muted
+            state["audio_ready"] = audioReady
+            state["completed_audio_buffers"] = completedAudioBuffers
+            if let bytes = try? JSONSerialization.data(withJSONObject: state) {
+                picture.accessibilityValue = String(decoding: bytes, as: UTF8.self)
+            }
+        }
     }
     @objc func tap(_ gesture: UITapGestureRecognizer) {
         let scale = min(picture.bounds.width / 320, picture.bounds.height / 200)
@@ -231,7 +255,7 @@ final class GameController: UIViewController {
         let current = generation
         queued += 1
         player.scheduleBuffer(buffer, completionCallbackType: .dataPlayedBack) { [weak self] _ in
-            DispatchQueue.main.async { if let self, self.generation == current { self.queued = max(0, self.queued - 1) } }
+            DispatchQueue.main.async { if let self, self.generation == current { self.queued = max(0, self.queued - 1); self.completedAudioBuffers += 1 } }
         }
     }
     @objc func step(_ link: CADisplayLink) {
