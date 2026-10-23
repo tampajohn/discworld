@@ -404,10 +404,25 @@ fn capture_original_debug_room_hover() {
             let target = mover
                 .walk_target
                 .map_or("null".to_owned(), |p| format!("{p:?}"));
+            let leg = mover
+                .node_walk
+                .as_ref()
+                .map(|w| w.leg)
+                .or(mover.direct_leg)
+                .map_or("null".to_owned(), |leg| format!("{:?}", leg.target));
+            let mover_order = engine
+                .processes
+                .states()
+                .position(|p| p.scene_task == Some(SceneTask::Mover(7)));
+            let walk_order = engine
+                .processes
+                .states()
+                .position(|p| p.player_walk.is_some());
             mover_states.push(format!(
-                "{{\"before_tick\":{tick},\"position\":{:?},\"target\":{target},\"hidden\":{},\"special\":{},\"no_path\":{},\"path\":{},\"phase\":{}}}",
+                "{{\"before_tick\":{tick},\"position\":{:?},\"target\":{target},\"hidden\":{},\"special\":{},\"no_path\":{},\"path\":{},\"phase\":{},\"leg\":{leg},\"mover_order\":{},\"walk_order\":{}}}",
                 mover.placement.position, mover.hidden, mover.special_reel(), mover.no_path,
-                mover.placement.path.map_or("null".to_owned(), |p| p.to_string()), mover.step_phase
+                mover.placement.path.map_or("null".to_owned(), |p| p.to_string()), mover.step_phase,
+                mover_order.map_or("null".to_owned(), |i| i.to_string()), walk_order.map_or("null".to_owned(), |i| i.to_string())
             ));
         }
         crate::animation::trace_tick(

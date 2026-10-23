@@ -29,5 +29,35 @@
     ],
     "observation": "Differences occur around the moving actor and disappear after movement. Path/animation scheduling cause not yet determined."
   },
-  "next_evidence": "Movement state trace in reference-university-walk-trace1 and rust-university-walk-trace1 launched; not yet accepted."
+  "next_evidence": "Movement state trace in reference-university-walk-trace1 and rust-university-walk-trace1 launched; not yet accepted.",
+  "movement_trace": {
+    "reference": "assets/validation/reference-university-walk-trace1",
+    "rust": "assets/validation/rust-university-walk-trace1",
+    "comparison": "assets/validation/university-walk-trace-compare1.json",
+    "before_cycle_1427": {
+      "reference_position": [
+        796,
+        90
+      ],
+      "reference_phase": 1,
+      "rust_position": [
+        800,
+        89
+      ],
+      "rust_phase": 0
+    },
+    "before_cycle_1435": {
+      "reference_position": [
+        780,
+        102
+      ],
+      "rust_position": [
+        772,
+        100
+      ]
+    },
+    "observation": "Reference moves on click cycle1426. Rust first moves on1427 and has a further stationary step at a path boundary. Queue-order and leg-state capture added; no production correction yet.",
+    "queue_leg_capture": "assets/validation/rust-university-walk-trace2",
+    "queue_observation": "Before cycle1426 the player-walk process is queue index0 and the mover index1, so initial queue order is correct. Before1434 the actor and leg target are both (772,100); by1435 routing has chosen (780,102) without movement. Investigate node-leg setup and stationary rerouting before changing scheduler order."
+  }
 }
