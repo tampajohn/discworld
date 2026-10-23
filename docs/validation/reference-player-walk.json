@@ -1,0 +1,25 @@
+{
+  "runtime_revision": "0a87557",
+  "reference_revision": "96b42d42bc8533953bdd701db059cc33c839a9ff",
+  "reference_binary_sha256": "1e8b098f0e9f6da44062aa19c195a5771a4a5dbc806cb3d3a9c3eb0e8fb6f524",
+  "reference_probe_sha256": "3cae264cb4874d3b79bb7e90f5b48c23f62ff80ff4f6b18d6a7383fdfc5c467c",
+  "reference_accepted": true,
+  "scope": "Controlled room entry and cursor injection, one cycle for hover update, then original PlayerEvent WALKTO on floor versus Rust world_click. Not raw host event parity or full-game equivalence.",
+  "floor_click": [
+    250,
+    180
+  ],
+  "click_cycle": 1258,
+  "first_frame_cycle_and_tick": 1257,
+  "frames": 72,
+  "rgb_content_matches": 72,
+  "same_cycle_matches": 72,
+  "reference_walk_reel_cycle": 1258,
+  "reference_standing_reel_cycle": 1271,
+  "full_save_restore_next_tick_checks": 72,
+  "comparison_sha256": "40857a75cd940726cdf2647b64d7893502cee1862265776e5a35106e98b721d5",
+  "reference_capture_sha256": "116757670cf203a92d9feb4631489ec2747176c21007d19e578aded8e82c8c19",
+  "rust_capture_sha256": "95984319ad060c39a7d6881c68ef83e2520110ac0565663a892755df7fed1b61",
+  "prior_probe": "Immediate cursor injection plus click at1257 gave0/72 frame matches and started a different reel at1268. Reference ProcessUserEvent prefers cached actor/polygon tags. The delayed-click capture compares an updated hover target; immediate move/click input semantics remain unverified.",
+  "engine_changed": false
+}

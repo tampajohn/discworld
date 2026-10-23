@@ -25,6 +25,7 @@ def main():
     mode = parser.add_mutually_exclusive_group()
     mode.add_argument('--inventory', action='store_true', help='dispatch original lead WALKTO and close inventory halfway through')
     mode.add_argument('--look', action='store_true', help='dispatch original lead LOOK with speech and subtitles')
+    mode.add_argument('--walk', action='store_true', help='send a player WALKTO on the room floor')
     parser.add_argument('--frames', type=int, default=72, help='capture 72..240 frames')
     args = parser.parse_args()
     if not 72 <= args.frames <= 240:
@@ -62,7 +63,8 @@ def main():
                        DISCWORLD_REFERENCE_FRAME_LIMIT=str(args.frames), DISCWORLD_REFERENCE_BACKEND='surfacesdl')
     environment['DISCWORLD_REFERENCE_INVENTORY'] = '1' if args.inventory else '0'
     environment['DISCWORLD_REFERENCE_LOOK'] = '1' if args.look else '0'
-    metadata = dict(frame_limit=args.frames, look_diagnostic=args.look, inventory_diagnostic=args.inventory, reference_revision=REVISION, binary_sha256=BINARY_SHA256,
+    environment['DISCWORLD_REFERENCE_WALK'] = '1' if args.walk else '0'
+    metadata = dict(walk_diagnostic=args.walk, frame_limit=args.frames, look_diagnostic=args.look, inventory_diagnostic=args.inventory, reference_revision=REVISION, binary_sha256=BINARY_SHA256,
                     probe_sha256=digest(probe), config_sha256=digest(config), command=command,
                     scope='Controlled scene and logical cursor injection; not ordinary input acceptance.')
     metadata_path = output / 'launch.json'
@@ -86,12 +88,14 @@ def main():
     report = json.loads(capture.read_text()) if capture.exists() else {}
     frames = report.get('frames', [])
     points = [[50, 120], [147, 110], [294, 56], [250, 160], [149, 60], [10, 10]]
+    if args.walk:
+        points[0] = [250, 180]
     # After the six injected movement blocks, LOOK can restore the saved cursor
     # itself. Retain that position as observed output rather than requiring a
     # constant driver position after all controlled input has ended.
     accepted = (metadata.get('exit_code') == 0 and report.get('complete') is True
                 and report.get('errors') == [] and len(frames) == args.frames
-                and len(report.get('injected_actions', [])) == (10 if args.inventory else 9 if args.look else 8)
+                and len(report.get('injected_actions', [])) == (10 if args.inventory else 9 if args.look or args.walk else 8)
                 and all(f['scene'] == 18 << 23
                         and ((args.look and i >= 72)
                              or f['driver_cursor'] == points[min(i // 12, len(points) - 1)])

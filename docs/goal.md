@@ -16,6 +16,8 @@ Touch gestures and presentation technology remain implementation decisions to va
 
 ## Latest validation follow-up
 
+A controlled player WALKTO on the starting-room floor now matches the pinned reference in all 72 full RGB frames at the same cycles, including walking and the standing transition. This uses one hover-update cycle before clicking; immediate move/click cached-tag behavior remains separate. No engine change was needed. See [walking evidence](validation/reference-player-walk.json).
+
 Browser package `a4020ae` includes focus/audio interruption cleanup and primary-touch ownership. Its extracted site passes 17 Chrome/WebKit original-asset checks; WebKit simultaneous-touch injection is explicitly skipped. See [browser package](validation/browser-package-a4020ae.json). The pinned Finder bundle passes extracted signature, manifest, source and compiled-launcher integrity checks; [visible Finder interaction remains unverified](validation/finder-pinned-package.json).
 
 The inventory-close runtime (`0a87557`) completed the unchanged 2,630,000-tick route in native, Chrome, and WebKit: all 1,652 inputs accepted, 5,048 engine and 5,048 audio snapshot checks, and identical final engine state and pixels. See [route evidence](validation/inventory-close-route.json). This does not establish full-game original-engine equivalence or physical iPad acceptance.

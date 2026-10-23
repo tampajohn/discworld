@@ -16,11 +16,15 @@ import reference_frames_lldb as frames
 
 INVENTORY = os.environ.get("DISCWORLD_REFERENCE_INVENTORY") == "1"
 LOOK = os.environ.get("DISCWORLD_REFERENCE_LOOK") == "1"
+WALK = os.environ.get("DISCWORLD_REFERENCE_WALK") == "1"
 START = None
 ACTIONS = []
 PENDING = []
 ROOM = 18 << 23
 POINTS = [[50, 120], [147, 110], [294, 56], [250, 160], [149, 60], [10, 10]]
+
+if WALK:
+    POINTS[0] = [250, 180]
 
 
 def invoke(frame, expression):
@@ -67,6 +71,9 @@ def cycle(frame, location, dictionary):
                 START = frames.CYCLES
         if START is not None:
             elapsed = frames.CYCLES - START
+            if WALK and elapsed == 1:
+                PENDING.append('Tinsel::PlayerEvent((Tinsel::PLR_EVENT)1, Tinsel::_vm->_mousePos)')
+                return True
             if elapsed % 12 == 0 and elapsed // 12 < len(POINTS):
                 x, y = POINTS[elapsed // 12]
                 # Set the logical driver position without the dummy SDL backend's
@@ -223,7 +230,7 @@ def finish(debugger):
     path = frames.OUTPUT / 'capture.json'
     report = json.loads(path.read_text())
     report.update(scope='Controlled original debug scene entry, logical driver writes and original DoCursorMove; not normal host input or full gameplay equivalence.',
-                  injected_actions=ACTIONS, hover_start_cycle=START, inventory_diagnostic=INVENTORY, look_diagnostic=LOOK)
+                  injected_actions=ACTIONS, hover_start_cycle=START, inventory_diagnostic=INVENTORY, look_diagnostic=LOOK, walk_diagnostic=WALK)
     path.write_text(json.dumps(report, indent=2) + '\n')
 
 

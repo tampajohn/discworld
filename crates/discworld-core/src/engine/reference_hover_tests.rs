@@ -28,7 +28,7 @@ fn capture_original_debug_room_hover() {
         Engine::bootstrap_with_title(&resources, crate::intro::title_scene(&index).unwrap())
             .unwrap();
     let room = Handle(18 << 23);
-    let points = [
+    let mut points = [
         [50, 120],
         [147, 110],
         [294, 56],
@@ -39,7 +39,11 @@ fn capture_original_debug_room_hover() {
     let direct_entry = std::env::var_os("DISCWORLD_HOVER_DIRECT_ENTRY").is_some();
     let inventory_mode = std::env::var_os("DISCWORLD_HOVER_INVENTORY").is_some();
     let look_mode = std::env::var_os("DISCWORLD_HOVER_LOOK").is_some();
-    assert!(!(inventory_mode && look_mode));
+    let walk_mode = std::env::var_os("DISCWORLD_HOVER_WALK").is_some();
+    assert!(usize::from(inventory_mode) + usize::from(look_mode) + usize::from(walk_mode) <= 1);
+    if walk_mode {
+        points[0] = [250, 180];
+    }
     let frame_limit =
         std::env::var("DISCWORLD_HOVER_FRAMES").map_or(72, |s| s.parse::<usize>().unwrap());
     assert!((72..=240).contains(&frame_limit));
@@ -72,6 +76,13 @@ fn capture_original_debug_room_hover() {
         }
         if let Some(start) = start {
             let elapsed = engine.ticks - start;
+            if walk_mode && elapsed == 1 {
+                assert!(
+                    engine
+                        .world_click(&resources, points[0], PolygonInteraction::WalkTo)
+                        .unwrap()
+                );
+            }
             if elapsed % 12 == 0 && elapsed / 12 < points.len() as u64 {
                 let position = points[(elapsed / 12) as usize];
                 // Match the probe's immediate original DoCursorMove call.
@@ -227,7 +238,7 @@ fn capture_original_debug_room_hover() {
                 .unwrap();
             let legacy = crate::save::Snapshot::from_bytes(&legacy_bytes, [7; 32]).unwrap();
             assert_eq!(legacy.to_bytes().unwrap(), legacy_bytes);
-            if rows.is_empty() && !inventory_mode && !look_mode {
+            if rows.is_empty() && !inventory_mode && !look_mode && !walk_mode {
                 let mut migrated = legacy.state().clone();
                 let peers: Vec<_> = migrated
                     .processes
@@ -317,7 +328,7 @@ fn capture_original_debug_room_hover() {
                     .to_bytes()
                     .unwrap()
             );
-            if rows.is_empty() && !inventory_mode && !look_mode {
+            if rows.is_empty() && !inventory_mode && !look_mode && !walk_mode {
                 std::fs::write(directory.join("mover-state-v26.dws"), &save_bytes).unwrap();
                 let mut input = engine.clone();
                 input
