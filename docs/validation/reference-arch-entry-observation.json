@@ -1,0 +1,34 @@
+{
+  "runtime": "bad0d45",
+  "reference": "assets/validation/reference-arch-entry1",
+  "rust": "assets/validation/rust-arch-entry2",
+  "comparison": "assets/validation/arch-entry-compare1.json",
+  "frames": 480,
+  "same_cycle_matches": 444,
+  "transitions": [
+    {
+      "scene": "unseen.scn",
+      "reference_cycle": 1362,
+      "rust_tick": 1362
+    },
+    {
+      "scene": "arch.scn",
+      "reference_cycle": 1691,
+      "rust_tick": 1691
+    }
+  ],
+  "first_mismatch": {
+    "cycle": 1701,
+    "pixel_bounds": [
+      1,
+      62,
+      155,
+      72
+    ],
+    "different_pixels": 1016
+  },
+  "configuration_issue": "Rust Engine subtitles defaults true; reference launcher previously enabled subtitles only for LOOK. ARCH speech begins at1700. This mismatched configuration is not an engine-fidelity verdict.",
+  "next_capture": "reference-arch-entry-subtitles1, with subtitles=true and speech_mute=false; running",
+  "rust_save_continuations": 480,
+  "initial_rust_attempt": "rust-arch-entry1 failed inherited end-of-capture control assertion because arch entry starts new dialogue. Replacement asserts door control restored before initiating arch entry; does not require arch dialogue to finish within480frames."
+}

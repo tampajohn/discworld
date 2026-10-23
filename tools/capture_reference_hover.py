@@ -69,7 +69,7 @@ def main():
     # initial SDL source surface exists. Select it before initBackend instead.
     config.write_text('[scummvm]\ngfx_mode=surfacesdl\nscaler=normal\n'
                       'scale_factor=1\naspect_ratio=false\n')
-    if args.look:
+    if args.look or args.arch_entry:
         with config.open('a') as file:
             file.write('subtitles=true\nspeech_mute=false\n')
     probe = ROOT / 'tools/reference_hover_lldb.py'
