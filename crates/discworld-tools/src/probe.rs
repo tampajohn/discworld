@@ -228,3 +228,85 @@ pub fn run(iso: &Iso<'_>) -> Result<Value, Box<dyn std::error::Error>> {
         json!({"schema_version":1,"scope":"Independent script prefixes with fresh zero globals; stops at first library call; not a gameplay trace","global_count":count,"scene_count":scenes.len(),"script_count":results.len(),"errors":errors,"scenes":scenes,"scripts":results}),
     )
 }
+
+/// Decode structural bytecode spans without executing or guessing past errors.
+pub fn bytecode(iso: &Iso<'_>) -> Result<Value, Box<dyn std::error::Error>> {
+    use sha2::{Digest, Sha256};
+    let index = parse_index(iso.file("/DISCWLD/INDEX").ok_or("missing index")?)?;
+    let mut resources = Vec::new();
+    let mut errors = Vec::new();
+    let mut totals = std::collections::BTreeMap::<i32, usize>::new();
+    let mut instructions = 0usize;
+    let mut bytes = 0usize;
+    for entry in &index {
+        let file = iso
+            .file(&format!("/DISCWLD/{}", entry.name))
+            .ok_or("missing resource")?;
+        let mut spans = Vec::new();
+        for chunk in chunks(file)?.into_iter().filter(|c| c.kind == 0x3334000a) {
+            let code = &file[chunk.payload.clone()];
+            let (count, calls, failure) = scan_bytecode(code);
+            instructions += count;
+            bytes += code.len();
+            let mut records = Vec::new();
+            for (offset, id) in calls {
+                *totals.entry(id).or_default() += 1;
+                records.push(
+                    json!({"offset":chunk.payload.start + offset,"id":id,"name":library::name(id)}),
+                );
+            }
+            if let Some((offset, error)) = failure {
+                errors.push(json!({"resource":entry.name,"offset":chunk.payload.start + offset,"error":error}));
+            }
+            spans.push(json!({"start":chunk.payload.start,"end":chunk.payload.end,
+                "sha256":format!("{:x}",Sha256::digest(code)),"instructions":count,"calls":records}));
+        }
+        if !spans.is_empty() {
+            resources.push(json!({"resource":entry.name,"chunks":spans}));
+        }
+    }
+    Ok(
+        json!({"schema":1,"scope":"Linear decoding of complete bytecode chunk spans, including padding and unreachable code. Does not prove reachability, argument values, or library implementation coverage. Stops each span at its first decode error; never resynchronizes.",
+        "indexed_resources":index.len(),"bytecode_bytes":bytes,"instructions":instructions,
+        "calls":totals.into_iter().map(|(id,count)|json!({"id":id,"name":library::name(id),"count":count})).collect::<Vec<_>>(),
+        "resources":resources,"errors":errors}),
+    )
+}
+
+type BytecodeScan = (usize, Vec<(usize, i32)>, Option<(usize, String)>);
+fn scan_bytecode(code: &[u8]) -> BytecodeScan {
+    let mut ip = 0;
+    let mut count = 0;
+    let mut calls = Vec::new();
+    while ip < code.len() {
+        let instruction = match discworld_core::script::decode(code, ip) {
+            Ok(instruction) => instruction,
+            Err(error) => return (count, calls, Some((ip, error.to_string()))),
+        };
+        if instruction.opcode == 14 {
+            calls.push((ip, instruction.operand.unwrap()));
+        }
+        count += 1;
+        ip = instruction.next;
+    }
+    (count, calls, None)
+}
+
+#[cfg(test)]
+mod bytecode_tests {
+    use super::*;
+    #[test]
+    fn skips_call_like_operand_bytes_and_preserves_truncation_boundary() {
+        // PUSH immediate contains LIBCALL-like bytes; only the real opcode counts.
+        assert_eq!(
+            scan_bytecode(&[1, 0x4e, 124, 0, 0, 0x4e, 124, 0]),
+            (3, vec![(5, 124)], None)
+        );
+        let (count, calls, failure) = scan_bytecode(&[0x4e, 49, 0x4e]);
+        assert_eq!((count, calls), (1, vec![(0, 49)]));
+        assert_eq!(failure.unwrap().0, 2);
+        let (count, calls, failure) = scan_bytecode(&[0x3f, 0x4e, 49]);
+        assert_eq!((count, calls), (0, vec![]));
+        assert_eq!(failure.unwrap().0, 0);
+    }
+}

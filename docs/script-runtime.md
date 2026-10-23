@@ -4,6 +4,21 @@ The initial implementation notes below are historical. Current runtime and
 validation status is maintained in [goal.md](goal.md), the focused compatibility
 documents, and `docs/validation/`.
 
+`discworld-tools audit-bytecode ISO` now decodes every structural bytecode span
+without execution or resynchronizing past errors. The supplied ISO has 149
+indexed resources with 382,876 bytecode bytes, 175,839 decoded instructions and
+32,113 library-call sites spanning 102 IDs; all spans decode successfully.
+Embedded operand bytes are not counted as instructions. Padding and unreachable
+code are included, so this is an inventory, not a reachability/coverage proof.
+SETLANGUAGE, CDPLAY and PLAYRTF are absent from this data. Their absence should
+guide priorities rather than replacing their unimplemented behavior with no-ops.
+
+The audit identifies a substantial compatibility gap: PRINTTAG appears at 843
+sites, but the scene interpreter has no handler and world pointer/tag monitoring
+is absent. Inventory hover and actor hit testing are separate implemented paths.
+The recorded full-game route does not prove world-hover fidelity. See
+[bytecode-library-audit.json](validation/bytecode-library-audit.json).
+
 The safe Rust bytecode machine implements the V1 instructions handled by the pinned ScummVM interpreter. Its state includes a 128-word stack, stack and base pointers, an instruction pointer, and a pending library call. Invalid operations leave the machine and globals unchanged.
 
 Operands are signed 8, 16, or 32 bit values. The 8-bit flag takes precedence if both width flags are set. Jumps and procedure targets are offsets from the current script start. Calls write static and dynamic links and a return address without raising the stack pointer; the callee claims this storage with ALLOC. These semantics follow the pinned [pcode.cpp](https://github.com/scummvm/scummvm/blob/96b42d42bc8533953bdd701db059cc33c839a9ff/engines/tinsel/pcode.cpp).

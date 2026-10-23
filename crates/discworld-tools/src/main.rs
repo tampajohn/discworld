@@ -27,6 +27,23 @@ fn run() -> Result<(), Box<dyn std::error::Error>> {
     if command == "capture-startup-frames" {
         return frame_capture::startup(path, args);
     }
+    if command == "audit-bytecode" {
+        if args.next().is_some() {
+            return Err("usage: audit-bytecode ISO".into());
+        }
+        let data = std::fs::read(path)?;
+        let iso = Iso::parse(&data)?;
+        let mut report = probe::bytecode(&iso)?;
+        report["iso_sha256"] = json!(format!("{:x}", Sha256::digest(&data)));
+        println!("{}", serde_json::to_string_pretty(&report)?);
+        if report["errors"]
+            .as_array()
+            .is_none_or(|errors| !errors.is_empty())
+        {
+            return Err("bytecode audit incomplete; see report".into());
+        }
+        return Ok(());
+    }
     if command == "compare-animation-trace" {
         return animation_trace::compare(path, args);
     }

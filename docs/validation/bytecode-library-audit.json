@@ -1,0 +1,142 @@
+{
+  "schema": 1,
+  "iso_sha256": "5354f74582375b1f6350e33b4dfd5df6b2bcd79a30f471a9307e017235570e05",
+  "report": "assets/validation/bytecode-audit.json",
+  "report_sha256": "54f0086d4d41a73c3c0773e656b5e3f93d175e5bda99a033c58592219e5b7dac",
+  "indexed_resources": 149,
+  "resources_with_bytecode": 149,
+  "bytecode_bytes": 382876,
+  "instructions": 175839,
+  "decode_errors": [],
+  "call_sites": 32113,
+  "distinct_library_ids": 102,
+  "absent_library_ids": [
+    {
+      "id": 2,
+      "name": "ACTORREF"
+    },
+    {
+      "id": 30,
+      "name": "ESCAPE"
+    },
+    {
+      "id": 34,
+      "name": "HIDEACTOR"
+    },
+    {
+      "id": 48,
+      "name": "PAUSE"
+    },
+    {
+      "id": 69,
+      "name": "SHOWPOS"
+    },
+    {
+      "id": 70,
+      "name": "SHOWSTRING"
+    },
+    {
+      "id": 71,
+      "name": "SPLAY"
+    },
+    {
+      "id": 78,
+      "name": "TALKATTR"
+    },
+    {
+      "id": 84,
+      "name": "VIBRATE"
+    },
+    {
+      "id": 90,
+      "name": "WALKPOLY"
+    },
+    {
+      "id": 94,
+      "name": "CUTSCENE"
+    },
+    {
+      "id": 105,
+      "name": "DECFLAGS"
+    },
+    {
+      "id": 106,
+      "name": "FADEMIDI"
+    },
+    {
+      "id": 115,
+      "name": "QUITGAME"
+    },
+    {
+      "id": 116,
+      "name": "FRAMEGRAB"
+    },
+    {
+      "id": 117,
+      "name": "PLAYRTF"
+    },
+    {
+      "id": 118,
+      "name": "CDPLAY"
+    },
+    {
+      "id": 119,
+      "name": "CDLOAD"
+    },
+    {
+      "id": 120,
+      "name": "HASRESTARTED"
+    },
+    {
+      "id": 121,
+      "name": "RESTORE_CUT"
+    },
+    {
+      "id": 122,
+      "name": "RUNMODE"
+    },
+    {
+      "id": 123,
+      "name": "SUBTITLES"
+    },
+    {
+      "id": 124,
+      "name": "SETLANGUAGE"
+    }
+  ],
+  "world_tag_gap": {
+    "call": 55,
+    "name": "PRINTTAG",
+    "sites": 843,
+    "resources": 81,
+    "finding": "No PRINTTAG scene dispatch handler or world PointProcess/TagProcess in current engine. Actor hit testing and inventory hover exist separately.",
+    "reference": [
+      "tinlib.cpp:2442 PrintTag registers a V1 polygon label only when TAG_OFF",
+      "tinlib.cpp:6227 PRINTTAG consumes one argument",
+      "pdisplay.cpp:640 TagProcess resolves actor before polygon labels",
+      "pdisplay.cpp:698 enteringpoly starts POINTED script",
+      "pdisplay.cpp:717 leavingpoly clears V1 tag without UNPOINT script",
+      "pdisplay.cpp:738 PointProcess monitors all TAG/EXIT polygons"
+    ]
+  },
+  "language_selection": {
+    "call": 124,
+    "sites": 0,
+    "assets": [
+      "ENGLISH.TXT",
+      "ENGLISH.IDX",
+      "ENGLISH.SMP"
+    ],
+    "reference": "SETLANGUAGE validates 0..4, changes text/sample language globals, reloads text and falls back to English for missing language files. It is not a general no-op; no implementation changed."
+  },
+  "checks": [
+    "discworld-tools tests passed, including false-positive operand bytes and truncated/invalid instruction boundaries",
+    "tools release build passed",
+    "tools Clippy all targets -D warnings passed"
+  ],
+  "limits": [
+    "Linear decoding of complete bytecode chunk spans, including padding and unreachable code. Does not prove reachability, argument values, or library implementation coverage. Stops each span at its first decode error; never resynchronizes.",
+    "The handler review is manual; a present match arm is not proof of complete behavior.",
+    "No dynamic reachability, whole-game interaction coverage or world-hover fix is claimed."
+  ]
+}

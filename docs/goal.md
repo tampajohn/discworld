@@ -44,6 +44,15 @@ Keep the user's visible native session current with newly verified engine builds
 
 ## Current progress (2026-10-23)
 
+A complete linear bytecode inventory now identifies world hover as a priority
+gap: 843 PRINTTAG sites are encoded, but world PointProcess/TagProcess and the
+PRINTTAG handler remain unimplemented. Inventory hover and actor hit testing
+do not cover this. All 149 resources decode without errors (32,113 call sites,
+102 library IDs); SETLANGUAGE and the alternate-platform CDPLAY/PLAYRTF calls
+are absent. The next compatibility pass must implement original world-hover
+scripts, label rendering and save/load state. See
+[bytecode-library-audit.json](validation/bytecode-library-audit.json).
+
 PLAY/TOPPLAY completion arguments now match the pinned V1 integer dispatch:
 `1` blocks, `2` errors, other values play asynchronously. A 42-case bytecode
 regression covers caller precedence and queued save/load continuation. All 342
