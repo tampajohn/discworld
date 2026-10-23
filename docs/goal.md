@@ -44,6 +44,13 @@ Keep the user's visible native session current with newly verified engine builds
 
 ## Current progress (2026-10-23)
 
+PLAY/TOPPLAY completion arguments now match the pinned V1 integer dispatch:
+`1` blocks, `2` errors, other values play asynchronously. A 42-case bytecode
+regression covers caller precedence and queued save/load continuation. All 342
+core tests, 24 original-asset tests, Clippy, WASM and host builds pass. The latest
+full-route audit below predates this small correction; see
+[play-completion.json](validation/play-completion.json).
+
 Scrolling now runs as a scene scheduler task, fixing all 351 remaining aligned
 startup-frame mismatches: all 1,000 reference frames match at aligned ticks.
 Save version 23 retains task order and scroll initialization; older formats

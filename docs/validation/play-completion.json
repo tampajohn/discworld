@@ -1,0 +1,63 @@
+{
+  "schema": 1,
+  "reference_revision": "96b42d42bc8533953bdd701db059cc33c839a9ff",
+  "reference_locations": [
+    "engines/tinsel/tinlib.cpp:1541 Play V1 integer compit dispatch",
+    "engines/tinsel/tinlib.cpp:2909 SPlay bool conversion",
+    "engines/tinsel/tinlib.cpp:3728 TopPlay forwards integer completion",
+    "engines/tinsel/tinlib.cpp:6087 PLAY dispatcher",
+    "engines/tinsel/tinlib.cpp:6701 TOPPLAY dispatcher"
+  ],
+  "before": "PLAY/TOPPLAY returned Unsupported for every completion value other than 0 or 1. Regression fails at PLAY with i32::MIN.",
+  "after": "Only value 1 blocks. Value 2 produces a checked compatibility error matching the reference fatal branch. Other integer values queue asynchronous playback. Escape/dead-actor early returns precede the completion-mode check. SPLAY retains its existing bool conversion.",
+  "regression": {
+    "commands": [
+      49,
+      81
+    ],
+    "completion_values": [
+      -2147483648,
+      -1,
+      0,
+      1,
+      2,
+      3,
+      2147483647
+    ],
+    "contexts": [
+      "ordinary",
+      "stale Escape",
+      "dead caller actor"
+    ],
+    "cases": 42,
+    "checks": [
+      "lower stack sentinel survives argument consumption",
+      "nonblocking jobs queued without eager reel start",
+      "blocking primary remains in caller",
+      "invalid mode has no engine mutation",
+      "queued reels round-trip exact saves and take identical next steps"
+    ]
+  },
+  "validation": {
+    "workspace_core_tests": 342,
+    "original_asset_tests": 24,
+    "clippy": "passed",
+    "wasm": "passed",
+    "native_tools_browser_builds": "passed"
+  },
+  "logs": {
+    "assets/logs/play-completion-before.log": "1f30cf81be113d56e3948273d081e7ab536f4c7844470b8030cc7736029993f3",
+    "assets/logs/play-completion-after.log": "55c1cfbfd0885be919749904d81c0f491b724830763f5374a6cf1f329e1448a2",
+    "assets/logs/play-completion-workspace.log": "4aee0d715ba9bf3c9d7f54f66ece20f3812e4158b7163e645478413ed8f663f6",
+    "assets/logs/play-completion-assets.log": "a079a5e729ba3e8f429ef16c1bf53bf543a4366ce7e06da3faca628292e66cd9",
+    "assets/logs/play-completion-clippy.log": "61ed21cae69033eaeae6093918ce82e13e7e8a2120cc8ec261a95f1732ac53ad",
+    "assets/logs/play-completion-wasm.log": "8205396f450f6212420d3b122d998dc0461acb5f241863c77c9266f9a58fca0d",
+    "assets/logs/play-completion-build.log": "c37369b061a2f27fdbf6511eaf02c9379a606bbec35f6ff414222cae25a5cc7f",
+    "assets/logs/play-completion-web-build.log": "80dc281a642dfc93da1e27832fbf0d11b263e9c41f553ff1c9e19c701c78cc5b"
+  },
+  "limits": [
+    "Synthetic bytecode exercises the extra integer branches; no original-game interaction using these unusual values has been established.",
+    "Latest complete cross-host full-route audit remains runtime 9bf9b3f. It predates this correction; ordinary 0/1 dispatch behavior is unchanged.",
+    "No native visible session or physical iPad acceptance claimed."
+  ]
+}

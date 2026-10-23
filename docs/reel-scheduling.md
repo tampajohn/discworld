@@ -296,3 +296,13 @@ positions, then repeats from a saved credits state. Version 23 persists task
 order and the native-scrolling marker; legacy saves retain their prior camera
 phase until a new scene is entered. Full-route and host validation are tracked
 in [scheduled-scroll.json](validation/scheduled-scroll.json).
+
+V1 PLAY and TOPPLAY now retain the reference's integer completion dispatch:
+only `1` blocks, `2` is a fatal compatibility condition (reported as a checked
+error), and every other integer starts asynchronous playback. The former 0/1
+restriction incorrectly stopped valid integer cases. Escape and dead-actor
+checks still precede this branch; SPLAY still converts completion to boolean.
+The regression covers both calls across seven integer values and three caller
+states, including exact pending-reel save/load continuation. This is synthetic
+branch coverage, not evidence of an original puzzle using unusual values. See
+[play-completion.json](validation/play-completion.json).

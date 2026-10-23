@@ -6603,8 +6603,8 @@ impl Engine {
                     }
                     // The pinned PlayFilm/PlayFilmc APIs convert SPLAY's slow
                     // factor to bool; 0 and 1 both permit every hidden step.
-                    if !splay && !matches!(a[5], 0 | 1) {
-                        return Ok(Status::Unsupported(call));
+                    if !splay && a[5] == 2 {
+                        return Err(Error("invalid PLAY completion mode"));
                     }
                     let blocking = if splay { a[5] != 0 } else { a[5] == 1 };
                     let request = ReelRequest {
@@ -12228,6 +12228,90 @@ mod tests {
             [284, 285]
         );
     }
+    #[test]
+    fn play_completion_flags_follow_v1_integer_dispatch() {
+        let base = 2u32 << 23;
+        for call in [49u8, 81] {
+            for completion in [i32::MIN, -1, 0, 1, 2, 3, i32::MAX] {
+                for bypass in [0, 1, 2] {
+                    let (master, mut scene) = fixtures();
+                    let mut code = vec![0x41, 77, 1];
+                    code.extend(base.to_le_bytes());
+                    code.extend([4, 4, 2, 2, 1]);
+                    code.extend(completion.to_le_bytes());
+                    code.extend([0x4e, call, 0x4c, 0, 0]);
+                    scene[32..32 + code.len()].copy_from_slice(&code);
+                    let mut film = vec![0; 80];
+                    for (at, word) in [
+                        (0, 24u32),
+                        (4, 1),
+                        (8, base + 32),
+                        (12, base + 64),
+                        (40, 1),
+                        (64, 10),
+                        (68, 1),
+                        (72, (-2i32) as u32),
+                    ] {
+                        film[at..at + 4].copy_from_slice(&word.to_le_bytes());
+                    }
+                    let resources = Resources(vec![&master, &scene, &film]);
+                    let mut engine = Engine::bootstrap(&resources).unwrap();
+                    engine.actors = crate::actor::Actors::new(1).unwrap();
+                    engine.escape_events = Some(2);
+                    let mut caller = ScriptProcess::new(Handle((1 << 23) | 32));
+                    if bypass == 1 {
+                        caller.vm.escape_enabled = true;
+                        caller.vm.escape_generation = Some(1);
+                    } else if bypass == 2 {
+                        caller.actor = Some(1);
+                        engine.actors.get_mut(1).unwrap().alive = false;
+                    }
+                    let before = engine.clone();
+                    let result = engine.run_process(&resources, None, None, None, &mut caller);
+                    if bypass == 0 && completion == 2 {
+                        assert_eq!(result, Err(Error("invalid PLAY completion mode")));
+                        assert_eq!(engine, before);
+                    } else if bypass == 0 && completion == 1 {
+                        assert_eq!(result, Ok(Status::Running));
+                        assert!(caller.play_wait.is_some());
+                        assert_eq!(engine.globals[0], 0);
+                    } else {
+                        assert_eq!(
+                            result,
+                            Ok(Status::Halted),
+                            "call={call}, completion={completion}"
+                        );
+                        assert!(caller.play_wait.is_none());
+                        assert_eq!(engine.globals[0], if bypass == 2 { 0 } else { 77 });
+                        let pending = engine
+                            .scene_tasks()
+                            .iter()
+                            .filter(|(_, task)| matches!(task, SceneTask::Pending(_)))
+                            .count();
+                        assert_eq!(pending, usize::from(bypass == 0));
+                        assert!(
+                            engine.films.is_empty(),
+                            "nonblocking reels start at dispatch"
+                        );
+                        if bypass == 0 {
+                            assert!(caller.vm.operands().is_empty());
+                            let bytes = crate::save::Snapshot::capture(&engine, [7; 32])
+                                .to_bytes()
+                                .unwrap();
+                            let saved = crate::save::Snapshot::from_bytes(&bytes, [7; 32]).unwrap();
+                            assert_eq!(saved.to_bytes().unwrap(), bytes);
+                            let mut restored = saved.state().clone();
+                            engine.tick(&resources).unwrap();
+                            restored.tick(&resources).unwrap();
+                            assert_eq!(engine, restored);
+                            assert_eq!(engine.films.len(), 1);
+                        }
+                    }
+                }
+            }
+        }
+    }
+
     #[test]
     fn empty_play_returns_without_yield_or_actor_side_effects() {
         let base = 2u32 << 23;
