@@ -818,6 +818,11 @@ fn capture_original_debug_room_hover() {
         let mut previous = None;
         let mut control_tick = None;
         while engine.ticks < if arch_idle { 12000 } else { 3999 } {
+            if !arch_idle && engine.ticks == 3987 {
+                engine
+                    .move_cursor_with_configuration(&resources, [200, 190])
+                    .unwrap();
+            }
             let status = engine
                 .tick_content(&resources, Some(&bank), Some(&tracks), Some(&strings))
                 .unwrap();

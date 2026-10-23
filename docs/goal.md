@@ -16,7 +16,7 @@ Touch gestures and presentation technology remain implementation decisions to va
 
 ## Latest validation follow-up
 
-Updated Finder/browser packages from exact source3df76c8 pass extracted manifests/source integrity, macOS deep signature verification, native startup/legacy-load, and Chrome/WebKit startup/load/save/audio-control smoke. Full-route/UI audits are still running; visible Finder and physical iPad acceptance remain open. See [package evidence](validation/packages-3df76c8.json).
+Updated Finder/browser packages from exact source3df76c8 pass extracted manifests/source integrity, macOS deep signature verification, native startup/legacy-load, and Chrome/WebKit startup/load/save/audio-control smoke. Browser UI passes49 Playwright cases plus4 Node tests, with1 known WebKit multi-touch injection skip. Full-route audits are still running; visible Finder and physical iPad acceptance remain open. See [package evidence](validation/packages-3df76c8.json).
 
 Paired replay proves the added cursor samples prevent the expected idle close-up before tick88000; they do not dismiss an already-started close-up in this case. Preserving that stationary interval passes through100000 with84 engine/DSP continuation checks. A4239-input candidate preserves all1657 original actions and stationary windows before all8 recorded close-up keys; all three full audits are running. See [close-up recovery](validation/idle-cursor-closeup-recovery.json).
 

@@ -64,7 +64,7 @@
   },
   "scope": "Extracted native dummy-video/audio startup and legacy save load; extracted Chrome/WebKit startup/load/save/audio-control smoke. Not visible Finder or physical iPad acceptance; full-route audits are separate.",
   "full_route_status": "Revised idle-aware cursor route still running; package smoke is not whole-game acceptance.",
-  "browser_ui_status": "Full UI suite still running, session40572; assets/logs/idle-clock-browser-ui.log",
+  "browser_ui_status": "Passed:49 Playwright cases,1 known WebKit multi-touch injection skip,4 Node tests; assets/logs/idle-clock-browser-ui.log",
   "limitations": [
     "No visible Finder/Gatekeeper/file-picker validation",
     "No physical iPad acceptance",

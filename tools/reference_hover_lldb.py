@@ -82,6 +82,9 @@ def cycle(frame, location, dictionary):
     global START
     frames.CYCLES += 1
     try:
+        if ARCH_INVENTORY and frames.CYCLES == 3988:
+            PENDING.append('Tinsel::_vm->_mousePos.x = 200, Tinsel::_vm->_mousePos.y = 190, Tinsel::_vm->_cursor->DoCursorMove()')
+            return True
         if ARCH_INVENTORY and frames.CYCLES == 4000:
             value = frame.EvaluateExpression('Tinsel::ControlIsOn()')
             if value.GetError().Fail() or not value.GetValueAsUnsigned():

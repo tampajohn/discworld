@@ -158,7 +158,7 @@ def main():
     # constant driver position after all controlled input has ended.
     accepted = (metadata.get('exit_code') == 0 and report.get('complete') is True
                 and report.get('errors') == [] and len(frames) == args.frames
-                and len(report.get('injected_actions', [])) == (15 if args.arch_inventory else 14 if args.arch_skip else 13 if args.arch_entry else 14 if args.university_retarget else 12 if args.university_walk else 13 if args.inventory_drag else 10 if args.inventory or args.walk_from_actor or args.door_exit else 9 if args.look or args.walk or args.door_action else 8)
+                and len(report.get('injected_actions', [])) == (16 if args.arch_inventory else 14 if args.arch_skip else 13 if args.arch_entry else 14 if args.university_retarget else 12 if args.university_walk else 13 if args.inventory_drag else 10 if args.inventory or args.walk_from_actor or args.door_exit else 9 if args.look or args.walk or args.door_action else 8)
                 and all((f['scene'] in ((18 << 23, 61 << 23, 60 << 23) if args.arch_entry else (18 << 23, 61 << 23)) if args.door_exit else f['scene'] == 18 << 23)
                         and (((args.look or args.door_exit) and i >= 72)
                              or f['driver_cursor'] == ([250, 180] if args.walk_from_actor and 1 <= i < 12
@@ -167,7 +167,8 @@ def main():
     if accepted and args.door_exit:
         accepted = frames[0]['scene'] == 18 << 23 and frames[-1]['scene'] == (60 << 23 if args.arch_entry else 61 << 23)
     if accepted and args.arch_inventory:
-        accepted = frames[-1].get('inventory') == [2, 2] and frames[-1]['cycle'] == 4023
+        accepted = (frames[-1].get('inventory') == [2, 2] and frames[-1]['cycle'] == 4023
+                    and all(f['driver_cursor'] == [200, 190] for f in frames[480:]))
     if accepted and args.inventory:
         accepted = (frames[12]['inventory'] == [2, 1 if args.inventory_resize else 2]
                     and frames[48]['inventory'][0] == 1)

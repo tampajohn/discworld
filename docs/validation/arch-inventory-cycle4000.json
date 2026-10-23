@@ -16,8 +16,29 @@
   ],
   "reason": "Open after the observed dialogue completion and before the long unattended interval reaches the reference idle threshold. Both hosts assert control before dispatch; no direct state changes.",
   "rust_status": "passed; 504 frames and final overlay save/load continuation",
-  "reference_status": "running; comparison pending",
+  "reference_status": "completed and accepted; later24 frames mismatch",
   "reference_pid": 6522,
   "reference_session": 81974,
-  "production_change": false
+  "production_change": false,
+  "comparison": "assets/validation/arch-inventory-cycle4000-compare.json",
+  "same_cycle_matches": 480,
+  "total_frames": 504,
+  "final_different_pixels": 26,
+  "reference_final_cursor": [
+    0,
+    0
+  ],
+  "rust_final_cursor": [
+    175,
+    180
+  ],
+  "finding": "Both final images show inventory background/borders. Late frames differ; final differences include cursor pixels and9 pixels within the inventory area. No exact overlay fidelity claim.",
+  "followup": {
+    "reference": "assets/validation/reference-arch-inventory-cursor1",
+    "rust": "assets/validation/rust-arch-inventory-cursor1",
+    "input": "Move both cursors to[200,190] before cycle3988, open pockets at4000; assert reference driver position throughout24 late frames",
+    "reference_pid": 10201,
+    "reference_session": 68146,
+    "status": "running; not a pass"
+  }
 }
