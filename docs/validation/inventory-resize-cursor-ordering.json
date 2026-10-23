@@ -86,8 +86,9 @@
     "production_wasm_build": "passed",
     "replay_wasm_build": "passed",
     "browser_ui": "running; not counted as passed",
-    "full_routes": "pending on this change"
+    "full_routes": "Native, Chrome and WebKit running against frozen30c2f69 artifacts in assets/validation/resize-cursor-30c2f69; not counted as passed."
   },
   "test_adjustment": "Old hover test expected deferred normal-cursor restoration. Reference invDragEnd restores immediately; test now uses checked movement after release and expects immediate step plus two ticks. Initial old assertions failed and logs are retained.",
-  "limitations": "Visible native interaction and physical iPad landscape acceptance remain unverified. Full reference compatibility is not established."
+  "limitations": "Visible native interaction and physical iPad landscape acceptance remain unverified. Full reference compatibility is not established.",
+  "runtime_revision": "30c2f69"
 }
