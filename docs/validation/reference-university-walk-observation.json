@@ -1,0 +1,33 @@
+{
+  "runtime": "6061cc3",
+  "scope": "Controlled bedroom door ACTION and exit, then logical cursor move to (175,180) at elapsed168 and original PlayerEvent WALKTO one tick later. Rust uses world_click with cached hover. Not host raw-input acceptance.",
+  "reference": "assets/validation/reference-university-walk1",
+  "rust": "assets/validation/rust-university-walk2",
+  "comparison": "assets/validation/university-walk-compare1.json",
+  "frames": 240,
+  "same_cycle_matches": 182,
+  "save_continuations": 240,
+  "movement_assertion": "Rincewind changes world position after floor click and remains in unseen.scn.",
+  "reference_click": {
+    "cycle": 1426,
+    "expression": "Tinsel::PlayerEvent((Tinsel::PLR_EVENT)1, Tinsel::_vm->_mousePos)",
+    "error": "success",
+    "target_before_dispatch": {
+      "g_TaggedActor": 0,
+      "g_hTaggedPolygon": -1
+    }
+  },
+  "mismatch": {
+    "first_cycle": 1426,
+    "last_cycle": 1483,
+    "frames": 58,
+    "first_pixel_bounds": [
+      132,
+      47,
+      161,
+      86
+    ],
+    "observation": "Differences occur around the moving actor and disappear after movement. Path/animation scheduling cause not yet determined."
+  },
+  "next_evidence": "Movement state trace in reference-university-walk-trace1 and rust-university-walk-trace1 launched; not yet accepted."
+}

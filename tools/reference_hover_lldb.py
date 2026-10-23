@@ -82,7 +82,8 @@ def cycle(frame, location, dictionary):
             PENDING.extend(['Tinsel::EndDw1Intro()', f'Tinsel::SetNewScene({ROOM}u, 1, 1)'])
             return True
         target = frame.GetThread().GetProcess().GetTarget()
-        if 1108 <= frames.CYCLES <= 1130:
+        if (1108 <= frames.CYCLES <= 1130 or
+                (UNIVERSITY_WALK and 1424 <= frames.CYCLES <= 1496)):
             movers = target.FindFirstGlobalVariable('Tinsel::g_Movers')
             mover = movers.GetChildAtIndex(0)
             fields = ['actorID', 'objX', 'objY', 'targetX', 'targetY',

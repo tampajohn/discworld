@@ -399,7 +399,7 @@ fn capture_original_debug_room_hover() {
                 );
             }
         }
-        if (1108..=1130).contains(&tick) {
+        if (1108..=1130).contains(&tick) || (university_walk && (1424..=1496).contains(&tick)) {
             let mover = &engine.movers[&7];
             let target = mover
                 .walk_target
@@ -411,7 +411,10 @@ fn capture_original_debug_room_hover() {
             ));
         }
         crate::animation::trace_tick(
-            ((450..=455).contains(&tick) || (1108..=1130).contains(&tick)).then_some(tick),
+            ((450..=455).contains(&tick)
+                || (1108..=1130).contains(&tick)
+                || (university_walk && (1424..=1496).contains(&tick)))
+            .then_some(tick),
         );
         let hidden_standing = if (452..=455).contains(&tick) {
             let mover = engine.movers.get(&7).unwrap();

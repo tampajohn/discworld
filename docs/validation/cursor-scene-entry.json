@@ -98,7 +98,7 @@
     "web_build": "passed",
     "full_routes": "Native, Chrome and WebKit running against frozen 6061cc3 artifacts in assets/validation/cursor-entry-6061cc3",
     "web_replay_build": "passed",
-    "browser_ui": "running"
+    "browser_ui": "49 Playwright passed, one known WebKit multi-touch injection skip; four Node tests passed"
   },
   "limitations": "Controlled captures do not prove whole-game fidelity or physical iPad acceptance. Previous full routes cover f5b9a91, not this change."
 }
