@@ -85,7 +85,7 @@
     "native_tools_build": "passed",
     "production_wasm_build": "passed",
     "replay_wasm_build": "passed",
-    "browser_ui": "running; not counted as passed",
+    "browser_ui": "49 Chrome/WebKit cases passed; one unsupported WebKit multi-touch injection case skipped; 4 Node tests passed. Log: assets/logs/resize-cursor-browser-ui.log",
     "full_routes": "Native, Chrome and WebKit running against frozen30c2f69 artifacts in assets/validation/resize-cursor-30c2f69; not counted as passed."
   },
   "test_adjustment": "Old hover test expected deferred normal-cursor restoration. Reference invDragEnd restores immediately; test now uses checked movement after release and expects immediate step plus two ticks. Initial old assertions failed and logs are retained.",

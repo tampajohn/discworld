@@ -36,8 +36,8 @@ compatibility on a different Mac. Logs: `assets/logs/native-package-build.json`,
 
 The inspected binary records minimum macOS 11.0, but that is linker metadata,
 not evidence that all supported hardware or OS versions work. Finder `.app`
-packaging, distribution signing/notarization, and broader OS/device acceptance
-remain outstanding. This archive is a development deliverable, not completion
+packaging is now available as described below. Distribution signing/notarization
+and broader OS/device acceptance remain outstanding. This archive is a development deliverable, not completion
 of the runtime goal.
 
 
@@ -97,3 +97,12 @@ movement correction. Its extracted runtime passes startup and legacy-save
 loading with dummy video/audio. Signature, manifest and exact source checks
 pass. Visible Finder launch remains unverified. See
 [package evidence](validation/packages-9186705.json).
+
+
+The `cc0e3db` Finder package contains runtime `30c2f69`, including synchronous
+inventory cursor changes before drag and on release. Extracted outside the
+checkout, all five manifest files and the exact source archive verify, and
+deep/strict signature verification passes. Dummy-video startup and legacy save
+load advance to ticks 13 and 33213 with no stopped runtime. These are executable
+checks, not visible Finder/file-picker acceptance. See
+[package evidence](validation/packages-cc0e3db.json).

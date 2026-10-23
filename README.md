@@ -43,8 +43,19 @@ python3 scripts/package-native.py assets/packages/discworld-native.tar.gz
 Extract the archive and run its `discworld-native` executable with your ISO and
 SoundFont paths as above (omit `cargo run --release -p discworld-native --`).
 It contains the executable, exact project source, license notices and checksums.
-It is a command-line development distribution; Finder app packaging,
-notarization and testing on other macOS versions remain unfinished.
+This archive is a command-line development distribution. To build a Finder app
+from the same clean Apple Silicon checkout:
+
+```sh
+python3 scripts/package-macos-app.py assets/packages/discworld-finder.zip
+```
+
+Extract the ZIP and open `Discworld.app`. Its launcher asks for your ISO and
+SoundFont on each launch. Saves, named slots, preferences and `last-session.log`
+live under `~/Library/Application Support/Discworld Rust/`. Use F7 to load a named
+save or F9 for the quick save; launch does not automatically resume it.
+The bundle is ad-hoc signed, not notarized. Extracted runtime checks pass;
+visible Finder/file-picker interaction and other macOS versions remain unverified.
 See [native distribution validation](docs/native-distribution.md).
 
 ### Save and reload

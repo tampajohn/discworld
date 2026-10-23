@@ -553,3 +553,12 @@ movement correction. The extracted package passes manifest/source checks and
 Chrome/WebKit startup, legacy-load, save-export and audio-headroom smoke checks.
 Full-route audits use separately frozen modules from9186705 and remain running.
 See [package evidence](validation/packages-9186705.json).
+
+
+The `cc0e3db` browser package includes runtime `30c2f69` with synchronous inventory
+cursor updates. All 14 extracted manifest files and bundled source verify.
+Chrome 156.0.8078.47 and WebKit 27.2 pass startup, legacy save load, save export
+and audio-headroom checks without page errors. The host UI suite passes 49 cases
+and four Node tests; one unsupported WebKit multi-touch injection is skipped.
+Full-route audits for this runtime are still running; physical iPad acceptance
+remains open. See [package evidence](validation/packages-cc0e3db.json).
