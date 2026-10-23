@@ -1,0 +1,132 @@
+{
+  "simulator": "iPad Pro 11-inch (M5), iOS 26.5",
+  "result_bundle": "assets/validation/ipad-canvas3/results.xcresult",
+  "tests_passed": 3,
+  "tests_failed": 0,
+  "states": {
+    "before": {
+      "audio_ready": false,
+      "completed_audio_buffers": 0,
+      "frame_sha256": "e895102c9af44d54acb98f145c967763c985033d891c972807001fe7cf63e784",
+      "inspection": {
+        "control": true,
+        "cursor": [
+          146,
+          106
+        ],
+        "held_object": -1,
+        "inventory": null,
+        "lead_position": [
+          200,
+          178
+        ],
+        "walk_target": null
+      },
+      "last_operation": "advance",
+      "menu_requests": [],
+      "muted": true,
+      "paused": false,
+      "scene": "rinceroo.scn",
+      "tick": 8706
+    },
+    "closed": {
+      "audio_ready": false,
+      "completed_audio_buffers": 0,
+      "frame_sha256": "2cc9ad3a8d6aece499fa0289169066adf6c8caab15c396bb3b79ee136e68dca1",
+      "inspection": {
+        "control": true,
+        "cursor": [
+          160,
+          185
+        ],
+        "held_object": -1,
+        "inventory": null,
+        "lead_position": [
+          160,
+          185
+        ],
+        "walk_target": null
+      },
+      "last_operation": "input",
+      "menu_requests": [],
+      "muted": true,
+      "paused": true,
+      "scene": "rinceroo.scn",
+      "tick": 8796
+    },
+    "pockets": {
+      "audio_ready": false,
+      "completed_audio_buffers": 0,
+      "frame_sha256": "980ce2c4621e8e8f9ad6e2676dbad9e854db836767555b9bd87ece64451e87f1",
+      "inspection": {
+        "control": true,
+        "cursor": [
+          160,
+          185
+        ],
+        "held_object": -1,
+        "inventory": 2,
+        "lead_position": [
+          160,
+          185
+        ],
+        "walk_target": null
+      },
+      "last_operation": "advance",
+      "menu_requests": [],
+      "muted": true,
+      "paused": true,
+      "scene": "rinceroo.scn",
+      "tick": 8796
+    },
+    "walked": {
+      "audio_ready": false,
+      "completed_audio_buffers": 0,
+      "frame_sha256": "3141eff73611ab478db5b8465325172a5cce4f84e2fd98519fa573002fe32bbe",
+      "inspection": {
+        "control": true,
+        "cursor": [
+          160,
+          185
+        ],
+        "held_object": -1,
+        "inventory": null,
+        "lead_position": [
+          160,
+          185
+        ],
+        "walk_target": null
+      },
+      "last_operation": "advance",
+      "menu_requests": [],
+      "muted": true,
+      "paused": true,
+      "scene": "rinceroo.scn",
+      "tick": 8742
+    }
+  },
+  "input": "XCTest synthesized tap on aspect-fit game canvas at game coordinate [160,185], then Pockets and Close host buttons",
+  "assertions": [
+    "Start position differs from requested destination",
+    "Lead finishes at [160,185] with no walk target",
+    "Actual engine cursor equals [160,185]",
+    "Pockets opens inventory 2",
+    "Close removes active inventory"
+  ],
+  "pockets_frame_visually_inspected": true,
+  "pockets_screenshot": "assets/validation/ipad-canvas3/attachments/694BD397-1B08-4AE2-BC1B-73FF668A7322.png",
+  "standalone_app": "assets/apps/Discworld-iPad-8.app",
+  "standalone_binary_sha256": "3ca65811ba644f913250313a44895806ab399445009fe7ce7d8f9b67589d1f0e",
+  "checks": {
+    "native_inspection_boundary_test": {
+      "passed": 1,
+      "ignored_asset_tests": 25
+    },
+    "clippy_exit_code": 0
+  },
+  "test_corrections": [
+    "First attempt expected inventory 1; reference evidence identifies Pockets as inventory 2.",
+    "Second attempt tapped the position already reached by the opening script. Third attempt asserts a different start and verifies actual movement."
+  ],
+  "limits": "One floor movement and empty-Pockets open/close in landscape, not a full touch playthrough. Inventory drag/resize/item handling, scene transitions, native menus and physical-device acceptance remain incomplete. Read-only native-inspection feature is not exported to JavaScript."
+}

@@ -12,6 +12,46 @@ final class DiscworldLayoutTests: XCTestCase {
         let predicate = NSPredicate { _, _ in condition(self.state(app)) }
         wait(for: [expectation(for: predicate, evaluatedWith: app)], timeout: 15)
     }
+    func testCanvasWalkingAndPockets() throws {
+        let app = XCUIApplication(bundleIdentifier: "org.tampajohn.discworld.dev")
+        app.launchArguments = ["--smoke-room"]
+        app.launch()
+        XCTAssertTrue(app.buttons["Resume"].waitForExistence(timeout: 40))
+        XCUIDevice.shared.orientation = .landscapeLeft
+        app.buttons["Resume"].tap()
+        waitFor(app) { ($0["inspection"] as? [String: Any])?["control"] as? Bool == true && ($0["tick"] as? Int ?? 0) > 8520 }
+        let before = state(app)
+        XCTAssertNotEqual((before["inspection"] as? [String: Any])?["lead_position"] as? [Int], [160, 185])
+        let canvas = app.descendants(matching: .any).matching(identifier: "game-frame").firstMatch
+        let size = canvas.frame.size
+        let scale = min(size.width / 320, size.height / 200)
+        let point = CGVector(dx: (size.width - 320 * scale) / 2 + 160.5 * scale,
+                             dy: (size.height - 200 * scale) / 2 + 185.5 * scale)
+        canvas.coordinate(withNormalizedOffset: .zero).withOffset(point).tap()
+        waitFor(app) {
+            guard let inspection = $0["inspection"] as? [String: Any] else { return false }
+            return inspection["lead_position"] as? [Int] == [160, 185] && inspection["walk_target"] is NSNull
+        }
+        app.buttons["Pause"].tap()
+        let walked = state(app)
+        XCTAssertEqual((walked["inspection"] as? [String: Any])?["cursor"] as? [Int], [160, 185])
+        app.buttons["Resume"].tap()
+        app.buttons["Pockets"].tap()
+        waitFor(app) { ($0["inspection"] as? [String: Any])?["inventory"] as? Int == 2 }
+        app.buttons["Pause"].tap()
+        let pockets = state(app)
+        let shot = XCTAttachment(screenshot: XCUIScreen.main.screenshot())
+        shot.name = "touch-opened-pockets"
+        shot.lifetime = .keepAlways
+        add(shot)
+        app.buttons["Close"].tap()
+        XCTAssertTrue((state(app)["inspection"] as? [String: Any])?["inventory"] is NSNull)
+        let results = try JSONSerialization.data(withJSONObject: ["before": before, "walked": walked, "pockets": pockets, "closed": state(app)], options: [.prettyPrinted, .sortedKeys])
+        let evidence = XCTAttachment(string: String(decoding: results, as: UTF8.self))
+        evidence.name = "canvas-input-evidence"
+        evidence.lifetime = .keepAlways
+        add(evidence)
+    }
     func testTappedPlaybackAudioAndPersistentSave() throws {
         let app = XCUIApplication(bundleIdentifier: "org.tampajohn.discworld.dev")
         app.launchArguments = ["--smoke-room"]

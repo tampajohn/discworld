@@ -71,7 +71,8 @@ impl Host {
         }
         self.frame = game.frame()?;
         self.response = serde_json::to_vec(&serde_json::json!({
-            "tick": game.tick(), "scene": game.scene(), "menu_requests": requests
+            "tick": game.tick(), "scene": game.scene(), "menu_requests": requests,
+            "inspection": game.native_inspection()
         }))
         .map_err(|e| e.to_string())?;
         Ok(())

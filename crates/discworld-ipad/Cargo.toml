@@ -9,7 +9,7 @@ license.workspace = true
 crate-type = ["staticlib", "rlib"]
 
 [dependencies]
-discworld-web = { path = "../discworld-web" }
+discworld-web = { path = "../discworld-web", features = ["native-inspection"] }
 serde_json = "1"
 
 # Only the exported symbol attributes are locally allowed below. The shared

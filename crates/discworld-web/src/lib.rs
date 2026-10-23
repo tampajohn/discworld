@@ -626,6 +626,27 @@ impl BrowserGame {
     }
 }
 
+// Read-only native UI-test observations, not exported through wasm-bindgen.
+#[cfg(feature = "native-inspection")]
+impl BrowserGame {
+    pub fn native_inspection(&self) -> serde_json::Value {
+        let lead = self
+            .engine
+            .declarations
+            .lead
+            .as_ref()
+            .and_then(|lead| self.engine.movers.get(&lead.id));
+        serde_json::json!({
+            "control": self.engine.control.enabled,
+            "cursor": self.engine.control.cursor,
+            "lead_position": lead.map(|mover| mover.placement.position),
+            "walk_target": lead.and_then(|mover| mover.walk_target),
+            "inventory": self.engine.active_inventory(),
+            "held_object": self.engine.held_object,
+        })
+    }
+}
+
 // Validation builds use precisely the same event decoder/application as the
 // native recorded route. These exports are absent from the normal player.
 #[cfg(feature = "replay-validation")]

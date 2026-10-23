@@ -9,6 +9,7 @@ license.workspace = true
 crate-type = ["cdylib", "rlib"]
 
 [features]
+native-inspection = []
 replay-validation = ["dep:discworld-replay"]
 
 [dependencies]

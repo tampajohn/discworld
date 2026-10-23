@@ -19,7 +19,7 @@ xcrun simctl launch booted org.tampajohn.discworld.dev
 
 The script currently builds **only for the Apple Silicon simulator**. It
 includes the staged ISO and SoundFont in one ad-hoc-signed app. The observed
-prototype is `assets/apps/Discworld-iPad-7.app`. Startup reaches the bedroom;
+prototype is `assets/apps/Discworld-iPad-8.app`. Startup reaches the bedroom;
 quick-save/load preserves pixels, and a separate app launch loads the same
 save from the application container. See [application evidence](validation/ipad-app-prototype.json).
 
@@ -29,7 +29,13 @@ taps. Native audio-player completion callbacks occur; muting preserves ongoing
 simulation. Both immediate load and a separate app launch restore the saved
 tick and exact framebuffer. See [control evidence](validation/ipad-native-controls.json).
 This does not establish acoustic quality or physical-device input/audio behavior.
-Game-canvas touch and inventory gestures remain unverified. The host adapts to
+One landscape game-canvas tap now moves Rincewind from `[200,178]` to
+`[160,185]`, with the actual cursor and completed mover state checked through
+read-only native inspection. Pockets opens inventory 2 and Close removes it;
+the original-font title, border and backing were visually inspected. See
+[canvas evidence](validation/ipad-native-canvas.json). This does not yet cover
+item handling, dragging, resizing or scene transitions through touch.
+The host adapts to
 both landscape orientations and portrait, with the full game scene and controls
 visible in inspected full-screen simulator captures. XCTest verifies that all
 nine host buttons are hittable and wholly inside the window after each rotation.
