@@ -4,6 +4,7 @@ use discworld_core::resource::{chunks, parse_index};
 use md5::Md5;
 use serde_json::json;
 use sha2::{Digest, Sha256};
+mod animation_trace;
 mod audio;
 mod music;
 mod probe;
@@ -22,6 +23,9 @@ fn run() -> Result<(), Box<dyn std::error::Error>> {
         .next()
         .ok_or("usage: discworld-tools inspect-iso <image.iso>")?;
     let path = args.next().ok_or("missing ISO path")?;
+    if command == "compare-animation-trace" {
+        return animation_trace::compare(path, args);
+    }
     if command == "inspect-slot" {
         let output = args.next();
         if args.next().is_some() {

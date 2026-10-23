@@ -198,11 +198,27 @@ impl Animation {
     /// One engine tick. Errors leave all animation state unchanged.
     pub fn tick(&mut self, resources: &Resources<'_>) -> Result<Tick, Error> {
         let mut next = self.clone();
-        let outcome = next.advance(resources)?;
+        let outcome = next.advance(resources, |_, _| {})?;
         *self = next;
         Ok(outcome)
     }
-    fn advance(&mut self, resources: &Resources<'_>) -> Result<Tick, Error> {
+    /// Same committed tick with fetched opcode indices/values for reference
+    /// comparison. Operands are excluded; failed ticks return no trace or state.
+    pub fn tick_traced(
+        &mut self,
+        resources: &Resources<'_>,
+    ) -> Result<(Tick, Vec<(usize, u32)>), Error> {
+        let mut next = self.clone();
+        let mut trace = Vec::new();
+        let outcome = next.advance(resources, |index, opcode| trace.push((index, opcode)))?;
+        *self = next;
+        Ok((outcome, trace))
+    }
+    fn advance(
+        &mut self,
+        resources: &Resources<'_>,
+        mut observe: impl FnMut(usize, u32),
+    ) -> Result<Tick, Error> {
         if self.finished {
             return Ok(Tick::Finished);
         }
@@ -216,7 +232,10 @@ impl Animation {
             .checked_add(1)
             .ok_or(Error("animation step overflow"))?;
         for _ in 0..4096 {
-            match self.read(resources)? {
+            let index = self.index;
+            let opcode = self.read(resources)?;
+            observe(index, opcode);
+            match opcode {
                 0 => {
                     self.finished = true;
                     return Ok(Tick::Finished);
@@ -379,6 +398,29 @@ mod tests {
             animation.set_script(Handle(68), 3).unwrap();
             assert_eq!(animation.tick(&resources).unwrap(), Tick::Frame);
         }
+    }
+    #[test]
+    fn trace_observes_opcode_fetches_without_changing_tick_state() {
+        let data = fixture(&[2, 7, 3, 4, 8, 32, 1, (-6i32) as u32]);
+        let resources = Resources(vec![&data]);
+        let mut ordinary = anim(&data, 2);
+        let mut traced = ordinary.clone();
+        for expected in [
+            vec![(0, 2), (1, 7), (4, 8), (5, 32)],
+            vec![],
+            vec![(6, 1), (1, 7), (4, 8), (5, 32)],
+        ] {
+            let (status, trace) = traced.tick_traced(&resources).unwrap();
+            assert_eq!(trace, expected);
+            assert_eq!(ordinary.tick(&resources).unwrap(), status);
+            assert_eq!(ordinary, traced);
+        }
+        let data = fixture(&[2, 9]);
+        let resources = Resources(vec![&data]);
+        let mut traced = anim(&data, 1);
+        let before = traced.clone();
+        assert!(traced.tick_traced(&resources).is_err());
+        assert_eq!(traced, before);
     }
     #[test]
     fn timing_and_relative_loop() {
