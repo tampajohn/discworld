@@ -94,9 +94,9 @@
     "workspace": "passed",
     "original_assets": "25 passed",
     "clippy": "passed",
-    "host_builds": "pending",
-    "browser_ui": "pending for new runtime",
-    "full_routes": "pending for new runtime; 6061cc3 completed separately"
+    "host_builds": "native, production WASM and replay WASM passed",
+    "browser_ui": "running against corrected host",
+    "full_routes": "Native, Chrome and WebKit running against frozen bad0d45 artifacts in assets/validation/mover-retry-bad0d45"
   },
   "scope": "Controlled original-game capture, not full original-engine or physical-device acceptance."
 }
