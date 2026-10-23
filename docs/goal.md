@@ -68,7 +68,10 @@ checks. Browser audio is finite, but DSP saves are not byte-identical across
 platforms. This audit predates the small blocking-PLAY hover lookup fix above.
 See [world-hover-route.json](validation/world-hover-route.json). Remaining:
 independent interactive hover/reference comparison, updated visible session,
-refreshed delivery packages, physical iPad acceptance and broader fidelity gates.
+physical iPad acceptance, Finder application delivery and broader fidelity gates.
+Current development packages are refreshed at f82598d: extracted native and
+Chrome/WebKit bundles pass startup and legacy-load checks outside the checkout;
+see [packages-f82598d.json](validation/packages-f82598d.json).
 No visible native process was running at the last process check; a current
 manual session still needs to be launched and verified advancing.
 

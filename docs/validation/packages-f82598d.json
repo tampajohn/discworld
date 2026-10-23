@@ -1,0 +1,88 @@
+{
+  "schema": 1,
+  "runtime_revision": "f82598db42e16bdd7784817afddb73a7d50e8376",
+  "packages": [
+    {
+      "path": "assets/packages/discworld-native-f82598d.tar.gz",
+      "bytes": 4068540,
+      "sha256": "55bb31804276de8f3efaeb39ca4ac8301fbbb7693d00281ffa7052149a4d3756"
+    },
+    {
+      "path": "assets/packages/discworld-web-f82598d.zip",
+      "bytes": 3031731,
+      "sha256": "0ee448d108a979874db095b290a51f8d41d113385a01ebed149ecafc35278cfe"
+    }
+  ],
+  "checks": {
+    "manifest_hashes": "Every listed file verified after extraction outside checkout; source revisions both f82598db42e16bdd7784817afddb73a7d50e8376.",
+    "native": {
+      "packaging": "arm64 Mach-O, system-only linked dependencies, strict codesign verification",
+      "startup": {
+        "frames": 30,
+        "tick": 13,
+        "scene": "psygnosi.scn",
+        "stopped": false,
+        "exit_code": 0
+      },
+      "legacy_load": {
+        "initial_tick": 33200,
+        "frames": 30,
+        "tick": 33213,
+        "scene": "rinceroo.scn",
+        "stopped": false,
+        "exit_code": 0
+      },
+      "presentation": "dummy SDL video/audio, mute, audio headroom"
+    },
+    "browser": [
+      {
+        "scenario": "startup",
+        "browser": "chrome",
+        "version": "156.0.8078.47",
+        "tick": "13",
+        "headroom": true,
+        "errors": []
+      },
+      {
+        "scenario": "startup",
+        "browser": "webkit",
+        "version": "27.2",
+        "tick": "13",
+        "headroom": true,
+        "errors": []
+      },
+      {
+        "scenario": "legacy-save",
+        "browser": "chrome",
+        "version": "156.0.8078.47",
+        "tick": "33213",
+        "headroom": true,
+        "errors": []
+      },
+      {
+        "scenario": "legacy-save",
+        "browser": "webkit",
+        "version": "27.2",
+        "tick": "33213",
+        "headroom": true,
+        "errors": []
+      }
+    ],
+    "browser_legacy_export": "Both browsers export core snapshot v24 immediately after player loading the legacy checkpoint."
+  },
+  "logs": {
+    "assets/logs/package-f82598d-native-build.log": "83604ce94c66a2a36041f1f673375113eedd33d30514e0c7e7b08925de6c469e",
+    "assets/logs/package-f82598d-web-build.log": "2ec2d0157acfc3d1c3be84e0a7f3c20591b0c1e13510e855eadf08feefa0ff9b",
+    "assets/logs/package-f82598d-native.log": "ecda4006df0bcb77bb0516655181cbc386078ed36359f8ae097386c32e8975b4",
+    "assets/logs/package-f82598d-native-load.log": "087c8691c6d22d49cda269e4519410a0db3022cabea1ac37708a650ac1b54b1f",
+    "assets/logs/package-f82598d-browser.json": "af68bb17827ed05f3b267a9c86e66011fa7305611ec00155cdf208a6f7050424",
+    "assets/logs/package-f82598d-extracted.json": "71e3e340b63d1645699a5f509521969a92d8d60a4f45685716dc2aa5dc3cc67b",
+    "assets/logs/package-f82598d-smoke-with-load.log": "0b81c05aedb2f05f8984b64fc272ea4f3c9f97b319df6f2e9f0531b0ca25eea3"
+  },
+  "limits": [
+    "Startup and legacy-load package checks only; recorded full-route audit uses the slightly older cdd5b02 engine.",
+    "No physical-device audio listening or real iPad acceptance.",
+    "Native package is a command-line development distribution, not a Finder application.",
+    "Visible-window verification unavailable: selected computer-use CLI orca returned command not found; no new visible session claimed."
+  ]
+}
