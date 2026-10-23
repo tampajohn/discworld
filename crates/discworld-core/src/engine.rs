@@ -70,7 +70,7 @@ struct TalkWait {
 #[derive(serde::Serialize, serde::Deserialize, Debug, Clone, PartialEq, Eq)]
 struct ScriptProcess {
     #[serde(skip)]
-    reel_task: Option<ReelTask>,
+    scene_task: Option<SceneTask>,
     walked_wait: Option<WalkedWait>,
     restored_context: bool,
     effect_actor: Option<i32>,
@@ -127,7 +127,7 @@ impl ScriptProcess {
 
     fn new(code: Handle) -> Self {
         Self {
-            reel_task: None,
+            scene_task: None,
             walked_wait: None,
             restored_context: false,
             effect_actor: None,
@@ -168,12 +168,15 @@ pub(crate) struct ReelRequest {
 }
 
 #[derive(serde::Serialize, serde::Deserialize, Debug, Clone, PartialEq, Eq)]
-pub(crate) enum ReelTask {
+pub(crate) enum SceneTask {
     Pending(ReelRequest),
     Active(u64),
     Restored {
         actor: i32,
         source: crate::animation::ReelSource,
+    },
+    Scroll {
+        initialized: bool,
     },
 }
 
@@ -288,6 +291,8 @@ pub struct Engine {
     playback: crate::playback::Playback,
     pub scroll: crate::scroll::Scroll,
     scroll_maximum: [i32; 2],
+    #[serde(skip)]
+    pub(crate) scheduled_scroll: bool,
     pub world_origin: [i32; 2],
     pending_scene: Option<(Handle, i32, i32, Option<u8>)>,
     scene_hooks: crate::scene_hook::Hooks,
@@ -360,22 +365,22 @@ fn args(vm: &Machine, n: usize) -> Result<&[i32], Error> {
     .ok_or(Error("engine argument underflow"))
 }
 impl Engine {
-    pub(crate) fn reel_tasks(&self) -> Vec<(crate::scheduler::ProcessId, ReelTask)> {
+    pub(crate) fn scene_tasks(&self) -> Vec<(crate::scheduler::ProcessId, SceneTask)> {
         self.processes
             .entries()
-            .filter_map(|(id, p)| p.reel_task.clone().map(|task| (id, task)))
+            .filter_map(|(id, p)| p.scene_task.clone().map(|task| (id, task)))
             .collect()
     }
 
-    pub(crate) fn clear_reel_tasks(&mut self) {
+    pub(crate) fn clear_scene_tasks(&mut self) {
         for process in self.processes.states_mut() {
-            process.reel_task = None;
+            process.scene_task = None;
         }
     }
 
-    pub(crate) fn restore_reel_tasks(
+    pub(crate) fn restore_scene_tasks(
         &mut self,
-        tasks: Vec<(crate::scheduler::ProcessId, ReelTask)>,
+        tasks: Vec<(crate::scheduler::ProcessId, SceneTask)>,
     ) -> Result<(), Error> {
         let expected = tasks.clone();
         for (id, task) in tasks {
@@ -386,9 +391,9 @@ impl Engine {
             if process != &ScriptProcess::new(Handle(0)) {
                 return Err(Error("invalid reel task process"));
             }
-            process.reel_task = Some(task);
+            process.scene_task = Some(task);
         }
-        if self.reel_tasks() != expected {
+        if self.scene_tasks() != expected {
             return Err(Error("noncanonical reel task order"));
         }
         Ok(())
@@ -446,7 +451,7 @@ impl Engine {
             .chain(
                 self.processes
                     .states()
-                    .filter(|p| p.reel_task.is_none())
+                    .filter(|p| p.scene_task.is_none())
                     .map(|p| &p.vm),
             )
             .chain(
@@ -465,7 +470,7 @@ impl Engine {
             .chain(
                 self.processes
                     .states_mut()
-                    .filter(|p| p.reel_task.is_none())
+                    .filter(|p| p.scene_task.is_none())
                     .map(|p| &mut p.vm),
             )
             .chain(
@@ -572,16 +577,23 @@ impl Engine {
         {
             return Err(Error("invalid reel dispatch depth"));
         }
-        let mut reel_tasks = std::collections::BTreeSet::new();
+        let mut scene_tasks = std::collections::BTreeSet::new();
+        let mut scroll_tasks = 0;
         for process in self.processes.states() {
-            if let Some(task) = &process.reel_task {
+            if let Some(task) = &process.scene_task {
                 let mut expected = ScriptProcess::new(Handle(0));
-                expected.reel_task = Some(task.clone());
+                expected.scene_task = Some(task.clone());
                 if process != &expected {
                     return Err(Error("invalid reel task process"));
                 }
                 match task {
-                    ReelTask::Pending(request) => {
+                    SceneTask::Scroll { .. } => {
+                        scroll_tasks += 1;
+                        if !self.scheduled_scroll || scroll_tasks > 1 {
+                            return Err(Error("invalid scheduled scroll task"));
+                        }
+                    }
+                    SceneTask::Pending(request) => {
                         if request.film.0 == 0
                             || request.column >= 4096
                             || request
@@ -591,16 +603,16 @@ impl Engine {
                             return Err(Error("invalid pending reel task"));
                         }
                     }
-                    ReelTask::Restored { actor, source } => {
+                    SceneTask::Restored { actor, source } => {
                         self.actors.get(*actor as u32)?;
                         if source.film.0 == 0 || source.column >= 4096 {
                             return Err(Error("invalid restored reel task"));
                         }
                     }
-                    ReelTask::Active(playback) => {
+                    SceneTask::Active(playback) => {
                         if *playback == 0
                             || *playback > self.next_playback
-                            || !reel_tasks.insert(*playback)
+                            || !scene_tasks.insert(*playback)
                         {
                             return Err(Error("invalid active reel task"));
                         }
@@ -914,8 +926,8 @@ impl Engine {
         self.master
             .validate_snapshot_code(scene::script_bytes(resources, self.master_code)?)?;
         for (id, process) in self.processes.entries() {
-            if let Some(task) = &process.reel_task {
-                if let ReelTask::Pending(request) = task {
+            if let Some(task) = &process.scene_task {
+                if let SceneTask::Pending(request) = task {
                     let film = Film::read(resources, request.film)?;
                     let reel = film
                         .reels
@@ -924,7 +936,7 @@ impl Engine {
                     crate::film::Object::read(resources, reel.object)?;
                     resources.resolve(reel.script, 4)?;
                 }
-                if let ReelTask::Restored { actor, source } = task {
+                if let SceneTask::Restored { actor, source } = task {
                     Self::validate_restored_reel(resources, *actor, source)?;
                 }
                 continue;
@@ -1277,7 +1289,7 @@ impl Engine {
         let mut processes = self.processes.clone();
         let scripts: Vec<_> = processes
             .entries()
-            .filter_map(|(id, p)| p.reel_task.is_none().then_some(id))
+            .filter_map(|(id, p)| p.scene_task.is_none().then_some(id))
             .collect();
         for id in scripts {
             processes.cancel(id)?;
@@ -1367,7 +1379,7 @@ impl Engine {
         let mut next = self.clone();
         next.schedule_actor_film(actor, source.film);
         let mut process = ScriptProcess::new(Handle(0));
-        process.reel_task = Some(ReelTask::Restored {
+        process.scene_task = Some(SceneTask::Restored {
             actor,
             source: source.clone(),
         });
@@ -3110,6 +3122,7 @@ impl Engine {
             world_origin: [0, 0],
             scroll: crate::scroll::Scroll::default(),
             scroll_maximum: [0, 0],
+            scheduled_scroll: false,
             pending_scene: None,
             fade_multiplier: 0x10000,
             fade_in_step: None,
@@ -3432,6 +3445,11 @@ impl Engine {
         self.fade_on_background = transition != 1;
         self.polygons = polygons;
         self.polygon_table = scene.polygons;
+        // PrimeScene creates ScrollProcess before LoadScene creates scripts.
+        self.scheduled_scroll = true;
+        let mut scroll = ScriptProcess::new(Handle(0));
+        scroll.scene_task = Some(SceneTask::Scroll { initialized: false });
+        self.processes.spawn(Some(self.generation), scroll)?;
         // V1 does not send STARTUP to tag scripts (that is V2-only).
         for (id, code) in actor_scripts {
             let mut process = ScriptProcess::new(code);
@@ -3745,7 +3763,7 @@ impl Engine {
                 return Ok(Some(request));
             }
             let mut process = ScriptProcess::new(Handle(0));
-            process.reel_task = Some(ReelTask::Pending(request));
+            process.scene_task = Some(SceneTask::Pending(request));
             self.processes.spawn(Some(self.generation), process)?;
         }
         Ok(None)
@@ -3851,15 +3869,29 @@ impl Engine {
         Ok(Some(reel))
     }
 
-    fn run_reel_task(
+    fn run_scene_task(
         &mut self,
         resources: &Resources<'_>,
-        task: ReelTask,
-    ) -> Result<Option<ReelTask>, Error> {
-        let starting = !matches!(task, ReelTask::Active(_));
+        task: SceneTask,
+    ) -> Result<Option<SceneTask>, Error> {
+        if let SceneTask::Scroll { initialized } = task {
+            if !initialized {
+                if self.background.is_none() {
+                    return Ok(Some(task));
+                }
+                if self.scroll_maximum == [0, 0] {
+                    return Ok(None);
+                }
+                self.scroll.initialize();
+            }
+            self.advance_scroll(resources)?;
+            return Ok(Some(SceneTask::Scroll { initialized: true }));
+        }
+        let starting = !matches!(task, SceneTask::Active(_));
         let reel = match task {
-            ReelTask::Pending(request) => self.begin_reel(resources, &request, 0)?,
-            ReelTask::Restored { actor, source } => {
+            SceneTask::Scroll { .. } => unreachable!("scroll dispatched above"),
+            SceneTask::Pending(request) => self.begin_reel(resources, &request, 0)?,
+            SceneTask::Restored { actor, source } => {
                 Self::validate_restored_reel(resources, actor, &source)?;
                 self.begin_reel(
                     resources,
@@ -3874,7 +3906,7 @@ impl Engine {
                     source.depth,
                 )?
             }
-            ReelTask::Active(playback) => self
+            SceneTask::Active(playback) => self
                 .films
                 .iter()
                 .position(|a| a.playback == playback)
@@ -3896,7 +3928,7 @@ impl Engine {
             return Ok(None);
         }
         self.actors.get_mut(reel.object.id as u32)?.position = [reel.object.x, reel.object.y];
-        let task = ReelTask::Active(reel.playback);
+        let task = SceneTask::Active(reel.playback);
         self.films.push(reel);
         Ok(Some(task))
     }
@@ -4389,6 +4421,55 @@ impl Engine {
         self.sample_player.stop();
         self.restart_pending = true;
     }
+    fn advance_scroll(&mut self, resources: &Resources<'_>) -> Result<(), Error> {
+        if self.scroll_maximum != [0, 0] {
+            if let Some(mover) = self.movers.get(&self.scroll.focus) {
+                if (!self.reel_owners.contains_key(&self.scroll.focus)
+                    || self.created_reel_movers.contains_key(&self.scroll.focus))
+                    && !mover.hidden
+                {
+                    if let Some([_, top, _, bottom]) = mover.animation.bounds(resources)? {
+                        self.scroll.monitor(
+                            mover.placement.position,
+                            bottom - top,
+                            self.world_origin,
+                            self.scroll_maximum,
+                        );
+                    }
+                }
+            }
+        }
+        let old_origin = self.world_origin;
+        let was_scrolling = self.scroll.is_scrolling();
+        if was_scrolling && self.scroll.follow_cursor {
+            let world_cursor = [
+                self.control.cursor[0].wrapping_add(old_origin[0]),
+                self.control.cursor[1].wrapping_add(old_origin[1]),
+            ];
+            if self
+                .polygons
+                .at(world_cursor, crate::polygon::Kind::Tag)
+                .is_none()
+                && self
+                    .polygons
+                    .at(world_cursor, crate::polygon::Kind::Exit)
+                    .is_none()
+            {
+                self.scroll.follow_cursor = false;
+            }
+        }
+        self.scroll
+            .tick(&mut self.world_origin, self.scroll_maximum);
+        if was_scrolling && self.scroll.follow_cursor {
+            for (axis, old) in old_origin.into_iter().enumerate() {
+                self.control.cursor[axis] = (i64::from(self.control.cursor[axis]) + i64::from(old)
+                    - i64::from(self.world_origin[axis]))
+                    as i16 as i32;
+            }
+        }
+        Ok(())
+    }
+
     fn advance(
         &mut self,
         resources: &Resources<'_>,
@@ -4467,8 +4548,8 @@ impl Engine {
         let scheduled: std::collections::BTreeSet<_> = self
             .processes
             .states()
-            .filter_map(|p| match p.reel_task {
-                Some(ReelTask::Active(playback)) => Some(playback),
+            .filter_map(|p| match p.scene_task {
+                Some(SceneTask::Active(playback)) => Some(playback),
                 _ => None,
             })
             .collect();
@@ -4561,50 +4642,8 @@ impl Engine {
             .map(|(&id, m)| (id, m.placement.position))
             .collect::<Vec<_>>();
         self.monitor_effects(resources, &effect_positions)?;
-        if self.scroll_maximum != [0, 0] {
-            if let Some(mover) = self.movers.get(&self.scroll.focus) {
-                if (!self.reel_owners.contains_key(&self.scroll.focus)
-                    || self.created_reel_movers.contains_key(&self.scroll.focus))
-                    && !mover.hidden
-                {
-                    if let Some([_, top, _, bottom]) = mover.animation.bounds(resources)? {
-                        self.scroll.monitor(
-                            mover.placement.position,
-                            bottom - top,
-                            self.world_origin,
-                            self.scroll_maximum,
-                        );
-                    }
-                }
-            }
-        }
-        let old_origin = self.world_origin;
-        let was_scrolling = self.scroll.is_scrolling();
-        if was_scrolling && self.scroll.follow_cursor {
-            let world_cursor = [
-                self.control.cursor[0].wrapping_add(old_origin[0]),
-                self.control.cursor[1].wrapping_add(old_origin[1]),
-            ];
-            if self
-                .polygons
-                .at(world_cursor, crate::polygon::Kind::Tag)
-                .is_none()
-                && self
-                    .polygons
-                    .at(world_cursor, crate::polygon::Kind::Exit)
-                    .is_none()
-            {
-                self.scroll.follow_cursor = false;
-            }
-        }
-        self.scroll
-            .tick(&mut self.world_origin, self.scroll_maximum);
-        if was_scrolling && self.scroll.follow_cursor {
-            for (axis, old) in old_origin.into_iter().enumerate() {
-                self.control.cursor[axis] = (i64::from(self.control.cursor[axis]) + i64::from(old)
-                    - i64::from(self.world_origin[axis]))
-                    as i16 as i32;
-            }
+        if !self.scheduled_scroll {
+            self.advance_scroll(resources)?;
         }
         self.processes.begin()?;
         let mut blocked = None;
@@ -4612,14 +4651,14 @@ impl Engine {
             let task = self
                 .processes
                 .state_mut(id)
-                .and_then(|p| p.reel_task.take());
+                .and_then(|p| p.scene_task.take());
             if let Some(task) = task {
-                let next = self.run_reel_task(resources, task)?;
+                let next = self.run_scene_task(resources, task)?;
                 let sleep = next.as_ref().map(|_| 1);
                 self.processes
                     .state_mut(id)
                     .ok_or(Error("missing reel task"))?
-                    .reel_task = next;
+                    .scene_task = next;
                 self.processes.finish(sleep)?;
                 continue;
             }
@@ -4706,7 +4745,7 @@ impl Engine {
         }
         self.timers.tick()?;
         Ok(
-            if self.processes.states().all(|p| p.reel_task.is_some())
+            if self.processes.states().all(|p| p.scene_task.is_some())
                 && self.scene_restore.is_none()
                 && self.pending_scene.is_none()
                 && self.master_wait.is_none()
@@ -6824,6 +6863,33 @@ impl Engine {
 #[cfg(test)]
 mod tests {
     use super::*;
+    // Keep historical format/isolated-process tests on pre-v23 scheduler state.
+    // Current scheduled scrolling is exercised separately, including real assets.
+    fn legacy_scroll_fixture(engine: &mut Engine) {
+        let ids: Vec<_> = engine
+            .scene_tasks()
+            .into_iter()
+            .filter_map(|(id, task)| matches!(task, SceneTask::Scroll { .. }).then_some(id))
+            .collect();
+        for id in ids {
+            engine.processes.cancel(id).unwrap();
+        }
+        engine.scheduled_scroll = false;
+    }
+    fn legacy_fixture_bootstrap(resources: &Resources<'_>) -> Result<Engine, Error> {
+        let mut engine = Engine::bootstrap(resources)?;
+        legacy_scroll_fixture(&mut engine);
+        Ok(engine)
+    }
+    fn legacy_fixture_bootstrap_with_title(
+        resources: &Resources<'_>,
+        title: Option<Handle>,
+    ) -> Result<Engine, Error> {
+        let mut engine = Engine::bootstrap_with_title(resources, title)?;
+        legacy_scroll_fixture(&mut engine);
+        Ok(engine)
+    }
+
     // Build isolated reel fixtures using the real queue and dispatch path,
     // without advancing movement, audio or scripts belonging to the fixture.
     fn dispatch_reel_fixture(engine: &mut Engine, resources: &Resources<'_>) {
@@ -6833,18 +6899,18 @@ mod tests {
                 .processes
                 .state_mut(id)
                 .unwrap()
-                .reel_task
+                .scene_task
                 .take()
                 .unwrap();
-            let task = engine.run_reel_task(resources, task).unwrap();
+            let task = engine.run_scene_task(resources, task).unwrap();
             let sleep = task.as_ref().map(|_| 1);
-            engine.processes.state_mut(id).unwrap().reel_task = task;
+            engine.processes.state_mut(id).unwrap().scene_task = task;
             engine.processes.finish(sleep).unwrap();
         }
     }
 
     fn legacy_reel_fixture(engine: &mut Engine) {
-        for (id, _) in engine.reel_tasks() {
+        for (id, _) in engine.scene_tasks() {
             engine.processes.cancel(id).unwrap();
         }
         engine.reel_dispatch_depth = [0; 2];
@@ -6858,7 +6924,7 @@ mod tests {
         // only after the owner has finished POINTED and the pointer departs.
         scene[32..39].copy_from_slice(&[2, 0x4e, 31, 0x4c, 0, 0, 0]);
         let resources = Resources(vec![&master, &scene]);
-        let mut engine = Engine::bootstrap(&resources).unwrap();
+        let mut engine = legacy_fixture_bootstrap(&resources).unwrap();
         engine.tick(&resources).unwrap();
         engine.active_inventory = Some(1);
         engine.declarations.windows[1] = Some(crate::startup::Window {
@@ -7081,7 +7147,7 @@ mod tests {
     fn drag_snapshot_rejects_invalid_owner_and_extreme_motion_is_atomic() {
         let (master, scene) = fixtures();
         let resources = Resources(vec![&master, &scene]);
-        let mut engine = Engine::bootstrap(&resources).unwrap();
+        let mut engine = legacy_fixture_bootstrap(&resources).unwrap();
         for slot in [i32::MIN, -1, 0, 1, 2, 3, i32::MAX] {
             engine.inventory_drag = Some(slot);
             assert_eq!(
@@ -7452,7 +7518,7 @@ mod tests {
                 code.extend([0x4e, 119, 0x4c, 0, 0]);
                 scene[8..8 + code.len()].copy_from_slice(&code);
                 let resources = Resources(vec![&master, &scene]);
-                let mut engine = Engine::bootstrap(&resources).unwrap();
+                let mut engine = legacy_fixture_bootstrap(&resources).unwrap();
                 if from_master {
                     engine.processes = Scheduler::default();
                     engine.master_code = Handle((1 << 23) | 8);
@@ -7570,7 +7636,8 @@ mod tests {
         title[88..92].copy_from_slice(&((2u32 << 23) | 8).to_le_bytes());
         title[92..96].copy_from_slice(&((2u32 << 23) | 112).to_le_bytes());
         let resources = Resources(vec![&master, &scene, &title]);
-        let mut engine = Engine::bootstrap_with_title(&resources, Some(Handle(2 << 23))).unwrap();
+        let mut engine =
+            legacy_fixture_bootstrap_with_title(&resources, Some(Handle(2 << 23))).unwrap();
         assert!(engine.intro_active());
         engine.tick(&resources).unwrap();
         let scene_vm = &engine
@@ -7625,8 +7692,8 @@ mod tests {
         bad[48..80].copy_from_slice(&Sha256::digest(&payload));
         bad.extend(payload);
         assert!(crate::save::Snapshot::from_bytes(&bad, [7; 32]).is_err());
-        let legacy = Engine::bootstrap(&resources).unwrap();
-        let fallback = Engine::bootstrap_with_title(&resources, None).unwrap();
+        let legacy = legacy_fixture_bootstrap(&resources).unwrap();
+        let fallback = legacy_fixture_bootstrap_with_title(&resources, None).unwrap();
         assert_eq!(legacy, fallback);
     }
 
@@ -8476,7 +8543,7 @@ mod tests {
         scene[8] = 0;
         scene[32..38].copy_from_slice(&[2, 0x4e, 31, 0x4c, 0, 0]);
         let resources = Resources(vec![&master, &scene]);
-        let mut engine = Engine::bootstrap(&resources).unwrap();
+        let mut engine = legacy_fixture_bootstrap(&resources).unwrap();
         engine.active_inventory = Some(2);
         engine.declarations.windows[2] = Some(crate::startup::Window {
             title: Handle(0),
@@ -9040,7 +9107,7 @@ mod tests {
         scene[8] = 0;
         scene[32..38].copy_from_slice(&[2, 0x4e, 31, 0x4c, 0, 0]);
         let resources = Resources(vec![&master, &scene]);
-        let mut engine = Engine::bootstrap(&resources).unwrap();
+        let mut engine = legacy_fixture_bootstrap(&resources).unwrap();
         engine.polygons = crate::polygon::Polygons::new(
             vec![crate::polygon::Polygon {
                 kind: crate::polygon::Kind::Tag,
@@ -9101,7 +9168,7 @@ mod tests {
         scene[8] = 0;
         scene[32..38].copy_from_slice(&[2, 0x4e, 31, 0x4c, 0, 0]);
         let resources = Resources(vec![&master, &scene]);
-        let mut engine = Engine::bootstrap(&resources).unwrap();
+        let mut engine = legacy_fixture_bootstrap(&resources).unwrap();
         engine.polygons = crate::polygon::Polygons::new(
             vec![crate::polygon::Polygon {
                 kind: crate::polygon::Kind::Tag,
@@ -9313,7 +9380,7 @@ mod tests {
         new[88..92].copy_from_slice(&((2u32 << 23) | 8).to_le_bytes());
         new[92..96].copy_from_slice(&((2u32 << 23) | 112).to_le_bytes());
         let resources = Resources(vec![&master, &old, &new]);
-        let mut engine = Engine::bootstrap(&resources).unwrap();
+        let mut engine = legacy_fixture_bootstrap(&resources).unwrap();
         assert_eq!(engine.tick(&resources).unwrap(), Status::Running);
         assert_eq!(engine.scene, Handle(1 << 23));
         assert_eq!(
@@ -9340,7 +9407,12 @@ mod tests {
         assert_eq!(engine.tick(&resources).unwrap(), Status::Halted);
         assert_eq!(engine.scene, Handle(2 << 23));
         assert_eq!(engine.globals, [9]);
-        assert!(engine.processes.is_empty());
+        assert!(
+            engine
+                .processes
+                .states()
+                .all(|p| matches!(p.scene_task, Some(SceneTask::Scroll { initialized: false })))
+        );
         assert!(
             engine.scene_transition_active(),
             "waiting for new background"
@@ -9353,7 +9425,7 @@ mod tests {
         // The sentinel below it is stored in the same scheduler pass.
         scene[8..20].copy_from_slice(&[0x41, 77, 0x01, 0, 0, 0, 0x7f, 0x4e, 52, 0x4c, 0, 0]);
         let resources = Resources(vec![&master, &scene]);
-        let mut engine = Engine::bootstrap(&resources).unwrap();
+        let mut engine = legacy_fixture_bootstrap(&resources).unwrap();
         engine.tick(&resources).unwrap();
         assert_eq!(engine.globals, [77]);
         assert_eq!(engine.scene, Handle(1 << 23));
@@ -9716,7 +9788,7 @@ mod tests {
                         film[at..at + 4].copy_from_slice(&value.to_le_bytes());
                     }
                     let resources = Resources(vec![&master, &scene, &film]);
-                    let mut engine = Engine::bootstrap(&resources).unwrap();
+                    let mut engine = legacy_fixture_bootstrap(&resources).unwrap();
                     engine.actors = crate::actor::Actors::new(1).unwrap();
                     if lead {
                         engine.declarations.lead = Some(crate::startup::Lead {
@@ -10661,7 +10733,7 @@ mod tests {
                         film[at..at + 4].copy_from_slice(&value.to_le_bytes());
                     }
                     let resources = Resources(vec![&master, &scene, &film]);
-                    let mut engine = Engine::bootstrap(&resources).unwrap();
+                    let mut engine = legacy_fixture_bootstrap(&resources).unwrap();
                     engine.globals.resize(2, 0);
                     engine.actors = crate::actor::Actors::new(1).unwrap();
                     engine.no_blocking = true;
@@ -10968,7 +11040,7 @@ mod tests {
                         film[at..at + 4].copy_from_slice(&value.to_le_bytes());
                     }
                     let resources = Resources(vec![&master, &scene, &film]);
-                    let mut engine = Engine::bootstrap(&resources).unwrap();
+                    let mut engine = legacy_fixture_bootstrap(&resources).unwrap();
                     engine.actors = crate::actor::Actors::new(2).unwrap();
                     engine.escape_events = Some(1);
                     if mode != 0 {
@@ -11106,7 +11178,7 @@ mod tests {
             film[at..at + 4].copy_from_slice(&word.to_le_bytes());
         }
         let resources = Resources(vec![&master, &scene, &film]);
-        let mut engine = Engine::bootstrap(&resources).unwrap();
+        let mut engine = legacy_fixture_bootstrap(&resources).unwrap();
         engine.processes = Scheduler::default();
         engine.master_stopped = true;
         engine.actors = crate::actor::Actors::new(4).unwrap();
@@ -11146,10 +11218,11 @@ mod tests {
         assert!(engine.films.is_empty());
         assert_eq!(
             engine
-                .reel_tasks()
+                .scene_tasks()
                 .iter()
-                .map(|(_, task)| match task {
-                    ReelTask::Restored { actor, .. } => *actor,
+                .filter_map(|(_, task)| match task {
+                    SceneTask::Restored { actor, .. } => Some(*actor),
+                    SceneTask::Scroll { .. } => None,
                     _ => panic!("expected queued restored actor"),
                 })
                 .collect::<Vec<_>>(),
@@ -11225,7 +11298,7 @@ mod tests {
             film[at..at + 4].copy_from_slice(&word.to_le_bytes());
         }
         let resources = Resources(vec![&master, &scene, &film]);
-        let mut engine = Engine::bootstrap(&resources).unwrap();
+        let mut engine = legacy_fixture_bootstrap(&resources).unwrap();
         engine.master_stopped = true;
         engine.actors = crate::actor::Actors::new(4).unwrap();
         engine.actors.get_mut(1).unwrap().masking = 2;
@@ -11249,8 +11322,8 @@ mod tests {
         rebuilt.processes.begin().unwrap();
         while let Some(id) = rebuilt.processes.ready().unwrap() {
             let sleep = if matches!(
-                rebuilt.processes.state_mut(id).unwrap().reel_task,
-                Some(ReelTask::Active(_))
+                rebuilt.processes.state_mut(id).unwrap().scene_task,
+                Some(SceneTask::Active(_))
             ) {
                 3
             } else {
@@ -11258,7 +11331,7 @@ mod tests {
             };
             rebuilt.processes.finish(Some(sleep)).unwrap();
         }
-        let tasks = rebuilt.reel_tasks();
+        let tasks = rebuilt.scene_tasks();
         assert_eq!(tasks.len(), 6);
         let before = rebuilt.clone();
         let mut invalid = scripts.clone();
@@ -11267,14 +11340,14 @@ mod tests {
         assert_eq!(rebuilt, before, "failed restore must preserve reel jobs");
         rebuilt.restore_scene_scripts(&resources, &scripts).unwrap();
         assert_eq!(
-            rebuilt.reel_tasks(),
+            rebuilt.scene_tasks(),
             tasks,
             "interpreter restore must retain live reel identities and order"
         );
         for (id, task) in &tasks {
             assert_eq!(
                 rebuilt.processes.sleep_for(*id),
-                Some(if matches!(task, ReelTask::Active(_)) {
+                Some(if matches!(task, SceneTask::Active(_)) {
                     3
                 } else {
                     1
@@ -11344,7 +11417,7 @@ mod tests {
             film[at..at + 4].copy_from_slice(&word.to_le_bytes());
         }
         let resources = Resources(vec![&master, &scene, &film]);
-        let mut engine = Engine::bootstrap(&resources).unwrap();
+        let mut engine = legacy_fixture_bootstrap(&resources).unwrap();
         engine.processes = Scheduler::default();
         engine.master_stopped = true;
         engine.actors = crate::actor::Actors::new(1).unwrap();
@@ -11426,7 +11499,7 @@ mod tests {
         assert_eq!(engine.actor_steps[&1], 2);
 
         use sha2::{Digest, Sha256};
-        type Tasks = Vec<(crate::scheduler::ProcessId, ReelTask)>;
+        type Tasks = Vec<(crate::scheduler::ProcessId, SceneTask)>;
         let (inner, tasks, depth): (Vec<u8>, Tasks, [i64; 2]) =
             postcard::from_bytes(&saved[80..]).unwrap();
         let wrap = |tasks: Tasks, depth: [i64; 2]| {
@@ -11439,8 +11512,8 @@ mod tests {
         };
         for bad in [
             wrap(vec![tasks[0].clone(), tasks[0].clone()], depth),
-            wrap(vec![(tasks[0].0, ReelTask::Active(0))], depth),
-            wrap(vec![(tasks[0].0, ReelTask::Active(u64::MAX))], depth),
+            wrap(vec![(tasks[0].0, SceneTask::Active(0))], depth),
+            wrap(vec![(tasks[0].0, SceneTask::Active(u64::MAX))], depth),
             wrap(tasks.clone(), [i64::MIN, 0]),
         ] {
             assert!(crate::save::Snapshot::from_bytes(&bad, [7; 32]).is_err());
@@ -11637,7 +11710,7 @@ mod tests {
             film[at..at + 4].copy_from_slice(&value.to_le_bytes());
         }
         let resources = Resources(vec![&master, &scene, &film]);
-        let mut engine = Engine::bootstrap(&resources).unwrap();
+        let mut engine = legacy_fixture_bootstrap(&resources).unwrap();
         engine.actors = crate::actor::Actors::new(1).unwrap();
         engine.actors.get_mut(1).unwrap().position = [20, 30];
         engine.start_background(&resources, Handle(base)).unwrap();
@@ -11671,12 +11744,12 @@ mod tests {
         assert!(engine.actors.get(1).unwrap().alive);
         assert!(engine.films.is_empty());
         assert_eq!(engine.background.as_ref().unwrap().steps, 0);
-        assert_eq!(engine.processes.states().count(), 2);
+        assert_eq!(engine.processes.states().count(), 3);
         assert!(
             engine
                 .processes
                 .states()
-                .all(|p| p.reel_task.is_some() || (p.restored_context && p.wait.is_none()))
+                .all(|p| p.scene_task.is_some() || (p.restored_context && p.wait.is_none()))
         );
         engine.tick(&resources).unwrap();
         assert_eq!(engine.films.len(), 1);
@@ -11689,7 +11762,7 @@ mod tests {
             engine
                 .processes
                 .states()
-                .all(|p| p.reel_task.is_some() || p.wait.is_some())
+                .all(|p| p.scene_task.is_some() || p.wait.is_some())
         );
     }
 
@@ -11765,11 +11838,11 @@ mod tests {
             instance.restore_scene_movers(&resources, &saved).unwrap();
             assert!(!instance.movers[&1].hidden);
             let contexts = instance.capture_scene_scripts();
-            let jobs = instance.reel_tasks();
+            let jobs = instance.scene_tasks();
             instance
                 .restore_scene_scripts(&resources, &contexts)
                 .unwrap();
-            assert_eq!(instance.reel_tasks(), jobs);
+            assert_eq!(instance.scene_tasks(), jobs);
             instance.tick(&resources).unwrap();
             assert!(
                 instance.movers[&1].hidden,
@@ -11800,7 +11873,7 @@ mod tests {
         let code = [0x41, 2, 3, 0x4e, 86, 2, 0x4e, 31, 0x4c, 0, 0];
         scene[32..32 + code.len()].copy_from_slice(&code);
         let resources = Resources(vec![&master, &scene]);
-        let mut engine = Engine::bootstrap(&resources).unwrap();
+        let mut engine = legacy_fixture_bootstrap(&resources).unwrap();
         for event in [2, 3] {
             let mut process = ScriptProcess::new(Handle((1 << 23) | 32));
             process.event = event;
@@ -11878,7 +11951,7 @@ mod tests {
             film[at..at + 4].copy_from_slice(&value.to_le_bytes());
         }
         let resources = Resources(vec![&master, &scene, &film]);
-        let mut engine = Engine::bootstrap(&resources).unwrap();
+        let mut engine = legacy_fixture_bootstrap(&resources).unwrap();
         engine.actors = crate::actor::Actors::new(2).unwrap();
         let source = crate::animation::ReelSource {
             film: Handle(base),
@@ -12458,7 +12531,7 @@ mod tests {
         master[29..34].copy_from_slice(&[3, 3, 0x4e, 86, 0]);
         scene[8] = 0;
         let resources = Resources(vec![&master, &scene]);
-        let mut engine = Engine::bootstrap(&resources).unwrap();
+        let mut engine = legacy_fixture_bootstrap(&resources).unwrap();
         assert_eq!(engine.tick(&resources).unwrap(), Status::Running);
         assert!(engine.processes.is_empty());
         // WAITTIME sleeps first, then performs its post-decrement wait.
@@ -13336,7 +13409,7 @@ mod tests {
         samples[4..8].copy_from_slice(&1000u32.to_le_bytes());
         samples.extend([129; 1000]);
         let bank = SampleBank::new(&index, &samples).unwrap();
-        let mut engine = Engine::bootstrap(&resources).unwrap();
+        let mut engine = legacy_fixture_bootstrap(&resources).unwrap();
         engine.subtitles = false;
         assert_eq!(
             engine
@@ -13821,7 +13894,7 @@ mod tests {
         let resources = Resources(vec![&master, &scene, &film]);
         for newborn in [false, true] {
             for exit in 0..3 {
-                let mut engine = Engine::bootstrap(&resources).unwrap();
+                let mut engine = legacy_fixture_bootstrap(&resources).unwrap();
                 engine.actors = crate::actor::Actors::new(2).unwrap();
                 engine.escape_events = Some(1);
                 for process in engine.processes.states_mut() {
@@ -14064,7 +14137,7 @@ mod tests {
         polygons[8..12].copy_from_slice(&6u32.to_le_bytes());
         polygons[108..112].copy_from_slice(&((1u32 << 23) | 32).to_le_bytes());
         let resources = Resources(vec![&master, &scene, &polygons]);
-        let mut engine = Engine::bootstrap(&resources).unwrap();
+        let mut engine = legacy_fixture_bootstrap(&resources).unwrap();
         assert_eq!(engine.polygons.active.len(), 1);
         assert_eq!(
             engine.polygons.active[0].definition.kind,
@@ -14288,11 +14361,67 @@ mod tests {
     }
 
     #[test]
-    fn blocking_scroll_waits_for_target_and_superseding_request_ends_caller() {
+    fn scheduled_scroll_follows_request_and_resumes_waiter_next_cycle() {
         let (master, mut scene) = fixtures();
         scene[8..20].copy_from_slice(&[0x41, 20, 2, 2, 3, 0x4e, 61, 0x41, 9, 0x4c, 0, 0]);
         let resources = Resources(vec![&master, &scene]);
         let mut engine = Engine::bootstrap(&resources).unwrap();
+        engine.scroll_maximum = [640, 0];
+        // Isolate an already initialized ScrollProcess with no graphical fixture.
+        for p in engine.processes.states_mut() {
+            if matches!(p.scene_task, Some(SceneTask::Scroll { .. })) {
+                p.scene_task = Some(SceneTask::Scroll { initialized: true });
+            }
+        }
+        for (x, global) in [(8, 0), (16, 0), (20, 0), (20, 9)] {
+            let bytes = crate::save::Snapshot::capture(&engine, [7; 32])
+                .to_bytes()
+                .unwrap();
+            assert_eq!(u32::from_le_bytes(bytes[8..12].try_into().unwrap()), 23);
+            for version in [21u32, 22] {
+                let mut older = bytes.clone();
+                older[8..12].copy_from_slice(&version.to_le_bytes());
+                assert!(crate::save::Snapshot::from_bytes(&older, [7; 32]).is_err());
+            }
+            let saved = crate::save::Snapshot::from_bytes(&bytes, [7; 32]).unwrap();
+            assert_eq!(saved.to_bytes().unwrap(), bytes);
+            let mut restored = saved.state().clone();
+            engine.tick(&resources).unwrap();
+            restored.tick(&resources).unwrap();
+            assert_eq!(engine, restored);
+            assert_eq!(engine.world_origin, [x, 0]);
+            assert_eq!(engine.globals, [global]);
+        }
+        let mut invalid = engine.clone();
+        invalid.scheduled_scroll = false;
+        assert!(
+            crate::save::Snapshot::capture(&invalid, [7; 32])
+                .to_bytes()
+                .is_err()
+        );
+        let scroll = engine
+            .processes
+            .states()
+            .find(|p| p.scene_task.is_some())
+            .unwrap()
+            .clone();
+        engine
+            .processes
+            .spawn(Some(engine.generation), scroll)
+            .unwrap();
+        assert!(
+            crate::save::Snapshot::capture(&engine, [7; 32])
+                .to_bytes()
+                .is_err()
+        );
+    }
+
+    #[test]
+    fn blocking_scroll_waits_for_target_and_superseding_request_ends_caller() {
+        let (master, mut scene) = fixtures();
+        scene[8..20].copy_from_slice(&[0x41, 20, 2, 2, 3, 0x4e, 61, 0x41, 9, 0x4c, 0, 0]);
+        let resources = Resources(vec![&master, &scene]);
+        let mut engine = legacy_fixture_bootstrap(&resources).unwrap();
         engine.scroll_maximum = [640, 0];
         assert_eq!(engine.tick(&resources).unwrap(), Status::Running);
         assert_eq!(engine.world_origin, [0, 0]);
@@ -14356,7 +14485,7 @@ mod tests {
             samples[4..8].copy_from_slice(&10000u32.to_le_bytes());
             samples.extend([128; 10000]);
             let bank = SampleBank::new(&index, &samples).unwrap();
-            let mut engine = Engine::bootstrap(&resources).unwrap();
+            let mut engine = legacy_fixture_bootstrap(&resources).unwrap();
             engine.actors = crate::actor::Actors::new(1).unwrap();
             engine.subtitles = false;
             engine.no_blocking = true;
@@ -14784,7 +14913,7 @@ mod tests {
         samples[4..8].copy_from_slice(&10000u32.to_le_bytes());
         samples.extend([128; 10000]);
         let bank = SampleBank::new(&index, &samples).unwrap();
-        let mut engine = Engine::bootstrap(&resources).unwrap();
+        let mut engine = legacy_fixture_bootstrap(&resources).unwrap();
         engine.actors = crate::actor::Actors::new(1).unwrap();
         engine.subtitles = false;
         engine.control.tags_enabled = true;
@@ -15012,7 +15141,7 @@ mod tests {
         }
         let resources = Resources(vec![&master, &scene, &film]);
         let bank = SampleBank::new(&[0; 4], &[0; 4]).unwrap();
-        let mut engine = Engine::bootstrap(&resources).unwrap();
+        let mut engine = legacy_fixture_bootstrap(&resources).unwrap();
         engine.actors = crate::actor::Actors::new(1).unwrap();
         engine
             .declarations
@@ -15278,7 +15407,7 @@ mod tests {
         use sha2::{Digest, Sha256};
         let (master, scene) = fixtures();
         let resources = Resources(vec![&master, &scene]);
-        let mut engine = Engine::bootstrap(&resources).unwrap();
+        let mut engine = legacy_fixture_bootstrap(&resources).unwrap();
         engine.tick(&resources).unwrap();
         let saved = engine.capture_scene().unwrap();
         engine.saved_scenes.push(saved.clone());
@@ -15423,7 +15552,7 @@ mod tests {
         use sha2::{Digest, Sha256};
         let (master, scene) = fixtures();
         let resources = Resources(vec![&master, &scene]);
-        let engine = Engine::bootstrap(&resources).unwrap();
+        let engine = legacy_fixture_bootstrap(&resources).unwrap();
         let bytes = Snapshot::capture(&engine, [7; 32]).to_bytes().unwrap();
         for end in 0..bytes.len() {
             assert!(Snapshot::from_bytes(&bytes[..end], [7; 32]).is_err());
@@ -15463,7 +15592,7 @@ mod tests {
             Snapshot::from_bytes(&forged, [7; 32]),
             Err(Error("snapshot scheduler is not idle"))
         );
-        assert_eq!(engine, Engine::bootstrap(&resources).unwrap());
+        assert_eq!(engine, legacy_fixture_bootstrap(&resources).unwrap());
     }
 
     #[test]
@@ -15770,7 +15899,7 @@ mod tests {
                     data[4..8].copy_from_slice(&5000u32.to_le_bytes());
                     data.extend(vec![129; 5000]);
                     let bank = SampleBank::new(&index, &data).unwrap();
-                    let mut engine = Engine::bootstrap(&resources).unwrap();
+                    let mut engine = legacy_fixture_bootstrap(&resources).unwrap();
                     engine.escape_events = Some(1);
                     for vm in engine.escape_contexts_mut() {
                         vm.escape_enabled = true;

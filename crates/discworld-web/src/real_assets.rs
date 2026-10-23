@@ -57,7 +57,7 @@ fn original_menu_controller_transitions_render_and_resolve_live_selection() {
             .unwrap();
         assert_eq!(
             u32::from_le_bytes(snapshot_bytes[8..12].try_into().unwrap()),
-            21 // Reel dispatch order wraps the intro and menu checkpoints.
+            23 // Scene task order wraps the intro and menu checkpoints.
         );
         let snapshot =
             discworld_core::save::Snapshot::from_bytes(&snapshot_bytes, game.assets.identity)
@@ -2489,4 +2489,53 @@ fn original_title_prompt_matches_independent_reference_palette() {
         .flat_map(|p| p[..3].iter().copied())
         .collect();
     assert_eq!(rgb, restored);
+}
+
+#[test]
+#[ignore = "requires DISCWORLD_TEST_ISO and DISCWORLD_TEST_SOUNDFONT"]
+fn original_credits_scroll_matches_reference_cycle_and_save_continuation() {
+    use sha2::{Digest, Sha256};
+    let read = |name| std::fs::read(std::env::var_os(name).expect(name)).unwrap();
+    let mut game =
+        BrowserGame::new(read("DISCWORLD_TEST_ISO"), read("DISCWORLD_TEST_SOUNDFONT")).unwrap();
+    while game.tick() < 637 {
+        game.advance((637 - game.tick()).min(24) as u32).unwrap();
+    }
+    assert_eq!(game.scene(), "credits.scn");
+    let saved = game.save().unwrap();
+    for replay in 0..2 {
+        if replay != 0 {
+            game.load(&saved).unwrap();
+        }
+        for (tick, y, expected) in [
+            (
+                639,
+                2,
+                "ea0787f65f73b0013d03b359490e3125211b28ad5c1502ffb1544c0ded4192f5",
+            ),
+            (
+                650,
+                24,
+                "082bab1e37a039667506a7b55c6677937eb38436632758275727037acacf6c26",
+            ),
+            (
+                700,
+                124,
+                "0342a18fb95ba2fcaaf78d644752235285e57424e56feb3597a2c79339915be4",
+            ),
+        ] {
+            while game.tick() < tick {
+                game.advance((tick - game.tick()).min(24) as u32).unwrap();
+            }
+            assert_eq!(game.engine.world_origin, [0, y]);
+            let rgb: Vec<_> = game
+                .frame()
+                .unwrap()
+                .chunks_exact(4)
+                .flat_map(|p| p[..3].iter().copied())
+                .collect();
+            // Independent reference cycles 640, 651 and 701, not Rust-generated images.
+            assert_eq!(format!("{:x}", Sha256::digest(&rgb)), expected);
+        }
+    }
 }

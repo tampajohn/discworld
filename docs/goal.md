@@ -44,12 +44,20 @@ Keep the user's visible native session current with newly verified engine builds
 
 ## Current progress (2026-10-23)
 
-The remaining second-credits timing mismatch is now traced to camera scheduling:
+Scrolling now runs as a scene scheduler task, fixing all 351 remaining aligned
+startup-frame mismatches: all 1,000 reference frames match at aligned ticks.
+Save version 23 retains task order and scroll initialization; older formats
+remain byte-exact until scene entry. Workspace checks (341 core tests), all 24
+original-asset integration tests, Clippy, WASM and host builds pass. Browser UI
+and the full-route replay are still being verified for this change; see
+[scheduled-scroll.json](validation/scheduled-scroll.json).
+
+The preceding second-credits investigation traced the mismatch to camera scheduling:
 the reference scroll process applies the first movement in the requesting
 entrance script's cycle; Rust's earlier camera phase defers it one tick.
 A new independent capture reproduces all 1,000 prior reference images and
 confirms the offset across 362 camera updates. Read-only probes and Rust frame
-capture diagnostics now expose that ordering. Runtime correction remains open;
+capture diagnostics now expose that ordering. The correction above follows that evidence;
 see [scroll-phase.json](validation/scroll-phase.json).
 
 A new independent 1,000-frame reference capture exposed and drove a font

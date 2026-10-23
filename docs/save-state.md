@@ -592,6 +592,22 @@ and extreme depth values have regression coverage. The complete-game reference
 and scene-reconstruction scheduling audit remain separate acceptance work.
 
 
+## Version 23: scheduled scrolling
+
+New scene entry creates a native scroll task before actor and scene scripts.
+Version 23 uses the same `(inner, tasks, depth)` wrapper as versions 21–22,
+with a new appended task variant carrying the scroll initialization flag.
+The wrapper also records that scrolling uses scheduler order, even after the
+scroll task exits for a screen-sized background. Its inner snapshot is v1–v20;
+the wrapper cannot nest another task wrapper. Duplicate scroll tasks and scroll
+variants under versions 21–22 are rejected.
+
+Historical saves retain their fixed camera phase and byte-exact representation
+until their next scene entry. Existing isolated legacy-format tests explicitly
+construct that older state. New tests exercise same-cycle movement, delayed
+blocking-script resumption, v23 continuation and independent original credits
+frames before and after save/load. No game assets or scripts are rewritten.
+
 ## Version 22: pending restored columns
 
 A snapshot with a queued restored actor column uses version 22. It retains the

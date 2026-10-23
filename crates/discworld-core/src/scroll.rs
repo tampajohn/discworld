@@ -64,8 +64,12 @@ impl Scroll {
         self.remaining != [0, 0]
     }
     pub fn reset_scene(&mut self) {
-        self.stop();
         self.boundaries = Boundaries::default();
+        self.initialize();
+    }
+    /// ScrollProcess initializes motion after its background becomes available.
+    pub fn initialize(&mut self) {
+        self.stop();
         self.previous = [0; 2];
         self.speed = [8; 2];
     }

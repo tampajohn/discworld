@@ -280,3 +280,19 @@ No runtime correction is claimed yet. The probe now records scroll requests,
 steps and playfield writes, and Rust startup captures include world origin.
 One reference launch failed during SDL initialization; the completed retry and
 failed attempt are both retained. See [scroll-phase.json](validation/scroll-phase.json).
+
+Scheduled scrolling now fixes that observed discrepancy. `SceneTask` contains
+both reel jobs and the new scroll job. Scene entry creates scrolling before the
+actor/entrance/scene scripts; idle insertion therefore dispatches those scripts
+before scrolling. The scroll job waits for a background, initializes once, and
+exits when there is no scrolling area. Script-context restoration preserves
+native jobs, and ordinary scene cancellation removes the old scroll job.
+The extracted camera update still handles mover monitoring and cursor-follow
+offsets, but runs at the task's scheduler position for new sessions.
+
+All 1,000 frames now match at scene-aligned ticks (previously 351 mismatches).
+The independent real-asset regression checks three reference frames and camera
+positions, then repeats from a saved credits state. Version 23 persists task
+order and the native-scrolling marker; legacy saves retain their prior camera
+phase until a new scene is entered. Full-route and host validation are tracked
+in [scheduled-scroll.json](validation/scheduled-scroll.json).

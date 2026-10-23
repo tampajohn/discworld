@@ -27,6 +27,7 @@ const SPLAY_VERSION: u32 = 19;
 const CREATED_MOVER_VERSION: u32 = 20;
 const REEL_TASK_VERSION: u32 = 21;
 const RESTORED_REEL_VERSION: u32 = 22;
+const SCROLL_TASK_VERSION: u32 = 23;
 const HEADER: usize = 80;
 pub const MAX_SAVE_BYTES: usize = 16 * 1024 * 1024;
 
@@ -145,14 +146,20 @@ impl Snapshot {
 
     pub fn to_bytes(&self) -> Result<Vec<u8>, Error> {
         self.state.validate_snapshot_structure()?;
-        let tasks = self.state.reel_tasks();
-        if !tasks.is_empty() || self.state.reel_dispatch_depth != [0; 2] {
+        let tasks = self.state.scene_tasks();
+        if self.state.scheduled_scroll
+            || !tasks.is_empty()
+            || self.state.reel_dispatch_depth != [0; 2]
+        {
             let mut legacy = self.clone();
-            legacy.state.clear_reel_tasks();
+            legacy.state.clear_scene_tasks();
+            legacy.state.scheduled_scroll = false;
             legacy.state.reel_dispatch_depth = [0; 2];
-            let version = if tasks
+            let version = if self.state.scheduled_scroll {
+                SCROLL_TASK_VERSION
+            } else if tasks
                 .iter()
-                .any(|(_, t)| matches!(t, crate::engine::ReelTask::Restored { .. }))
+                .any(|(_, t)| matches!(t, crate::engine::SceneTask::Restored { .. }))
             {
                 RESTORED_REEL_VERSION
             } else {
@@ -491,6 +498,7 @@ impl Snapshot {
             CREATED_MOVER_VERSION,
             REEL_TASK_VERSION,
             RESTORED_REEL_VERSION,
+            SCROLL_TASK_VERSION,
         ]
         .contains(&word(8))
         {
@@ -506,24 +514,33 @@ impl Snapshot {
         if Sha256::digest(payload)[..] != bytes[48..80] {
             return Err(Error("save checksum mismatch"));
         }
-        if matches!(word(8), REEL_TASK_VERSION | RESTORED_REEL_VERSION) {
-            type Tasks = Vec<(crate::scheduler::ProcessId, crate::engine::ReelTask)>;
+        if matches!(
+            word(8),
+            REEL_TASK_VERSION | RESTORED_REEL_VERSION | SCROLL_TASK_VERSION
+        ) {
+            type Tasks = Vec<(crate::scheduler::ProcessId, crate::engine::SceneTask)>;
             let ((legacy, tasks, depth), remaining) =
                 postcard::take_from_bytes::<(Vec<u8>, Tasks, [i64; 2])>(payload)
                     .map_err(|_| Error("invalid snapshot reel task payload"))?;
             if !remaining.is_empty()
                 || legacy.len() < HEADER
                 || u32::from_le_bytes(legacy[8..12].try_into().unwrap()) > CREATED_MOVER_VERSION
-                || (tasks.is_empty() && depth == [0; 2])
-                || (tasks
-                    .iter()
-                    .any(|(_, t)| matches!(t, crate::engine::ReelTask::Restored { .. }))
-                    != (word(8) == RESTORED_REEL_VERSION))
+                || (word(8) != SCROLL_TASK_VERSION && tasks.is_empty() && depth == [0; 2])
+                || (word(8) != SCROLL_TASK_VERSION
+                    && tasks
+                        .iter()
+                        .any(|(_, t)| matches!(t, crate::engine::SceneTask::Scroll { .. })))
+                || (word(8) != SCROLL_TASK_VERSION
+                    && (tasks
+                        .iter()
+                        .any(|(_, t)| matches!(t, crate::engine::SceneTask::Restored { .. }))
+                        != (word(8) == RESTORED_REEL_VERSION)))
             {
                 return Err(Error("invalid snapshot reel task extension"));
             }
             let mut snapshot = Self::from_bytes(&legacy, asset_id)?;
-            snapshot.state.restore_reel_tasks(tasks)?;
+            snapshot.state.scheduled_scroll = word(8) == SCROLL_TASK_VERSION;
+            snapshot.state.restore_scene_tasks(tasks)?;
             snapshot.state.reel_dispatch_depth = depth;
             snapshot.state.validate_snapshot_structure()?;
             return Ok(snapshot);
