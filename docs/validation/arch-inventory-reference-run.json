@@ -2,7 +2,7 @@
   "runtime": "bad0d45",
   "reference": "assets/validation/reference-arch-inventory2",
   "rust": "assets/validation/rust-arch-inventory-cycle6000-frames",
-  "reference_status": "running; not a pass",
+  "reference_status": "exited; accepted false; precondition failed at cycle6000",
   "reference_session": 81543,
   "reference_pid": 93529,
   "input_cycle": 6000,
@@ -25,5 +25,11 @@
     "Python probes compile"
   ],
   "production_change": false,
-  "next_step": "Poll the existing reference session, require accepted launch and complete/error-free capture, then compare all504 RGB frames. Do not restart the live reference run or infer acoustic equality from pixels."
+  "next_step": "Record Rust scene/control/voice transitions after the initial480-frame prefix and compare reference voice PCM event sequence and script scene transitions. Determine whether divergence is mixer wall-clock timing, unplanned input, or engine behavior before changing production code.",
+  "reference_errors": [
+    "entry dialogue has not returned control before pockets input"
+  ],
+  "reference_frames": 480,
+  "reference_capture_sha256": "045f3d3d93b52226194bf2cc08a5474b0c64308877e4661bde7c8f6c785426b2",
+  "observation": "Reference log loads closeup.scn before cycle6000 and ControlIsOn() is false at6000. Rust has control enabled in arch.scn at5999 and opens pockets. The later states are not aligned, so no inventory-reference equality is claimed."
 }

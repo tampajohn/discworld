@@ -16,7 +16,9 @@ Touch gestures and presentation technology remain implementation decisions to va
 
 ## Latest validation follow-up
 
-The archchancellor introduction returns control at tick3843 after a single first-line Escape. Pockets then open normally, and save/load preserves overlay pixels and next-tick state. The initial480-frame prefix still matches ScummVM; later dialogue/overlay reference comparison remains open. See [inventory completion evidence](validation/arch-inventory-completion.json).
+The extended reference inventory attempt fails its cycle6000 control precondition: ScummVM has entered closeup.scn while Rust is back in arch.scn. Later scene/dialogue state alignment needs investigation before claiming overlay fidelity; see [reference observation](validation/arch-inventory-reference-run.json).
+
+The Rust archchancellor introduction returns control at tick3843 after a single first-line Escape. Pockets then open normally, and save/load preserves overlay pixels and next-tick state. The initial480-frame prefix still matches ScummVM; later dialogue/overlay reference comparison remains open. See [inventory completion evidence](validation/arch-inventory-completion.json).
 
 Escape during Archchancellor entry speech matches all 480 original-reference frames at the same cycles, with save/load continuation throughout. Rust stops the active voice at the input tick; independent acoustic stop timing is outside this capture. No engine change was required; see [speech-skip evidence](validation/reference-arch-skip.json).
 
