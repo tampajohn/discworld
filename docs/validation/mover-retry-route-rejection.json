@@ -51,5 +51,15 @@
     "polygon80_enabled_at": 1110000,
     "inputs": "none after checkpoint",
     "scope": "Supports a recorded-timing mismatch, not yet a complete replay correction or proof against the prior runtime."
+  },
+  "delayed_trial": {
+    "trace": "assets/validation/mover-retry-rejection1/delayed-map-input.json",
+    "report": "assets/validation/mover-retry-rejection1/delayed-map.json",
+    "change": "Delay first12 map/hideout inputs by400ticks; retain later inputs",
+    "end_tick": 1120000,
+    "accepted_inputs": 18,
+    "status": "Running",
+    "scene": "pasthide.scn",
+    "puzzle_result": "No brethren.scn or dragon.scn transition; timed visitor missed, scene script waits at instruction1166. This is not an accepted replay repair."
   }
 }

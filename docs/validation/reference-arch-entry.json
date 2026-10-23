@@ -1,0 +1,24 @@
+{
+  "runtime": "bad0d45",
+  "reference_revision": "96b42d42bc8533953bdd701db059cc33c839a9ff",
+  "reference": "assets/validation/reference-arch-entry-subtitles1",
+  "rust": "assets/validation/rust-arch-entry2",
+  "comparison": "assets/validation/arch-entry-subtitles-compare1.json",
+  "frames": 480,
+  "same_cycle_matches": 480,
+  "save_continuations": 480,
+  "subtitles": true,
+  "scope": "Controlled bedroom exit, university ground walk and resolved polygon50 exit to arch.scn; includes initial dialogue. Not raw host-input, acoustic equivalence or whole-game fidelity.",
+  "transitions": [
+    {
+      "scene": "unseen.scn",
+      "cycle": 1362
+    },
+    {
+      "scene": "arch.scn",
+      "cycle": 1691
+    }
+  ],
+  "previous_mismatched_configuration": "reference-arch-entry1 had no explicit subtitle preference; preserved in reference-arch-entry-observation.json",
+  "production_change": false
+}
