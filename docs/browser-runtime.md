@@ -522,3 +522,20 @@ physical Safari/iPad multi-touch validation remains open.
 The final multi-touch regression and all 12 existing targeted drag/interruption
 cases pass. The test verifies the actual secondary pointer-up event before
 checking game commands; see [evidence](validation/browser-primary-touch.json).
+
+## Browser package with interruption and primary-touch fixes
+
+`assets/packages/discworld-web-a4020ae.zip` includes focus/audio interruption
+cleanup and primary-touch ownership. All 14 manifested files and the exact
+tracked source archive were verified after extraction outside the checkout.
+The extracted site passed 17 original-asset Chrome/WebKit checks covering cold
+startup, save import/export, local persistence, audio controls, inventory drags,
+interruption/resume and Chromium multi-touch. One WebKit multi-touch case is
+explicitly skipped because its automation API cannot inject multiple contacts.
+See [package evidence](validation/browser-package-a4020ae.json).
+
+This is a static development bundle; serve its extracted directory over local
+HTTP or HTTPS as described in its README. Physical iPad landscape acceptance,
+visible native/Finder interaction and broader original-engine fidelity remain
+open. The browser-host fixes do not change the deterministic engine validated
+by the `0a87557` full-route audit.

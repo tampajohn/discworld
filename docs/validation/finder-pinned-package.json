@@ -1,0 +1,10 @@
+{
+  "source_revision": "a8c9c2074a20baa7eb57aad236619fc09dfdd207",
+  "archive_sha256": "bf5bfdc9238c1099d421940da8d439bd04d73a5f5b98d3f7b3f416e2bf46352b",
+  "archive_bytes": 4541067,
+  "manifest_files_verified": 5,
+  "exact_source_verified": true,
+  "compiled_launcher_matches_pinned_source": true,
+  "extracted_signature_verified": true,
+  "scope": "Final pinned-source Finder bundle integrity. Visible picker/window interaction, Finder launch and Gatekeeper remain unverified."
+}

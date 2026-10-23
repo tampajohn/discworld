@@ -1,0 +1,14 @@
+{
+  "source_revision": "a4020aeaeb9dd6ce1bdb77e52085685341638bec",
+  "archive_sha256": "f6731714215d70c02ea820439003a63c6287ec602f8bc8efa59a0cdd64550d63",
+  "archive_bytes": 3113030,
+  "extracted_directory": "/var/folders/1j/8_5gj1n12qn9xxxqp9n_0nq80000gp/T/discworld-web-a4020ae-dowa7qft",
+  "manifest_files_verified": 14,
+  "exact_source_verified": true,
+  "browser_ui_exit_code": 0,
+  "scope": "Extracted static package served outside checkout. Desktop Chrome/WebKit original-asset tests; not physical iPad acceptance.",
+  "passed": 17,
+  "skipped": 1,
+  "skip_reason": "Playwright WebKit does not expose simultaneous touch injection",
+  "ui_log_sha256": "af8c23a6e93142606cd2a93fef56594788bd0ca046b348bd5ac5f415c541f747"
+}

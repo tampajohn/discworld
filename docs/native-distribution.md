@@ -75,3 +75,12 @@ The bundle contains the exact source archive and native manifest in
 notarized. Finder/Gatekeeper behavior on another Mac and visible picker/window
 interaction remain acceptance checks; successful packaging alone does not prove
 them. The app uses the system AppleScript applet icon pending original artwork.
+
+The final pinned-launcher bundle is
+`assets/packages/discworld-finder-pinned.zip`, source `a8c9c20`. Extraction
+outside the checkout preserves its strict deep signature. All five native
+manifest hashes, the exact source archive and the decompiled launcher against
+that source were verified. See [integrity evidence](validation/finder-pinned-package.json).
+The earlier bundle's dummy-video startup/load checks are recorded separately in
+[first-bundle evidence](validation/finder-first-package.json); they do not prove
+visible Finder launch for either artifact.
