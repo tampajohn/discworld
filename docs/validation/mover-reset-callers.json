@@ -1,0 +1,159 @@
+{
+  "runtime_revision": "727ccf8",
+  "reference_capture": "assets/validation/reference-hover-callers1/frames/capture.json",
+  "capture_sha256": "5ce49604b5b1628632af04cbe8825133fcce7c91af1e230d602dd99665de7074",
+  "accepted": true,
+  "scope": "Read-only call-stack observations on the controlled original scene/cursor diagnostic; not full-route parity.",
+  "events": [
+    {
+      "cycle": 1124,
+      "script": 349552,
+      "period": 2,
+      "kind": "init_animation",
+      "callers": [
+        "Tinsel::InitStepAnimScript(Tinsel::ANIM*, Tinsel::OBJECT*, unsigned int, int)",
+        "Tinsel::AlterMover(Tinsel::MOVER*, unsigned int, Tinsel::AR_FUNCTION)",
+        "Tinsel::SetMoverStanding(Tinsel::MOVER*)",
+        "Tinsel::GotThere(Tinsel::MOVER*)",
+        "Tinsel::SetNextDest(Tinsel::MOVER*)",
+        "Tinsel::EnteringNewPath(Tinsel::MOVER*, int, int, int)",
+        "Tinsel::MoveActor(Tinsel::MOVER*)",
+        "Tinsel::DoMoveActor(Tinsel::MOVER*)",
+        "Tinsel::T1MoverProcess(Common::CoroBaseContext*&, void const*)",
+        "Common::CoroutineScheduler::schedule()"
+      ]
+    },
+    {
+      "kind": "animation_step",
+      "cycle": 1124,
+      "address": 4348129760,
+      "script": 349552,
+      "index": 0,
+      "period": 2,
+      "remaining": 1,
+      "callers": [
+        "Tinsel::StepAnimScript(Tinsel::ANIM*)",
+        "Tinsel::AlterMover(Tinsel::MOVER*, unsigned int, Tinsel::AR_FUNCTION)",
+        "Tinsel::SetMoverStanding(Tinsel::MOVER*)",
+        "Tinsel::GotThere(Tinsel::MOVER*)",
+        "Tinsel::SetNextDest(Tinsel::MOVER*)",
+        "Tinsel::EnteringNewPath(Tinsel::MOVER*, int, int, int)",
+        "Tinsel::MoveActor(Tinsel::MOVER*)",
+        "Tinsel::DoMoveActor(Tinsel::MOVER*)",
+        "Tinsel::T1MoverProcess(Common::CoroBaseContext*&, void const*)",
+        "Common::CoroutineScheduler::schedule()"
+      ]
+    },
+    {
+      "cycle": 1125,
+      "script": 349552,
+      "period": 2,
+      "kind": "init_animation",
+      "callers": [
+        "Tinsel::InitStepAnimScript(Tinsel::ANIM*, Tinsel::OBJECT*, unsigned int, int)",
+        "Tinsel::AlterMover(Tinsel::MOVER*, unsigned int, Tinsel::AR_FUNCTION)",
+        "Tinsel::SetMoverStanding(Tinsel::MOVER*)",
+        "Tinsel::PositionMover(Tinsel::MOVER*, int, int)",
+        "Tinsel::Stand(Common::CoroBaseContext*&, int, int, int, unsigned int)",
+        "Tinsel::CallLibraryRoutine(Common::CoroBaseContext*&, int, int*, Tinsel::INT_CONTEXT const*, Tinsel::RESUME_STATE*)",
+        "Tinsel::Interpret(Common::CoroBaseContext*&, Tinsel::INT_CONTEXT*)",
+        "Tinsel::SceneTinselProcess(Common::CoroBaseContext*&, void const*)",
+        "Common::CoroutineScheduler::schedule()",
+        "Tinsel::TinselEngine::NextGameCycle()"
+      ]
+    },
+    {
+      "kind": "animation_step",
+      "cycle": 1125,
+      "address": 4348129760,
+      "script": 349552,
+      "index": 0,
+      "period": 2,
+      "remaining": 1,
+      "callers": [
+        "Tinsel::StepAnimScript(Tinsel::ANIM*)",
+        "Tinsel::AlterMover(Tinsel::MOVER*, unsigned int, Tinsel::AR_FUNCTION)",
+        "Tinsel::SetMoverStanding(Tinsel::MOVER*)",
+        "Tinsel::PositionMover(Tinsel::MOVER*, int, int)",
+        "Tinsel::Stand(Common::CoroBaseContext*&, int, int, int, unsigned int)",
+        "Tinsel::CallLibraryRoutine(Common::CoroBaseContext*&, int, int*, Tinsel::INT_CONTEXT const*, Tinsel::RESUME_STATE*)",
+        "Tinsel::Interpret(Common::CoroBaseContext*&, Tinsel::INT_CONTEXT*)",
+        "Tinsel::SceneTinselProcess(Common::CoroBaseContext*&, void const*)",
+        "Common::CoroutineScheduler::schedule()",
+        "Tinsel::TinselEngine::NextGameCycle()"
+      ]
+    },
+    {
+      "cycle": 1125,
+      "script": 349552,
+      "period": 2,
+      "kind": "init_animation",
+      "callers": [
+        "Tinsel::InitStepAnimScript(Tinsel::ANIM*, Tinsel::OBJECT*, unsigned int, int)",
+        "Tinsel::AlterMover(Tinsel::MOVER*, unsigned int, Tinsel::AR_FUNCTION)",
+        "Tinsel::SetMoverStanding(Tinsel::MOVER*)",
+        "Tinsel::Stand(Common::CoroBaseContext*&, int, int, int, unsigned int)",
+        "Tinsel::CallLibraryRoutine(Common::CoroBaseContext*&, int, int*, Tinsel::INT_CONTEXT const*, Tinsel::RESUME_STATE*)",
+        "Tinsel::Interpret(Common::CoroBaseContext*&, Tinsel::INT_CONTEXT*)",
+        "Tinsel::SceneTinselProcess(Common::CoroBaseContext*&, void const*)",
+        "Common::CoroutineScheduler::schedule()",
+        "Tinsel::TinselEngine::NextGameCycle()",
+        "Tinsel::TinselEngine::run()"
+      ]
+    },
+    {
+      "kind": "animation_step",
+      "cycle": 1125,
+      "address": 4348129760,
+      "script": 349552,
+      "index": 0,
+      "period": 2,
+      "remaining": 1,
+      "callers": [
+        "Tinsel::StepAnimScript(Tinsel::ANIM*)",
+        "Tinsel::AlterMover(Tinsel::MOVER*, unsigned int, Tinsel::AR_FUNCTION)",
+        "Tinsel::SetMoverStanding(Tinsel::MOVER*)",
+        "Tinsel::Stand(Common::CoroBaseContext*&, int, int, int, unsigned int)",
+        "Tinsel::CallLibraryRoutine(Common::CoroBaseContext*&, int, int*, Tinsel::INT_CONTEXT const*, Tinsel::RESUME_STATE*)",
+        "Tinsel::Interpret(Common::CoroBaseContext*&, Tinsel::INT_CONTEXT*)",
+        "Tinsel::SceneTinselProcess(Common::CoroBaseContext*&, void const*)",
+        "Common::CoroutineScheduler::schedule()",
+        "Tinsel::TinselEngine::NextGameCycle()",
+        "Tinsel::TinselEngine::run()"
+      ]
+    },
+    {
+      "kind": "animation_step",
+      "cycle": 1125,
+      "address": 4348129760,
+      "script": 349552,
+      "index": 1,
+      "period": 2,
+      "remaining": 2,
+      "callers": [
+        "Tinsel::StepAnimScript(Tinsel::ANIM*)",
+        "Tinsel::T1MoverProcess(Common::CoroBaseContext*&, void const*)",
+        "Common::CoroutineScheduler::schedule()",
+        "Tinsel::TinselEngine::NextGameCycle()",
+        "Tinsel::TinselEngine::run()",
+        "runGame(Plugin const*, OSystem&, DetectedGame const&, void const*)",
+        "::scummvm_main(int, const char *const *)",
+        "main",
+        "start"
+      ]
+    }
+  ],
+  "findings": [
+    "Original cycle1124 completes movement through EnteringNewPath -> SetNextDest -> GotThere -> SetMoverStanding.",
+    "Original cycle1125 scene script invokes Stand, then the mover process steps the newly reset standing animation in the same cycle.",
+    "Rust trace previously recorded final resets at1126 and next ordinary step1127. Engine currently processes all movers before ready script processes."
+  ],
+  "next_steps": [
+    "Compare path re-entry movement and completion positions at cycles1113..1126.",
+    "Represent mover scheduling at its original process position; establish focused red/green tests before changing production order."
+  ],
+  "route_regression": {
+    "directory": "assets/validation/hidden-standing-727ccf8",
+    "status": "Native, Chrome and WebKit tests launched; results pending."
+  }
+}

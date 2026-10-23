@@ -123,7 +123,17 @@ def print_tag(frame, location, dictionary):
 def animation_init(frame, location, dictionary):
     if frames.CYCLES < 450:
         return False
-    return frames.animation(frame, location, dictionary)
+    result = frames.animation(frame, location, dictionary)
+    if not result and 1108 <= frames.CYCLES <= 1130:
+        frames.EVENTS[-1]['callers'] = callers(frame)
+    return result
+
+
+def callers(frame):
+    """Read call sites without executing target expressions or changing state."""
+    thread = frame.GetThread()
+    return [thread.GetFrameAtIndex(i).GetFunctionName()
+            for i in range(min(thread.GetNumFrames(), 10))]
 
 
 def animation_step(frame, location, dictionary):
@@ -139,6 +149,8 @@ def animation_step(frame, location, dictionary):
             'period': frames.unsigned(state.GetChildMemberWithName('aniRate')),
             'remaining': frames.unsigned(state.GetChildMemberWithName('aniDelta')),
         })
+        if 1108 <= frames.CYCLES <= 1130:
+            frames.EVENTS[-1]['callers'] = callers(frame)
         return False
     except Exception as error:
         frames.FAILURES.append(str(error))
