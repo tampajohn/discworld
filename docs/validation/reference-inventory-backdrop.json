@@ -1,0 +1,419 @@
+{
+  "runtime": "3df76c8",
+  "engine": "18d3f91",
+  "production_change": false,
+  "reference_revision": "96b42d42bc8533953bdd701db059cc33c839a9ff",
+  "reference_capture": "assets/validation/reference-arch-backdrop1/frames/capture.json",
+  "reference_capture_sha256": "06b7dd874a9df17bfd3143a8319c46b55c2c1c78516a18741f4b4ed8c2c89654",
+  "accepted": true,
+  "draw_count": 24,
+  "cycles": [
+    4000,
+    4023
+  ],
+  "rust_test": "indexed_surface::tests::original_inventory_backdrop_pixels",
+  "rust_test_log": "assets/logs/reference-backdrop-rust.log",
+  "full_frame_index_pairs_exact": 24,
+  "changed_pixels_total": 19592,
+  "rectangle_variants": [
+    [
+      101,
+      101,
+      7,
+      40
+    ],
+    [
+      101,
+      101,
+      68,
+      46
+    ],
+    [
+      117,
+      103,
+      28,
+      44
+    ],
+    [
+      117,
+      105,
+      28,
+      42
+    ]
+  ],
+  "lookup": {
+    "rust_capture": "assets/validation/rust-arch-backdrop-table2/arch-background.table",
+    "entries": 256,
+    "all_entries_equal": true,
+    "sha256": "cf24f9da7d7b355080bae6160cebd00f5e7abb9e27f5d6b9fb76a841d1b51073"
+  },
+  "records": [
+    {
+      "stem": "backdrop-0000",
+      "cycle": 4000,
+      "bounds": [
+        101,
+        101,
+        68,
+        46
+      ],
+      "before_sha256": "f6819700664485488cb89695aaff29f51e4b9ec7f5a5c687791c33f0b10d0be7",
+      "after_sha256": "ee1e7a434c9fffed2e8ebf3f916174d1e896899a2e9831d9a4dc991ebc5648ac",
+      "table_sha256": "cf24f9da7d7b355080bae6160cebd00f5e7abb9e27f5d6b9fb76a841d1b51073",
+      "mapped_pixels": 3128,
+      "lookup_exact": true
+    },
+    {
+      "stem": "backdrop-0001",
+      "cycle": 4001,
+      "bounds": [
+        101,
+        101,
+        7,
+        40
+      ],
+      "before_sha256": "dd671b9ea87721f0e34d43f0f59acd59968b6f4998f516b2cf2e8c173c7348a5",
+      "after_sha256": "8450cd243eae4bf956eedfa90d2c5efc91d8a74f4d6b76c121893ecaf621105b",
+      "table_sha256": "cf24f9da7d7b355080bae6160cebd00f5e7abb9e27f5d6b9fb76a841d1b51073",
+      "mapped_pixels": 280,
+      "lookup_exact": true
+    },
+    {
+      "stem": "backdrop-0002",
+      "cycle": 4002,
+      "bounds": [
+        117,
+        105,
+        28,
+        42
+      ],
+      "before_sha256": "4143e0a25ddb400c473e1cad92642ec56055595b22d51f0c346d147617554bb3",
+      "after_sha256": "fd1890aba29156d13512aa74c9f581c7b6c6e919ab1a0a192a48fd38a7ff97e2",
+      "table_sha256": "cf24f9da7d7b355080bae6160cebd00f5e7abb9e27f5d6b9fb76a841d1b51073",
+      "mapped_pixels": 1176,
+      "lookup_exact": true
+    },
+    {
+      "stem": "backdrop-0003",
+      "cycle": 4003,
+      "bounds": [
+        101,
+        101,
+        7,
+        40
+      ],
+      "before_sha256": "37865889fed293fbe9bf30395680726bebdadf039a9afef202dde216bd2447cc",
+      "after_sha256": "cf5eccd802466b61ad816ce26f9660eb145fa4e0e04a270471631f4badc0b65b",
+      "table_sha256": "cf24f9da7d7b355080bae6160cebd00f5e7abb9e27f5d6b9fb76a841d1b51073",
+      "mapped_pixels": 280,
+      "lookup_exact": true
+    },
+    {
+      "stem": "backdrop-0004",
+      "cycle": 4004,
+      "bounds": [
+        117,
+        105,
+        28,
+        42
+      ],
+      "before_sha256": "10142304fea1b069dfab9da7c43d8d6da0bf9bb3e8e917851c5a0dbd343f6d79",
+      "after_sha256": "bd6c03fc9ee739b0a5cb6dbe8465a7ce1b4c1ed66d5ee67391b2eecef3f2e75d",
+      "table_sha256": "cf24f9da7d7b355080bae6160cebd00f5e7abb9e27f5d6b9fb76a841d1b51073",
+      "mapped_pixels": 1176,
+      "lookup_exact": true
+    },
+    {
+      "stem": "backdrop-0005",
+      "cycle": 4005,
+      "bounds": [
+        101,
+        101,
+        7,
+        40
+      ],
+      "before_sha256": "7a67de1fbd36da7bf561929202823d8b11cea66b932eceffa556a1b976988fde",
+      "after_sha256": "7dafb65bc74ec071845913651575529817d5e3944bbc7056bf987ef5ef3e5594",
+      "table_sha256": "cf24f9da7d7b355080bae6160cebd00f5e7abb9e27f5d6b9fb76a841d1b51073",
+      "mapped_pixels": 280,
+      "lookup_exact": true
+    },
+    {
+      "stem": "backdrop-0006",
+      "cycle": 4006,
+      "bounds": [
+        117,
+        105,
+        28,
+        42
+      ],
+      "before_sha256": "c58c62f0ba51df255cb99789e2a67eb36746fcad7039097b0cb80c6effb82f5f",
+      "after_sha256": "0b9e141018bbcfd6d9d85017d96daf9ae50c3eb1ca14e9acfae1c1ae0e8a7606",
+      "table_sha256": "cf24f9da7d7b355080bae6160cebd00f5e7abb9e27f5d6b9fb76a841d1b51073",
+      "mapped_pixels": 1176,
+      "lookup_exact": true
+    },
+    {
+      "stem": "backdrop-0007",
+      "cycle": 4007,
+      "bounds": [
+        101,
+        101,
+        7,
+        40
+      ],
+      "before_sha256": "cde3e393612c0a4df87178e74adb52ce284fb55b4930436870580e9c61093c08",
+      "after_sha256": "c3a3853334cd789785d4608c35e421c87b6951be9306ce96aeef38e11e803882",
+      "table_sha256": "cf24f9da7d7b355080bae6160cebd00f5e7abb9e27f5d6b9fb76a841d1b51073",
+      "mapped_pixels": 280,
+      "lookup_exact": true
+    },
+    {
+      "stem": "backdrop-0008",
+      "cycle": 4008,
+      "bounds": [
+        117,
+        105,
+        28,
+        42
+      ],
+      "before_sha256": "0372027095e1592e59491d11296aed803de73ee0d732e8d881d9444158d2a450",
+      "after_sha256": "206cfbf0f4d1c1641f367b5cc5e24984ec9d4adf84cce8eed895c2c7c63e9eb7",
+      "table_sha256": "cf24f9da7d7b355080bae6160cebd00f5e7abb9e27f5d6b9fb76a841d1b51073",
+      "mapped_pixels": 1176,
+      "lookup_exact": true
+    },
+    {
+      "stem": "backdrop-0009",
+      "cycle": 4009,
+      "bounds": [
+        101,
+        101,
+        7,
+        40
+      ],
+      "before_sha256": "f78ec8fbdded7d598e6ddb09e3be92fa65399dcd2f3cf0784d800b50a4165a67",
+      "after_sha256": "354c9bd93bf4f3d5a07f1fa158fc94d5664b9c31fa0d318eeb906f6d7f164d52",
+      "table_sha256": "cf24f9da7d7b355080bae6160cebd00f5e7abb9e27f5d6b9fb76a841d1b51073",
+      "mapped_pixels": 280,
+      "lookup_exact": true
+    },
+    {
+      "stem": "backdrop-0010",
+      "cycle": 4010,
+      "bounds": [
+        117,
+        105,
+        28,
+        42
+      ],
+      "before_sha256": "f71256dfcd7be8fb790c4d7622b012e0c75ee291edaa295ae95482686e7ccdb9",
+      "after_sha256": "9bad6bc73fd700c312278c9b1a76ba0ea8f00004c5d9e525a764edbb965f783e",
+      "table_sha256": "cf24f9da7d7b355080bae6160cebd00f5e7abb9e27f5d6b9fb76a841d1b51073",
+      "mapped_pixels": 1176,
+      "lookup_exact": true
+    },
+    {
+      "stem": "backdrop-0011",
+      "cycle": 4011,
+      "bounds": [
+        101,
+        101,
+        7,
+        40
+      ],
+      "before_sha256": "37865889fed293fbe9bf30395680726bebdadf039a9afef202dde216bd2447cc",
+      "after_sha256": "cf5eccd802466b61ad816ce26f9660eb145fa4e0e04a270471631f4badc0b65b",
+      "table_sha256": "cf24f9da7d7b355080bae6160cebd00f5e7abb9e27f5d6b9fb76a841d1b51073",
+      "mapped_pixels": 280,
+      "lookup_exact": true
+    },
+    {
+      "stem": "backdrop-0012",
+      "cycle": 4012,
+      "bounds": [
+        117,
+        105,
+        28,
+        42
+      ],
+      "before_sha256": "10142304fea1b069dfab9da7c43d8d6da0bf9bb3e8e917851c5a0dbd343f6d79",
+      "after_sha256": "bd6c03fc9ee739b0a5cb6dbe8465a7ce1b4c1ed66d5ee67391b2eecef3f2e75d",
+      "table_sha256": "cf24f9da7d7b355080bae6160cebd00f5e7abb9e27f5d6b9fb76a841d1b51073",
+      "mapped_pixels": 1176,
+      "lookup_exact": true
+    },
+    {
+      "stem": "backdrop-0013",
+      "cycle": 4013,
+      "bounds": [
+        101,
+        101,
+        7,
+        40
+      ],
+      "before_sha256": "7a67de1fbd36da7bf561929202823d8b11cea66b932eceffa556a1b976988fde",
+      "after_sha256": "7dafb65bc74ec071845913651575529817d5e3944bbc7056bf987ef5ef3e5594",
+      "table_sha256": "cf24f9da7d7b355080bae6160cebd00f5e7abb9e27f5d6b9fb76a841d1b51073",
+      "mapped_pixels": 280,
+      "lookup_exact": true
+    },
+    {
+      "stem": "backdrop-0014",
+      "cycle": 4014,
+      "bounds": [
+        117,
+        105,
+        28,
+        42
+      ],
+      "before_sha256": "c58c62f0ba51df255cb99789e2a67eb36746fcad7039097b0cb80c6effb82f5f",
+      "after_sha256": "0b9e141018bbcfd6d9d85017d96daf9ae50c3eb1ca14e9acfae1c1ae0e8a7606",
+      "table_sha256": "cf24f9da7d7b355080bae6160cebd00f5e7abb9e27f5d6b9fb76a841d1b51073",
+      "mapped_pixels": 1176,
+      "lookup_exact": true
+    },
+    {
+      "stem": "backdrop-0015",
+      "cycle": 4015,
+      "bounds": [
+        101,
+        101,
+        7,
+        40
+      ],
+      "before_sha256": "e40984483864003e23a5ce23d9d4c4465131f3b74da3e1c992925f92ec5401f8",
+      "after_sha256": "f103a571ec6ff163215635c702e034153762cbf95bcb8534a485e9300c5b3fd5",
+      "table_sha256": "cf24f9da7d7b355080bae6160cebd00f5e7abb9e27f5d6b9fb76a841d1b51073",
+      "mapped_pixels": 280,
+      "lookup_exact": true
+    },
+    {
+      "stem": "backdrop-0016",
+      "cycle": 4016,
+      "bounds": [
+        117,
+        105,
+        28,
+        42
+      ],
+      "before_sha256": "c27a98ef5799edb2b19e63721c047170a8f7d6bdabba60d4408d47307baad5af",
+      "after_sha256": "752277260186bfea409d2fc14404d3aad4bbafceb6f10d29f587e1e66af14c30",
+      "table_sha256": "cf24f9da7d7b355080bae6160cebd00f5e7abb9e27f5d6b9fb76a841d1b51073",
+      "mapped_pixels": 1176,
+      "lookup_exact": true
+    },
+    {
+      "stem": "backdrop-0017",
+      "cycle": 4017,
+      "bounds": [
+        101,
+        101,
+        7,
+        40
+      ],
+      "before_sha256": "ba7305b7ee05854f96f6731a59fa2829e0bc78896a2d90f2815920b58eb05ec1",
+      "after_sha256": "6ff13200ceffb2fc9564c1f051f9bf357cdfb2358bc1390646d28c6904b9def8",
+      "table_sha256": "cf24f9da7d7b355080bae6160cebd00f5e7abb9e27f5d6b9fb76a841d1b51073",
+      "mapped_pixels": 280,
+      "lookup_exact": true
+    },
+    {
+      "stem": "backdrop-0018",
+      "cycle": 4018,
+      "bounds": [
+        117,
+        103,
+        28,
+        44
+      ],
+      "before_sha256": "0dbc2ded15d71a7d89cfa774e2d390b30d7d0f2efcdc38011dc79a69b350e05d",
+      "after_sha256": "e82dbee1d1eed6f47475c3e83d767d5019cfbdec99e36c141689e6de4679b17c",
+      "table_sha256": "cf24f9da7d7b355080bae6160cebd00f5e7abb9e27f5d6b9fb76a841d1b51073",
+      "mapped_pixels": 1232,
+      "lookup_exact": true
+    },
+    {
+      "stem": "backdrop-0019",
+      "cycle": 4019,
+      "bounds": [
+        101,
+        101,
+        7,
+        40
+      ],
+      "before_sha256": "97fbc66e2eb08e9b26b57a4882302daa4cbed5cdd00871d20f366a25be5e7e86",
+      "after_sha256": "7a8dfc24d0fff9b3bb808a824be616d025f905ab207b2b633a2d7b8b98010a74",
+      "table_sha256": "cf24f9da7d7b355080bae6160cebd00f5e7abb9e27f5d6b9fb76a841d1b51073",
+      "mapped_pixels": 280,
+      "lookup_exact": true
+    },
+    {
+      "stem": "backdrop-0020",
+      "cycle": 4020,
+      "bounds": [
+        117,
+        103,
+        28,
+        44
+      ],
+      "before_sha256": "c0582678dadb1b3f3ae4432173f5ffe2b18927728f203484f4d8cc4e36af474f",
+      "after_sha256": "2091c8762c9ffb2b4576935410852f38518f43af9e0c6ad1b9bc1b3f5b3523d4",
+      "table_sha256": "cf24f9da7d7b355080bae6160cebd00f5e7abb9e27f5d6b9fb76a841d1b51073",
+      "mapped_pixels": 1232,
+      "lookup_exact": true
+    },
+    {
+      "stem": "backdrop-0021",
+      "cycle": 4021,
+      "bounds": [
+        101,
+        101,
+        7,
+        40
+      ],
+      "before_sha256": "91cff7fc7c8336b5eeb5e6e63013ee5c2cae1e3ecb722e41e6a14cfba8ab6812",
+      "after_sha256": "3958bae8a9ab5ff1304cc47fa5cbadf361df5abb3f6f210ce46ee6189b19118b",
+      "table_sha256": "cf24f9da7d7b355080bae6160cebd00f5e7abb9e27f5d6b9fb76a841d1b51073",
+      "mapped_pixels": 280,
+      "lookup_exact": true
+    },
+    {
+      "stem": "backdrop-0022",
+      "cycle": 4022,
+      "bounds": [
+        117,
+        103,
+        28,
+        44
+      ],
+      "before_sha256": "dd39e1d9fac00502604f87650cd6466ea5da69ac6f3e86db6087a7ea2b96553f",
+      "after_sha256": "06bc7ce267ae09c512c9c1034c010dc61014a8cf204943af192d10b34be62f76",
+      "table_sha256": "cf24f9da7d7b355080bae6160cebd00f5e7abb9e27f5d6b9fb76a841d1b51073",
+      "mapped_pixels": 1232,
+      "lookup_exact": true
+    },
+    {
+      "stem": "backdrop-0023",
+      "cycle": 4023,
+      "bounds": [
+        101,
+        101,
+        7,
+        40
+      ],
+      "before_sha256": "acb029e0d10c3a367f5c2bc5ce48eba550d18cf8cfaea93bf4fc2ca404e6eea9",
+      "after_sha256": "0e6e3d5eebd82a526bfab0dc5f3617ae302432788d26397450301b69ebf81fba",
+      "table_sha256": "cf24f9da7d7b355080bae6160cebd00f5e7abb9e27f5d6b9fb76a841d1b51073",
+      "mapped_pixels": 280,
+      "lookup_exact": true
+    }
+  ],
+  "validation": [
+    "Untouched original before/after index buffers verified against recorded lookup",
+    "Rust compositor matches every captured64000-byte post-draw buffer, including unchanged pixels outside the rectangle",
+    "Integrated Rust renderer lookup equals all original256 entries",
+    "Original-asset inventory capture/save continuation and core Clippy pass"
+  ],
+  "limitations": "Direct inventory translucent-backdrop operation and scene lookup only. Does not prove whole-scene animation timing, border/title/icon composition in this later capture, acoustic equality, or physical-device acceptance."
+}

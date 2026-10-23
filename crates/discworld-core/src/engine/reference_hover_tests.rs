@@ -910,6 +910,11 @@ fn capture_original_debug_room_hover() {
             .flat_map(|pixel| pixel[..3].iter().copied())
             .collect();
         std::fs::write(directory.join("arch-inventory.rgb"), &rgb).unwrap();
+        std::fs::write(
+            directory.join("arch-background.table"),
+            overlay.diagnostic_backdrop_table().unwrap(),
+        )
+        .unwrap();
         let bytes = crate::save::Snapshot::capture(&engine, [7; 32])
             .to_bytes()
             .unwrap();

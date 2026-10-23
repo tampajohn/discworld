@@ -4,7 +4,7 @@
   "reference": "assets/validation/reference-arch-backdrop1",
   "reference_pid": 15192,
   "reference_session": 47959,
-  "status": "running; not validated",
+  "status": "completed; all24 Rust index-buffer comparisons and all256 renderer lookup entries pass",
   "mechanism": "Read-only LLDB capture at original WrtTrans entry and caller return (graphics.cpp:1262). Record full320x200 index buffers, original256-entry lookup table and clipped rectangle bounds for each late inventory draw.",
   "rust_test": "indexed_surface::tests::original_inventory_backdrop_pixels",
   "test_environment": "DISCWORLD_REFERENCE_BACKDROPS=assets/validation/reference-arch-backdrop1/frames",
@@ -12,6 +12,7 @@
     "Core all-target Clippy passes",
     "Python probes compile"
   ],
-  "next_step": "Require complete reference capture without errors, verify nonempty backdrop records and lookup_exact for every pair, then run ignored Rust test and report actual draw count. This test covers the rectangle remap, not post-dialogue animation timing or whole overlay composition.",
-  "production_change": false
+  "next_step": "Retain separate late animation-phase investigation; full-scene pixel timing is not covered by this component result.",
+  "production_change": false,
+  "result": "docs/validation/reference-inventory-backdrop.json"
 }

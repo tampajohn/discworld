@@ -137,6 +137,12 @@ impl Surface {
         }
         Ok(())
     }
+    #[cfg(test)]
+    pub(crate) fn diagnostic_backdrop_table(&self) -> Option<&[u8; 256]> {
+        self.backdrop
+            .as_ref()
+            .map(|backdrop| &backdrop.table.lookup)
+    }
     pub fn blit(
         &mut self,
         width: usize,
