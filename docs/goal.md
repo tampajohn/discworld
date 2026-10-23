@@ -16,6 +16,8 @@ Touch gestures and presentation technology remain implementation decisions to va
 
 ## Latest validation follow-up
 
+Paired replay proves the added cursor samples prevent the expected idle close-up before tick88000; they do not dismiss an already-started close-up in this case. Preserving that stationary interval passes through100000 with84 engine/DSP continuation checks. A4239-input candidate preserves all1657 original actions and stationary windows before all8 recorded close-up keys; all three full audits are running. See [close-up recovery](validation/idle-cursor-closeup-recovery.json).
+
 Cursor activity is now representable in replay traces through the ordinary checked movement API. A revised route preserves all1657 scene-checked actions and adds2616 cursor samples; its65000-tick prefix passes with175 engine/DSP save checks. All three full audits reject a key at88000: the trace expects closeup.scn but execution is in square.scn; the cursor-input effect needs diagnosis; see [active-player replay](validation/idle-cursor-replay.json). Idle behavior remains covered separately.
 
 IDLETIME now preserves the reference55-unit elapsed-clock scaling using deterministic virtual milliseconds. The original idle close-up triggers at tick6985 and enters at6992, compared with11043/11050 before correction. Numbered script timers and save layout are unchanged. Workspace, Clippy, native/WASM builds,25 original-asset checks and the idle diagnostic pass. All three full routes reject the old recorded input at tick24500 after7 inputs because an idle close-up interrupts a long pause; ordinary-input recovery and package follow-up remain pending. See [idle-clock correction](validation/idle-clock-scaling.json).

@@ -1,0 +1,89 @@
+{
+  "runtime": "3df76c8",
+  "engine": "18d3f91",
+  "production_change": false,
+  "paired_start": "assets/validation/idle-cursor-route1/prefix.dws",
+  "paired_tick": 87999,
+  "with_moves": {
+    "report": "assets/validation/idle-cursor-route2/with-moves.json",
+    "scene": "square.scn",
+    "control": true,
+    "closeup_in_movement_history": false
+  },
+  "without_four_moves": {
+    "report": "assets/validation/idle-cursor-route2/without-moves.json",
+    "scene": "closeup.scn",
+    "control": false,
+    "idle_global278_set_tick": 86143
+  },
+  "finding": "The four added cursor samples prevent the idle close-up in this interval; no close-up transition appears in the with-moves history. With samples removed, the master idle trigger sets global278 and enters closeup.scn. Do not describe this pair as proof of WAITKEY advancement.",
+  "prefix": {
+    "report": "assets/validation/idle-cursor-route2/prefix-report.json",
+    "end_tick": 100000,
+    "accepted_inputs": 45,
+    "engine_snapshot_checks": 84,
+    "audio_snapshot_checks": 84,
+    "start_tick": 65000
+  },
+  "candidate": "assets/validation/idle-cursor-route2/wait-aware-input.json",
+  "candidate_sha256": "56530196e4b053634869a2cdd0ad6853c7b6acc46b912f9b06e5610c63d75845",
+  "candidate_inputs": 4239,
+  "original_actions_unchanged": 1657,
+  "cursor_samples_removed": 34,
+  "stationary_windows": [
+    [
+      84000,
+      88000
+    ],
+    [
+      279000,
+      283000
+    ],
+    [
+      301000,
+      305000
+    ],
+    [
+      495000,
+      499000
+    ],
+    [
+      514000,
+      518000
+    ],
+    [
+      530000,
+      534000
+    ],
+    [
+      1499725,
+      1507725
+    ],
+    [
+      1857225,
+      1859225
+    ]
+  ],
+  "scope": "Preserve stationary intervals preceding the8 recorded close-up keys. First interval verified by paired execution; remaining intervals await full-route replay. No engine clock reset or script edits.",
+  "full_route": {
+    "directory": "assets/validation/idle-waits-3df76c8",
+    "status": "running; not a pass",
+    "runs": {
+      "run.json": {
+        "pid": 5720,
+        "status": "running",
+        "live": true
+      },
+      "chrome-run.json": {
+        "pid": 5819,
+        "status": "running",
+        "live": true
+      },
+      "webkit-run.json": {
+        "pid": 5820,
+        "status": "running",
+        "live": true
+      }
+    }
+  }
+}
