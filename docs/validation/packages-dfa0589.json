@@ -1,0 +1,42 @@
+{
+  "schema": 1,
+  "runtime_revision": "dfa0589519ad9e82a381e9946ca3eab3cde5f8c0",
+  "packages": [
+    {
+      "path": "assets/packages/discworld-native-dfa0589.tar.gz",
+      "bytes": 4047711,
+      "sha256": "409fbc6b831979efb8421abd73b1039ea8ffeae14b1f436895402eee674e46a6"
+    },
+    {
+      "path": "assets/packages/discworld-web-dfa0589.zip",
+      "bytes": 3014012,
+      "sha256": "aa965b67c96b2379070f995b319dc4fddc6caaf3ae7120fa61dbfafdc033be79"
+    }
+  ],
+  "checks": {
+    "manifest_hashes": "All members listed in both manifests verified after extraction outside checkout; both source revisions dfa0589519ad9e82a381e9946ca3eab3cde5f8c0.",
+    "native": "Extracted runtime: dummy SDL video/audio, mute, audio headroom, 30 frames; exit 0, tick 13, psygnosi.scn, stopped=false. Packaging verified arm64 architecture, system-only dependencies and strict codesign.",
+    "browser": [
+      {
+        "browser": "chrome",
+        "version": "156.0.8078.47",
+        "tick": "13",
+        "headroom": true,
+        "errors": []
+      },
+      {
+        "browser": "webkit",
+        "version": "27.2",
+        "tick": "13",
+        "headroom": true,
+        "errors": []
+      }
+    ]
+  },
+  "limits": [
+    "Startup smoke checks only; frozen engine full-route audits remain running separately.",
+    "Browser headroom and advancing ticks verified; no physical-device audio listening.",
+    "Native package remains a command-line development distribution, not a Finder application.",
+    "Physical iPad acceptance and visible manual-session update remain outstanding."
+  ]
+}

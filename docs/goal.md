@@ -209,9 +209,10 @@ differ across platforms. See [cross-host evidence](validation/escape-host-cbb7d6
 This audit predates the later null-film validation correction and contains
 no Escape inputs; the focused Escape tests remain separate evidence.
 
-Current development archives at `cbb7d6b` passed extracted-package startup
+Current development archives at `dfa0589` passed extracted-package startup
 checks on native macOS, Chrome and WebKit, including the optional audio
-headroom control. See [package evidence](validation/packages-cbb7d6b.json).
+headroom control. These include scheduled scrolling and the font palette fix.
+See [package evidence](validation/packages-dfa0589.json).
 These checks do not establish full-route or physical-device acceptance.
 
 
