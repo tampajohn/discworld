@@ -1,0 +1,25 @@
+{
+  "engine": "18d3f91",
+  "change": "Replay format adds move events using the ordinary checked cursor API. Scene wildcard is allowed only for move, which has no world target. Original puzzle actions retain exact scene checks.",
+  "candidate": "assets/validation/idle-cursor-route1/input.json",
+  "candidate_sha256": "0952e3bb2a0dcc3c8af71a7ca456b81c063567f9955f71eb8ff33391ddd17f97",
+  "candidate_inputs": 4273,
+  "original_actions_unchanged": 1657,
+  "cursor_samples": 2616,
+  "schedule": "Starting at20001, every1000 ticks alternate [10,10] and [11,10], excluding occupied action ticks. These are actual cursor inputs, not direct idle-clock resets. Movement can wake WAITKEY as in ordinary play.",
+  "prefix": {
+    "ticks": 65000,
+    "status": "Running",
+    "scene": "unigard.scn",
+    "accepted_inputs": 72,
+    "engine_snapshot_checks": 175,
+    "audio_snapshot_checks": 175
+  },
+  "validation": [
+    "Replay/tools release tests pass",
+    "Workspace all-target Clippy passes",
+    "65000-tick original-asset prefix passes"
+  ],
+  "full_route": "not yet validated",
+  "limits": "Synthetic cursor activity tests an active player route. It does not replace idle-cutscene acceptance, touch-only play, or full original-reference fidelity."
+}

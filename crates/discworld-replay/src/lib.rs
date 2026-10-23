@@ -2,6 +2,7 @@
 #[derive(Debug, PartialEq, Eq)]
 pub enum InteractionEvent {
     Key,
+    Move([i32; 2]),
     Scroll(discworld_core::inventory::Scroll),
     World([i32; 2], discworld_core::engine::PolygonInteraction),
     Polygon(discworld_core::engine::PolygonInteraction),
@@ -32,6 +33,7 @@ pub fn interactions(
         let object = entry.as_object().ok_or("interaction must be an object")?;
         let target_key = match entry["event"].as_str() {
             Some("topic") => Some("topic"),
+            Some("move") => Some("point"),
             Some(
                 "close_conversation" | "close_inventory" | "key" | "scroll_up" | "scroll_down"
                 | "page_up" | "page_down" | "inventory_home" | "inventory_end",
@@ -63,6 +65,18 @@ pub fn interactions(
         let target = usize::try_from(target)?;
         use discworld_core::engine::PolygonInteraction;
         let event = match entry["event"].as_str() {
+            Some("move") => {
+                let point = entry["point"]
+                    .as_array()
+                    .filter(|p| p.len() == 2)
+                    .ok_or("invalid cursor point")?;
+                let x = i32::try_from(point[0].as_i64().ok_or("invalid cursor x")?)?;
+                let y = i32::try_from(point[1].as_i64().ok_or("invalid cursor y")?)?;
+                if !(0..320).contains(&x) || !(0..200).contains(&y) {
+                    return Err("cursor point outside viewport".into());
+                }
+                InteractionEvent::Move([x, y])
+            }
             Some("key") => InteractionEvent::Key,
             Some("scroll_up") => InteractionEvent::Scroll(discworld_core::inventory::Scroll::Up),
             Some("scroll_down") => {
@@ -111,6 +125,9 @@ pub fn interactions(
             }
             event => event,
         };
+        if scene == "*" && !matches!(event, InteractionEvent::Move(_)) {
+            return Err("scene wildcard is only allowed for cursor movement".into());
+        }
         result.push(Interaction {
             tick,
             scene,
@@ -127,6 +144,9 @@ pub fn validate_scenes(
     index: &[discworld_core::resource::IndexEntry],
 ) -> Result<(), Box<dyn std::error::Error>> {
     for input in inputs {
+        if input.scene == "*" && matches!(input.event, InteractionEvent::Move(_)) {
+            continue;
+        }
         if !index.iter().any(|entry| entry.name == input.scene) {
             return Err(format!(
                 "unknown replay scene {:?} at tick {}",
@@ -144,10 +164,15 @@ pub fn apply(
     resources: &discworld_core::graphics::Resources<'_>,
     scene: &str,
 ) -> Result<bool, discworld_core::iso::Error> {
-    if scene != input.scene {
+    let untargeted_move = input.scene == "*" && matches!(input.event, InteractionEvent::Move(_));
+    if scene != input.scene && !untargeted_move {
         Err(discworld_core::iso::Error("interaction scene mismatch"))
     } else {
         match input.event {
+            InteractionEvent::Move(point) => {
+                engine.move_cursor_with_configuration(resources, point)?;
+                Ok(true)
+            }
             InteractionEvent::Key => engine.user_event().map(|_| true),
             InteractionEvent::Scroll(action) => Ok(engine.scroll_inventory(action)),
             InteractionEvent::CloseInventory => {
@@ -176,5 +201,34 @@ pub fn apply(
             InteractionEvent::Topic => engine.interact_conversation(resources, Some(input.target)),
             InteractionEvent::CloseConversation => engine.interact_conversation(resources, None),
         }
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+    #[test]
+    fn cursor_samples_allow_no_scene_target_but_keep_action_checks() {
+        let moves = interactions(
+            br#"[{"tick":1,"scene":"*","event":"move","point":[10,11]}]"#,
+            2,
+        )
+        .unwrap();
+        assert_eq!(moves[0].event, InteractionEvent::Move([10, 11]));
+        validate_scenes(&moves, &[]).unwrap();
+        for bad in [
+            br#"[{"tick":1,"scene":"*","event":"key"}]"#.as_slice(),
+            br#"[{"tick":1,"scene":"*","event":"action","point":[10,11]}]"#,
+            br#"[{"tick":1,"scene":"*","event":"move","point":[320,11]}]"#,
+            br#"[{"tick":1,"scene":"*","event":"move","actor":7}]"#,
+        ] {
+            assert!(interactions(bad, 2).is_err());
+        }
+        let named = interactions(
+            br#"[{"tick":1,"scene":"missing.scn","event":"move","point":[10,11]}]"#,
+            2,
+        )
+        .unwrap();
+        assert!(validate_scenes(&named, &[]).is_err());
     }
 }
