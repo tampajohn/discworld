@@ -16,6 +16,8 @@ Touch gestures and presentation technology remain implementation decisions to va
 
 ## Latest validation follow-up
 
+IDLETIME now preserves the reference55-unit elapsed-clock scaling using deterministic virtual milliseconds. The original idle close-up triggers at tick6985 and enters at6992, compared with11043/11050 before correction. Numbered script timers and save layout are unchanged. Workspace, Clippy, native build and original-asset idle diagnostic pass; full-route/build/package follow-up remains pending. See [idle-clock correction](validation/idle-clock-scaling.json).
+
 The late Archchancellor scene divergence is an idle close-up, not omitted dialogue: all19 subsequent voice IDs and PCM hashes match in order, and Rust reaches the same close-up at tick11050. The master script triggers it at IDLETIME >=300. Reference elapsed-time scaling and Rust idle units differ; timer compatibility remains to resolve, independently of debugger-induced audio timing drift. See [dialogue and idle-clock evidence](validation/arch-dialogue-idle-clock.json).
 
 The extended reference inventory attempt fails its cycle6000 control precondition: ScummVM has entered closeup.scn while Rust is back in arch.scn. Later scene/dialogue state alignment needs investigation before claiming overlay fidelity; see [reference observation](validation/arch-inventory-reference-run.json).

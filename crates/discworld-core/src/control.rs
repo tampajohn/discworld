@@ -98,15 +98,37 @@ impl Control {
             self.last_event = tick;
             return Ok(0);
         }
-        let elapsed = tick
-            .checked_sub(self.last_event)
-            .ok_or(Error("idle clock moved backwards"))?;
+        if tick < self.last_event {
+            return Err(Error("idle clock moved backwards"));
+        }
+        // V1 IDLETIME is not a FettleTimers script timer. The reference uses
+        // DwGetCurrentTime (milliseconds * 55 / 1000), then divides by 24.
+        // Supply deterministic virtual milliseconds at our nominal 24 Hz;
+        // retain the original integer rounding at both clock endpoints.
+        // Saved last_event remains a simulation tick, preserving save layout.
+        let clock = |tick: u64| (u128::from(tick) * 1000 / 24) * 55 / 1000;
+        let elapsed = clock(tick) - clock(self.last_event);
         i32::try_from(elapsed / 24).map_err(|_| Error("idle seconds overflow"))
     }
 }
 #[cfg(test)]
 mod tests {
     use super::*;
+    #[test]
+    fn original_idle_clock_reaches_master_cutscene_threshold() {
+        let mut c = Control::default();
+        c.apply(1, false).unwrap();
+        c.user_event(3843);
+        // Original 300-unit master-script threshold: virtual timestamps
+        // 160125ms -> 291000ms / 291041ms, converted by DwGetCurrentTime.
+        assert_eq!(c.idle_seconds(6984).unwrap(), 299);
+        assert_eq!(c.idle_seconds(6985).unwrap(), 300);
+        assert!(c.idle_seconds(3842).is_err());
+        assert!(c.idle_seconds(u64::MAX).is_err());
+        c.user_event(u64::MAX - 24);
+        assert_eq!(c.idle_seconds(u64::MAX).unwrap(), 2);
+    }
+
     #[test]
     fn scripted_world_cursor_survives_control_restore_and_camera_changes() {
         let mut c = Control::default();
@@ -118,7 +140,7 @@ mod tests {
         assert!(c.frozen);
         c.apply_at(1, false, [360, 20]).unwrap();
         assert_eq!(c.cursor, [40, 70]);
-        assert_eq!(c.idle_seconds(124).unwrap(), 1);
+        assert_eq!(c.idle_seconds(124).unwrap(), 2);
         c.apply_at(0, false, [360, 20]).unwrap();
         c.apply_at(1, false, [380, 30]).unwrap();
         assert_eq!(c.cursor, [20, 60]);
@@ -144,7 +166,7 @@ mod tests {
         let mut c = Control::default();
         assert_eq!(c.idle_seconds(100).unwrap(), 0);
         c.apply(1, false).unwrap();
-        assert_eq!(c.idle_seconds(148).unwrap(), 2);
+        assert_eq!(c.idle_seconds(148).unwrap(), 4);
         c.user_event(148);
         assert_eq!(c.idle_seconds(149).unwrap(), 0);
         c.apply(2, false).unwrap();

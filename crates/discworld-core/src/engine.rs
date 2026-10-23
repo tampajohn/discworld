@@ -13985,9 +13985,9 @@ mod tests {
             }
             let events = engine.user_events;
             engine.tick(&resources).unwrap();
-            assert_eq!(engine.globals, [10, 0, 77]);
+            assert_eq!(engine.globals, [23, 0, 77]);
             assert_eq!(engine.user_events, events);
-            assert_eq!(engine.control.idle_seconds(engine.ticks + 48).unwrap(), 2);
+            assert_eq!(engine.control.idle_seconds(engine.ticks + 48).unwrap(), 4);
         }
     }
 

@@ -1,0 +1,37 @@
+{
+  "change": "IDLETIME now maps simulation ticks to deterministic virtual milliseconds, applies original DwGetCurrentTime scaling55/1000 at both endpoints, then divides elapsed clock units by24.",
+  "formula": "clock(t) = floor(floor(t*1000/24)*55/1000); IDLETIME = floor((clock(now)-clock(last_event))/24)",
+  "scope": "Only idle-time clock; numbered script timers retain original FettleTimers per-cycle behavior. Save layout and saved simulation-tick representation unchanged.",
+  "reference_sources": [
+    "engines/tinsel/timers.cpp:66",
+    "engines/tinsel/events.cpp:568",
+    "engines/tinsel/tinlib.cpp:1304",
+    "engines/tinsel/timers.h:35"
+  ],
+  "original_asset_trace": "assets/validation/rust-arch-idle-clock-fixed1/arch-dialogue-timeline.json",
+  "before": {
+    "control_return": 3843,
+    "idle_trigger": 11043,
+    "closeup_entry": 11050,
+    "voice3662": 11099
+  },
+  "after": {
+    "control_return": 3843,
+    "idle_trigger": 6985,
+    "closeup_entry": 6992,
+    "voice3662": 7041
+  },
+  "validation": [
+    "Workspace release tests pass",
+    "Workspace all-target Clippy passes",
+    "Native/tools release build passes",
+    "Original-asset idle cutscene diagnostic passes",
+    "Boundary, reset, overflow and master/scene library-stack checks pass"
+  ],
+  "pending": [
+    "Production/replay WASM builds and original-asset web checks",
+    "Full native/Chrome/WebKit route audits",
+    "Updated packages and visible/physical-device validation"
+  ],
+  "limitations": "Deterministic nominal24Hz virtual time is deliberate; debugger wall time, wall-clock wrapping and mixer-driven speech duration are not reproduced. This is not same-cycle equality for a long debugger-instrumented reference run."
+}
