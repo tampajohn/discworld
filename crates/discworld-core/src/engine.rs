@@ -3185,6 +3185,49 @@ impl Engine {
         }
     }
 
+    /// Prepare an intentional player load. Exact snapshot/replay restoration
+    /// remains byte preserving and does not call this migration path.
+    pub fn prepare_user_load(&mut self) -> Result<(), Error> {
+        let mut next = self.clone();
+        next.validate_snapshot_structure()?;
+        if next.world_hover.is_none() {
+            let scroll = next
+                .scene_tasks()
+                .into_iter()
+                .find_map(|(id, task)| matches!(task, SceneTask::Scroll { .. }).then_some(id));
+            for task in [SceneTask::Point, SceneTask::Tags] {
+                let mut process = ScriptProcess::new(Handle(0));
+                process.scene_task = Some(task);
+                next.processes
+                    .insert_idle_before(scroll, Some(next.generation), process)?;
+            }
+            // Pre-v23 engines scrolled in a fixed pre-script phase. Migrate
+            // that work to the queue without resetting active camera motion.
+            if !next.scheduled_scroll {
+                let mut process = ScriptProcess::new(Handle(0));
+                process.scene_task = Some(SceneTask::Scroll {
+                    initialized: next.background.is_some(),
+                });
+                next.processes
+                    .insert_idle_before(None, Some(next.generation), process)?;
+                next.scheduled_scroll = true;
+            }
+            for polygon in &mut next.polygons.active {
+                if matches!(
+                    polygon.definition.kind,
+                    crate::polygon::Kind::Tag | crate::polygon::Kind::Exit
+                ) {
+                    polygon.pointing = false;
+                }
+            }
+            next.world_hover = Some(crate::world_hover::State::new(&next.polygons));
+        }
+        next.end_intro();
+        next.validate_snapshot_structure()?;
+        *self = next;
+        Ok(())
+    }
+
     pub fn intro_active(&self) -> bool {
         self.intro.as_ref().is_some_and(crate::intro::Intro::active)
     }
@@ -7700,6 +7743,123 @@ mod tests {
         put(&mut scene, 112, 1);
         (master, scene)
     }
+    #[test]
+    fn player_load_migrates_legacy_monitors_without_restarting_scripts_or_scroll() {
+        let (master, scene) = fixtures();
+        let mut film = [0u8; 64];
+        film[48..52].copy_from_slice(&10u32.to_le_bytes());
+        film[52..56].copy_from_slice(&1u32.to_le_bytes());
+        film[56..60].copy_from_slice(&(-2i32).to_le_bytes());
+        let resources = Resources(vec![&master, &scene, &film]);
+        for scheduled in [false, true] {
+            let mut engine = Engine::bootstrap(&resources).unwrap();
+            if scheduled {
+                for (id, task) in engine.scene_tasks() {
+                    if matches!(task, SceneTask::Point | SceneTask::Tags) {
+                        engine.processes.cancel(id).unwrap();
+                    }
+                }
+                engine.world_hover = None;
+                for process in engine.processes.states_mut() {
+                    if matches!(process.scene_task, Some(SceneTask::Scroll { .. })) {
+                        process.scene_task = Some(SceneTask::Scroll { initialized: true });
+                    }
+                }
+            } else {
+                legacy_scroll_fixture(&mut engine);
+            }
+            engine.background = Some(
+                Animation::new(
+                    &resources,
+                    &crate::film::Reel {
+                        object: Handle(2 << 23),
+                        script: Handle((2 << 23) | 48),
+                    },
+                    1,
+                )
+                .unwrap(),
+            );
+            engine.scroll_maximum = [200, 0];
+            engine.scroll.start([0, 0], [20, 0], 8).unwrap();
+            let bytes = crate::save::Snapshot::capture(&engine, [7; 32])
+                .to_bytes()
+                .unwrap();
+            let snapshot = crate::save::Snapshot::from_bytes(&bytes, [7; 32]).unwrap();
+            assert_eq!(
+                snapshot.to_bytes().unwrap(),
+                bytes,
+                "exact legacy codec is unchanged"
+            );
+            assert_eq!(snapshot.state(), &engine);
+            let original = engine.clone();
+            let peers: Vec<_> = engine
+                .processes
+                .entries()
+                .map(|(id, p)| (id, p.clone(), engine.processes.sleep_for(id)))
+                .collect();
+            engine.prepare_user_load().unwrap();
+            assert_eq!(engine.ticks, original.ticks);
+            assert_eq!(engine.globals, original.globals);
+            assert_eq!(engine.master, original.master);
+            assert_eq!(engine.scroll, original.scroll);
+            assert_eq!(engine.world_origin, original.world_origin);
+            assert_eq!(engine.music, original.music);
+            assert_eq!(engine.sample_player, original.sample_player);
+            let surviving: Vec<_> = engine
+                .processes
+                .entries()
+                .filter(|(id, _)| peers.iter().any(|(old, _, _)| old == id))
+                .map(|(id, p)| (id, p.clone(), engine.processes.sleep_for(id)))
+                .collect();
+            assert_eq!(surviving, peers);
+            let tasks: Vec<_> = engine.scene_tasks().into_iter().map(|(_, t)| t).collect();
+            assert_eq!(
+                tasks,
+                [
+                    SceneTask::Point,
+                    SceneTask::Tags,
+                    SceneTask::Scroll { initialized: true }
+                ]
+            );
+            let once = engine.clone();
+            engine.prepare_user_load().unwrap();
+            assert_eq!(engine, once, "migration is idempotent");
+            let upgraded = crate::save::Snapshot::capture(&engine, [7; 32])
+                .to_bytes()
+                .unwrap();
+            assert_eq!(u32::from_le_bytes(upgraded[8..12].try_into().unwrap()), 24);
+            let mut restored = crate::save::Snapshot::from_bytes(&upgraded, [7; 32])
+                .unwrap()
+                .state()
+                .clone();
+            for expected in [8, 16, 20] {
+                engine.tick(&resources).unwrap();
+                restored.tick(&resources).unwrap();
+                assert_eq!(engine, restored);
+                assert_eq!(engine.world_origin, [expected, 0]);
+            }
+        }
+    }
+
+    #[test]
+    fn player_load_migration_capacity_failure_is_atomic() {
+        let (master, scene) = fixtures();
+        let resources = Resources(vec![&master, &scene]);
+        let mut engine = legacy_fixture_bootstrap(&resources).unwrap();
+        while engine.processes.states().count() < 1023 {
+            engine
+                .processes
+                .spawn(None, ScriptProcess::new(Handle((1 << 23) | 8)))
+                .unwrap();
+        }
+        let before = engine.clone();
+        assert_eq!(
+            engine.prepare_user_load(),
+            Err(Error("process capacity exceeded"))
+        );
+        assert_eq!(engine, before);
+    }
+
     #[test]
     fn world_hover_runs_overlapping_scripts_before_labels_and_roundtrips_v24() {
         let (master, mut scene) = fixtures();

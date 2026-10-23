@@ -28,17 +28,19 @@ labels do not. A selected unlabeled polygon stays unlabeled when a delayed
 PRINTTAG arrives until selection changes, matching the pinned reference.
 
 DWRSAVE v24 preserves registrations, selection, cached glyph layout, camera
-origin and scheduler tasks. Earlier saves retain their historical execution
-state until scene entry/rebuild creates the monitors; upgrading a loaded legacy
-room without re-entry remains follow-up work. Older wrapper versions reject
+origin and scheduler tasks. Player loads upgrade earlier saves in place: Point/Tag monitors are inserted
+before an existing ScrollProcess, or at the tail with a migrated ScrollProcess
+for pre-v23 state. Existing scripts retain order, identity and sleep counts;
+active camera motion is not reinitialized. Exact snapshot/replay restores keep
+the historical state unchanged. The migration is atomic and idempotent. Older wrapper versions reject
 new task variants. Validation checks task presence, polygon counts, selected
 IDs, glyph limits and drawable resources before restoring.
 
 Eight state/rendering regressions and an engine integration exercise overlapping
 script order, hidden-cursor/control-off dispatch, actor priority, original-font
 layout, exact v24 save continuation and malformed task rejection. An original-
-asset browser-core test rebuilds the saved Rincewind room through the existing
-cutaway restoration path and checks five polygon labels, original font glyphs,
+asset browser-core test loads a legacy Rincewind-room checkpoint through the
+player-load API without scene re-entry and checks five polygon labels, original font glyphs,
 byte-identical saved continuation and identical frames after reload. These are
 compatibility tests, not an independent reference hover screenshot comparison
 or a new full-game replay. See [world-hover.json](validation/world-hover.json).

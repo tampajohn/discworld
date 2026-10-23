@@ -1,0 +1,68 @@
+{
+  "date": "2026-10-23",
+  "scope": "Player-load migration of pre-v24 scene monitors; exact snapshot/replay restore unchanged",
+  "checks": {
+    "workspace": "passed",
+    "core_tests": 354,
+    "original_asset_tests": 25,
+    "original_room_labels_without_reentry": 5,
+    "clippy": "passed",
+    "wasm": "passed",
+    "native_tools_build": "passed",
+    "browser_and_replay_build": "passed",
+    "browser_ui": "retry running"
+  },
+  "coverage": [
+    "Preserves existing process order, IDs, sleeps, VM/global/audio state and active scrolling",
+    "Inserts Point/Tag ahead of existing ScrollProcess or appends Point/Tag/Scroll for earlier versions",
+    "Atomic capacity failure and idempotent migration",
+    "Native CLI non-replay loads, F9, menu loads and browser load_game use the shared migration",
+    "Legacy exact import/export remains byte identical; current v24 player import/export is idempotent",
+    "Original Rincewind-room player load produces five original-font labels without scene rebuild"
+  ],
+  "initial_ui_run": {
+    "passed": 34,
+    "failed": 10,
+    "cause": "Legacy export byte/version expectations now need migration-aware assertions; original pixel assertions passed. Updated assertions still require inventory schema fields and exact subsequent imports."
+  },
+  "logs": {
+    "workspace": {
+      "path": "assets/logs/hover-migration-workspace.log",
+      "sha256": "ace76306642fd6505997a36219956b54c2ba9885d27fb26058a2c0c29ffe5643"
+    },
+    "assets": {
+      "path": "assets/logs/hover-migration-assets.log",
+      "sha256": "6f3cde2a478b69a083c9c0f941b9e89800927ca1404f56f5c0c8ec795afe9b84"
+    },
+    "clippy": {
+      "path": "assets/logs/hover-migration-clippy.log",
+      "sha256": "fc5ad9ecc4511369b979aa7d795d607c436a432aa59fe8e07f0ba54fd0d5a93d"
+    },
+    "wasm": {
+      "path": "assets/logs/hover-migration-wasm.log",
+      "sha256": "3c6a5a2a2ce19d00656a93e3f64df465109814feb71af72f2f02131e292cb2a3"
+    },
+    "hosts": {
+      "path": "assets/logs/hover-migration-hosts.log",
+      "sha256": "74e986fd04da2ac57f7cc0266033ace8821b3692823f880db1a4723f18a46e18"
+    },
+    "web-build": {
+      "path": "assets/logs/hover-migration-web-build.log",
+      "sha256": "0c26ad63fa385fc56e042754634c1e5577e0013f2004e3d3af770fe7bb67d300"
+    },
+    "replay-build": {
+      "path": "assets/logs/hover-migration-replay-build.log",
+      "sha256": "7587c77ee65dd2630268dfce92e1bbea2e0038d5d16ae085755659e1e902d57d"
+    },
+    "ui": {
+      "path": "assets/logs/hover-migration-ui.log",
+      "sha256": "57e611f4b933a111bb541fc7a0d15dae9e46179988ac879430d7f465b081ecce"
+    }
+  },
+  "remaining": [
+    "Browser UI retry pending",
+    "Full-route replay of new hover runtime pending",
+    "Deferred POINTED continuation and independent reference hover/input comparison pending",
+    "Visible manual session and physical iPad acceptance unverified"
+  ]
+}

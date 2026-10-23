@@ -90,6 +90,38 @@ impl<T> Scheduler<T> {
         if self.running && self.current.is_none() {
             return Err(Error("spawn requires active dispatch or idle scheduler"));
         }
+        let index = if self.current.is_some() {
+            self.cursor + 1
+        } else {
+            0
+        };
+        self.insert(index, scene, state)
+    }
+
+    /// Insert a migrated native process without moving existing peers or
+    /// changing their sleep counts. None appends at the tail. Unlike spawn,
+    /// this operation is only valid between complete scheduler passes.
+    pub(crate) fn insert_idle_before(
+        &mut self,
+        before: Option<ProcessId>,
+        scene: Option<u64>,
+        state: T,
+    ) -> Result<ProcessId, Error> {
+        if self.running || self.current.is_some() {
+            return Err(Error("migration requires idle scheduler"));
+        }
+        let index = match before {
+            Some(id) => self
+                .processes
+                .iter()
+                .position(|p| p.id == id)
+                .ok_or(Error("missing migration insertion point"))?,
+            None => self.processes.len(),
+        };
+        self.insert(index, scene, state)
+    }
+
+    fn insert(&mut self, index: usize, scene: Option<u64>, state: T) -> Result<ProcessId, Error> {
         if self.processes.len() >= 1024 {
             return Err(Error("process capacity exceeded"));
         }
@@ -98,11 +130,6 @@ impl<T> Scheduler<T> {
             .checked_add(1)
             .ok_or(Error("process identity overflow"))?;
         let id = ProcessId(self.next_id);
-        let index = if self.current.is_some() {
-            self.cursor + 1
-        } else {
-            0
-        };
         self.processes.insert(
             index,
             Process {
@@ -235,6 +262,36 @@ mod tests {
         assert!(valid.validate_snapshot_structure().is_err());
         valid.end_pass().unwrap();
         assert!(valid.validate_snapshot_structure().is_ok());
+    }
+
+    #[test]
+    fn idle_migration_preserves_peers_sleeps_and_rejects_live_insertion() {
+        let mut q = Scheduler::default();
+        let tail = q.spawn(None, 1).unwrap();
+        let head = q.spawn(None, 2).unwrap();
+        q.begin().unwrap();
+        assert_eq!(q.ready().unwrap(), Some(head));
+        let before = q.clone();
+        assert!(q.insert_idle_before(Some(tail), None, 3).is_err());
+        assert_eq!(q, before);
+        q.finish(Some(4)).unwrap();
+        assert_eq!(q.ready().unwrap(), Some(tail));
+        q.finish(Some(2)).unwrap();
+        assert_eq!(q.ready().unwrap(), None);
+        let point = q.insert_idle_before(Some(tail), None, 3).unwrap();
+        let tag = q.insert_idle_before(Some(tail), None, 4).unwrap();
+        assert_eq!(
+            q.entries().map(|(id, _)| id).collect::<Vec<_>>(),
+            [head, point, tag, tail]
+        );
+        assert_eq!(q.sleep_for(head), Some(4));
+        assert_eq!(q.sleep_for(tail), Some(2));
+        q.validate_snapshot_structure().unwrap();
+        let appended = q.insert_idle_before(None, None, 5).unwrap();
+        assert_eq!(q.entries().last().unwrap().0, appended);
+        let before = q.clone();
+        assert!(q.insert_idle_before(Some(ProcessId(999)), None, 6).is_err());
+        assert_eq!(q, before);
     }
 
     #[test]

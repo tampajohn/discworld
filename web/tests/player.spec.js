@@ -1,6 +1,7 @@
 import { test, expect } from '@playwright/test';
 import fs from 'node:fs/promises';
 import path from 'node:path';
+import { coreVersions } from './save-format.js';
 const root = path.resolve(import.meta.dirname, '../..');
 const iso = process.env.DISCWORLD_TEST_ISO || path.join(root, "Terry Pratchett's Discworld (1995)(Psygnosis).iso");
 const font = process.env.DISCWORLD_TEST_SOUNDFONT || path.join(root, 'assets/soundfonts/TimGM6mb.sf2');
@@ -53,7 +54,12 @@ test('real WASM canvas, native save import/export, audio controls and device per
   await matchesOriginalFrame(page);
   await page.screenshot({ path: path.join(root, `assets/previews/browser-${testInfo.project.name}-inventory-loaded.png`) });
   await page.locator('summary').click();
-  const original = await fs.readFile(save);
+  const legacy = await fs.readFile(save);
+  const original = await exported(page);
+  expect(coreVersions(original)[0]).toBe(24);
+  expect(original).not.toEqual(legacy);
+  // Migration must not change the current frame or tick; further exports and
+  // re-imports of the upgraded checkpoint must remain byte identical.
   expect(await exported(page)).toEqual(original);
   await page.locator('#headroom').click();
   await expect(page.locator('#headroom')).toHaveAttribute('aria-pressed', 'true');
@@ -113,7 +119,7 @@ test('real WASM canvas, native save import/export, audio controls and device per
   expect(touched).not.toEqual(original);
   // Inner core v4 proves physical input reached the shared classifier. Preserve
   // its partial click history through the production import/export path.
-  expect(touched.readUInt32LE(52 + 8)).toBe(4);
+  expect(coreVersions(touched)).toContain(4);
   await page.locator('#import').setInputFiles({ name: 'mouse.dws', mimeType: 'application/octet-stream', buffer: touched });
   await expect(page.locator('#status')).toContainText('Saved game loaded.');
   expect(await exported(page)).toEqual(touched);
@@ -147,14 +153,15 @@ test('inventory header drag renders immediately and roundtrips an active drag', 
   await expect(page.locator('#pause')).toHaveText('Play');
   await page.waitForTimeout(150);
   const pending = await exportHeld();
-  expect(pending.readUInt32LE(60)).toBe(5);
+  expect(coreVersions(pending)[0]).toBe(24);
+  expect(coreVersions(pending)).toContain(5);
   const pixels = await canvas.evaluate(c => c.toDataURL());
   await page.screenshot({ path: path.join(root, `assets/previews/browser-${testInfo.project.name}-inventory-drag.png`) });
   await move(250, 180);
   await page.mouse.up();
   await expect(canvas).toHaveAttribute('data-dragging', 'false');
   expect(await canvas.evaluate(c => c.toDataURL())).toBe(pixels);
-  expect((await exportHeld()).readUInt32LE(60)).toBe(4);
+  expect(coreVersions(await exportHeld())).toContain(4);
   await page.locator('#import').setInputFiles({ name: 'drag.dws', mimeType: 'application/octet-stream', buffer: pending });
   await expect(page.locator('#status')).toContainText('Saved game loaded.');
   await expect(canvas).toHaveAttribute('data-dragging', 'true');
@@ -296,7 +303,7 @@ test('inventory title double click maximizes and restores across a save', async 
   await expect(page.locator('#pause')).toHaveText('Play');
   await page.waitForTimeout(150);
   const maximized = await exportPaused();
-  expect(maximized.readUInt32LE(60)).toBe(7);
+  expect(coreVersions(maximized)).toContain(7);
   const pixels = await canvas.evaluate(c => c.toDataURL());
   await fs.writeFile(path.join(root, `assets/saves/browser-${testInfo.project.name}-maximized.dws`),maximized);
   await page.screenshot({ path: path.join(root, `assets/previews/browser-${testInfo.project.name}-maximized.png`) });
@@ -311,7 +318,7 @@ test('inventory title double click maximizes and restores across a save', async 
   await expect(page.locator('#pause')).toHaveText('Play');
   await page.waitForTimeout(150);
   const restored = await exportPaused();
-  expect(restored.readUInt32LE(60)).toBe(7);
+  expect(coreVersions(restored)).toContain(7);
   await fs.writeFile(path.join(root, `assets/saves/browser-${testInfo.project.name}-maximized-restored.dws`),restored);
   await page.screenshot({ path: path.join(root, `assets/previews/browser-${testInfo.project.name}-maximized-restored.png`) });
 });
@@ -340,7 +347,7 @@ test('inventory corner resize preserves outline and releases after reload', asyn
   await expect(page.locator('#pause')).toHaveText('Play');
   await page.waitForTimeout(150);
   const pending = await exportHeld();
-  expect(pending.readUInt32LE(60)).toBe(8);
+  expect(coreVersions(pending)).toContain(8);
   const pixels = await canvas.evaluate(c => c.toDataURL());
   await fs.writeFile(path.join(root, `assets/saves/browser-${testInfo.project.name}-resize-active.dws`), pending);
   await page.screenshot({ path: path.join(root, `assets/previews/browser-${testInfo.project.name}-resize-active.png`) });
@@ -353,7 +360,7 @@ test('inventory corner resize preserves outline and releases after reload', asyn
   expect(await canvas.evaluate(c => c.toDataURL())).toBe(pixels);
   await page.mouse.up();
   await expect(canvas).toHaveAttribute('data-dragging', 'false');
-  expect((await exportHeld()).readUInt32LE(60)).toBe(4);
+  expect(coreVersions(await exportHeld())).toContain(4);
   await page.locator('#pause').click();
   const releasedTick = Number(await canvas.getAttribute('data-tick'));
   await expect.poll(async () => Number(await canvas.getAttribute('data-tick'))).toBeGreaterThan(releasedTick + 1);

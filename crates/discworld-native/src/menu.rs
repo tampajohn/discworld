@@ -102,7 +102,10 @@ impl<'a, 'data> Menu<'a, 'data> {
             Some(Request::Quit) => Ok(Effect::Quit),
             Some(Request::Load) => Ok(
                 match menu_sessions::prepare_load(&self.root, dispatch, &self.assets)? {
-                    Some(restored) => Effect::Loaded(Box::new(restored)),
+                    Some(mut restored) => {
+                        restored.engine.prepare_user_load()?;
+                        Effect::Loaded(Box::new(restored))
+                    }
                     None => Effect::None,
                 },
             ),

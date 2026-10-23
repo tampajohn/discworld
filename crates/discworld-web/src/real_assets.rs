@@ -2547,17 +2547,29 @@ fn original_world_hotspot_scripts_create_game_font_labels_and_restore() {
     let read = |name| std::fs::read(std::env::var_os(name).expect(name)).unwrap();
     let mut game =
         BrowserGame::new(read("DISCWORLD_TEST_ISO"), read("DISCWORLD_TEST_SOUNDFONT")).unwrap();
-    game.load(&read("DISCWORLD_TEST_SAVE")).unwrap();
+    let legacy = read("DISCWORLD_TEST_SAVE");
+    game.load(&legacy).unwrap();
+    assert_eq!(
+        game.save().unwrap(),
+        legacy,
+        "exact historical restore remains byte preserving"
+    );
+    let tick = game.tick();
+    let scene = game.engine.scene;
+    let globals = game.engine.globals.clone();
+    game.load_game(&legacy).unwrap();
+    assert_eq!(game.tick(), tick);
+    assert_eq!(game.engine.scene, scene);
+    assert_eq!(game.engine.globals, globals);
+    assert!(game.engine.world_tag_layout().is_none());
+    let upgraded = game.save().unwrap();
+    game.load_game(&upgraded).unwrap();
+    assert_eq!(
+        game.save().unwrap(),
+        upgraded,
+        "current player load is idempotent"
+    );
     game.input("close").unwrap();
-    game.advance(24).unwrap();
-    // Re-enter through the actual cutaway restoration path so this historical
-    // checkpoint creates the new scene processes using unchanged original data.
-    let scene = game.engine.capture_scene().unwrap();
-    let tracks =
-        discworld_core::music::archive(&game.assets.iso[game.assets.music.clone()]).unwrap();
-    game.engine
-        .rebuild_scene(&game.assets.resources(), &tracks, &scene)
-        .unwrap();
     game.advance(24).unwrap();
     assert!(game.engine.control.tags_enabled);
     game.engine.scene_calls = Some(Default::default());

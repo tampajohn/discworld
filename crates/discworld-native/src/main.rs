@@ -146,7 +146,7 @@ fn run() -> Result<(), Box<dyn std::error::Error>> {
         )?;
         engine = restored.engine;
         if replay.is_none() {
-            engine.end_intro();
+            engine.prepare_user_load()?;
         }
         synth = restored.audio;
         replay_position = replay.as_ref().map_or(0, |inputs| {
@@ -398,7 +398,7 @@ fn run() -> Result<(), Box<dyn std::error::Error>> {
                     let result = discworld_tools::save_file::read(&save_path)
                         .map_err(Box::<dyn std::error::Error>::from)
                         .and_then(|bytes| {
-                            discworld_audio::session::decode(
+                            let mut restored = discworld_audio::session::decode(
                                 &bytes,
                                 asset_id,
                                 &resources,
@@ -406,13 +406,14 @@ fn run() -> Result<(), Box<dyn std::error::Error>> {
                                 &tracks,
                                 &soundfont_bytes,
                                 &strings,
-                            )
+                            )?;
+                            restored.engine.prepare_user_load()?;
+                            Ok(restored)
                         });
                     match result {
                         Ok(restored) => {
                             replace_audio_sink(&mut sink, stream.mixer(), paused);
                             engine = restored.engine;
-                            engine.end_intro();
                             menus.initialize(&mut engine)?;
                             synth = restored.audio;
                             stopped = false;
@@ -659,7 +660,6 @@ fn run() -> Result<(), Box<dyn std::error::Error>> {
                 Ok(menu::Effect::Loaded(restored)) => {
                     replace_audio_sink(&mut sink, stream.mixer(), paused);
                     engine = restored.engine;
-                    engine.end_intro();
                     synth = restored.audio;
                     menus.initialize(&mut engine)?;
                     stopped = false;

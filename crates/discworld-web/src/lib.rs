@@ -592,7 +592,8 @@ impl BrowserGame {
         self.restore_session(bytes, false)
     }
 
-    /// User save loading ends pre-title intro mode, unlike exact runtime replay.
+    /// Player loads end intro mode and upgrade legacy runtime monitoring;
+    /// exact runtime replay deliberately preserves the historical engine state.
     pub fn load_game(&mut self, bytes: &[u8]) -> Result<()> {
         self.restore_session(bytes, true)
     }
@@ -612,7 +613,7 @@ impl BrowserGame {
         )
         .map_err(error)?;
         if user_load {
-            restored.engine.end_intro();
+            restored.engine.prepare_user_load().map_err(error)?;
         }
         self.engine = restored.engine;
         self.audio = restored.audio;
