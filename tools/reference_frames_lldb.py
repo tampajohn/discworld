@@ -19,6 +19,39 @@ FAILURES = []
 CYCLES = 0
 ANIMATIONS = []
 STEPS = []
+EVENTS = []
+
+
+def unsigned(value):
+    if not value.IsValid() or value.GetError().Fail():
+        raise RuntimeError(f'debug variable unavailable: {value.GetName()}')
+    error = lldb.SBError()
+    result = value.GetValueAsUnsigned(error)
+    if error.Fail():
+        raise RuntimeError(f'debug value unavailable: {error}')
+    return result
+
+
+def film_event(frame, kind, pointer):
+    try:
+        state = frame.FindVariable('ppi')
+        if pointer:
+            state = state.Dereference()
+        EVENTS.append({'cycle': CYCLES, 'kind': kind,
+                       'film': unsigned(state.GetChildMemberWithName('hFilm')),
+                       'column': unsigned(state.GetChildMemberWithName('column'))})
+        return False
+    except Exception as error:
+        FAILURES.append(str(error))
+        return True
+
+
+def schedule_reel(frame, location, dictionary):
+    return film_event(frame, 'schedule_reel', False)
+
+
+def enter_reel(frame, location, dictionary):
+    return film_event(frame, 'enter_reel', True)
 
 
 def read(process, address, size):
@@ -36,18 +69,30 @@ def cycle(frame, location, dictionary):
 
 
 def animation(frame, location, dictionary):
-    ANIMATIONS.append({'cycle': CYCLES,
-                       'script': frame.FindVariable('hNewScript').GetValueAsUnsigned(),
-                       'period': frame.FindVariable('aniSpeed').GetValueAsUnsigned()})
-    return False
+    try:
+        record = {'cycle': CYCLES,
+                  'script': unsigned(frame.FindVariable('hNewScript')),
+                  'period': unsigned(frame.FindVariable('aniSpeed'))}
+        ANIMATIONS.append(record)
+        EVENTS.append(dict(record, kind='init_animation'))
+        return False
+    except Exception as error:
+        FAILURES.append(str(error))
+        return True
 
 
 def step(frame, location, dictionary):
-    state = frame.FindVariable('pAnim').Dereference()
-    STEPS.append({'cycle': CYCLES,
-                  'script': state.GetChildMemberWithName('hScript').GetValueAsUnsigned(),
-                  'index': state.GetChildMemberWithName('scriptIndex').GetValueAsUnsigned()})
-    return False
+    try:
+        state = frame.FindVariable('pAnim').Dereference()
+        record = {'cycle': CYCLES,
+                  'script': unsigned(state.GetChildMemberWithName('hScript')),
+                  'index': unsigned(state.GetChildMemberWithName('scriptIndex'))}
+        STEPS.append(record)
+        EVENTS.append(dict(record, kind='step_animation'))
+        return False
+    except Exception as error:
+        FAILURES.append(str(error))
+        return True
 
 
 def palette(frame, location, dictionary):
@@ -101,7 +146,7 @@ def capture(frame, location, dictionary):
 
 
 def finish(debugger):
-    report = {'frames': RECORDS, 'animations': ANIMATIONS, 'steps': STEPS, 'errors': FAILURES, 'limit': LIMIT,
+    report = {'frames': RECORDS, 'animations': ANIMATIONS, 'steps': STEPS, 'events': EVENTS, 'errors': FAILURES, 'limit': LIMIT,
               'complete': len(RECORDS) == LIMIT and not FAILURES,
               'scope': 'Read-only LLDB capture at DrawBackgnd before updateScreen; frame ordinals are not engine ticks. Debugger pauses alter wall-clock timing. Input determinism is not established.'}
     (OUTPUT / 'capture.json').write_text(json.dumps(report, indent=2) + '\n')
@@ -118,8 +163,12 @@ def __lldb_init_module(debugger, dictionary):
     tick = target.BreakpointCreateByName('Tinsel::TinselEngine::NextGameCycle')
     anim = target.BreakpointCreateByName('Tinsel::InitStepAnimScript')
     advance = target.BreakpointCreateByName('Tinsel::DoNextFrame')
-    if any(bp.GetNumLocations() != 1 for bp in [pal, draw, tick, anim, advance]):
+    scheduled = target.BreakpointCreateByLocation('play.cpp', 1008)
+    entered = target.BreakpointCreateByName('Tinsel::t1PlayReel')
+    if any(bp.GetNumLocations() != 1 for bp in [pal, draw, tick, anim, advance, scheduled, entered]):
         raise RuntimeError('pinned reference breakpoint locations not unique')
+    scheduled.SetScriptCallbackFunction(__name__ + '.schedule_reel')
+    entered.SetScriptCallbackFunction(__name__ + '.enter_reel')
     advance.SetScriptCallbackFunction(__name__ + '.step')
     anim.SetScriptCallbackFunction(__name__ + '.animation')
     tick.SetScriptCallbackFunction(__name__ + '.cycle')
