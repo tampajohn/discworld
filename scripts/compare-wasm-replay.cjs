@@ -42,6 +42,8 @@ if (!nativeReportPath) throw new Error('usage: compare-wasm-replay.cjs WASM_DIR 
     assert.ok(report.ticks_equal && report.scene_equal && report.restart_equal && report.native_inputs_accepted);
     assert.equal(report.accepted_inputs, report.native_inputs);
     assert.equal(report.native_status, 'Running');
+    assert.equal(report.scene, 'title.scn', 'full route must return to title');
+    assert.equal(report.has_restarted, true, 'full route must execute the scripted restart after credits');
     assert.ok(report.engine_bytes_equal && report.rgba_equal);
   } finally { await browser.close(); }
 })().catch(error => { console.error(error); process.exitCode = 1; });

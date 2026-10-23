@@ -1,0 +1,60 @@
+{
+  "runtime": "3df76c8",
+  "engine": "18d3f91",
+  "production_change": false,
+  "previous": "assets/validation/idle-final-3df76c8",
+  "previous_result": {
+    "ticks": 2635725,
+    "accepted_inputs": 4238,
+    "scene": "title.scn",
+    "has_restarted": false,
+    "engine_snapshot_checks": 7674,
+    "audio_snapshot_checks": 7674,
+    "all_hosts_engine_equal": true,
+    "all_hosts_pixels_equal": true,
+    "completion_accepted": false
+  },
+  "finding": "Cursor samples after final puzzle action interrupt ending/credits waits; observed credits/title looping without scripted RESTARTGAME. Matching final state alone was insufficient.",
+  "gate": {
+    "script": "scripts/compare-wasm-replay.cjs",
+    "requires": [
+      "Running",
+      "title.scn",
+      "has_restarted=true",
+      "matching ticks, input acceptance, core bytes and RGBA"
+    ],
+    "verified_good_case": "assets/validation/replay-completion-gate1/good",
+    "verified_rejected_case": "assets/validation/replay-completion-gate1/unfinished",
+    "good_exit": 0,
+    "rejected_exit": 1
+  },
+  "candidate": {
+    "input": "assets/validation/idle-ending-quiet1/input.json",
+    "sha256": "f50b0ed2175806f9ef06463ac656692d9717aaa48b5a97d2bb82f53c5fe8ac8b",
+    "inputs": 4209,
+    "removed_cursor_samples": 29,
+    "last_puzzle_action": 2606725,
+    "other_inputs_unchanged": true
+  },
+  "full_route": {
+    "directory": "assets/validation/idle-ending-3df76c8",
+    "status": "running; not a pass",
+    "runs": {
+      "run.json": {
+        "pid": 20255,
+        "status": "running",
+        "confirmed_live": true
+      },
+      "chrome-run.json": {
+        "pid": 20369,
+        "status": "running",
+        "confirmed_live": true
+      },
+      "webkit-run.json": {
+        "pid": 20368,
+        "status": "running",
+        "confirmed_live": true
+      }
+    }
+  }
+}

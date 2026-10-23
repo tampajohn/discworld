@@ -16,6 +16,8 @@ Touch gestures and presentation technology remain implementation decisions to va
 
 ## Latest validation follow-up
 
+The4238-input run finishes identically on all hosts, but fails completion: cursor activity during the ending leads to credits/title looping with has_restarted=false. The full-route comparator now requires the scripted restart and was tested against a known pass and this rejection. A4209-input candidate removes only29 cursor movements after the final puzzle action; all hosts are rerunning. See [ending recovery](validation/idle-ending-recovery.json).
+
 The direct inventory-background comparison passes: Rust matches all24 original WrtTrans before/after framebuffer pairs, including clipping and pixels outside the rectangle; its integrated lookup matches all256 original entries. This verifies the translucent background operation independently of asynchronous character/cursor animation phases. No production change was needed. See [backdrop evidence](validation/reference-inventory-backdrop.json).
 
 The final recorded close-up dismissal is redundant after cursor activity: reconstructed tick1859224 has control in square3.scn and idle flag278=0. Removing only that key passes25 subsequent inputs to dining.scn at1870000 with40 engine/DSP save checks. A4238-input full audit is running on all hosts; see [final dismissal recovery](validation/idle-last-closeup-recovery.json). The matched-cursor reference capture still differs in late animation phases; no full overlay pixel match is claimed.

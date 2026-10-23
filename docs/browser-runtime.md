@@ -1,5 +1,17 @@
 # Browser runtime boundary
 
+## Latest portable package
+
+`assets/packages/discworld-web-3df76c8.zip` contains exact source
+`3df76c8835dc29a8bbc42a27dec16fa1a5c5485c` and the corrected idle-clock runtime.
+All 14 manifest hashes and the bundled source archive verify after extraction.
+Chrome and WebKit startup, legacy-load, save export and audio-control checks
+pass. The matching browser UI build passes 49 Playwright and four Node tests;
+one unsupported WebKit multitouch-injection case is skipped.
+See [package evidence](validation/packages-3df76c8.json). Physical iPad acceptance
+and the latest complete-route audit remain separate checks.
+
+
 `discworld-web` exports `BrowserGame` through wasm-bindgen 0.2.129. It uses the
 same core engine, original indexed renderer/fonts, speech and MIDI synthesis,
 and combined save format as native macOS. The `web/` player now provides worker, canvas, audio and persistence hosts.

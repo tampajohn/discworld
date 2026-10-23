@@ -1,5 +1,16 @@
 # Native development distribution
 
+## Latest Finder package
+
+`assets/packages/discworld-finder-3df76c8.zip` contains the corrected idle-clock
+runtime and exact source `3df76c8835dc29a8bbc42a27dec16fa1a5c5485c`.
+Extraction outside the checkout passes all five manifest hashes, exact source
+verification and deep strict ad-hoc signature verification. Startup and legacy
+save loading pass with SDL dummy video/audio. See [package evidence](validation/packages-3df76c8.json).
+Visible Finder/file-picker interaction, notarization and physical audio are
+not established by these checks. Earlier packages below are retained history.
+
+
 `scripts/package-native.py OUTPUT.tar.gz` builds the native host on Apple Silicon
 macOS using `cargo build --locked --release`. A clean tracked checkout and stable
 HEAD are required; unrelated untracked game files are excluded. The script
@@ -41,7 +52,7 @@ and broader OS/device acceptance remain outstanding. This archive is a developme
 of the runtime goal.
 
 
-## Current development package
+## Earlier command-line package
 
 `assets/packages/discworld-native-d39a279.tar.gz` contains runtime d39a279,
 including current mover creation, SPLAY lifecycle, FRAMEGRAB/RUNMODE and

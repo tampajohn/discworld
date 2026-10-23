@@ -4,6 +4,10 @@ A work-in-progress replacement for the **Tinsel 1** engine that runs the origina
 
 **Currently:** runnable macOS and browser development hosts and a reproducible original-input route through Acts I–IV, the ending, scrolling credits, and restart to the title screen. **Not yet:** a complete compatibility implementation, iPad release, or fully validated native/browser save/load. This is an independent compatibility project, informed by a pinned ScummVM reference, not an official release or a clean-room implementation.
 
+The latest idle-clock changes are undergoing full-route replay revalidation;
+[ending acceptance evidence](docs/validation/idle-ending-recovery.json) records
+the current result and required scripted-restart check.
+
 ![Scenes rendered by the Rust runtime](docs/media/runtime-montage.gif)
 
 *Animated montage of actual runtime framebuffer captures, not continuous gameplay footage. Original artwork belongs to its respective rights holders. The source distribution does not include playable game data.*
@@ -56,7 +60,11 @@ live under `~/Library/Application Support/Discworld Rust/`. Use F7 to load a nam
 save or F9 for the quick save; launch does not automatically resume it.
 The bundle is ad-hoc signed, not notarized. Extracted runtime checks pass;
 visible Finder/file-picker interaction and other macOS versions remain unverified.
-See [native distribution validation](docs/native-distribution.md).
+See [native distribution validation](docs/native-distribution.md). The latest local
+Finder and browser packages are pinned to `3df76c8`; their extracted startup,
+legacy-save, manifest, source, and signature checks are recorded in
+[package evidence](docs/validation/packages-3df76c8.json). These archives exclude
+game assets and are local build artifacts, not published downloads.
 
 ### Save and reload
 
@@ -158,7 +166,9 @@ Physical mouse input uses shared single/double-click timing; explicit developmen
 | Wheel / Up / Down | Scroll inventory by row |
 | Page Up / Page Down; Home / End | Scroll inventory by page or to its ends |
 | Scrollbar arrows/track | Scroll using the original inventory graphics |
-| **M**, **P**, **Esc** | Mute, pause, exit |
+| **M**, **P** | Mute, pause/resume |
+| **Esc** | Skip an escapable sequence or close a menu/inventory |
+| Close window | Exit manual play |
 
 Point at the Luggage and use Action to open its inventory. Drag an inventory title bar to move its window, its scrollbar thumb to browse items, or its edges/corners to resize it. Double-click a resizable inventory title bar to maximize it or restore its previous size. Inventory actions execute the original item scripts; storage restrictions are game behavior. The renderer uses the game's fonts and graphics. Hover-label arbitration, interrupted resize edge cases, complete click/touch parity and physical iPad controls remain unfinished.
 
