@@ -1,0 +1,28 @@
+{
+  "runtime_revision": "85b728a4a58009ed941d216bbdf76521fe27360a",
+  "scope": "Targeted browser UI rechecks against unchanged production WASM; scene-script queue-preservation work was not rebuilt into this host.",
+  "chrome_maximize_and_resize": "passed, 2 tests",
+  "webkit_maximize_and_resize": "passed, 2 tests",
+  "chrome_touch_escape": "passed, 1 test",
+  "changes": [
+    "Wait for Play audio resume before double-click input.",
+    "Check active drag state, exact save/pixel round-trip and release rather than assuming outer schema version 8/4."
+  ],
+  "timeouts": "Two original Chrome cases timed out opening the game before their interaction; each passed a targeted rerun without extending the timeout.",
+  "complete_suite": "Original 44-case suite still running; no complete pass claimed.",
+  "test_source_sha256": "bffa701f6c3ff2cfd632f73744524f279ac9a2910f78d044d6b8d22a77c985d8",
+  "schema": 1,
+  "production_wasm_sha256": "7dcfe86860e72213db470ef898d2c0133b4c3bdfc7012179af5c44b0b52d97bc",
+  "logs": [
+    "assets/logs/reel-dispatch-ui-recheck.log",
+    "assets/logs/reel-dispatch-ui-webkit-recheck.log",
+    "assets/logs/reel-dispatch-ui-touch-recheck.log"
+  ],
+  "original_resize_failure": "Expected outer core save version 8, received 9; version 9 can retain both hover and resize state.",
+  "retained_assertions": [
+    "Active dragging before export and after import",
+    "Exact exported save bytes and rendered pixels after import",
+    "Drag ends on button release and exported state changes"
+  ],
+  "scope_limit": "These are targeted automated browser checks, not physical iPad or complete-suite acceptance."
+}
