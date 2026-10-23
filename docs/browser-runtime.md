@@ -482,3 +482,23 @@ All 44 Chrome/WebKit UI cases pass against an HTTP server rooted in that
 extracted package. Hashes were rechecked after the tests. This covers existing
 menu, save/load, inventory, lifecycle, audio and tablet-viewport regressions,
 not a browser full-route replay or physical iPad acceptance.
+
+## Focus and audio interruption during a drag
+
+Window `blur` now uses the same owned-pointer cleanup as hidden-page/pagehide
+suspension. An actual AudioContext state change away from running also uses
+that cleanup; previously it paused simulation but retained the held slider.
+Both paths leave the game paused until Play is pressed. Manual Pause still
+preserves active drags for save/export, and an imported drag with no physical
+pointer owner is not implicitly released.
+
+The added original-asset regressions reproduce both defects in Chrome and
+WebKit before correction: blur left Play labelled Pause, and audio interruption
+left the inventory drag active. The checks hold the original inventory slider,
+interrupt, verify release and stable paused ticks/pixels after a late pointer-up,
+then resume. Blur is a synthetic window event; audio uses the real browser
+AudioContext suspend operation. These do not prove physical iPad interruption
+or touch delivery behavior.
+
+Validation: all 12 targeted interruption/viewport cases, two manual-pause active-save
+cases and four audio/clock Node tests pass. See [evidence](validation/browser-focus-audio-interruption.json).

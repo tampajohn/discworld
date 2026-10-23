@@ -71,7 +71,7 @@ async function enableAudio() {
     gain.gain.value = muted ? 0 : 1;
     audioContext.onstatechange = () => {
       if (ready && !paused && audioContext.state !== 'running') {
-        pause(); status('Audio interrupted. Press Play to resume.');
+        suspend(); status('Audio interrupted. Press Play to resume.');
       }
     };
   }
@@ -239,6 +239,9 @@ function suspend() {
 }
 document.onvisibilitychange = () => { if (ready && document.hidden) { suspend(); status('Paused while the page is hidden.'); } };
 window.addEventListener('pagehide', suspend);
+window.addEventListener('blur', () => {
+  if (ready) { suspend(); status('Paused while the window is inactive.'); }
+});
 
 async function restore(bytes) {
   pause();

@@ -1,0 +1,28 @@
+{
+  "scope": "Browser host interruption and owned inventory drag cleanup; no engine or save-format change. Desktop Chrome/WebKit events, not physical iPad acceptance.",
+  "pre_fix": {
+    "window_blur": "Both browsers continued simulation with an owned drag.",
+    "audio_context_suspend": "Both browsers paused but retained the owned drag."
+  },
+  "post_fix": {
+    "playwright_cases": 12,
+    "node_cases": 4,
+    "checks": [
+      "pagehide",
+      "visibilitychange",
+      "window blur",
+      "AudioContext suspension",
+      "resume",
+      "stable paused pixels/ticks after late release",
+      "tablet viewport changes"
+    ],
+    "manual_pause_save_cases": 2
+  },
+  "logs": {
+    "browser-blur-before.log": "37f3642ce2322eaa9722463ca8ba809ec852a314afe8aa7f2539a52f02c89ea9",
+    "browser-audio-drag-before.log": "f56290cae81c00410bd2847761ccc9826d0502009a23458a26c1791808200722",
+    "browser-interruption-final.log": "c6803ef606fb5f93273d5aa36a3ada8de98b59ba2bb941a1500a70b1fd7d81fb",
+    "browser-interruption-node.log": "951fe18f2a4ef8cb516bf33b1517b40ce942de0fc3a248c65b08594a3c10a8da",
+    "browser-interruption-manual-pause.log": "1b1d2f5d675c6160f56ef8eebffabe7ef8785fcffc1b08855930b03525da8cad"
+  }
+}

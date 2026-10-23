@@ -510,7 +510,17 @@ for (const source of ['keyboard', 'touch']) {
   });
 }
 
-for (const lifecycle of ['pagehide', 'visibilitychange']) test(`${lifecycle} releases an owned inventory drag and resumes without stuck input`, async ({ page }) => {
+for (const lifecycle of ['pagehide', 'visibilitychange', 'blur', 'audio']) test(`${lifecycle} releases an owned inventory drag and resumes without stuck input`, async ({ page }) => {
+  if (lifecycle === 'audio') await page.addInitScript(() => {
+    const Original = window.AudioContext;
+    window.AudioContext = new Proxy(Original, {
+      construct(target, args) {
+        const context = Reflect.construct(target, args);
+        window.audioContextUnderTest = context;
+        return context;
+      },
+    });
+  });
   await page.goto('/');
   await open(page, true, process.env.DISCWORLD_TEST_SLIDER_SAVE || path.join(root, 'assets/saves/slider-checkpoint.dws'));
   const canvas = page.locator('#game');
@@ -520,8 +530,10 @@ for (const lifecycle of ['pagehide', 'visibilitychange']) test(`${lifecycle} rel
   await page.mouse.move(bounds.x + bounds.width * 189 / 320, bounds.y + bounds.height * 126 / 200);
   await page.mouse.down();
   await expect(canvas).toHaveAttribute('data-dragging', 'true');
-  await page.evaluate(lifecycle => {
-    if (lifecycle === 'pagehide') window.dispatchEvent(new PageTransitionEvent('pagehide', { persisted: true }));
+  await page.evaluate(async lifecycle => {
+    if (lifecycle === 'audio') await window.audioContextUnderTest.suspend();
+    else if (lifecycle === 'blur') window.dispatchEvent(new Event('blur'));
+    else if (lifecycle === 'pagehide') window.dispatchEvent(new PageTransitionEvent('pagehide', { persisted: true }));
     else {
       Object.defineProperty(document, 'hidden', { configurable: true, value: true });
       document.dispatchEvent(new Event('visibilitychange'));
