@@ -44,6 +44,8 @@ fn capture_original_debug_room_hover() {
         std::env::var("DISCWORLD_HOVER_FRAMES").map_or(72, |s| s.parse::<usize>().unwrap());
     assert!((72..=240).contains(&frame_limit));
     let mut audio_states = Vec::new();
+    let mut look_pcm = Vec::new();
+    let mut look_completion = None;
     let mut start = None;
     let mut rows = Vec::new();
     let mut clocks = Vec::new();
@@ -166,10 +168,35 @@ fn capture_original_debug_room_hover() {
         } else {
             None
         };
+        let collecting_look = look_mode && engine.sample_player.id == Some(3636);
+        let look_position = engine.sample_player.position;
         let status = engine
             .tick_content(&resources, Some(&bank), Some(&tracks), Some(&strings))
             .unwrap();
         crate::animation::trace_tick(None);
+        if collecting_look {
+            let source = bank.sample(3636).unwrap().unwrap();
+            let count = engine.audio_frame.len().min(source.len() - look_position);
+            look_pcm.extend_from_slice(&engine.audio_frame[..count]);
+            if look_position + count == source.len() {
+                assert!(
+                    engine.audio_frame[count..]
+                        .iter()
+                        .all(|&sample| sample == 0)
+                );
+                assert!(engine.sample_player.id.is_none());
+                assert!(engine.control.enabled);
+                assert_eq!(engine.control.cursor, points[0]);
+                assert!(engine.processes.states().all(|p| p.print_wait.is_none()));
+                look_completion = Some(engine.ticks);
+            } else {
+                assert!(
+                    !engine.control.enabled,
+                    "speech must retain control until PCM ends"
+                );
+            }
+        }
+
         if let Some(before) = hidden_standing {
             assert_eq!(
                 engine.movers[&7].animation, before,
@@ -440,6 +467,20 @@ fn capture_original_debug_room_hover() {
         }
     }
     assert_eq!(rows.len(), frame_limit, "room did not reach active tags");
+    if look_mode && frame_limit >= 144 {
+        let source = bank.sample(3636).unwrap().unwrap();
+        let expected: Vec<i16> = source.iter().map(|&s| (i16::from(s) - 128) * 256).collect();
+        assert_eq!(
+            look_pcm, expected,
+            "complete emitted speech matches original unsigned PCM"
+        );
+        let completed = look_completion.expect("LOOK speech did not finish");
+        let bytes: Vec<u8> = look_pcm.iter().flat_map(|s| s.to_le_bytes()).collect();
+        std::fs::write(directory.join("speech-completion.json"), format!(
+            "{{\"sample_id\":3636,\"source_samples\":{},\"emitted_samples\":{},\"pcm_s16le_sha256\":\"{:x}\",\"completion_tick\":{completed},\"restored_cursor\":[50,120],\"control_restored\":true,\"final_block_tail_silent\":true}}\n",
+            source.len(), look_pcm.len(), Sha256::digest(&bytes))).unwrap();
+    }
+
     std::fs::write(
         directory.join("audio-states.json"),
         format!("[{}]\n", audio_states.join(",")),

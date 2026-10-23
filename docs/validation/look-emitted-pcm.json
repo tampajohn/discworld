@@ -1,0 +1,25 @@
+{
+  "sample_id": 3636,
+  "source_samples": 101171,
+  "emitted_samples": 101171,
+  "pcm_s16le_sha256": "e7ad027970adb72d54639eda16d87d8eeda2bbe1edd26577a8e6952d80e6a9f4",
+  "completion_tick": 1368,
+  "restored_cursor": [
+    50,
+    120
+  ],
+  "control_restored": true,
+  "final_block_tail_silent": true,
+  "runtime_revision": "0a87557",
+  "scope": "Original-asset integrated LOOK response, full emitted mono PCM and control restoration. Does not prove wall-clock/device output or same-cycle completion against debugger reference.",
+  "sample_rate": 22050,
+  "original_pcm_sha256": "fc6c030b946847e3f7ad29c066e24606dbe6c333b449bf16de367fd2d87fefa5",
+  "capture_frames": 144,
+  "full_save_restore_next_tick_checks": 144,
+  "validation": [
+    "Opt-in original-asset LOOK capture passed",
+    "Core all-target Clippy passed"
+  ],
+  "reference_observation": "Pinned reference mixer decoded202342 samples at44100Hz (101171 source samples at22050Hz). Original and Rust restore the saved cursor when speech finishes; debugger cycle counts differ.",
+  "unchanged_144_frame_capture": true
+}
