@@ -39,6 +39,10 @@ fn capture_original_debug_room_hover() {
     let mut start = None;
     let mut rows = Vec::new();
     let mut previous_cursor = None;
+    let mut trails = None;
+    let trail_directory = directory.join("with-trails");
+    std::fs::create_dir(&trail_directory).unwrap();
+    let mut trail_rows = Vec::new();
     engine.scene_calls = Some(Default::default());
     for _ in 0..4000 {
         // The reference requests its debugger scene change before cycle 450.
@@ -54,11 +58,25 @@ fn capture_original_debug_room_hover() {
         {
             start = Some(engine.ticks);
             previous_cursor = Some(engine.control.cursor);
+            trails = Some(
+                crate::cursor_trails::Trails::new(
+                    &resources,
+                    engine.declarations.cursor.as_ref().unwrap().0,
+                    engine.control.cursor,
+                )
+                .unwrap(),
+            );
         }
         if let Some(start) = start {
             let elapsed = engine.ticks - start;
             if elapsed % 12 == 0 && elapsed / 12 < points.len() as u64 {
-                engine.move_cursor(points[(elapsed / 12) as usize]);
+                let position = points[(elapsed / 12) as usize];
+                trails
+                    .as_mut()
+                    .unwrap()
+                    .move_to(&resources, position, false)
+                    .unwrap();
+                engine.move_cursor(position);
             }
         }
         let status = engine
@@ -67,6 +85,33 @@ fn capture_original_debug_room_hover() {
         assert!(!matches!(status, Status::Unsupported(_) | Status::Quit));
         if start.is_some() {
             let surface = engine.render(&resources).unwrap();
+            let trails = trails.as_mut().unwrap();
+            let bytes = postcard::to_allocvec(trails).unwrap();
+            let mut restored: crate::cursor_trails::Trails = postcard::from_bytes(&bytes).unwrap();
+            restored.validate(&resources).unwrap();
+            trails.tick(&resources).unwrap();
+            restored.tick(&resources).unwrap();
+            assert_eq!(*trails, restored);
+            let mut candidate = surface.clone();
+            for animation in trails.animations() {
+                candidate.draw_animation(&resources, animation).unwrap();
+            }
+            let trail_rgb: Vec<_> = candidate
+                .rgba
+                .chunks_exact(4)
+                .flat_map(|p| p[..3].iter().copied())
+                .collect();
+            std::fs::write(
+                trail_directory.join(format!("tick-{:06}.rgb", engine.ticks)),
+                &trail_rgb,
+            )
+            .unwrap();
+            trail_rows.push(format!(
+                "{{\"tick\":{},\"scene\":{},\"rgb_sha256\":\"{:x}\"}}",
+                engine.ticks,
+                engine.scene.0,
+                Sha256::digest(&trail_rgb)
+            ));
             if rows.is_empty() {
                 let cursor_film = engine.declarations.cursor.as_ref().unwrap().0;
                 let film = Film::read(&resources, cursor_film).unwrap();
@@ -128,6 +173,7 @@ fn capture_original_debug_room_hover() {
         }
     }
     assert_eq!(rows.len(), 72, "room did not reach active tags");
+    std::fs::write(trail_directory.join("capture.json"), format!("{{\"scope\":\"Diagnostic trail composition over runtime frames; not integrated engine output\",\"frames\":[{}]}}\n", trail_rows.join(","))).unwrap();
     std::fs::write(directory.join("capture.json"), format!("{{\"scope\":\"Controlled original scene entry and cursor movement; not ordinary input replay\",\"hover_start_tick\":{},\"frames\":[{}]}}\n", start.unwrap(), rows.join(","))).unwrap();
     println!(
         "Captured 72 hover frames beginning at tick {}",

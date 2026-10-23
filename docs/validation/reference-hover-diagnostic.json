@@ -148,5 +148,38 @@
       "Trace original cursor trail animation and scheduler phases; implement trail state with correct scene reset, inventory suppression and save continuation.",
       "Resolve animated-scene frame phase separately from cursor rendering."
     ]
+  },
+  "trail_component": {
+    "implementation": "crates/discworld-core/src/cursor_trails.rs",
+    "integrated_into_runtime": false,
+    "source_basis": [
+      "Pinned cursor.cpp: InitCurTrailObj, DoCursorMove, AnimateProcess, DropCursor, InitCurPos, HideCursorTrails.",
+      "Pinned cursor.h MAX_TRAILERS=10; dw.h Z_CURSORTRAIL=999."
+    ],
+    "behavior": [
+      "Bounded ring using original reels 1..N, initial immediate animation step, emit at previous driver position on movement only.",
+      "Animation completion removes a slot; failed updates are atomic.",
+      "Scene reset clears objects and resets previous position while preserving next reel. Inventory suppression deletes objects immediately. Hidden cursor movement updates previous position without emitting.",
+      "Serde state retains animation clocks, ring index, previous position and suppression; resource validation checks reel identity, scripts, count and animation resources."
+    ],
+    "comparison": "assets/validation/hover-trails-compare2.json",
+    "comparison_sha256": "9ae031dccb3e77f58601f4e046a11555a15d019ec2df052b55b8fba94132048b",
+    "exact_frame_content_matches": 58,
+    "same_cycle_frame_matches": 54,
+    "captured_frames": 72,
+    "save_continuation_checks": 72,
+    "scope": "Diagnostic composition over unchanged runtime frames, with controlled input and separate trail scheduling. It is not production engine or native/browser acceptance.",
+    "remaining_work": [
+      "Wire trail lifecycle into original cursor scheduler phase and all script/host position changes.",
+      "Integrate status-layer Z/Y ordering including cursor, held item, overlays and original palette behavior.",
+      "Integrate inventory-window suppression, hidden/frozen cursor behavior, scene reset and restart.",
+      "Add versioned game-save serialization and legacy migration while preserving exact historical decoding.",
+      "Resolve remaining animated-scene timing differences independently, then rerun native/browser routes and refresh visible player."
+    ],
+    "checks": [
+      "Three cursor-trail unit tests pass.",
+      "Original-ISO 72-frame diagnostic with 72 serialized continuation checks passes on final source.",
+      "Core WASM check and all-target Clippy pass."
+    ]
   }
 }

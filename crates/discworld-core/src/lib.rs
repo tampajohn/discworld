@@ -8,6 +8,7 @@ pub mod configuration_menu;
 pub mod control;
 pub mod conversation;
 pub mod conversation_window;
+pub mod cursor_trails;
 pub mod destination;
 pub mod engine;
 pub mod film;
