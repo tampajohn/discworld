@@ -16,7 +16,9 @@ Touch gestures and presentation technology remain implementation decisions to va
 
 ## Latest validation follow-up
 
-A starting-room door ACTION capture exposes a hidden-cursor trail discrepancy: 62/72 full frames match; ten frames after control restoration contain 1–5 extra trail pixels in Rust. The reference deletes trails in `DwHideCursor`, while Rust retains hidden animation clocks. Door script execution, control take/restore and all 72 save continuations pass; this is a failing fidelity observation, not acceptance. No engine change yet. See [door trail evidence](validation/reference-door-trail-observation.json).
+Hidden-cursor trail lifetime is corrected: CONTROL_OFF/STARTOFF delete trail objects immediately, preserving ring position and suppression. The door capture improves from 62/72 to 72/72 exact same-cycle frames; ten prior scenarios also match 72/72, with full save continuation per frame. Workspace (361 core tests), 25 asset tests, Clippy and native/WASM builds pass. Browser UI validation is running; fresh full-route audits and updated packages are pending. See [trail deletion evidence](validation/hidden-cursor-trail-deletion.json).
+
+A starting-room door ACTION capture exposes a hidden-cursor trail discrepancy: 62/72 full frames match; ten frames after control restoration contain 1–5 extra trail pixels in Rust. The reference deletes trails in `DwHideCursor`, while Rust retains hidden animation clocks. Door script execution, control take/restore and all 72 save continuations pass; this is a failing fidelity observation, not acceptance. This failing capture is retained; the trail-deletion correction above resolves it. See [door trail evidence](validation/reference-door-trail-observation.json).
 
 Shrinking the Luggage from either bottom-right or top-left now matches all 72 reference frames per case, with full save continuation at every frame. Both shrink from 3×2 to 2×1 slots; top-left also moves the origin to (126,126). Both enlargement regressions retain 72/72 matches. No engine change was required; see [shrink evidence](validation/reference-luggage-shrink.json).
 

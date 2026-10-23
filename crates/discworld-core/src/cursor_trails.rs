@@ -110,6 +110,12 @@ impl Trails {
         self.slots.iter().flatten()
     }
 
+    /// DwHideCursor deletes objects but retains the ring index, driver position
+    /// and inventory suppression state for future movement.
+    pub(crate) fn delete_objects(&mut self) {
+        self.slots.fill(None);
+    }
+
     /// HideCursorProcess hides the current images without deleting clocks.
     pub fn hide_images(&mut self) {
         for animation in self.slots.iter_mut().flatten() {
@@ -238,6 +244,32 @@ mod tests {
         let emitted = trails.animations().next().unwrap();
         assert_eq!([emitted.object.x, emitted.object.y], [8, 9]);
         trails.validate(&resources).unwrap();
+    }
+
+    #[test]
+    fn cursor_hide_deletes_objects_without_restarting_the_trail_ring() {
+        let bytes = fixture();
+        let resources = Resources(vec![&bytes]);
+        let mut trails = Trails::new(&resources, Handle(0), [10, 20]).unwrap();
+        trails.move_to(&resources, [30, 40], false).unwrap();
+        let next = trails.next;
+        trails.delete_objects();
+        assert_eq!(
+            (trails.next, trails.previous, trails.suppressed),
+            (next, [30, 40], false)
+        );
+        let mut restored: Trails =
+            postcard::from_bytes(&postcard::to_allocvec(&trails).unwrap()).unwrap();
+        for _ in 0..4 {
+            restored.tick(&resources).unwrap();
+            assert_eq!(restored.animations().count(), 0);
+        }
+        restored.move_to(&resources, [50, 60], false).unwrap();
+        let emitted = restored.slots[next].as_ref().unwrap();
+        assert_eq!([emitted.object.x, emitted.object.y], [30, 40]);
+        restored.suppress(true);
+        restored.delete_objects();
+        assert!(restored.suppressed);
     }
 
     #[test]

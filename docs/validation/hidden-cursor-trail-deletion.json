@@ -1,0 +1,132 @@
+{
+  "reference_revision": "96b42d42bc8533953bdd701db059cc33c839a9ff",
+  "reference_binary_sha256": "1e8b098f0e9f6da44062aa19c195a5771a4a5dbc806cb3d3a9c3eb0e8fb6f524",
+  "change": "All engine control-mode applications use a shared helper; modes0 and4 delete trail objects immediately, matching DwHideCursor. Preserve ring index, previous driver position and inventory suppression. HideCursorProcess image hiding remains separate. No save-format change.",
+  "before_door_same_cycle_matches": 62,
+  "after_door_same_cycle_matches": 72,
+  "reference_cases": [
+    {
+      "name": "luggage",
+      "reference": "reference-luggage-resize1",
+      "rust": "rust-door-trail-luggage-final1",
+      "comparison": "door-trail-luggage-final-compare1.json",
+      "frames": 72,
+      "reference_capture_sha256": "abc0fceab2a81621674b3323d4ee5501ce6658d66ff0ad2f30ae86ddf6d11ff7",
+      "rust_capture_sha256": "b576246e2ea475ac7fb408c3eac08f2d7f1b6485207b424d3eac49ad145a4edb",
+      "comparison_sha256": "e3beeb84515056ad7c1dec4bf40508f7ad3e8227d883cc4d625af2b41420882c"
+    },
+    {
+      "name": "fixed",
+      "reference": "reference-inventory-fixed-corner1",
+      "rust": "rust-door-trail-fixed-final1",
+      "comparison": "door-trail-fixed-final-compare1.json",
+      "frames": 72,
+      "reference_capture_sha256": "3602477ef37448819b4a749160c71a381764ce430c783ba67340d2fb3b0c9278",
+      "rust_capture_sha256": "51ed01d91c3c1c1d509404655cab9a4fe2d3ad1af7fd2b294e59e84ded8c0ba9",
+      "comparison_sha256": "2fca205d68028bfef74db875f87aa1e6f5414fbdc1a0668b8e8e13bd44fed931"
+    },
+    {
+      "name": "header",
+      "reference": "reference-inventory-drag2",
+      "rust": "rust-door-trail-header-final1",
+      "comparison": "door-trail-header-final-compare1.json",
+      "frames": 72,
+      "reference_capture_sha256": "7d06c191e90b9c938719156f55a78fd1c873326dd95ce554975dc324b834b1eb",
+      "rust_capture_sha256": "2b3ce43e373314bf17945f866fe7efb48945451ce0a84931c829ad56be06c45b",
+      "comparison_sha256": "606aa2f90374be28f5456a28dd76570062e4a329929cfcd251730a7608d99adb"
+    },
+    {
+      "name": "inventory",
+      "reference": "reference-inventory3",
+      "rust": "rust-door-trail-inventory-final1",
+      "comparison": "door-trail-inventory-final-compare1.json",
+      "frames": 72,
+      "reference_capture_sha256": "5cd0577009c9c525e33f237a23e613fbff6206c380a026bfbd38c73f18b90b8a",
+      "rust_capture_sha256": "73e347169c67dafcb96099ad0df01e6ff3ac137ec46d31b3bf7cdb94c743b1e7",
+      "comparison_sha256": "32d65864d9055cba89b112812aa92e020ebb40bef664e4c6ac74296a4f5ca899"
+    },
+    {
+      "name": "look",
+      "reference": "reference-look2",
+      "rust": "rust-door-trail-look-final1",
+      "comparison": "door-trail-look-final-compare1.json",
+      "frames": 72,
+      "reference_capture_sha256": "43b193b1cdc38b04cd81419df0ff2162413afa0bcd18e881f3b3cd3886c6daf2",
+      "rust_capture_sha256": "a837258c0392f8461187acd0c13f33b1e4302517bedd1d0b13c49ef148153321",
+      "comparison_sha256": "d90409ae2b762afd16f8d7a699bef0571c37bada6ad9a0afd36038581ffc15e3"
+    },
+    {
+      "name": "walk",
+      "reference": "reference-player-walk2",
+      "rust": "rust-door-trail-walk-final1",
+      "comparison": "door-trail-walk-final-compare1.json",
+      "frames": 72,
+      "reference_capture_sha256": "116757670cf203a92d9feb4631489ec2747176c21007d19e578aded8e82c8c19",
+      "rust_capture_sha256": "95984319ad060c39a7d6881c68ef83e2520110ac0565663a892755df7fed1b61",
+      "comparison_sha256": "40857a75cd940726cdf2647b64d7893502cee1862265776e5a35106e98b721d5"
+    },
+    {
+      "name": "cached",
+      "reference": "reference-cached-actor1",
+      "rust": "rust-door-trail-cached-final1",
+      "comparison": "door-trail-cached-final-compare1.json",
+      "frames": 72,
+      "reference_capture_sha256": "da811b522bad36fdad8d463d8316baa18d2d13d6bf2b5c7e22ca0ecca78e9667",
+      "rust_capture_sha256": "41f492969c9e11ada8a5185fa69573b422fdecd3902b0d79fda2f8aeb65ba3db",
+      "comparison_sha256": "5f3caec55af9e22a3f12c1151cc3d7898a07b55ea6059a3d7b1c9c74f0b6deab"
+    },
+    {
+      "name": "door",
+      "reference": "reference-door-action2",
+      "rust": "rust-door-trail-door-final1",
+      "comparison": "door-trail-door-final-compare1.json",
+      "frames": 72,
+      "reference_capture_sha256": "8ac93b96e138d7b1a7120d8c27e80f11cd114bdfe2825f3e3701232cf2622507",
+      "rust_capture_sha256": "a0f69241207d0980ddc5bdf88e6be7c8e1d54ca083a6c88e9095fa673e63bc8d",
+      "comparison_sha256": "2e645edbafd4199273e74331992714e454a6783237634ee40eec39a6ac012c54"
+    },
+    {
+      "name": "top-left",
+      "reference": "reference-luggage-top-left1",
+      "rust": "rust-door-trail-top-left-final1",
+      "comparison": "door-trail-top-left-final-compare1.json",
+      "frames": 72,
+      "reference_capture_sha256": "a886ed87e2ad97b4536ea1005beb76547d34bf4ce755e7f2784788cd232961c8",
+      "rust_capture_sha256": "d11b74f7ba09fbb70fd60bed33b03e82ae831545316c2af78caa354fe9727bc8",
+      "comparison_sha256": "3f6b1b3bf53adce694ef0b454e31f72b3adcb37633bba7045ea2c9a390931b77"
+    },
+    {
+      "name": "shrink",
+      "reference": "reference-luggage-shrink1",
+      "rust": "rust-door-trail-shrink-final1",
+      "comparison": "door-trail-shrink-final-compare1.json",
+      "frames": 72,
+      "reference_capture_sha256": "8f0b265351aeac1ac5af60d1e519cf72edcd2057898dace8281e11a766035a17",
+      "rust_capture_sha256": "ae1389eb2c7b8120e39102e2322c2cdb03ec047af63468bcb0fdf5dc73503e45",
+      "comparison_sha256": "ede7c29d52022256723bdfb95d25121893c244c422b8446f369f1959f7bd9ac7"
+    },
+    {
+      "name": "top-left-shrink",
+      "reference": "reference-luggage-top-left-shrink1",
+      "rust": "rust-door-trail-top-left-shrink-final1",
+      "comparison": "door-trail-top-left-shrink-final-compare1.json",
+      "frames": 72,
+      "reference_capture_sha256": "7f7b893145ed3ad77798708ff267d7435618702da64e7fb761cee6d23a4adda1",
+      "rust_capture_sha256": "1d1c58123d580d432415c906bc2156a2d2a91c2f7ff78ea3d60d92e2ac52d47e",
+      "comparison_sha256": "23be68274e16a623eaba275efc972cddbb80b1a6ba057f4a07a77b8744b6a9ef"
+    }
+  ],
+  "save_restore_next_tick_checks_per_capture": 72,
+  "validation": {
+    "workspace": "passed; 361 core tests",
+    "original_asset_tests": "25 passed",
+    "clippy": "workspace all-target passed",
+    "native_tools_build": "passed",
+    "production_wasm_build": "passed",
+    "replay_wasm_build": "passed",
+    "browser_ui": "running; not counted as passed",
+    "full_routes": "pending on this runtime"
+  },
+  "regression": "Deletion survives serialization and later ticks without resurrecting frames; next emission keeps prior ring index and driver position; inventory suppression is retained. Original-asset door test asserts no trails remain while cursor is hidden and control is eventually restored.",
+  "scope": "Controlled reference scenes/cursor and resolved actions, not physical input or complete reference coverage. Existing package/full-route results predate this correction; physical iPad acceptance remains open."
+}

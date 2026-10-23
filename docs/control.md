@@ -1627,3 +1627,13 @@ transactional method. Low-level `move_cursor` remains a coordinate primitive;
 interactive hosts must use `move_cursor_with_configuration(resources, point)`.
 The controlled resize capture now matches all 72 frames, with save continuation
 on every frame. See [evidence](validation/inventory-resize-cursor-ordering.json).
+
+
+Scripted cursor hiding now follows `DwHideCursor`: CONTROL_OFF and STARTOFF
+delete existing trail objects immediately. Merely blanking their current frames
+left animation clocks alive, allowing old trails to reappear after the door
+action restored control. The shared engine control helper deletes objects without
+resetting ring order, driver position or inventory suppression. Cursor-process
+image hiding remains a separate operation. Eleven controlled reference scenarios
+match all 72 frames each, including the previously failing door sequence; see
+[trail deletion evidence](validation/hidden-cursor-trail-deletion.json).

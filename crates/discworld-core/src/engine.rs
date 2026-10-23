@@ -1206,7 +1206,7 @@ impl Engine {
                 self.music
                     .restore_facts(tracks.unwrap_or(&[]), restore.snapshot.music)?;
                 if restore.snapshot.control {
-                    self.control.apply_at(1, false, restore.snapshot.origin)?;
+                    self.apply_control(1, false, restore.snapshot.origin)?;
                 }
             }
             _ => {}
@@ -1256,7 +1256,7 @@ impl Engine {
         next.restore_scene_scripts(resources, &saved.scripts)?;
         next.music.restore_facts(tracks, saved.music)?;
         if saved.control {
-            next.control.apply_at(1, false, saved.origin)?;
+            next.apply_control(1, false, saved.origin)?;
         }
         *self = next;
         Ok(())
@@ -1552,6 +1552,23 @@ impl Engine {
         self.control.user_event(self.ticks);
         Ok(())
     }
+    /// Control modes that call DwHideCursor delete trail objects immediately.
+    /// HideCursorProcess only hides images and is handled by the cursor tick.
+    fn apply_control(
+        &mut self,
+        mode: i32,
+        inventory_open: bool,
+        origin: [i32; 2],
+    ) -> Result<(), Error> {
+        self.control.apply_at(mode, inventory_open, origin)?;
+        if matches!(mode, 0 | 4) {
+            if let Some(trails) = &mut self.cursor_trails {
+                trails.delete_objects();
+            }
+        }
+        Ok(())
+    }
+
     /// V1 inventoryActive includes configuration pages, but excludes the
     /// tutorial's BOGUS_INV top window. Used by CONTROL_ON's tag restoration.
     fn control_inventory_active(&self) -> bool {
@@ -1573,7 +1590,7 @@ impl Engine {
     ) -> Result<bool, Error> {
         let mut next = self.clone();
         if next.menu_enabled && key == crate::menu_navigation::Key::Main {
-            next.control.apply_at(
+            next.apply_control(
                 1,
                 next.control_inventory_active() || configuration_active,
                 next.world_origin,
@@ -3700,7 +3717,7 @@ impl Engine {
                         intro.redirect(request, self.escape_events.unwrap_or(1))
                     });
                     self.queue_scene_request(request);
-                    self.control.apply_at(4, false, self.world_origin)?;
+                    self.apply_control(4, false, self.world_origin)?;
                     self.master.complete_library(call, 3, None)?;
                 }
                 95 => {
@@ -3923,7 +3940,7 @@ impl Engine {
         if let Some(menu) = &mut self.configuration {
             menu.close();
         }
-        self.control.apply_at(4, false, self.world_origin)?;
+        self.apply_control(4, false, self.world_origin)?;
         self.menu_enabled = false;
         if let Some(slot) = self.active_inventory {
             self.inventory_geometry.close(slot as usize);
@@ -5759,7 +5776,7 @@ impl Engine {
                 Step::Halted => {
                     if process.conversation_started {
                         if process.conversation_took_control {
-                            self.control.apply_at(
+                            self.apply_control(
                                 1,
                                 self.control_inventory_active(),
                                 self.world_origin,
@@ -6164,11 +6181,7 @@ impl Engine {
                         .is_some_and(|lead| lead.id == actor)
                         && self.control.enabled;
                     if restore_control {
-                        self.control.apply_at(
-                            0,
-                            self.active_inventory.is_some(),
-                            self.world_origin,
-                        )?;
+                        self.apply_control(0, self.active_inventory.is_some(), self.world_origin)?;
                     }
                     let restore_tags = self.control.tags_enabled;
                     self.control.tags_enabled = false;
@@ -6580,18 +6593,14 @@ impl Engine {
                             .as_ref()
                             .is_some_and(|lead| lead.id == actor);
                     if restore_control {
-                        self.control.apply_at(3, false, self.world_origin)?;
+                        self.apply_control(3, false, self.world_origin)?;
                     }
                     if moving {
                         process.walk_wait = Some((call, actor, serial, restore_control));
                         return Ok(Status::Running);
                     }
                     if restore_control {
-                        self.control.apply_at(
-                            1,
-                            self.control_inventory_active(),
-                            self.world_origin,
-                        )?;
+                        self.apply_control(1, self.control_inventory_active(), self.world_origin)?;
                     }
                     process.vm.complete_library(call, 6, None)?;
                 }
@@ -6796,7 +6805,7 @@ impl Engine {
                     };
                     let restore_control = self.control.enabled;
                     if restore_control {
-                        self.control.apply_at(0, true, self.world_origin)?;
+                        self.apply_control(0, true, self.world_origin)?;
                     }
                     process.print_wait = Some(PrintWait {
                         inventory: true,
@@ -6905,11 +6914,7 @@ impl Engine {
                 }
                 14 => {
                     let mode = args(&process.vm, 1)?[0];
-                    self.control.apply_at(
-                        mode,
-                        self.control_inventory_active(),
-                        self.world_origin,
-                    )?;
+                    self.apply_control(mode, self.control_inventory_active(), self.world_origin)?;
                     if mode == 1 {
                         if let Some((handle, _)) = &self.declarations.cursor {
                             self.cursor_animation =
@@ -7221,7 +7226,7 @@ impl Engine {
                         intro.redirect(request, self.escape_events.unwrap_or(1))
                     });
                     self.queue_scene_request(request);
-                    self.control.apply_at(4, false, self.world_origin)?;
+                    self.apply_control(4, false, self.world_origin)?;
                     return Ok(Status::Halted);
                 }
                 95 => {

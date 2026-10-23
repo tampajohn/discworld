@@ -402,6 +402,13 @@ fn capture_original_debug_room_hover() {
         crate::animation::trace_tick(None);
         if door_action && start.is_some() {
             door_control_off |= !engine.control.enabled;
+            if engine.control.hidden {
+                assert_eq!(
+                    engine.cursor_trails.as_ref().unwrap().animations().count(),
+                    0,
+                    "scripted cursor hiding deletes trails"
+                );
+            }
             let script = engine.polygons.active[6].definition.script;
             door_calls.extend(
                 engine
