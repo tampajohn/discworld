@@ -3296,6 +3296,14 @@ impl Engine {
                     let seconds = self.control.idle_seconds(self.ticks)?;
                     self.master.complete_library(call, 1, Some(seconds))?;
                 }
+                119 => {
+                    let handles = args(&self.master, 2)?;
+                    if handles[0] == 0 || handles[1] == 0 || handles[0] == handles[1] {
+                        return Err(Error("invalid CDLOAD handles"));
+                    }
+                    // V1 validates these parameters but does not load data.
+                    self.master.complete_library(call, 2, None)?;
+                }
                 115 => {
                     self.music.stop();
                     self.sample_player.stop();
@@ -6591,6 +6599,14 @@ impl Engine {
                     }
                     process.vm.complete_library(call, consumed, None)?;
                 }
+                119 => {
+                    let handles = args(&process.vm, 2)?;
+                    if handles[0] == 0 || handles[1] == 0 || handles[0] == handles[1] {
+                        return Err(Error("invalid CDLOAD handles"));
+                    }
+                    // V1 validates these parameters but does not load data.
+                    process.vm.complete_library(call, 2, None)?;
+                }
                 115 => {
                     self.music.stop();
                     self.sample_player.stop();
@@ -7415,6 +7431,54 @@ mod tests {
         put(&mut scene, 112, 1);
         (master, scene)
     }
+    #[test]
+    fn v1_cdload_consumes_distinct_nonzero_handles_without_loading_or_yielding() {
+        for from_master in [false, true] {
+            for (start, next, valid) in [
+                (1i32, 2i32, true),
+                (-1, i32::MIN, true),
+                (0, 2, false),
+                (1, 0, false),
+                (1, 1, false),
+            ] {
+                let (master, mut scene) = fixtures();
+                let mut code = vec![0x41, 55];
+                for handle in [start, next] {
+                    code.push(1);
+                    code.extend(handle.to_le_bytes());
+                }
+                code.extend([0x4e, 119, 0x4c, 0, 0]);
+                scene[8..8 + code.len()].copy_from_slice(&code);
+                let resources = Resources(vec![&master, &scene]);
+                let mut engine = Engine::bootstrap(&resources).unwrap();
+                if from_master {
+                    engine.processes = Scheduler::default();
+                    engine.master_code = Handle((1 << 23) | 8);
+                    engine.master = Machine::default();
+                } else {
+                    engine.master_stopped = true;
+                }
+                let before = engine.clone();
+                if valid {
+                    assert_eq!(engine.tick(&resources).unwrap(), Status::Halted);
+                    assert_eq!(engine.globals, [55]);
+                    assert!(engine.master_wait.is_none());
+                    assert!(engine.processes.is_empty());
+                    // Handles deliberately reference no resource. V1 must not
+                    // resolve them, even with their high (signed) bit set.
+                    assert_eq!(engine.films, before.films);
+                    assert_eq!(engine.sample_player, before.sample_player);
+                } else {
+                    assert_eq!(
+                        engine.tick(&resources),
+                        Err(Error("invalid CDLOAD handles"))
+                    );
+                    assert_eq!(engine, before);
+                }
+            }
+        }
+    }
+
     #[test]
     fn scripted_quit_finishes_cycle_stops_audio_and_dispatches_without_saved_flag() {
         let (master, mut scene) = fixtures();

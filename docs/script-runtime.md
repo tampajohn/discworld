@@ -114,9 +114,33 @@ scene scripts while keeping original files and original resource bytes intact.
 It verifies one cycle from a 24-cycle request, no further ticks before draining
 Quit, no fault, and exact combined engine/DSP save export and reload. This is
 host wiring evidence, not an original-asset route reaching QUITGAME or a new
-native-window/physical-device acceptance run. Simultaneous menu-operation/quit
-arbitration has source-informed handling but no dedicated integration fixture.
+native-window/physical-device acceptance run. A subsequent integration fixture prepares the original Save and Load controller
+one cycle before dispatch, then injects QUITGAME into that same production
+cycle. It verifies that the selected slot and description arrive first, that
+Quit remains pending across `load_game`, and that no additional simulation tick
+runs before Quit is drained. Both Save and Load cases pass.
 
 Validation: workspace (339 core tests), all 21 local-asset integration checks,
 Clippy, WASM checking and native/tools/browser release builds pass. See
 [script-quit.json](validation/script-quit.json).
+
+
+## V1 CDLOAD
+
+CDLOAD (119) now consumes two distinct, nonzero handles without yielding or
+accessing their resources. Pinned `tinlib.cpp::CDload` asserts those conditions,
+then performs loading only inside its `TinselVersion >= 2` branch. Thus V1 has
+no extra graphics loading or Escape action here. Its dispatch consumes exactly
+two operands. Both continuing master and scene interpreters implement this;
+startup's restricted declaration dispatcher is unchanged. CDPLAY and PLAYRTF
+remain explicit unsupported operations; this change does not infer streaming
+support from CDLOAD's name.
+
+A bytecode regression verifies same-cycle completion, preservation of a lower
+stack value, acceptance of nonzero handles that intentionally do not resolve
+(including high-bit values), and atomic rejection of zero or equal handles in
+both interpreter contexts. No save format changes are needed. Validation and
+artifact hashes are recorded in [cdload.json](validation/cdload.json).
+
+Validation passed: workspace (340 core tests), all 22 local-asset integration
+checks, Clippy, WASM checking and native/tools/browser release builds.

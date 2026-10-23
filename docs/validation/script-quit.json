@@ -36,7 +36,12 @@
     "The new browser-core fixture injects QUITGAME into private in-memory copies of original startup scripts; original files and original resource bytes are retained.",
     "No original gameplay interaction reaching scripted QUITGAME was identified.",
     "No new native-window exit or physical iPad acceptance run.",
-    "The fad89dc full-route and 44-case browser UI results predate this addition.",
-    "Same-cycle menu operation arbitration follows source ordering; a dedicated collision fixture remains outstanding."
-  ]
+    "The fad89dc full-route and 44-case browser UI results predate this addition."
+  ],
+  "subsequent_validation": {
+    "test": "scripted_quit_preserves_same_cycle_save_and_load_before_host_shutdown",
+    "result": "passed for Save and Load",
+    "log": "assets/logs/script-quit-collision.log",
+    "scope": "Original menu controller and production browser-core cycle with synthetic QUITGAME in private resource copies; slot/description preserved, load does not discard pending Quit, no extra simulation tick."
+  }
 }

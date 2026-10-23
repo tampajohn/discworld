@@ -2324,21 +2324,7 @@ fn scripted_quit_returns_host_request_without_fault_or_extra_ticks() {
     let read = |name| std::fs::read(std::env::var_os(name).expect(name)).unwrap();
     let mut game =
         BrowserGame::new(read("DISCWORLD_TEST_ISO"), read("DISCWORLD_TEST_SOUNDFONT")).unwrap();
-    // Inject QUITGAME into private copies of initial scene scripts. Original
-    // files and original resource bytes stay untouched. This tests host wiring,
-    // not whether an unmodified original-game interaction reaches QUITGAME.
-    let scene = discworld_core::scene::read(&game.assets.resources(), game.engine.scene.resource())
-        .unwrap()
-        .unwrap();
-    let scripts =
-        std::iter::once(scene.script).chain(scene.entrances.iter().map(|(_, code)| *code));
-    for code in scripts.filter(|code| code.0 != 0) {
-        let mut copy = game.assets.iso[game.assets.resources[code.resource()].clone()].to_vec();
-        copy[code.offset()..code.offset() + 3].copy_from_slice(&[0x4e, 115, 0]);
-        let start = game.assets.iso.len();
-        game.assets.iso.extend(copy);
-        game.assets.resources[code.resource()] = start..game.assets.iso.len();
-    }
+    inject_startup_quit(&mut game);
     let before = game.tick();
     let output = game.advance(24).unwrap();
     assert_eq!(game.tick(), before + 1);
@@ -2355,4 +2341,118 @@ fn scripted_quit_returns_host_request_without_fault_or_extra_ticks() {
     let bytes = game.save().unwrap();
     game.load(&bytes).unwrap();
     assert_eq!(game.save().unwrap(), bytes);
+}
+
+fn inject_startup_quit(game: &mut BrowserGame) {
+    // Inject QUITGAME into private copies of initial scene scripts. Original
+    // files and original resource bytes stay untouched. This tests host wiring,
+    // not whether an unmodified original-game interaction reaches QUITGAME.
+    let scene = discworld_core::scene::read(&game.assets.resources(), game.engine.scene.resource())
+        .unwrap()
+        .unwrap();
+    let scripts =
+        std::iter::once(scene.script).chain(scene.entrances.iter().map(|(_, code)| *code));
+    for code in scripts.filter(|code| code.0 != 0) {
+        let mut copy = game.assets.iso[game.assets.resources[code.resource()].clone()].to_vec();
+        copy[code.offset()..code.offset() + 3].copy_from_slice(&[0x4e, 115, 0]);
+        let start = game.assets.iso.len();
+        game.assets.iso.extend(copy);
+        game.assets.resources[code.resource()] = start..game.assets.iso.len();
+    }
+}
+
+#[test]
+#[ignore = "requires DISCWORLD_TEST_ISO and DISCWORLD_TEST_SOUNDFONT"]
+fn scripted_quit_preserves_same_cycle_save_and_load_before_host_shutdown() {
+    use discworld_core::{
+        menu_controller::{Assets, Controller, Settings},
+        menu_navigation::{Page, Request},
+        save_menu::{Entry, Target},
+        text::Strings,
+    };
+    let read = |name| std::fs::read(std::env::var_os(name).expect(name)).unwrap();
+    for page in [Page::Save, Page::Load] {
+        let mut game =
+            BrowserGame::new(read("DISCWORLD_TEST_ISO"), read("DISCWORLD_TEST_SOUNDFONT")).unwrap();
+        inject_startup_quit(&mut game);
+        game.menu_entries.push(Entry {
+            id: 7,
+            description: b"Library".to_vec(),
+        });
+        let expected = if page == Page::Save {
+            Request::Save
+        } else {
+            Request::Load
+        };
+        let settings = Settings {
+            volumes: [255; 3],
+            double_click: 10,
+            swap_buttons: false,
+            text_speed: 50,
+            subtitles: true,
+            flipped: false,
+        };
+        let mut menu = Controller::new(settings).unwrap();
+        {
+            let resources = game.assets.resources();
+            let strings = Strings::new(&game.assets.iso[game.assets.text.clone()]).unwrap();
+            let assets = Assets {
+                resources: &resources,
+                strings: &strings,
+                declarations: &game.engine.declarations,
+                saves: &game.menu_entries,
+            };
+            menu.open(page, &assets).unwrap();
+            menu.click_row([50, if page == Page::Save { 63 } else { 48 }], false)
+                .unwrap();
+            assert!(menu.click_button([262, 69]));
+            // Stop just before the real controller dispatches, so its request
+            // and QUITGAME both occur in the next production engine cycle.
+            let mut ready = false;
+            for _ in 0..12 {
+                let mut next = menu.clone();
+                let dispatch = next.advance(&assets).unwrap();
+                if dispatch.outcome.request == Some(expected) {
+                    assert_eq!(
+                        dispatch.selection,
+                        Some((Target::Existing(7), b"Library".to_vec()))
+                    );
+                    ready = true;
+                    break;
+                }
+                assert!(dispatch.outcome.request.is_none());
+                menu = next;
+            }
+            assert!(ready);
+        }
+        game.engine.configuration = Some(menu);
+        let before = game.tick();
+        game.advance(24).unwrap();
+        assert_eq!(game.tick(), before + 1);
+        assert!(game.fault.is_none());
+        let request: serde_json::Value =
+            serde_json::from_str(&game.take_menu_request().unwrap().unwrap()).unwrap();
+        assert_eq!(
+            request["request"],
+            if page == Page::Save { "save" } else { "load" }
+        );
+        assert_eq!(request["selection"]["id"], 7);
+        assert_eq!(
+            request["selection"]["description"],
+            serde_json::json!(b"Library".to_vec())
+        );
+        // Neither draining the first request nor loading can lose the queued
+        // host quit or permit another simulation tick before it is delivered.
+        let bytes = game.save().unwrap();
+        if page == Page::Load {
+            game.load_game(&bytes).unwrap();
+        }
+        assert!(game.advance(24).unwrap().is_empty());
+        assert_eq!(game.tick(), before + 1);
+        let request: serde_json::Value =
+            serde_json::from_str(&game.take_menu_request().unwrap().unwrap()).unwrap();
+        assert_eq!(request["request"], "quit");
+        assert!(game.take_menu_request().unwrap().is_none());
+        assert!(game.fault.is_none());
+    }
 }

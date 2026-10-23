@@ -44,6 +44,14 @@ Keep the user's visible native session current with newly verified engine builds
 
 ## Current progress (2026-10-23)
 
+Continuing master/scene scripts now implement QUITGAME with a cycle-boundary
+host handoff and the reference V1 CDLOAD behavior. Same-cycle Save/Load plus
+Quit preserves the selected slot and delivers Quit afterward without additional
+simulation. Workspace tests (340 core), 22 local-asset integration checks,
+Clippy, WASM checking and both release hosts pass. See
+[CDLOAD and quit collision evidence](validation/cdload.json). These additions
+are newer than the route results below.
+
 Runtime `fad89dc` defers restored actor animations until after saved movers
 are installed and preserves reel jobs across interpreter restoration. Pending
 restored jobs have version-22 save support; explicit saved depths leave shared

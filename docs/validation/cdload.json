@@ -1,0 +1,36 @@
+{
+  "schema": 1,
+  "baseline_revision": "cc213f194ab96d85b4caa78401252916e896583f",
+  "change": "Implement reference V1 CDLOAD argument validation and consumption in continuing master/scene scripts; add same-cycle save/load and QUITGAME host collision coverage.",
+  "reference": "Pinned tinlib.cpp CDload lines 717\u2013727 and CDLOAD dispatcher lines 5550\u20135554",
+  "validation": {
+    "workspace": "passed",
+    "core_tests": 340,
+    "local_asset_integration_tests": 22,
+    "clippy_all_targets": "passed",
+    "wasm_check": "passed",
+    "native_tools_release": "passed",
+    "browser_release": "passed"
+  },
+  "files": {
+    "crates/discworld-core/src/engine.rs": "7e55ae8098855895ed4c8737fb631894d5e6eeab6d841ed502739d3b5124bf38",
+    "crates/discworld-web/src/real_assets.rs": "8edde54abaebe3a9c85c5e583742d71a53e4b20058f09ff03dcf2d947adb3057",
+    "target/release/discworld-native": "276ed3525a5ff7abe975a036a975225cb60e465201a7083cf9d60e5aaedb6f3d",
+    "target/release/discworld-tools": "19e925a77e6f550cde3e2e05f9b2d9a49c5d80dc8b1bcf7a2863265356f1efd8",
+    "web/pkg/discworld_web_bg.wasm": "9f47e56bf7dc5de6730f419a6bfb7c2b840ebeb17c9834b7bf135ebf241ea05f"
+  },
+  "logs": [
+    "assets/logs/cdload-core.log",
+    "assets/logs/cdload-workspace.log",
+    "assets/logs/cdload-assets.log",
+    "assets/logs/cdload-clippy.log",
+    "assets/logs/cdload-wasm.log",
+    "assets/logs/cdload-build.log",
+    "assets/logs/cdload-web-build.log"
+  ],
+  "scope": [
+    "CDLOAD coverage is synthetic bytecode based on pinned source; no new full-route or live reference invocation is claimed.",
+    "Quit collision cases use original menu controllers with synthetic QUITGAME in private in-memory script copies.",
+    "The ongoing WebKit retry remains frozen at fad89dc, predating QUITGAME/CDLOAD."
+  ]
+}
