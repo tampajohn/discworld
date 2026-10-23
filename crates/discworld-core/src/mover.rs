@@ -1749,9 +1749,6 @@ impl Mover {
             return Ok(());
         }
         let mut next = self.clone();
-        if position[0] != -1 && position[1] != -1 {
-            next.hidden = false;
-        }
         let position = if position[0] == -1 || position[1] == -1 {
             self.placement.position
         } else {

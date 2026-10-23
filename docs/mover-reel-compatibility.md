@@ -583,7 +583,7 @@ Important version distinctions from the pinned source:
   normal movement. HIDEACTOR passes SlowFactor zero, so the hidden-step gate
   in MoveActor does not add delay. Hiding is not a stop or cancellation.
 - SetMoverZ leaves hidden depth alone; AlterMover restores Z=-1 after its
-  initial animation step. PositionMover/UnHideMover and normal completion of
+  initial animation step. UnHideMover and normal completion of
   an unreplaced t1PlayReel can make the mover visible again. A replaced reel
   must not unhide the mover on behalf of its successor.
 - The loop responding to ActorHidden in `play.cpp` is **t2PlayReel**, not
@@ -603,7 +603,8 @@ Hidden mover animations draw before the background, with effective Z=-1;
 they remain drawable where no background covers them. Their stored animation
 is unchanged. Pointer hit testing and scroll monitoring use mover visibility.
 Normal movement continues; special-reel animation freezes while hidden.
-Explicit positioning and walking-reel selection reveal the mover. PLAY claims
+Walking-reel selection reveals the mover; STAND/PositionMover preserve its
+visibility. PLAY claims
 hide it, and only the current reel owner can reveal it on release.
 
 The [v18 exact-snapshot extension](save-state.md#version-18-independent-mover-visibility)
@@ -671,3 +672,23 @@ Continued movement under PLAY passes the workspace suite (324 core tests),
 all 20 original-asset web tests, Clippy, WASM checks, and native/browser release
 builds. Logs use assets/logs/play-movement-*. Full-route acceptance of this
 change is separate from the completed HIDEACTOR audit.
+
+
+Correction to the original HIDEACTOR source audit: PositionMover (movers.cpp
+406–449) does not reset bHidden. The reset previously attributed to it is in
+InitMover at line 377. STAND now preserves visibility for existing movers with
+explicit coordinates as well as sentinel coordinates. Tests exercise normal,
+directional, and explicit-film STAND both inside a path and without one,
+including exact hidden-state saves. Mover creation, walking-reel selection and
+current PLAY-owner release remain the distinct reveal paths.
+
+SPLAY restoration must also preserve the ultimate target across PositionMover:
+the reference does not clear it there. The existing general Rust STAND method
+clears walk_target, so restoring via STAND requires retaining that target and
+the ignore-path flag before repositioning. This remains part of the outstanding
+SPLAY implementation; no SPLAY dispatch or restoration support is claimed here.
+
+The STAND visibility correction passes 324 core tests, the workspace suite,
+all 20 original-asset web tests, Clippy and WASM checking. Native/browser
+release builds succeed. Logs use assets/logs/stand-hidden-*. The in-flight
+a768ad9 route predates this correction; it is not acceptance of this change.

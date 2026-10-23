@@ -7213,7 +7213,7 @@ mod tests {
         assert!(engine.reel_owners.is_empty());
 
         // Continuing the same walk does not reveal a hidden mover. Explicitly
-        // selecting a new walking reel does, as does PositionMover via STAND.
+        // selecting a new walking reel does. STAND preserves hidden state.
         let mover = engine.movers.get_mut(&1).unwrap();
         mover.hidden = true;
         mover
@@ -7247,16 +7247,19 @@ mod tests {
             )
             .unwrap();
         assert!(mover.hidden, "direction-only STAND does not position mover");
-        mover
-            .stand(
-                &resources,
-                &engine.declarations,
-                &engine.polygons,
-                [640, 0],
-                Handle(2),
-            )
-            .unwrap();
-        assert!(!mover.hidden, "explicit STAND positions and reveals mover");
+        for film in [Handle(0), Handle(2), Handle(base)] {
+            mover
+                .stand(
+                    &resources,
+                    &engine.declarations,
+                    &engine.polygons,
+                    [644, 0],
+                    film,
+                )
+                .unwrap();
+            assert!(mover.hidden, "explicit STAND preserves hidden state");
+            assert_eq!(mover.placement.position, [644, 0]);
+        }
         // An uncreated declared mover resets visibility on creation. Ordinary
         // actors use their own flag; hiding never changes alive state.
         engine.movers.clear();
@@ -8973,6 +8976,20 @@ mod tests {
                         }
                         let mut scene_restore = engine.clone();
                         scene_restore.movers.get_mut(&1).unwrap().hidden = true;
+                        for film in [Handle(0), Handle(2), Handle(base)] {
+                            scene_restore
+                                .stand_mover(&resources, 1, [60, 70], film)
+                                .unwrap();
+                            assert!(scene_restore.movers[&1].hidden);
+                            assert_eq!(scene_restore.movers[&1].placement.position, [60, 70]);
+                            let bytes = Snapshot::capture(&scene_restore, [7; 32])
+                                .to_bytes()
+                                .unwrap();
+                            assert_eq!(
+                                Snapshot::from_bytes(&bytes, [7; 32]).unwrap().state(),
+                                &scene_restore
+                            );
+                        }
                         let saved = scene_restore.capture_scene_movers();
                         scene_restore
                             .restore_scene_movers(&resources, &saved)
