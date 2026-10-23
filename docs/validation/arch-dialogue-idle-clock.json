@@ -1,0 +1,150 @@
+{
+  "runtime": "bad0d45",
+  "production_change": false,
+  "reference_capture": "assets/validation/reference-arch-inventory2/frames/capture.json",
+  "rust_dialogue": "assets/validation/rust-arch-dialogue-timeline1/arch-dialogue-timeline.json",
+  "rust_idle": "assets/validation/rust-arch-idle-timeline2/arch-dialogue-timeline.json",
+  "voices": [
+    {
+      "id": 234,
+      "reference_cycle": 1758,
+      "rust_tick": 1758,
+      "pcm_sha256": "302db2a9ac376f1873a5d479e3b311dda06dedb9bf0adcabfcd43d5da7b5b75c"
+    },
+    {
+      "id": 235,
+      "reference_cycle": 1933,
+      "rust_tick": 1939,
+      "pcm_sha256": "20cecdb46ea8997b17c33504c3d4e6d94ba4ae92aa575f3127e87286f09b1d5f"
+    },
+    {
+      "id": 236,
+      "reference_cycle": 1983,
+      "rust_tick": 1993,
+      "pcm_sha256": "8f82b2b33a5efde3ad9d1200ec868aaa48c59ef0a1e53112d02baf19f53364cf"
+    },
+    {
+      "id": 237,
+      "reference_cycle": 2068,
+      "rust_tick": 2085,
+      "pcm_sha256": "a5ea0b5402ea22ed4a5b7a274d50e059fe4c1d1149226361c9a94e70e0902503"
+    },
+    {
+      "id": 238,
+      "reference_cycle": 2244,
+      "rust_tick": 2276,
+      "pcm_sha256": "e9e6a793c9c47f5701529427c2d14dfa9f9e98c15c1d6876fe398a1c65cdb591"
+    },
+    {
+      "id": 239,
+      "reference_cycle": 2428,
+      "rust_tick": 2479,
+      "pcm_sha256": "bbaf435c2df7ada0876adccc0d528d2631132152a98e98fc3838ccc832642f26"
+    },
+    {
+      "id": 240,
+      "reference_cycle": 2594,
+      "rust_tick": 2666,
+      "pcm_sha256": "b68bc32e3b0c25194959f9703eea060a9a7d29b7285e9b042f2bd5480d2c1427"
+    },
+    {
+      "id": 241,
+      "reference_cycle": 2632,
+      "rust_tick": 2710,
+      "pcm_sha256": "25a31459c43d92ee8929654daa92e05c31e33095eb4d851067756c170c6f7431"
+    },
+    {
+      "id": 242,
+      "reference_cycle": 2708,
+      "rust_tick": 2790,
+      "pcm_sha256": "ffbdf6ad7939fefcb25977ac890fb342ad4385c9b037f464dbbb7cd683350c29"
+    },
+    {
+      "id": 243,
+      "reference_cycle": 2794,
+      "rust_tick": 2886,
+      "pcm_sha256": "c2b28d4155c7771e02aba24fd0e50fb978e57a9b65133dc4066743758a725dd5"
+    },
+    {
+      "id": 244,
+      "reference_cycle": 2857,
+      "rust_tick": 2957,
+      "pcm_sha256": "24c8d257bd1f5e7043ac61e741cf73bfe3cda6ec88472fb25fa4a2b60b157d97"
+    },
+    {
+      "id": 5378,
+      "reference_cycle": 3013,
+      "rust_tick": 3123,
+      "pcm_sha256": "8ef41817704b2f7fe1a3950f895767465d626fa63efd10f1f3c6d775e3913cc9"
+    },
+    {
+      "id": 245,
+      "reference_cycle": 3125,
+      "rust_tick": 3249,
+      "pcm_sha256": "5a54e31029bbe2d7367b42547fae7dab511887a03f5b17a6012ce6b2e5243c4e"
+    },
+    {
+      "id": 246,
+      "reference_cycle": 3149,
+      "rust_tick": 3275,
+      "pcm_sha256": "e881aca6d427dd0a84d8e0cf9f5e936a12c7f3df3b5a7936e1cdb1b38e5ca374"
+    },
+    {
+      "id": 247,
+      "reference_cycle": 3162,
+      "rust_tick": 3289,
+      "pcm_sha256": "62a7f2f1b215ca4288381473248e4d55dd046f3f907d2e70b3e29025c5d3e542"
+    },
+    {
+      "id": 248,
+      "reference_cycle": 3271,
+      "rust_tick": 3410,
+      "pcm_sha256": "dce79190c9ee102d0c30d404afdbd7af3da68f4a3dada1b1ac19231db615d4d4"
+    },
+    {
+      "id": 249,
+      "reference_cycle": 3415,
+      "rust_tick": 3571,
+      "pcm_sha256": "8f207f7b495721465a85b780ad5e96b002f74d3eda5b231ea31773133538f767"
+    },
+    {
+      "id": 250,
+      "reference_cycle": 3544,
+      "rust_tick": 3713,
+      "pcm_sha256": "ab56aa56276db7da82519e78d39d2a762f58c240e26250e2e6a226ebffc4e678"
+    },
+    {
+      "id": 251,
+      "reference_cycle": 3628,
+      "rust_tick": 3807,
+      "pcm_sha256": "08dae320143ab65bff903dabc19f20b628d1b0b096d75df53a7fe8dead0dd36e"
+    }
+  ],
+  "same_voice_sequence_and_pcm_hashes": true,
+  "rust_control_return": 3843,
+  "rust_idle_trigger": 11043,
+  "rust_closeup_entry": 11050,
+  "rust_closeup_voice3662": 11099,
+  "reference_closeup_voice3662": 5767,
+  "script": {
+    "resource": "DW.SCN",
+    "idle_call_offset": 379448,
+    "comparison_offset": 379453,
+    "condition": "IDLETIME >= 300",
+    "reset_idle_offset": 379457,
+    "newscene_offset": 379472,
+    "scene_handle": 738197504,
+    "scene": "closeup.scn"
+  },
+  "clock_sources": {
+    "reference": "timers.cpp:66 DwGetCurrentTime = getMillis()*55/1000; events.cpp:568 elapsed difference; tinlib.cpp:1304 IdleTime divides by ONE_SECOND=24.",
+    "rust": "control.rs idle_seconds = elapsed simulation ticks /24; disabled-control reads reset the clock."
+  },
+  "finding": "Both engines reach the same idle close-up and start voice3662. Dialogue PCM order/hashes match, but start cycles drift. Idle-time units differ: reference uses elapsed milliseconds scaled55/1000 then divides24; Rust uses elapsed simulation ticks divided24. Reference debugger overhead additionally prevents direct wall-clock/cycle alignment.",
+  "next_step": "Define and test deterministic conversion of the original idle clock at nominal host tick rate; inspect other timer library semantics before changing production behavior. Keep audio completion timing separate. Recheck inventory before the idle threshold with aligned input history.",
+  "validation": [
+    "Original-asset dialogue timeline capture passes",
+    "Extended12000-tick idle capture passes; earlier10000-tick attempt retained as insufficient observation window"
+  ],
+  "limits": "No exact long-dialogue timing, later pixels, or acoustic parity is claimed."
+}

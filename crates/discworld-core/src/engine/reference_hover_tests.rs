@@ -97,7 +97,8 @@ fn capture_original_debug_room_hover() {
     }
     let inventory_mode = inventory_drag || std::env::var_os("DISCWORLD_HOVER_INVENTORY").is_some();
     let university_retarget = std::env::var_os("DISCWORLD_HOVER_UNIVERSITY_RETARGET").is_some();
-    let arch_inventory = std::env::var_os("DISCWORLD_HOVER_ARCH_INVENTORY").is_some();
+    let arch_idle = std::env::var_os("DISCWORLD_HOVER_ARCH_IDLE").is_some();
+    let arch_inventory = arch_idle || std::env::var_os("DISCWORLD_HOVER_ARCH_INVENTORY").is_some();
     let arch_skip = arch_inventory || std::env::var_os("DISCWORLD_HOVER_ARCH_SKIP").is_some();
     let arch_entry = arch_skip || std::env::var_os("DISCWORLD_HOVER_ARCH_ENTRY").is_some();
     let university_walk = arch_entry
@@ -813,19 +814,52 @@ fn capture_original_debug_room_hover() {
     if arch_inventory {
         // Escape skips one line, not the entire scripted introduction. Wait
         // for the original script to return control before opening pockets.
-        while !engine.control.enabled && engine.ticks < 10000 {
+        let mut timeline = Vec::new();
+        let mut previous = None;
+        let mut control_tick = None;
+        while engine.ticks < if arch_idle { 12000 } else { 5999 } {
             let status = engine
                 .tick_content(&resources, Some(&bank), Some(&tracks), Some(&strings))
                 .unwrap();
             assert!(!matches!(status, Status::Unsupported(_) | Status::Quit));
+            if engine.control.enabled && control_tick.is_none() {
+                control_tick = Some(engine.ticks);
+            }
+            let state = (
+                engine.scene,
+                engine.control.enabled,
+                engine.sample_player.id,
+                engine.sample_player.serial,
+            );
+            if previous != Some(state) {
+                let id = engine
+                    .sample_player
+                    .id
+                    .map_or("null".to_owned(), |id| id.to_string());
+                let hash = engine
+                    .sample_player
+                    .id
+                    .and_then(|id| bank.sample(id).unwrap())
+                    .map_or("null".to_owned(), |pcm| {
+                        format!("\"{:x}\"", Sha256::digest(pcm))
+                    });
+                timeline.push(format!("{{\"tick\":{},\"scene\":\"{}\",\"control\":{},\"sample_id\":{id},\"sample_serial\":{},\"sha256\":{hash}}}", engine.ticks, index[engine.scene.resource()].name, engine.control.enabled, engine.sample_player.serial));
+                previous = Some(state);
+            }
         }
-        assert!(engine.control.enabled, "entry dialogue did not finish");
-        let control_tick = engine.ticks;
-        while engine.ticks < 5999 {
-            engine
-                .tick_content(&resources, Some(&bank), Some(&tracks), Some(&strings))
-                .unwrap();
+        std::fs::write(
+            directory.join("arch-dialogue-timeline.json"),
+            format!("[{}]\n", timeline.join(",")),
+        )
+        .unwrap();
+        if arch_idle {
+            assert!(
+                timeline.iter().any(|row| row.contains("closeup.scn")),
+                "idle cutscene must run"
+            );
+            return;
         }
+        let control_tick = control_tick.expect("entry dialogue did not finish");
         assert!(engine.control.enabled);
         assert!(
             engine

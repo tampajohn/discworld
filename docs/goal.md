@@ -16,6 +16,8 @@ Touch gestures and presentation technology remain implementation decisions to va
 
 ## Latest validation follow-up
 
+The late Archchancellor scene divergence is an idle close-up, not omitted dialogue: all19 subsequent voice IDs and PCM hashes match in order, and Rust reaches the same close-up at tick11050. The master script triggers it at IDLETIME >=300. Reference elapsed-time scaling and Rust idle units differ; timer compatibility remains to resolve, independently of debugger-induced audio timing drift. See [dialogue and idle-clock evidence](validation/arch-dialogue-idle-clock.json).
+
 The extended reference inventory attempt fails its cycle6000 control precondition: ScummVM has entered closeup.scn while Rust is back in arch.scn. Later scene/dialogue state alignment needs investigation before claiming overlay fidelity; see [reference observation](validation/arch-inventory-reference-run.json).
 
 The Rust archchancellor introduction returns control at tick3843 after a single first-line Escape. Pockets then open normally, and save/load preserves overlay pixels and next-tick state. The initial480-frame prefix still matches ScummVM; later dialogue/overlay reference comparison remains open. See [inventory completion evidence](validation/arch-inventory-completion.json).
