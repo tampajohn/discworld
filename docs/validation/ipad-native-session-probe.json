@@ -1,0 +1,18 @@
+{
+  "simulator": "iPad Pro 11-inch (M5), iOS 26.5",
+  "native_target": "aarch64-apple-ios-sim",
+  "probe_executable_sha256": "c458c880173e085f6950a30721aa23ac5febb9bf5c30ecc809e13f90434d8cc6",
+  "simulator_exit_code": 0,
+  "macos_exit_code": 0,
+  "result": {
+    "audio_samples": 15618750,
+    "frame_sha256": "4096e080ead45d66ed53d91f5c8591a83f5bb736b403e45e683f5f173e61e2f6",
+    "save_restore_next_frame_audio_and_state_equal": true,
+    "scene": "rinceroo.scn",
+    "scope": "Native session probe; no UI, audio device, signing or touch acceptance",
+    "ticks": 8501
+  },
+  "macos_summary_equal": true,
+  "clippy_exit_code": 0,
+  "limitations": "Standalone diagnostic executable launched by simctl, not an installed app. Generated audio is checked for finiteness and exact save continuation on each host; cross-host PCM equality and audible playback are not measured. UI, app sandbox, device signing, touch and physical iPad remain unverified."
+}

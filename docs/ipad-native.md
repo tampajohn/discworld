@@ -19,6 +19,23 @@ cargo build --locked --release --target aarch64-apple-ios-sim -p discworld-core 
 These are Rust library builds, not linked or running iPad applications. The
 existing SDL/rodio macOS executable has not been validated on iPad.
 
+The existing Rust session interface (`discworld-web::BrowserGame`) also runs
+as native code without JavaScript or a browser. The `ipad_session_probe` example
+reaches Rincewind's room after 8,500 ticks in the iPad Pro 11-inch (M5), iOS 26.5
+simulator. Its final frame matches the macOS probe, and save restoration
+preserves next-frame pixels, generated PCM and session bytes on each host.
+See [probe evidence](validation/ipad-native-session-probe.json).
+
+To repeat with an already booted simulator:
+
+```sh
+cargo build --locked --release --target aarch64-apple-ios-sim -p discworld-web --example ipad_session_probe
+xcrun simctl spawn booted "$PWD/target/aarch64-apple-ios-sim/release/examples/ipad_session_probe" "$PWD/assets/private/ipad/GameData.bundle"
+```
+
+This standalone simulator executable does not exercise an app sandbox, visible
+window, touch, or audio-device output. It is not the installable application.
+
 ## Bundled test resources
 
 ```sh
