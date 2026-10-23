@@ -16,6 +16,8 @@ Touch gestures and presentation technology remain implementation decisions to va
 
 ## Latest validation follow-up
 
+Escape during Archchancellor entry speech matches all 480 original-reference frames at the same cycles, with save/load continuation throughout. Rust stops the active voice at the input tick; independent acoustic stop timing is outside this capture. No engine change was required; see [speech-skip evidence](validation/reference-arch-skip.json).
+
 The bedroom → university → Archchancellor sequence matches all 480 original-reference frames on the same cycles, including entry speech with matching subtitle settings. All save/load continuations pass. See [two-transition evidence](validation/reference-arch-entry.json).
 
 Changing destination during the university walk matches all 240 original-reference frames at the same cycles, all 73 traced mover positions/phases, and all save/load continuations. No additional engine change was required; see [retarget evidence](validation/reference-university-retarget.json).

@@ -1,0 +1,40 @@
+{
+  "runtime": "bad0d45",
+  "reference_revision": "96b42d42bc8533953bdd701db059cc33c839a9ff",
+  "reference": "assets/validation/reference-arch-skip1",
+  "rust": "assets/validation/rust-arch-skip1",
+  "comparison": "assets/validation/arch-skip-compare1.json",
+  "same_cycle_frames": 480,
+  "save_continuations": 480,
+  "escape_event": {
+    "cycle": 1717,
+    "expression": "Tinsel::PlayerEvent((Tinsel::PLR_EVENT)4, Tinsel::_vm->_mousePos)",
+    "error": "success",
+    "target_before_dispatch": {
+      "g_TaggedActor": 0,
+      "g_hTaggedPolygon": -1
+    }
+  },
+  "rust_audio_before": {
+    "tick": 1716,
+    "id": 231,
+    "serial": 38,
+    "position": 14700,
+    "bytes": 78553,
+    "sha256": "a6b330f767c002d3a86d04395c0a168b5b8b419de108e69b7443d2dabb66b185"
+  },
+  "rust_audio_after": {
+    "tick": 1717,
+    "id": null,
+    "serial": 38,
+    "position": 0,
+    "bytes": 0,
+    "sha256": null
+  },
+  "subtitles": true,
+  "production_change": false,
+  "validation": [
+    "Original-asset capture and core all-target Clippy passed"
+  ],
+  "scope": "Controlled scene entry and PlayerEvent Escape during entry dialogue. Full-frame equality includes text/animation response. Rust stops speech231 on tick1717. Reference probe records no dedicated per-sample stop event here; do not infer acoustic equivalence or exact reference PCM stop timing from pixels."
+}
