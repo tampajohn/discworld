@@ -20,19 +20,47 @@
     "clippy": "passed workspace all targets -D warnings",
     "wasm": "passed",
     "native_tools_browser_builds": "passed",
-    "browser_ui": "running; assets/logs/scroll-scheduler-browser-ui.log",
+    "browser_ui": {
+      "status": "passed",
+      "playwright_passed": 44,
+      "projects": [
+        "Chrome",
+        "WebKit"
+      ],
+      "log": "assets/logs/scroll-scheduler-browser-ui.log",
+      "log_sha256": "d20908f6730f50c679fdd3fdd1bb506a3303da955ef1d66b7c186a032d1850d4",
+      "menu_fixture": "assets/validation/title-palette-menu/checkpoint.dws (unchanged legacy save with corrected native palette expectation)"
+    },
     "full_route": {
       "status": "running",
       "directory": "assets/validation/scheduled-scroll-9bf9b3f",
       "manifest": "assets/validation/scheduled-scroll-9bf9b3f/run.json",
       "ticks_requested": 2630000,
       "snapshot_audit": true
-    }
+    },
+    "browser_routes": {
+      "chrome": {
+        "status": "running",
+        "manifest": "assets/validation/scheduled-scroll-9bf9b3f/chrome-run.json",
+        "ticks_requested": 2630000
+      },
+      "webkit": {
+        "status": "running",
+        "manifest": "assets/validation/scheduled-scroll-9bf9b3f/webkit-run.json",
+        "ticks_requested": 2630000
+      }
+    },
+    "replay_wasm_build": "passed"
   },
   "limits": [
     "1000 no-input startup frames are not full-game scheduling equivalence.",
     "Automatic camera following, new dynamic task interactions and the full route still require broader validation.",
     "No physical iPad or visible manual-session update claimed."
   ],
-  "runtime_revision": "9bf9b3f"
+  "runtime_revision": "9bf9b3f",
+  "frozen_web_manifest": {
+    "path": "assets/validation/scheduled-scroll-9bf9b3f/web-build.json",
+    "sha256": "8e38c786707265be80e65c26526bf3602683780e06200db42effc178b84c0d6e",
+    "files": 17
+  }
 }

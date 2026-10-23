@@ -48,8 +48,9 @@ Scrolling now runs as a scene scheduler task, fixing all 351 remaining aligned
 startup-frame mismatches: all 1,000 reference frames match at aligned ticks.
 Save version 23 retains task order and scroll initialization; older formats
 remain byte-exact until scene entry. Workspace checks (341 core tests), all 24
-original-asset integration tests, Clippy, WASM and host builds pass. Browser UI
-and the full-route replay are still being verified for this change; see
+original-asset integration tests, Clippy, WASM and host builds pass. All 44 browser
+UI checks pass in Chrome/WebKit. Native, Chrome and WebKit full-route audits
+are running against frozen builds for this change; see
 [scheduled-scroll.json](validation/scheduled-scroll.json).
 
 The preceding second-credits investigation traced the mismatch to camera scheduling:
