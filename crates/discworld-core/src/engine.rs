@@ -2140,6 +2140,50 @@ impl Engine {
         Ok(())
     }
 
+    fn update_cursor_trails(&mut self, resources: &Resources<'_>) -> Result<(), Error> {
+        // The original cursor process initializes only once a background exists.
+        if self.cursor_trails.is_none()
+            && self.world_hover.is_some()
+            && self.background.is_some()
+            && self.cursor_animation.is_some()
+        {
+            if let Some((film, _)) = self.declarations.cursor.as_ref() {
+                if Film::read(resources, *film)?.reels.len() > 1 {
+                    self.cursor_trails = Some(crate::cursor_trails::Trails::new(
+                        resources,
+                        *film,
+                        self.control.cursor,
+                    )?);
+                }
+            }
+        }
+        use crate::conversation_window::Area;
+        let inside = self
+            .configuration
+            .as_ref()
+            .and_then(|menu| menu.area_at(self.control.cursor))
+            .is_some_and(|area| area != Area::Outside)
+            || (self.active_inventory.is_some()
+                && !self.conversation.hidden
+                && self.inventory_display.as_ref().is_some_and(|(frame, _)| {
+                    frame.layout.inventory_area_at(self.control.cursor) != Area::Outside
+                }));
+        if let Some(trails) = &mut self.cursor_trails {
+            if self.control.hidden {
+                trails.hide_images();
+            } else {
+                trails.tick(resources)?;
+                if !self.control.frozen {
+                    trails.move_to(resources, self.control.cursor, false)?;
+                }
+            }
+            // DoCursorMove notifies inventory after emitting at the old position.
+            // Entry deletes that trail; the first move out remains suppressed.
+            trails.suppress(inside);
+        }
+        Ok(())
+    }
+
     fn update_inventory_cursor(&mut self, resources: &Resources<'_>) -> Result<(), Error> {
         if self.inventory_drag.is_some() || self.control.hidden {
             return Ok(());
@@ -3689,6 +3733,9 @@ impl Engine {
         } else {
             None
         };
+        if let Some(trails) = &mut self.cursor_trails {
+            trails.reset_scene(self.control.cursor);
+        }
         self.films.clear();
         self.splay_reels.clear();
         self.created_reel_movers.clear();
@@ -4755,6 +4802,7 @@ impl Engine {
                 }
             }
         }
+        self.update_cursor_trails(resources)?;
         if let Some(cursor) = &mut self.held_cursor {
             cursor.animation.tick(resources)?;
         }
@@ -6019,6 +6067,9 @@ impl Engine {
                     let a = args(&process.vm, 2)?;
                     self.control
                         .script_cursor([a[0], a[1]], self.world_origin, self.ticks);
+                    if let Some(trails) = &mut self.cursor_trails {
+                        trails.move_to(resources, self.control.cursor, self.control.hidden)?;
+                    }
                     process.vm.complete_library(call, 2, None)?;
                 }
                 47 => {
@@ -7096,6 +7147,11 @@ impl Engine {
                     .is_none_or(|menu| menu.page().is_none())
             }) {
                 cursor.draw(resources, &mut result, self.control.cursor)?;
+            }
+            if let Some(trails) = &self.cursor_trails {
+                for animation in trails.draw_order() {
+                    result.draw_animation(resources, animation)?;
+                }
             }
             if let Some(cursor) = &self.cursor_animation {
                 let mut cursor = cursor.clone();

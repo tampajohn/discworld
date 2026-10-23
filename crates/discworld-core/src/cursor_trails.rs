@@ -110,6 +110,32 @@ impl Trails {
         self.slots.iter().flatten()
     }
 
+    /// HideCursorProcess hides the current images without deleting clocks.
+    pub fn hide_images(&mut self) {
+        for animation in self.slots.iter_mut().flatten() {
+            animation.frame = Handle(0);
+        }
+    }
+
+    /// InsertObject sorts ascending Z/Y, inserting new equal-Y objects first.
+    pub fn draw_order(&self) -> Vec<&Animation> {
+        let count = self.slots.len();
+        let mut objects: Vec<_> = self
+            .slots
+            .iter()
+            .enumerate()
+            .filter_map(|(slot, animation)| animation.as_ref().map(|a| (slot, a)))
+            .collect();
+        objects.sort_by_key(|(slot, a)| {
+            (
+                a.object.z,
+                a.object.y,
+                std::cmp::Reverse((slot + count - self.next) % count),
+            )
+        });
+        objects.into_iter().map(|(_, a)| a).collect()
+    }
+
     pub(crate) fn validate_structure(&self) -> Result<(), Error> {
         if self.slots.len() > 10
             || self.next >= self.slots.len().max(1)
@@ -226,6 +252,39 @@ mod tests {
         assert!(trails.validate(&resources).is_err());
         assert!(trails.move_to(&resources, [2, 2], false).is_err());
         assert!(trails.tick(&resources).is_err());
+    }
+
+    #[test]
+    fn equal_y_draw_order_and_hidden_frame_clock() {
+        let mut bytes = fixture();
+        bytes[0..4].copy_from_slice(&12u32.to_le_bytes());
+        let resources = Resources(vec![&bytes]);
+        let mut trails = Trails::new(&resources, Handle(0), [1, 20]).unwrap();
+        trails.move_to(&resources, [2, 20], false).unwrap();
+        trails.move_to(&resources, [3, 20], false).unwrap();
+        assert_eq!(
+            trails
+                .draw_order()
+                .iter()
+                .map(|a| a.object.x)
+                .collect::<Vec<_>>(),
+            [2, 1]
+        );
+        trails.move_to(&resources, [4, 20], false).unwrap();
+        assert_eq!(
+            trails
+                .draw_order()
+                .iter()
+                .map(|a| a.object.x)
+                .collect::<Vec<_>>(),
+            [3, 2]
+        );
+        trails.hide_images();
+        trails.tick(&resources).unwrap();
+        assert_eq!(trails.animations().count(), 2);
+        assert!(trails.animations().all(|a| a.frame.0 == 0));
+        trails.tick(&resources).unwrap();
+        assert_eq!(trails.animations().count(), 0);
     }
 
     #[test]

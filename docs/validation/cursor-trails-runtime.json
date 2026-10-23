@@ -1,0 +1,40 @@
+{
+  "runtime_base": "1f72cf6",
+  "scope": "Integrated engine cursor trail animation, composition and v25 saves; full compatibility remains incomplete.",
+  "changes": [
+    "Initialize original trail reels when cursor/background resources become available.",
+    "Advance trails in cursor phase, emit at prior position, preserve frozen position and hide active images without discarding their clocks.",
+    "MOVECURSOR emits immediately; ordinary host movement emits during cursor update.",
+    "Inventory/configuration suppression follows movement: entering deletes trails and first exit movement stays suppressed.",
+    "Scene entry clears trail objects while retaining rotating reel selection.",
+    "Draw trails at status Z999 after held cursor and before main cursor; order by Z/Y with newer equal-Y objects first."
+  ],
+  "reference": {
+    "capture": "assets/validation/reference-hover-attempt7/frames/capture.json",
+    "comparison": "assets/validation/cursor-trails-runtime-compare2.json",
+    "comparison_sha256": "6f48a9cea9ec9b29c88d7f5db1f379ba977d8a4c0eca41ec518d96f490b626d1",
+    "frames": 72,
+    "exact_content_matches": 58,
+    "same_cycle_matches": 54,
+    "scope": "Original debugger scene dispatch and immediate cursor movement; not host-input equivalence. Remaining animated-scene phase mismatches persist."
+  },
+  "checks": [
+    "Workspace release tests passed before final draw-order test addition; four targeted trail tests passed afterward.",
+    "Original-room controlled capture passed with 72 complete v25 restore/next-tick checks.",
+    "Original-room checks cover host movement, frozen/hidden cursors, inventory entry/exit and scene reset.",
+    "25 original-asset browser-core tests covered: first run 24 pass/1 old-version assertion failure; corrected menu-version assertion retry passes.",
+    "Workspace all-target Clippy passed; native/tools release and browser WASM builds passed.",
+    "Native SDL dummy legacy-load smoke: 30 frames, tick33213, rinceroo.scn, stopped=false."
+  ],
+  "browser_ui": {
+    "status": "running",
+    "log": "assets/logs/cursor-trails-runtime-ui.log",
+    "initial_known_failure": "Inventory header-drag test expected v24 after advancing; runtime correctly exports v25. Assertion updated; targeted rerun remains required."
+  },
+  "remaining": [
+    "Finish browser UI suite and rerun corrected drag test.",
+    "Run full-route native/browser regression on frozen current runtime.",
+    "Refresh standalone development packages and visible manual session.",
+    "Resolve remaining reference animation timing; physical iPad and broader compatibility acceptance remain open."
+  ]
+}

@@ -153,7 +153,7 @@ test('inventory header drag renders immediately and roundtrips an active drag', 
   await expect(page.locator('#pause')).toHaveText('Play');
   await page.waitForTimeout(150);
   const pending = await exportHeld();
-  expect(coreVersions(pending)[0]).toBe(24);
+  expect(coreVersions(pending)[0]).toBe(25);
   expect(coreVersions(pending)).toContain(5);
   const pixels = await canvas.evaluate(c => c.toDataURL());
   await page.screenshot({ path: path.join(root, `assets/previews/browser-${testInfo.project.name}-inventory-drag.png`) });

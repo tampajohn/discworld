@@ -38,11 +38,6 @@ fn capture_original_debug_room_hover() {
     ];
     let mut start = None;
     let mut rows = Vec::new();
-    let mut previous_cursor = None;
-    let mut trails = None;
-    let trail_directory = directory.join("with-trails");
-    std::fs::create_dir(&trail_directory).unwrap();
-    let mut trail_rows = Vec::new();
     engine.scene_calls = Some(Default::default());
     for _ in 0..4000 {
         // The reference requests its debugger scene change before cycle 450.
@@ -57,21 +52,14 @@ fn capture_original_debug_room_hover() {
             && start.is_none()
         {
             start = Some(engine.ticks);
-            previous_cursor = Some(engine.control.cursor);
-            trails = Some(
-                crate::cursor_trails::Trails::new(
-                    &resources,
-                    engine.declarations.cursor.as_ref().unwrap().0,
-                    engine.control.cursor,
-                )
-                .unwrap(),
-            );
         }
         if let Some(start) = start {
             let elapsed = engine.ticks - start;
             if elapsed % 12 == 0 && elapsed / 12 < points.len() as u64 {
                 let position = points[(elapsed / 12) as usize];
-                trails
+                // Match the probe's immediate original DoCursorMove call.
+                engine
+                    .cursor_trails
                     .as_mut()
                     .unwrap()
                     .move_to(&resources, position, false)
@@ -85,22 +73,16 @@ fn capture_original_debug_room_hover() {
         assert!(!matches!(status, Status::Unsupported(_) | Status::Quit));
         if start.is_some() {
             let surface = engine.render(&resources).unwrap();
-            let trails = trails.as_mut().unwrap();
-            let bytes = postcard::to_allocvec(trails).unwrap();
-            let mut restored: crate::cursor_trails::Trails = postcard::from_bytes(&bytes).unwrap();
-            restored.validate(&resources).unwrap();
-            trails.tick(&resources).unwrap();
-            restored.tick(&resources).unwrap();
-            assert_eq!(*trails, restored);
             // Exercise the complete versioned game-save path, not only the
             // trail component's serde representation.
-            let legacy_bytes = crate::save::Snapshot::capture(&engine, [7; 32])
+            let mut legacy_engine = engine.clone();
+            legacy_engine.cursor_trails = None;
+            let legacy_bytes = crate::save::Snapshot::capture(&legacy_engine, [7; 32])
                 .to_bytes()
                 .unwrap();
             let legacy = crate::save::Snapshot::from_bytes(&legacy_bytes, [7; 32]).unwrap();
             assert_eq!(legacy.to_bytes().unwrap(), legacy_bytes);
             let mut saved_engine = engine.clone();
-            saved_engine.cursor_trails = Some(trails.clone());
             let save_bytes = crate::save::Snapshot::capture(&saved_engine, [7; 32])
                 .to_bytes()
                 .unwrap();
@@ -132,6 +114,72 @@ fn capture_original_debug_room_hover() {
             );
             if rows.is_empty() {
                 std::fs::write(directory.join("trail-state-v25.dws"), &save_bytes).unwrap();
+                let mut input = engine.clone();
+                input
+                    .cursor_trails
+                    .as_mut()
+                    .unwrap()
+                    .reset_scene(input.control.cursor);
+                let old = input.control.cursor;
+                input.move_cursor([old[0] + 2, old[1] + 2]);
+                input.update_cursor_trails(&resources).unwrap();
+                let emitted = input
+                    .cursor_trails
+                    .as_ref()
+                    .unwrap()
+                    .animations()
+                    .next()
+                    .unwrap();
+                assert_eq!([emitted.object.x, emitted.object.y], old);
+                input.control.frozen = true;
+                let frozen_position = input.control.cursor;
+                input.move_cursor([250, 180]);
+                input.update_cursor_trails(&resources).unwrap();
+                assert_eq!(input.control.cursor, frozen_position);
+                input.control.hidden = true;
+                input.update_cursor_trails(&resources).unwrap();
+                assert!(
+                    input
+                        .cursor_trails
+                        .as_ref()
+                        .unwrap()
+                        .animations()
+                        .all(|a| a.frame.0 == 0)
+                );
+                input.control.hidden = false;
+                input.control.frozen = false;
+                input.active_inventory = Some(1);
+                input.inventory_geometry.open(1);
+                input.conversation.hidden = false;
+                input.rebuild_inventory(&resources, &strings).unwrap();
+                let inside = (0..200)
+                    .flat_map(|y| (0..320).map(move |x| [x, y]))
+                    .find(|&point| input.inventory_contains_point(point))
+                    .unwrap();
+                input.move_cursor(inside);
+                input.update_cursor_trails(&resources).unwrap();
+                assert_eq!(
+                    input.cursor_trails.as_ref().unwrap().animations().count(),
+                    0
+                );
+                input.move_cursor([-1, -1]);
+                input.update_cursor_trails(&resources).unwrap();
+                assert_eq!(
+                    input.cursor_trails.as_ref().unwrap().animations().count(),
+                    0
+                );
+                input.move_cursor([-2, -2]);
+                input.update_cursor_trails(&resources).unwrap();
+                assert_eq!(
+                    input.cursor_trails.as_ref().unwrap().animations().count(),
+                    1
+                );
+                input.enter_scene(&resources, room, Some(1), 1).unwrap();
+                assert_eq!(
+                    input.cursor_trails.as_ref().unwrap().animations().count(),
+                    0
+                );
+
                 let mut invalid = saved_engine.clone();
                 invalid.declarations.cursor = None;
                 assert!(
@@ -156,62 +204,6 @@ fn capture_original_debug_room_hover() {
                     malformed[48..80].copy_from_slice(&Sha256::digest(&payload));
                     malformed.extend(payload);
                     assert!(crate::save::Snapshot::from_bytes(&malformed, [7; 32]).is_err());
-                }
-            }
-            let mut candidate = surface.clone();
-            for animation in trails.animations() {
-                candidate.draw_animation(&resources, animation).unwrap();
-            }
-            let trail_rgb: Vec<_> = candidate
-                .rgba
-                .chunks_exact(4)
-                .flat_map(|p| p[..3].iter().copied())
-                .collect();
-            std::fs::write(
-                trail_directory.join(format!("tick-{:06}.rgb", engine.ticks)),
-                &trail_rgb,
-            )
-            .unwrap();
-            trail_rows.push(format!(
-                "{{\"tick\":{},\"scene\":{},\"rgb_sha256\":\"{:x}\"}}",
-                engine.ticks,
-                engine.scene.0,
-                Sha256::digest(&trail_rgb)
-            ));
-            if rows.is_empty() {
-                let cursor_film = engine.declarations.cursor.as_ref().unwrap().0;
-                let film = Film::read(&resources, cursor_film).unwrap();
-                println!(
-                    "Cursor film {}: {} reels, previous position {:?}",
-                    cursor_film.0,
-                    film.reels.len(),
-                    previous_cursor.unwrap()
-                );
-                // Diagnostic only: test whether original trail reel pixels account
-                // for the first-frame difference. This does not change runtime state.
-                for (column, reel) in film.reels.iter().enumerate().skip(1) {
-                    let mut trail =
-                        Animation::new(&resources, reel, 24 / film.rate as u32).unwrap();
-                    [trail.object.x, trail.object.y] = previous_cursor.unwrap();
-                    for step in 1..=2 {
-                        trail.tick(&resources).unwrap();
-                        let mut candidate = surface.clone();
-                        candidate.draw_animation(&resources, &trail).unwrap();
-                        let rgb: Vec<_> = candidate
-                            .rgba
-                            .chunks_exact(4)
-                            .flat_map(|p| p[..3].iter().copied())
-                            .collect();
-                        std::fs::write(
-                            directory.join(format!("trail-reel-{column}-step-{step}.rgb")),
-                            &rgb,
-                        )
-                        .unwrap();
-                        println!(
-                            "Trail reel {column} step {step}: {:x}",
-                            Sha256::digest(&rgb)
-                        );
-                    }
                 }
             }
             let rgb: Vec<_> = surface
@@ -239,8 +231,7 @@ fn capture_original_debug_room_hover() {
         }
     }
     assert_eq!(rows.len(), 72, "room did not reach active tags");
-    std::fs::write(trail_directory.join("capture.json"), format!("{{\"scope\":\"Diagnostic trail composition over runtime frames; not integrated engine output\",\"frames\":[{}]}}\n", trail_rows.join(","))).unwrap();
-    std::fs::write(directory.join("capture.json"), format!("{{\"scope\":\"Controlled original scene entry and cursor movement; not ordinary input replay\",\"hover_start_tick\":{},\"frames\":[{}]}}\n", start.unwrap(), rows.join(","))).unwrap();
+    std::fs::write(directory.join("capture.json"), format!("{{\"scope\":\"Integrated runtime output; controlled original scene entry and immediate cursor movement, not ordinary host-input replay\",\"hover_start_tick\":{},\"frames\":[{}]}}\n", start.unwrap(), rows.join(","))).unwrap();
     println!(
         "Captured 72 hover frames beginning at tick {}",
         start.unwrap()
