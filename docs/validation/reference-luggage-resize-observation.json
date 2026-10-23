@@ -1,0 +1,438 @@
+{
+  "runtime_revision": "9186705",
+  "reference_revision": "96b42d42bc8533953bdd701db059cc33c839a9ff",
+  "reference_binary_sha256": "1e8b098f0e9f6da44062aa19c195a5771a4a5dbc806cb3d3a9c3eb0e8fb6f524",
+  "reference_probe_sha256": "aa5392da07d3de153e526e357663c00295953a3e840bdbd6289f08dbb89dfe1a",
+  "capture_accepted": true,
+  "fidelity_pass": false,
+  "scope": "Controlled scene/cursor injection and direct opening of inventory1. Reference invokes popUpInventory(1,0); Rust runs diagnostic-only PUSH1/LIB37/HALT through production library dispatch using an appended test resource. No original asset bytes changed. Not gameplay unlock or physical-input acceptance.",
+  "sequence": [
+    {
+      "elapsed": 0,
+      "action": "Directly open Luggage inventory"
+    },
+    {
+      "elapsed": 12,
+      "action": "Move to194,172 and press bottom-right corner"
+    },
+    {
+      "elapsed": 24,
+      "action": "Move held pointer to220,198"
+    },
+    {
+      "elapsed": 36,
+      "action": "Release"
+    },
+    {
+      "elapsed": 48,
+      "action": "Move to10,10 and close"
+    }
+  ],
+  "frames": 72,
+  "same_cycle_matches": 47,
+  "rgb_content_matches": 47,
+  "full_save_restore_next_tick_checks": 72,
+  "rust_size_before": [
+    3,
+    2
+  ],
+  "rust_size_after_release": [
+    4,
+    3
+  ],
+  "reference_drag_states": {
+    "12": 10,
+    "24": 10,
+    "36": 0
+  },
+  "mismatches": [
+    {
+      "frame": 13,
+      "scene": 150994944,
+      "matching_rust_ticks": [],
+      "cycle": 1269,
+      "scene_aligned_rust_tick": 1269,
+      "scene_aligned_equal": false,
+      "scene_aligned_different_pixels": 32,
+      "scene_aligned_difference_bounds": [
+        189,
+        169,
+        199,
+        175
+      ]
+    },
+    {
+      "frame": 14,
+      "scene": 150994944,
+      "matching_rust_ticks": [],
+      "cycle": 1270,
+      "scene_aligned_rust_tick": 1270,
+      "scene_aligned_equal": false,
+      "scene_aligned_different_pixels": 32,
+      "scene_aligned_difference_bounds": [
+        191,
+        167,
+        197,
+        177
+      ]
+    },
+    {
+      "frame": 15,
+      "scene": 150994944,
+      "matching_rust_ticks": [],
+      "cycle": 1271,
+      "scene_aligned_rust_tick": 1271,
+      "scene_aligned_equal": false,
+      "scene_aligned_different_pixels": 32,
+      "scene_aligned_difference_bounds": [
+        191,
+        167,
+        197,
+        177
+      ]
+    },
+    {
+      "frame": 16,
+      "scene": 150994944,
+      "matching_rust_ticks": [],
+      "cycle": 1272,
+      "scene_aligned_rust_tick": 1272,
+      "scene_aligned_equal": false,
+      "scene_aligned_different_pixels": 23,
+      "scene_aligned_difference_bounds": [
+        191,
+        169,
+        197,
+        175
+      ]
+    },
+    {
+      "frame": 17,
+      "scene": 150994944,
+      "matching_rust_ticks": [],
+      "cycle": 1273,
+      "scene_aligned_rust_tick": 1273,
+      "scene_aligned_equal": false,
+      "scene_aligned_different_pixels": 23,
+      "scene_aligned_difference_bounds": [
+        191,
+        169,
+        197,
+        175
+      ]
+    },
+    {
+      "frame": 18,
+      "scene": 150994944,
+      "matching_rust_ticks": [],
+      "cycle": 1274,
+      "scene_aligned_rust_tick": 1274,
+      "scene_aligned_equal": false,
+      "scene_aligned_different_pixels": 24,
+      "scene_aligned_difference_bounds": [
+        191,
+        169,
+        197,
+        175
+      ]
+    },
+    {
+      "frame": 19,
+      "scene": 150994944,
+      "matching_rust_ticks": [],
+      "cycle": 1275,
+      "scene_aligned_rust_tick": 1275,
+      "scene_aligned_equal": false,
+      "scene_aligned_different_pixels": 24,
+      "scene_aligned_difference_bounds": [
+        191,
+        169,
+        197,
+        175
+      ]
+    },
+    {
+      "frame": 20,
+      "scene": 150994944,
+      "matching_rust_ticks": [],
+      "cycle": 1276,
+      "scene_aligned_rust_tick": 1276,
+      "scene_aligned_equal": false,
+      "scene_aligned_different_pixels": 32,
+      "scene_aligned_difference_bounds": [
+        189,
+        169,
+        199,
+        175
+      ]
+    },
+    {
+      "frame": 21,
+      "scene": 150994944,
+      "matching_rust_ticks": [],
+      "cycle": 1277,
+      "scene_aligned_rust_tick": 1277,
+      "scene_aligned_equal": false,
+      "scene_aligned_different_pixels": 32,
+      "scene_aligned_difference_bounds": [
+        189,
+        169,
+        199,
+        175
+      ]
+    },
+    {
+      "frame": 22,
+      "scene": 150994944,
+      "matching_rust_ticks": [],
+      "cycle": 1278,
+      "scene_aligned_rust_tick": 1278,
+      "scene_aligned_equal": false,
+      "scene_aligned_different_pixels": 32,
+      "scene_aligned_difference_bounds": [
+        191,
+        167,
+        197,
+        177
+      ]
+    },
+    {
+      "frame": 23,
+      "scene": 150994944,
+      "matching_rust_ticks": [],
+      "cycle": 1279,
+      "scene_aligned_rust_tick": 1279,
+      "scene_aligned_equal": false,
+      "scene_aligned_different_pixels": 32,
+      "scene_aligned_difference_bounds": [
+        191,
+        167,
+        197,
+        177
+      ]
+    },
+    {
+      "frame": 24,
+      "scene": 150994944,
+      "matching_rust_ticks": [],
+      "cycle": 1280,
+      "scene_aligned_rust_tick": 1280,
+      "scene_aligned_equal": false,
+      "scene_aligned_different_pixels": 32,
+      "scene_aligned_difference_bounds": [
+        191,
+        167,
+        197,
+        177
+      ]
+    },
+    {
+      "frame": 25,
+      "scene": 150994944,
+      "matching_rust_ticks": [],
+      "cycle": 1281,
+      "scene_aligned_rust_tick": 1281,
+      "scene_aligned_equal": false,
+      "scene_aligned_different_pixels": 23,
+      "scene_aligned_difference_bounds": [
+        217,
+        193,
+        223,
+        199
+      ]
+    },
+    {
+      "frame": 26,
+      "scene": 150994944,
+      "matching_rust_ticks": [],
+      "cycle": 1282,
+      "scene_aligned_rust_tick": 1282,
+      "scene_aligned_equal": false,
+      "scene_aligned_different_pixels": 18,
+      "scene_aligned_difference_bounds": [
+        217,
+        195,
+        223,
+        199
+      ]
+    },
+    {
+      "frame": 27,
+      "scene": 150994944,
+      "matching_rust_ticks": [],
+      "cycle": 1283,
+      "scene_aligned_rust_tick": 1283,
+      "scene_aligned_equal": false,
+      "scene_aligned_different_pixels": 18,
+      "scene_aligned_difference_bounds": [
+        217,
+        195,
+        223,
+        199
+      ]
+    },
+    {
+      "frame": 28,
+      "scene": 150994944,
+      "matching_rust_ticks": [],
+      "cycle": 1284,
+      "scene_aligned_rust_tick": 1284,
+      "scene_aligned_equal": false,
+      "scene_aligned_different_pixels": 25,
+      "scene_aligned_difference_bounds": [
+        215,
+        195,
+        225,
+        199
+      ]
+    },
+    {
+      "frame": 29,
+      "scene": 150994944,
+      "matching_rust_ticks": [],
+      "cycle": 1285,
+      "scene_aligned_rust_tick": 1285,
+      "scene_aligned_equal": false,
+      "scene_aligned_different_pixels": 25,
+      "scene_aligned_difference_bounds": [
+        215,
+        195,
+        225,
+        199
+      ]
+    },
+    {
+      "frame": 30,
+      "scene": 150994944,
+      "matching_rust_ticks": [],
+      "cycle": 1286,
+      "scene_aligned_rust_tick": 1286,
+      "scene_aligned_equal": false,
+      "scene_aligned_different_pixels": 23,
+      "scene_aligned_difference_bounds": [
+        217,
+        193,
+        223,
+        199
+      ]
+    },
+    {
+      "frame": 31,
+      "scene": 150994944,
+      "matching_rust_ticks": [],
+      "cycle": 1287,
+      "scene_aligned_rust_tick": 1287,
+      "scene_aligned_equal": false,
+      "scene_aligned_different_pixels": 23,
+      "scene_aligned_difference_bounds": [
+        217,
+        193,
+        223,
+        199
+      ]
+    },
+    {
+      "frame": 32,
+      "scene": 150994944,
+      "matching_rust_ticks": [],
+      "cycle": 1288,
+      "scene_aligned_rust_tick": 1288,
+      "scene_aligned_equal": false,
+      "scene_aligned_different_pixels": 16,
+      "scene_aligned_difference_bounds": [
+        217,
+        195,
+        223,
+        199
+      ]
+    },
+    {
+      "frame": 33,
+      "scene": 150994944,
+      "matching_rust_ticks": [],
+      "cycle": 1289,
+      "scene_aligned_rust_tick": 1289,
+      "scene_aligned_equal": false,
+      "scene_aligned_different_pixels": 16,
+      "scene_aligned_difference_bounds": [
+        217,
+        195,
+        223,
+        199
+      ]
+    },
+    {
+      "frame": 34,
+      "scene": 150994944,
+      "matching_rust_ticks": [],
+      "cycle": 1290,
+      "scene_aligned_rust_tick": 1290,
+      "scene_aligned_equal": false,
+      "scene_aligned_different_pixels": 18,
+      "scene_aligned_difference_bounds": [
+        217,
+        195,
+        223,
+        199
+      ]
+    },
+    {
+      "frame": 35,
+      "scene": 150994944,
+      "matching_rust_ticks": [],
+      "cycle": 1291,
+      "scene_aligned_rust_tick": 1291,
+      "scene_aligned_equal": false,
+      "scene_aligned_different_pixels": 18,
+      "scene_aligned_difference_bounds": [
+        217,
+        195,
+        223,
+        199
+      ]
+    },
+    {
+      "frame": 36,
+      "scene": 150994944,
+      "matching_rust_ticks": [],
+      "cycle": 1292,
+      "scene_aligned_rust_tick": 1292,
+      "scene_aligned_equal": false,
+      "scene_aligned_different_pixels": 25,
+      "scene_aligned_difference_bounds": [
+        215,
+        195,
+        225,
+        199
+      ]
+    },
+    {
+      "frame": 37,
+      "scene": 150994944,
+      "matching_rust_ticks": [],
+      "cycle": 1293,
+      "scene_aligned_rust_tick": 1293,
+      "scene_aligned_equal": false,
+      "scene_aligned_different_pixels": 25,
+      "scene_aligned_difference_bounds": [
+        215,
+        195,
+        225,
+        199
+      ]
+    }
+  ],
+  "observation": "Differences begin at press, cycle1269, remain near the cursor, and end after cycle1293. Frames from1294 onward match again, including the resized window.",
+  "suspected_cause": "Original DoCursorMove notifies inventory xMovement/yMovement, which calls invCursor before drag start. Rust shape update is scheduled at tick end and returns early during an active drag. The diagnostic movement path currently applies trails but does not synchronously update cursor shape. Confirm ordering and host behavior before changing production code.",
+  "engine_changed": false,
+  "core_tests": 360,
+  "clippy": "core all-target passed",
+  "prior_modes": {
+    "fixed_corner_matches": 72,
+    "header_drag_matches": 72
+  },
+  "reference_capture_sha256": "abc0fceab2a81621674b3323d4ee5501ce6658d66ff0ad2f30ae86ddf6d11ff7",
+  "rust_capture_sha256": "911a4056c63842fbd5667079510edff5b87a1acda365aa88b8e9cbe61a1d4b43",
+  "comparison_sha256": "a1b8ce04ab97d63f97158a323745fe6bde27255c37e9d8d4fdd4126e3956ff2e",
+  "rejected_attempt": "rust-luggage-resize1 failed because the diagnostic bytecode chunk incorrectly used13 as next-chunk link; corrected to0. No production parser change."
+}

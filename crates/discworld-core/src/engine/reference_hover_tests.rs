@@ -11,12 +11,22 @@ fn capture_original_debug_room_hover() {
     let iso = crate::iso::Iso::parse(&data).unwrap();
     let index = crate::resource::parse_index(iso.file("/DISCWLD/INDEX").unwrap()).unwrap();
     assert_eq!(index[18].name, "rinceroo.scn");
-    let resources = Resources(
+    let inventory_resize = std::env::var_os("DISCWORLD_HOVER_INVENTORY_RESIZE").is_some();
+    let mut resources = Resources(
         index
             .iter()
             .map(|entry| iso.file(&format!("/DISCWLD/{}", entry.name)).unwrap())
             .collect(),
     );
+    // Diagnostic-only library call: PUSH 1; LIB INVENTORY; HALT.
+    // Original resource bytes remain unchanged; this process is never scheduled.
+    let mut open_inventory = Vec::from(0x3334000au32.to_le_bytes());
+    open_inventory.extend_from_slice(&0u32.to_le_bytes());
+    open_inventory.extend_from_slice(&[0x41, 1, 0x4e, 37, 0]);
+    let open_inventory_code = Handle(((resources.0.len() as u32) << 23) | 8);
+    if inventory_resize {
+        resources.0.push(&open_inventory);
+    }
     let bank = SampleBank::new(
         iso.file("/DISCWLD/ENGLISH.IDX").unwrap(),
         iso.file("/DISCWLD/ENGLISH.SMP").unwrap(),
@@ -39,7 +49,10 @@ fn capture_original_debug_room_hover() {
     let direct_entry = std::env::var_os("DISCWORLD_HOVER_DIRECT_ENTRY").is_some();
     let inventory_fixed_corner =
         std::env::var_os("DISCWORLD_HOVER_INVENTORY_FIXED_CORNER").is_some();
-    let inventory_drag = std::env::var_os("DISCWORLD_HOVER_INVENTORY_DRAG").is_some();
+    assert!(!(inventory_fixed_corner && inventory_resize));
+    let inventory_drag = inventory_fixed_corner
+        || inventory_resize
+        || std::env::var_os("DISCWORLD_HOVER_INVENTORY_DRAG").is_some();
     if inventory_drag {
         points = [
             [50, 120],
@@ -60,7 +73,17 @@ fn capture_original_debug_room_hover() {
             [10, 10],
         ];
     }
-    let inventory_mode = std::env::var_os("DISCWORLD_HOVER_INVENTORY").is_some();
+    if inventory_resize {
+        points = [
+            [50, 120],
+            [194, 172],
+            [220, 198],
+            [220, 198],
+            [10, 10],
+            [10, 10],
+        ];
+    }
+    let inventory_mode = inventory_drag || std::env::var_os("DISCWORLD_HOVER_INVENTORY").is_some();
     let look_mode = std::env::var_os("DISCWORLD_HOVER_LOOK").is_some();
     let walk_delay =
         std::env::var("DISCWORLD_HOVER_WALK_DELAY").map_or(1, |s| s.parse::<u64>().unwrap());
@@ -167,9 +190,29 @@ fn capture_original_debug_room_hover() {
                     assert!(!engine.processes.states().any(|p| p.player_walk.is_some()));
                 }
                 if inventory_mode && elapsed == 0 {
-                    engine
-                        .interact_actor(&resources, 7, PolygonInteraction::WalkTo)
-                        .unwrap();
+                    if inventory_resize {
+                        let mut process = ScriptProcess::new(open_inventory_code);
+                        assert_eq!(
+                            engine
+                                .run_process(
+                                    &resources,
+                                    Some(&bank),
+                                    Some(&tracks),
+                                    Some(&strings),
+                                    &mut process
+                                )
+                                .unwrap(),
+                            Status::Halted
+                        );
+                        assert_eq!(
+                            engine.declarations.windows[1].as_ref().unwrap().size,
+                            [3, 2]
+                        );
+                    } else {
+                        engine
+                            .interact_actor(&resources, 7, PolygonInteraction::WalkTo)
+                            .unwrap();
+                    }
                 }
                 if look_mode && elapsed == 0 {
                     assert!(
@@ -179,7 +222,7 @@ fn capture_original_debug_room_hover() {
                     );
                 }
                 if inventory_drag && elapsed == 12 {
-                    if inventory_fixed_corner {
+                    if inventory_fixed_corner || inventory_resize {
                         assert_eq!(
                             engine
                                 .inventory_display
@@ -201,6 +244,9 @@ fn capture_original_debug_room_hover() {
                         assert!(engine.inventory_resize.is_none());
                     } else {
                         assert!(engine.inventory_dragging());
+                        if inventory_resize {
+                            assert!(engine.inventory_resize.is_some());
+                        }
                     }
                 }
                 if inventory_drag && elapsed == 36 {
@@ -209,9 +255,18 @@ fn capture_original_debug_room_hover() {
                         .unwrap();
                     assert!(!engine.inventory_dragging());
                     assert!(engine.inventory_resize.is_none());
+                    if inventory_resize {
+                        assert_eq!(
+                            engine.declarations.windows[1].as_ref().unwrap().size,
+                            [4, 3]
+                        );
+                    }
                 }
                 if inventory_mode && elapsed == (if inventory_drag { 48 } else { 36 }) {
-                    assert_eq!(engine.active_inventory(), Some(2));
+                    assert_eq!(
+                        engine.active_inventory(),
+                        Some(if inventory_resize { 1 } else { 2 })
+                    );
                     let before = engine.clone();
                     assert!(
                         engine

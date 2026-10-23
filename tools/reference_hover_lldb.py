@@ -17,6 +17,7 @@ import reference_frames_lldb as frames
 INVENTORY = os.environ.get("DISCWORLD_REFERENCE_INVENTORY") == "1"
 INVENTORY_DRAG = os.environ.get("DISCWORLD_REFERENCE_INVENTORY_DRAG") == "1"
 INVENTORY_FIXED_CORNER = os.environ.get("DISCWORLD_REFERENCE_INVENTORY_FIXED_CORNER") == "1"
+INVENTORY_RESIZE = os.environ.get("DISCWORLD_REFERENCE_INVENTORY_RESIZE") == "1"
 LOOK = os.environ.get("DISCWORLD_REFERENCE_LOOK") == "1"
 WALK = os.environ.get("DISCWORLD_REFERENCE_WALK") == "1"
 WALK_FROM_ACTOR = os.environ.get("DISCWORLD_REFERENCE_WALK_FROM_ACTOR") == "1"
@@ -35,6 +36,9 @@ if INVENTORY_DRAG:
 
 if INVENTORY_FIXED_CORNER:
     POINTS = [[50, 120], [169, 147], [189, 167], [189, 167], [10, 10], [10, 10]]
+
+if INVENTORY_RESIZE:
+    POINTS = [[50, 120], [194, 172], [220, 198], [220, 198], [10, 10], [10, 10]]
 
 
 def invoke(frame, expression):
@@ -110,7 +114,10 @@ def cycle(frame, location, dictionary):
                     # LLDB does not expose these enumerators in this build.
                     # events.h: WALKTO=9, PLR_NOEVENT=16. The resolved pockets
                     # command bypasses raw-click double-click arbitration.
-                    PENDING.append('Tinsel::ActorEvent(7, (Tinsel::TINSEL_EVENT)9, (Tinsel::PLR_EVENT)16)')
+                    if INVENTORY_RESIZE:
+                        PENDING.append('Tinsel::_vm->_dialogs->popUpInventory(1, 0)')
+                    else:
+                        PENDING.append('Tinsel::ActorEvent(7, (Tinsel::TINSEL_EVENT)9, (Tinsel::PLR_EVENT)16)')
                 if LOOK and elapsed == 0:
                     PENDING.append('Tinsel::ActorEvent(7, (Tinsel::TINSEL_EVENT)10, (Tinsel::PLR_EVENT)16)')
                 if INVENTORY_DRAG and elapsed == 12:
@@ -261,7 +268,7 @@ def finish(debugger):
     path = frames.OUTPUT / 'capture.json'
     report = json.loads(path.read_text())
     report.update(scope='Controlled original debug scene entry, logical driver writes and original DoCursorMove; not normal host input or full gameplay equivalence.',
-                  injected_actions=ACTIONS, hover_start_cycle=START, inventory_diagnostic=INVENTORY, inventory_drag=INVENTORY_DRAG, inventory_fixed_corner=INVENTORY_FIXED_CORNER, look_diagnostic=LOOK, walk_diagnostic=WALK, walk_delay=WALK_DELAY, walk_from_actor=WALK_FROM_ACTOR)
+                  injected_actions=ACTIONS, hover_start_cycle=START, inventory_diagnostic=INVENTORY, inventory_drag=INVENTORY_DRAG, inventory_resize=INVENTORY_RESIZE, inventory_fixed_corner=INVENTORY_FIXED_CORNER, look_diagnostic=LOOK, walk_diagnostic=WALK, walk_delay=WALK_DELAY, walk_from_actor=WALK_FROM_ACTOR)
     path.write_text(json.dumps(report, indent=2) + '\n')
 
 
