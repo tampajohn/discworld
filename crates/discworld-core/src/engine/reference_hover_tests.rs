@@ -38,6 +38,7 @@ fn capture_original_debug_room_hover() {
     ];
     let mut start = None;
     let mut rows = Vec::new();
+    let mut previous_cursor = None;
     engine.scene_calls = Some(Default::default());
     for _ in 0..4000 {
         // The reference requests its debugger scene change before cycle 450.
@@ -52,6 +53,7 @@ fn capture_original_debug_room_hover() {
             && start.is_none()
         {
             start = Some(engine.ticks);
+            previous_cursor = Some(engine.control.cursor);
         }
         if let Some(start) = start {
             let elapsed = engine.ticks - start;
@@ -64,9 +66,44 @@ fn capture_original_debug_room_hover() {
             .unwrap();
         assert!(!matches!(status, Status::Unsupported(_) | Status::Quit));
         if start.is_some() {
-            let rgb: Vec<_> = engine
-                .render(&resources)
-                .unwrap()
+            let surface = engine.render(&resources).unwrap();
+            if rows.is_empty() {
+                let cursor_film = engine.declarations.cursor.as_ref().unwrap().0;
+                let film = Film::read(&resources, cursor_film).unwrap();
+                println!(
+                    "Cursor film {}: {} reels, previous position {:?}",
+                    cursor_film.0,
+                    film.reels.len(),
+                    previous_cursor.unwrap()
+                );
+                // Diagnostic only: test whether original trail reel pixels account
+                // for the first-frame difference. This does not change runtime state.
+                for (column, reel) in film.reels.iter().enumerate().skip(1) {
+                    let mut trail =
+                        Animation::new(&resources, reel, 24 / film.rate as u32).unwrap();
+                    [trail.object.x, trail.object.y] = previous_cursor.unwrap();
+                    for step in 1..=2 {
+                        trail.tick(&resources).unwrap();
+                        let mut candidate = surface.clone();
+                        candidate.draw_animation(&resources, &trail).unwrap();
+                        let rgb: Vec<_> = candidate
+                            .rgba
+                            .chunks_exact(4)
+                            .flat_map(|p| p[..3].iter().copied())
+                            .collect();
+                        std::fs::write(
+                            directory.join(format!("trail-reel-{column}-step-{step}.rgb")),
+                            &rgb,
+                        )
+                        .unwrap();
+                        println!(
+                            "Trail reel {column} step {step}: {:x}",
+                            Sha256::digest(&rgb)
+                        );
+                    }
+                }
+            }
+            let rgb: Vec<_> = surface
                 .rgba
                 .chunks_exact(4)
                 .flat_map(|p| p[..3].iter().copied())

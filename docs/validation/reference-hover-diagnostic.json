@@ -115,5 +115,38 @@
   "limitations": [
     "No production engine change in this diagnostic pass.",
     "No visible session update or device audio listening performed."
-  ]
+  ],
+  "controlled_input_followup": {
+    "reference_capture": "assets/validation/reference-hover-attempt7/frames/capture.json",
+    "reference_capture_sha256": "57560aa1282f76da0379ef77bb3f9d67482405c2359e9e3c08a6d797e3255e36",
+    "probe_sha256": "4d7eda85821fffe15b91c8b49815130edf186a0ede2900fa4c18cde21260c53e",
+    "input_method": "Write original logical driver x/y, then invoke original DoCursorMove at the same six cycle boundaries. This deliberately bypasses host warp conversion and is not host-input acceptance.",
+    "driver_positions_verified": 72,
+    "driver_position_mismatches": 0,
+    "reference_complete": true,
+    "reference_errors": [],
+    "comparison": "assets/validation/hover-compare-attempt7.json",
+    "comparison_sha256": "6cffc3877a50275f1632bf60710578c5cc0b0f243fd99661783d3908c5e62a1a",
+    "exact_full_frame_matches": 6,
+    "different_pixel_range": [
+      0,
+      713
+    ],
+    "trail_proof": {
+      "candidate": "assets/validation/rust-reference-hover-attempt2/trail-reel-1-step-1.rgb",
+      "rgb_sha256": "6eedeea2652d90cf6f6b5e8f888f28f63a860b3ffe4b8bcb9f157b0df65145d7",
+      "reference_frame": 1,
+      "reference_cycle": 1257,
+      "method": "Draw original cursor film trail reel 1, step 1 at engine pre-move cursor [149,104], over unmodified Rust runtime first-frame output. Exact full-frame reference equality confirms the five missing pixels come from an omitted trail. Diagnostic composition only; runtime still does not draw trails."
+    },
+    "remaining_differences": "Remaining frame mismatches include animated scene objects, not just cursor pixels. Some reference frames are closer to the preceding Rust tick; timing/order must be measured rather than assuming capture cycle equals engine tick. No whole-sequence equivalence claim.",
+    "checks": [
+      "Original ISO diagnostic captures attempt2 and attempt3 passed, each 72 frames.",
+      "All requested driver coordinates persisted for their complete 12-frame intervals."
+    ],
+    "next_steps": [
+      "Trace original cursor trail animation and scheduler phases; implement trail state with correct scene reset, inventory suppression and save continuation.",
+      "Resolve animated-scene frame phase separately from cursor rendering."
+    ]
+  }
 }

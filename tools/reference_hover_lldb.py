@@ -51,7 +51,11 @@ def cycle(frame, location, dictionary):
             elapsed = frames.CYCLES - START
             if elapsed % 12 == 0 and elapsed // 12 < len(POINTS):
                 x, y = POINTS[elapsed // 12]
-                PENDING.append(f'Tinsel::_vm->_cursor->SetCursorScreenXY({x}, {y})')
+                # Set the logical driver position without the dummy SDL backend's
+                # warp conversion, then run the original cursor movement logic.
+                PENDING.append(f'Tinsel::_vm->_mousePos.x = {x}, '
+                               f'Tinsel::_vm->_mousePos.y = {y}, '
+                               'Tinsel::_vm->_cursor->DoCursorMove()')
                 return True
         if frames.CYCLES >= 4000:
             raise RuntimeError('hover diagnostic cycle budget exhausted')
@@ -120,7 +124,7 @@ def finish(debugger):
     frames.finish(debugger)
     path = frames.OUTPUT / 'capture.json'
     report = json.loads(path.read_text())
-    report.update(scope='Controlled original debug scene entry and cursor API; not normal host input or full gameplay equivalence.',
+    report.update(scope='Controlled original debug scene entry, logical driver writes and original DoCursorMove; not normal host input or full gameplay equivalence.',
                   injected_actions=ACTIONS, hover_start_cycle=START)
     path.write_text(json.dumps(report, indent=2) + '\n')
 
