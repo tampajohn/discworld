@@ -27,14 +27,35 @@
     "Native SDL dummy legacy-load smoke: 30 frames, tick33213, rinceroo.scn, stopped=false."
   ],
   "browser_ui": {
-    "status": "running",
-    "log": "assets/logs/cursor-trails-runtime-ui.log",
-    "initial_known_failure": "Inventory header-drag test expected v24 after advancing; runtime correctly exports v25. Assertion updated; targeted rerun remains required."
+    "status": "all 44 cases covered across initial run and corrected targeted rerun",
+    "initial": "43 passed; Chrome inventory-drag assertion still expected v24.",
+    "retry": "Chrome passed; WebKit exported v24 because no engine tick had elapsed. This exposed a test timing race, not a failed version-25 restore.",
+    "correction": "Explicitly wait for data-tick to advance after resuming before starting the drag; then require v25 and nested inventory schema v5.",
+    "final": "Both Chrome and WebKit header-drag tests pass after the tick wait. Four Node tests also passed in initial npm run.",
+    "logs": [
+      "assets/logs/cursor-trails-runtime-ui.log",
+      "assets/logs/cursor-trails-runtime-ui-drag-retry.log",
+      "assets/logs/cursor-trails-runtime-ui-drag-tick-wait.log"
+    ]
   },
   "remaining": [
-    "Finish browser UI suite and rerun corrected drag test.",
-    "Run full-route native/browser regression on frozen current runtime.",
-    "Refresh standalone development packages and visible manual session.",
+    "Complete frozen native/browser full-route audits and compare final engine bytes and pixels.",
+    "Verify current visible manual session.",
     "Resolve remaining reference animation timing; physical iPad and broader compatibility acceptance remain open."
-  ]
+  ],
+  "full_route": {
+    "status": "running",
+    "runtime_revision": "61b9d73",
+    "root": "assets/validation/cursor-trails-61b9d73",
+    "frozen_files_verified": true,
+    "native_pid": 59457,
+    "chrome_pid": 60138,
+    "webkit_pid": 60139,
+    "http": {
+      "pid": 60119,
+      "port": 65010,
+      "directory": "/Users/jadams/workspace/discworld/assets/validation/cursor-trails-61b9d73/web"
+    },
+    "scope": "Native and actual Chrome/WebKit workers run unchanged 2630000-tick input trace. Completion and cross-host comparison pending."
+  }
 }

@@ -143,8 +143,12 @@ test('inventory header drag renders immediately and roundtrips an active drag', 
     await page.evaluate(() => document.querySelector('#export').click());
     return fs.readFile(await (await download).path());
   };
+  const loadedTick = Number(await canvas.getAttribute('data-tick'));
   await page.locator('#pause').click();
   await expect(page.locator('#pause')).toHaveText('Pause');
+  // A legacy snapshot gains trail state on its first cursor update. Wait for
+  // that update explicitly; a fast drag/pause can otherwise export v24.
+  await expect.poll(async () => Number(await canvas.getAttribute('data-tick'))).toBeGreaterThan(loadedTick);
   await move(140, 110);
   await page.mouse.down();
   await expect(canvas).toHaveAttribute('data-dragging', 'true');

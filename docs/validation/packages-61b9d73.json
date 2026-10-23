@@ -1,0 +1,69 @@
+{
+  "source_revision": "61b9d73cda44a5ce78637908280d50499f8a54b0",
+  "packages": {
+    "native": {
+      "path": "assets/packages/discworld-native-61b9d73.tar.gz",
+      "bytes": 4103340,
+      "sha256": "3eb0cf625cce85d9af445c62713352c58b4493edf2d838f70e1e0504009aa0cd"
+    },
+    "web": {
+      "path": "assets/packages/discworld-web-61b9d73.zip",
+      "bytes": 3059644,
+      "sha256": "49df99e3c19fc7d343942918ef4785fbd1673f506f3024040205deacf46a46d0"
+    }
+  },
+  "extracted": {
+    "root": "/var/folders/1j/8_5gj1n12qn9xxxqp9n_0nq80000gp/T/discworld-61b9d73-ve8nsob_",
+    "manifests_verified": true
+  },
+  "native": [
+    "arm64 architecture, system-only dependencies, strict codesign verified by package builder.",
+    "Extracted outside checkout: SDL dummy/mute/headroom startup 30 frames -> tick13 psygnosi.scn stopped=false.",
+    "Extracted legacy load: 30 frames -> tick33213 rinceroo.scn stopped=false."
+  ],
+  "browsers": [
+    {
+      "scenario": "startup",
+      "browser": "chrome",
+      "version": "156.0.8078.47",
+      "tick": "13",
+      "headroom": true,
+      "errors": []
+    },
+    {
+      "scenario": "startup",
+      "browser": "webkit",
+      "version": "27.2",
+      "tick": "13",
+      "headroom": true,
+      "errors": []
+    },
+    {
+      "scenario": "legacy-save",
+      "browser": "chrome",
+      "version": "156.0.8078.47",
+      "tick": "33213",
+      "headroom": true,
+      "errors": []
+    },
+    {
+      "scenario": "legacy-save",
+      "browser": "webkit",
+      "version": "27.2",
+      "tick": "33213",
+      "headroom": true,
+      "errors": []
+    }
+  ],
+  "save_checks": "Legacy load initially exports v24 without advancing. All four extracted-browser scenarios export v25 after advancing at least 12 ticks. No page errors.",
+  "limitations": [
+    "Native remains a CLI development archive, not a Finder app.",
+    "Full-route audits on this runtime are still running.",
+    "No current visible native session verification or physical iPad/audio listening acceptance."
+  ],
+  "logs": [
+    "assets/logs/package-61b9d73-native.log",
+    "assets/logs/package-61b9d73-native-load.log",
+    "assets/logs/package-61b9d73-smoke.log"
+  ]
+}

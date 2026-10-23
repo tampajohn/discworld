@@ -69,9 +69,15 @@ platforms. This audit predates the small blocking-PLAY hover lookup fix above.
 See [world-hover-route.json](validation/world-hover-route.json). Remaining:
 independent interactive hover/reference comparison, updated visible session,
 physical iPad acceptance, Finder application delivery and broader fidelity gates.
-Current development packages are refreshed at f82598d: extracted native and
-Chrome/WebKit bundles pass startup and legacy-load checks outside the checkout;
-see [packages-f82598d.json](validation/packages-f82598d.json).
+Current development packages are refreshed at 61b9d73 with original cursor
+trails and version-25 saves. Extracted native and Chrome/WebKit bundles pass
+startup and legacy-load checks outside the checkout; browser post-advance
+exports use v25. See [packages-61b9d73.json](validation/packages-61b9d73.json).
+The integrated 72-frame controlled reference comparison matches 58 images
+exactly (54 at the same capture cycle); remaining animation-phase differences
+are unresolved. All 44 browser UI cases are covered across the full run and
+corrected drag-test rerun. Frozen native/Chrome/WebKit full-route audits on this
+runtime are running; see [cursor-trails-runtime.json](validation/cursor-trails-runtime.json).
 No visible native process was running at the last process check; a current
 manual session still needs to be launched and verified advancing.
 
