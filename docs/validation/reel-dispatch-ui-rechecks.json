@@ -9,7 +9,19 @@
     "Check active drag state, exact save/pixel round-trip and release rather than assuming outer schema version 8/4."
   ],
   "timeouts": "Two original Chrome cases timed out opening the game before their interaction; each passed a targeted rerun without extending the timeout.",
-  "complete_suite": "Original 44-case suite still running; no complete pass claimed.",
+  "complete_suite": {
+    "initial_run": "40 passed, 4 failed, exit 1",
+    "failed_cases": [
+      "Chrome maximize: 60-second opening timeout",
+      "Chrome resize scrolling: expected schema 8, actual 9",
+      "Chrome touch Escape: 60-second opening timeout",
+      "WebKit resize scrolling: expected schema 8, actual 9"
+    ],
+    "targeted_rechecks": "All four failed cases passed targeted rechecks; WebKit maximize also passed. This is combined coverage, not a single clean 44-case run.",
+    "node_tests": "4 passed",
+    "runtime_revision": "85b728a4a58009ed941d216bbdf76521fe27360a",
+    "log": "assets/logs/reel-dispatch-browser-ui.log"
+  },
   "test_source_sha256": "bffa701f6c3ff2cfd632f73744524f279ac9a2910f78d044d6b8d22a77c985d8",
   "schema": 1,
   "production_wasm_sha256": "7dcfe86860e72213db470ef898d2c0133b4c3bdfc7012179af5c44b0b52d97bc",
@@ -24,5 +36,5 @@
     "Exact exported save bytes and rendered pixels after import",
     "Drag ends on button release and exported state changes"
   ],
-  "scope_limit": "These are targeted automated browser checks, not physical iPad or complete-suite acceptance."
+  "scope_limit": "Automated UI coverage from the initial run plus targeted rechecks; not physical iPad or a single clean complete-suite run."
 }
