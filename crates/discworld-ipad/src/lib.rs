@@ -40,6 +40,18 @@ impl Host {
             let game = self.game.as_mut().ok_or("Game is not open")?;
             match text("op")? {
                 "advance" => self.audio = game.advance(1)?,
+                "pointer" | "inventory-press" => {
+                    let x = request["x"].as_i64().ok_or("missing x")?;
+                    let y = request["y"].as_i64().ok_or("missing y")?;
+                    let x = i32::try_from(x).map_err(|e| e.to_string())?;
+                    let y = i32::try_from(y).map_err(|e| e.to_string())?;
+                    if text("op")? == "pointer" {
+                        game.move_pointer_checked(x, y)?;
+                    } else if game.native_inventory_contains(x, y) {
+                        game.move_pointer_checked(x, y)?;
+                        game.input("left-down")?;
+                    }
+                }
                 "input" => {
                     if let (Some(x), Some(y)) = (request["x"].as_i64(), request["y"].as_i64()) {
                         game.move_pointer_checked(

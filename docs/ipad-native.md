@@ -19,7 +19,7 @@ xcrun simctl launch booted org.tampajohn.discworld.dev
 
 The script currently builds **only for the Apple Silicon simulator**. It
 includes the staged ISO and SoundFont in one ad-hoc-signed app. The observed
-prototype is `assets/apps/Discworld-iPad-8.app`. Startup reaches the bedroom;
+prototype is `assets/apps/Discworld-iPad-10.app`. Startup reaches the bedroom;
 quick-save/load preserves pixels, and a separate app launch loads the same
 save from the application container. See [application evidence](validation/ipad-app-prototype.json).
 
@@ -34,12 +34,20 @@ One landscape game-canvas tap now moves Rincewind from `[200,178]` to
 read-only native inspection. Pockets opens inventory 2 and Close removes it;
 the original-font title, border and backing were visually inspected. See
 [canvas evidence](validation/ipad-native-canvas.json). This does not yet cover
-item handling, dragging, resizing or scene transitions through touch.
+item handling, resizing or scene transitions through touch.
+One-finger pans now use the engine's existing inventory hit regions and mouse
+press/move/release path. The native host preserves the initial touch before
+UIKit recognizes the pan and forwards its final position before releasing it.
+Pause, load and application suspension also release an owned drag. Canvas taps
+and new drags are ignored while paused.
+The simulator test verifies an exact `[30,20]` window displacement, release,
+subsequent input and paused-drag rejection. See [drag evidence](validation/ipad-native-drag.json).
+Cancellation and suspension release paths still need direct acceptance tests.
 The host adapts to
 both landscape orientations and portrait, with the full game scene and controls
 visible in inspected full-screen simulator captures. XCTest verifies that all
 nine host buttons are hittable and wholly inside the window after each rotation.
-See [layout evidence](validation/ipad-native-layout.json). Inventory dragging,
+See [layout evidence](validation/ipad-native-layout.json). Inventory item handling,
 the original save menus, save export/import, physical-device signing and full
 touch play remain pending.
 
@@ -115,18 +123,17 @@ The staging command copies and verifies the original files into
 
 Staging refuses to replace an existing bundle. Use `--output` with another
 location under the ignored `assets` directory to prepare a new one. This
-directory is intended to become an application resource, not a separate user
-installation. It is not an installable app today. Public source and runtime
+directory is copied into the simulator application by `build-ipad.py`, so no
+separate resource installation is needed. The staging directory alone is not
+an installable app. Public source and runtime
 packages must not acquire these private game resources.
 
 ## Remaining integration and acceptance
 
-Build a native iPad host around the shared engine, with a narrowly scoped
-platform bridge. Keep game logic in safe Rust and preserve the workspace's
-safety rule; review any required foreign-function boundary separately.
-Present the existing framebuffer with native display code and send existing
-generated audio to native playback. Add landscape touch controls and lifecycle
-handling, retaining original game fonts and artwork.
+The native host, platform bridge, framebuffer presentation, audio playback and
+basic landscape touch controls are implemented as described above. Complete
+inventory resizing and item handling, original save menus and lifecycle acceptance,
+retaining original game fonts and artwork.
 
 The internal application must locate and validate the bundled assets at
 startup, store saves in its writable application container, and support save

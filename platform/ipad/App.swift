@@ -22,6 +22,19 @@ final class GameScene: UIResponder, UIWindowSceneDelegate {
     }
 }
 
+// Preserve the down position before UIKit crosses its pan-recognition threshold.
+final class InventoryPan: UIPanGestureRecognizer {
+    var start: CGPoint?
+    override func touchesBegan(_ touches: Set<UITouch>, with event: UIEvent) {
+        if start == nil, let touch = touches.first { start = touch.location(in: view) }
+        super.touchesBegan(touches, with: event)
+    }
+    override func reset() {
+        super.reset()
+        start = nil
+    }
+}
+
 final class GameController: UIViewController {
     let picture = UIImageView()
     let status = UILabel()
@@ -37,6 +50,7 @@ final class GameController: UIViewController {
     var paused = false
     var muted = true
     var audioReady = false
+    var dragging = false
     var action = "walk"
     var snapshot: [String: Any] = [:]
     var completedAudioBuffers = 0
@@ -74,7 +88,12 @@ final class GameController: UIViewController {
         picture.isAccessibilityElement = true
         picture.accessibilityIdentifier = "game-frame"
         picture.accessibilityLabel = "Discworld game"
-        picture.addGestureRecognizer(UITapGestureRecognizer(target: self, action: #selector(tap(_:))))
+        let tap = UITapGestureRecognizer(target: self, action: #selector(tap(_:)))
+        let pan = InventoryPan(target: self, action: #selector(drag(_:)))
+        pan.maximumNumberOfTouches = 1
+        tap.require(toFail: pan)
+        picture.addGestureRecognizer(tap)
+        picture.addGestureRecognizer(pan)
         status.textColor = .white
         status.numberOfLines = 2
         status.text = "Loading Discworld…"
@@ -94,7 +113,7 @@ final class GameController: UIViewController {
         tools.distribution = .fillProportionally
         tools.addArrangedSubview(modes)
         tools.addArrangedSubview(button("Save") { [weak self] in self?.send(["op": "save"]) })
-        tools.addArrangedSubview(button("Load") { [weak self] in self?.resetAudio(); self?.send(["op": "load"]) })
+        tools.addArrangedSubview(button("Load") { [weak self] in self?.releaseDrag(); self?.resetAudio(); self?.send(["op": "load"]) })
         let mute = UIButton(type: .system)
         mute.setTitle("Sound off", for: .normal)
         mute.addAction(UIAction { [weak self] _ in
@@ -110,6 +129,7 @@ final class GameController: UIViewController {
         pause.setTitle("Pause", for: .normal)
         pause.addAction(UIAction { [weak self] _ in
             guard let self else { return }
+            self.releaseDrag()
             self.paused.toggle(); self.resetAudio()
             pause.setTitle(self.paused ? "Resume" : "Pause", for: .normal)
             self.render()
@@ -223,14 +243,43 @@ final class GameController: UIViewController {
             }
         }
     }
-    @objc func tap(_ gesture: UITapGestureRecognizer) {
+    func gamePoint(_ point: CGPoint, clamp: Bool = false) -> [Int]? {
         let scale = min(picture.bounds.width / 320, picture.bounds.height / 200)
-        guard scale > 0 else { return }
+        guard scale > 0 else { return nil }
         let origin = CGPoint(x: (picture.bounds.width - 320 * scale) / 2, y: (picture.bounds.height - 200 * scale) / 2)
-        let point = gesture.location(in: picture)
         let x = (point.x - origin.x) / scale, y = (point.y - origin.y) / scale
-        guard x >= 0, x < 320, y >= 0, y < 200 else { return }
-        send(["op": "input", "command": action, "x": Int(x), "y": Int(y)])
+        guard clamp || (x >= 0 && x < 320 && y >= 0 && y < 200) else { return nil }
+        return [Int(max(0, min(319, x))), Int(max(0, min(199, y)))]
+    }
+    @objc func tap(_ gesture: UITapGestureRecognizer) {
+        guard !paused, let point = gamePoint(gesture.location(in: picture)) else { return }
+        send(["op": "input", "command": action, "x": point[0], "y": point[1]])
+    }
+    func releaseDrag() {
+        guard dragging else { return }
+        dragging = false
+        send(["op": "input", "command": "left-up"])
+    }
+    @objc func drag(_ gesture: InventoryPan) {
+        if gesture.state == .ended || gesture.state == .cancelled || gesture.state == .failed {
+            if gesture.state == .ended, dragging, !paused,
+               let point = gamePoint(gesture.location(in: picture), clamp: true) {
+                send(["op": "pointer", "x": point[0], "y": point[1]])
+            }
+            releaseDrag()
+            return
+        }
+        guard ready, !paused else { releaseDrag(); return }
+        let location = gesture.location(in: picture)
+        if gesture.state == .began {
+            guard let origin = gesture.start, let start = gamePoint(origin) else { return }
+            // The engine owns the original inventory hit regions and drag rules.
+            send(["op": "inventory-press", "x": start[0], "y": start[1]])
+            dragging = true
+        }
+        if dragging, let point = gamePoint(location, clamp: true) {
+            send(["op": "pointer", "x": point[0], "y": point[1]])
+        }
     }
     func startAudio() {
         do {
@@ -271,6 +320,6 @@ final class GameController: UIViewController {
             render()
         } catch { paused = true; resetAudio(); status.text = error.localizedDescription }
     }
-    @objc func suspended() { resetAudio(); audioEngine.pause(); audioReady = false }
+    @objc func suspended() { releaseDrag(); resetAudio(); audioEngine.pause(); audioReady = false }
     @objc func resumed() { previous = 0; accumulator = 0; if !muted { startAudio() } }
 }

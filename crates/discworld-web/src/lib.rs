@@ -626,9 +626,13 @@ impl BrowserGame {
     }
 }
 
-// Read-only native UI-test observations, not exported through wasm-bindgen.
+// Read-only native hit testing and UI-test observations, not exported through wasm-bindgen.
 #[cfg(feature = "native-inspection")]
 impl BrowserGame {
+    pub fn native_inventory_contains(&self, x: i32, y: i32) -> bool {
+        self.engine.inventory_contains_point([x, y])
+    }
+
     pub fn native_inspection(&self) -> serde_json::Value {
         let lead = self
             .engine
@@ -643,6 +647,10 @@ impl BrowserGame {
             "walk_target": lead.and_then(|mover| mover.walk_target),
             "inventory": self.engine.active_inventory(),
             "held_object": self.engine.held_object,
+            "inventory_dragging": self.inventory_dragging(),
+            "inventory_position": self.engine.active_inventory()
+                .and_then(|slot| self.engine.declarations.windows.get(slot as usize))
+                .and_then(|window| window.as_ref()).map(|window| window.position),
         })
     }
 }

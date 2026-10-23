@@ -44,9 +44,34 @@ final class DiscworldLayoutTests: XCTestCase {
         shot.name = "touch-opened-pockets"
         shot.lifetime = .keepAlways
         add(shot)
+        app.buttons["Resume"].tap()
+        let position = try XCTUnwrap((pockets["inspection"] as? [String: Any])?["inventory_position"] as? [Int])
+        func coordinate(_ x: Int, _ y: Int) -> XCUICoordinate {
+            canvas.coordinate(withNormalizedOffset: .zero).withOffset(CGVector(
+                dx: (size.width - 320 * scale) / 2 + (CGFloat(x) + 0.5) * scale,
+                dy: (size.height - 200 * scale) / 2 + (CGFloat(y) + 0.5) * scale))
+        }
+        coordinate(position[0] + 30, position[1] + 8).press(forDuration: 0.1,
+            thenDragTo: coordinate(position[0] + 60, position[1] + 28))
+        waitFor(app) {
+            let inspection = $0["inspection"] as? [String: Any]
+            return inspection?["inventory_position"] as? [Int] == [position[0] + 30, position[1] + 20]
+                && inspection?["inventory_dragging"] as? Bool == false
+        }
+        let dragged = state(app)
+        // A later pointer action must not keep moving the released window.
+        coordinate(160, 185).tap()
+        XCTAssertEqual((state(app)["inspection"] as? [String: Any])?["inventory_position"] as? [Int],
+                       [position[0] + 30, position[1] + 20])
+        app.buttons["Pause"].tap()
+        coordinate(position[0] + 60, position[1] + 28).press(forDuration: 0.1,
+            thenDragTo: coordinate(position[0] + 80, position[1] + 38))
+        XCTAssertEqual((state(app)["inspection"] as? [String: Any])?["inventory_position"] as? [Int],
+                       [position[0] + 30, position[1] + 20])
+        XCTAssertEqual((state(app)["inspection"] as? [String: Any])?["inventory_dragging"] as? Bool, false)
         app.buttons["Close"].tap()
         XCTAssertTrue((state(app)["inspection"] as? [String: Any])?["inventory"] is NSNull)
-        let results = try JSONSerialization.data(withJSONObject: ["before": before, "walked": walked, "pockets": pockets, "closed": state(app)], options: [.prettyPrinted, .sortedKeys])
+        let results = try JSONSerialization.data(withJSONObject: ["before": before, "walked": walked, "pockets": pockets, "dragged": dragged, "closed": state(app)], options: [.prettyPrinted, .sortedKeys])
         let evidence = XCTAttachment(string: String(decoding: results, as: UTF8.self))
         evidence.name = "canvas-input-evidence"
         evidence.lifetime = .keepAlways

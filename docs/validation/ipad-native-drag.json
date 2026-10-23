@@ -1,0 +1,168 @@
+{
+  "simulator": "iPad Pro 11-inch (M5), iOS 26.5",
+  "result_bundle": "assets/validation/ipad-drag3/results.xcresult",
+  "tests_passed": 3,
+  "tests_failed": 0,
+  "states": {
+    "before": {
+      "audio_ready": false,
+      "completed_audio_buffers": 0,
+      "frame_sha256": "dcb07fb82eb42cb7694756bbeb57bf9d16940ec3640f152e885f9962d174bd5c",
+      "inspection": {
+        "control": true,
+        "cursor": [
+          146,
+          106
+        ],
+        "held_object": -1,
+        "inventory": null,
+        "inventory_dragging": false,
+        "inventory_position": null,
+        "lead_position": [
+          200,
+          178
+        ],
+        "walk_target": null
+      },
+      "last_operation": "advance",
+      "menu_requests": [],
+      "muted": true,
+      "paused": false,
+      "scene": "rinceroo.scn",
+      "tick": 8704
+    },
+    "closed": {
+      "audio_ready": false,
+      "completed_audio_buffers": 0,
+      "frame_sha256": "eae2e71e2b46003cbd44ea962577ff6c6dee9f991dd53ee74f87360db0b91a40",
+      "inspection": {
+        "control": true,
+        "cursor": [
+          160,
+          185
+        ],
+        "held_object": -1,
+        "inventory": null,
+        "inventory_dragging": false,
+        "inventory_position": null,
+        "lead_position": [
+          160,
+          185
+        ],
+        "walk_target": null
+      },
+      "last_operation": "input",
+      "menu_requests": [],
+      "muted": true,
+      "paused": true,
+      "scene": "rinceroo.scn",
+      "tick": 8862
+    },
+    "dragged": {
+      "audio_ready": false,
+      "completed_audio_buffers": 0,
+      "frame_sha256": "1941e3d73822718a5967a0f363f3f0e15d2d8d9e48728e253c2d188d45e716c5",
+      "inspection": {
+        "control": true,
+        "cursor": [
+          160,
+          128
+        ],
+        "held_object": -1,
+        "inventory": 2,
+        "inventory_dragging": false,
+        "inventory_position": [
+          130,
+          120
+        ],
+        "lead_position": [
+          160,
+          185
+        ],
+        "walk_target": null
+      },
+      "last_operation": "advance",
+      "menu_requests": [],
+      "muted": true,
+      "paused": false,
+      "scene": "rinceroo.scn",
+      "tick": 8850
+    },
+    "pockets": {
+      "audio_ready": false,
+      "completed_audio_buffers": 0,
+      "frame_sha256": "aa8d66af5e44ac0ceef1d4ce377941d0543f66a77f222cc0798bffa41b7d3bc4",
+      "inspection": {
+        "control": true,
+        "cursor": [
+          160,
+          185
+        ],
+        "held_object": -1,
+        "inventory": 2,
+        "inventory_dragging": false,
+        "inventory_position": [
+          100,
+          100
+        ],
+        "lead_position": [
+          160,
+          185
+        ],
+        "walk_target": null
+      },
+      "last_operation": "advance",
+      "menu_requests": [],
+      "muted": true,
+      "paused": true,
+      "scene": "rinceroo.scn",
+      "tick": 8795
+    },
+    "walked": {
+      "audio_ready": false,
+      "completed_audio_buffers": 0,
+      "frame_sha256": "3141eff73611ab478db5b8465325172a5cce4f84e2fd98519fa573002fe32bbe",
+      "inspection": {
+        "control": true,
+        "cursor": [
+          160,
+          185
+        ],
+        "held_object": -1,
+        "inventory": null,
+        "inventory_dragging": false,
+        "inventory_position": null,
+        "lead_position": [
+          160,
+          185
+        ],
+        "walk_target": null
+      },
+      "last_operation": "advance",
+      "menu_requests": [],
+      "muted": true,
+      "paused": true,
+      "scene": "rinceroo.scn",
+      "tick": 8741
+    }
+  },
+  "assertions": [
+    "Inventory title drag moves original window from [100,100] to [130,120]",
+    "Finger-up clears inventory_dragging",
+    "Subsequent canvas tap leaves window position unchanged",
+    "Paused drag leaves window position unchanged and drag inactive",
+    "Existing movement, rotation, audio callbacks and save/relaunch checks pass"
+  ],
+  "corrections": [
+    "Initial pan-origin reconstruction lost movement before UIKit recognition; capture touchesBegan position instead.",
+    "Forward final finger position before release."
+  ],
+  "standalone_app": "assets/apps/Discworld-iPad-10.app",
+  "standalone_binary_sha256": "e5206c99b4813cb3ce7b9f11e9ec2481922797d6fbce93f312472f41ee865822",
+  "checks": {
+    "clippy_exit_code": 0,
+    "format_exit_code": 0,
+    "standalone_build_exit_code": 0
+  },
+  "limits": "Simulator synthesized touch only. Cancellation and background release paths implemented but not exercised here. Item handling, resizing, original save menus, physical iPad and full touch playthrough remain unverified. No core engine or original script changes."
+}
