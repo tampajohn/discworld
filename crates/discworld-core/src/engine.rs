@@ -8897,6 +8897,73 @@ mod tests {
                             assert_eq!(walking, comparable);
                         }
                         assert_ne!(walking.placement.position, [50, 70]);
+                        for constrained in [false, true] {
+                            for target in [
+                                None,
+                                Some([90, 70]),
+                                Some([-1, 70]),
+                                Some([90, -1]),
+                                Some([-1, -1]),
+                            ] {
+                                let mut restored_mover = walking.clone();
+                                restored_mover.walk_target = target;
+                                restored_mover.constrained_walk = constrained;
+                                restored_mover.hidden = true;
+                                let before = restored_mover.clone();
+                                // Equal actor/mover positions do not touch any state.
+                                restored_mover
+                                    .restore_after_splay(
+                                        &resources,
+                                        &engine.declarations,
+                                        &engine.polygons,
+                                        before.placement.position,
+                                        [90, 70],
+                                    )
+                                    .unwrap();
+                                assert_eq!(restored_mover, before);
+                                restored_mover
+                                    .restore_after_splay(
+                                        &resources,
+                                        &engine.declarations,
+                                        &engine.polygons,
+                                        [60, 70],
+                                        [90, 70],
+                                    )
+                                    .unwrap();
+                                let restarted = target.is_some_and(|t| !t.contains(&-1));
+                                assert_eq!(restored_mover.placement.position, [60, 70]);
+                                assert_eq!(restored_mover.walk_target, target);
+                                assert_eq!(
+                                    restored_mover.walk_serial,
+                                    before.walk_serial + u64::from(restarted)
+                                );
+                                assert_eq!(restored_mover.hidden, !restarted);
+                                assert_eq!(restored_mover.special_reel(), !restarted);
+                                assert_eq!(restored_mover.constrained_walk, constrained);
+                                let mut checkpoint = engine.clone();
+                                checkpoint.movers.insert(1, restored_mover.clone());
+                                let bytes =
+                                    Snapshot::capture(&checkpoint, [7; 32]).to_bytes().unwrap();
+                                assert_eq!(
+                                    Snapshot::from_bytes(&bytes, [7; 32]).unwrap().state(),
+                                    &checkpoint
+                                );
+                                let mut invalid = engine.declarations.clone();
+                                invalid.movers.clear();
+                                assert!(
+                                    restored_mover
+                                        .restore_after_splay(
+                                            &resources,
+                                            &invalid,
+                                            &engine.polygons,
+                                            [61, 70],
+                                            [90, 70]
+                                        )
+                                        .is_err()
+                                );
+                                assert_eq!(restored_mover, checkpoint.movers[&1]);
+                            }
+                        }
                         // PLAY covers the mover without suspending its route.
                         // Retain separate film coordinates until walking selects
                         // a new reel (here a path scale change).

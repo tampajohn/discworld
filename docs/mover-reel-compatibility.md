@@ -692,3 +692,32 @@ The STAND visibility correction passes 324 core tests, the workspace suite,
 all 20 original-asset web tests, Clippy and WASM checking. Native/browser
 release builds succeed. Logs use assets/logs/stand-hidden-*. The in-flight
 a768ad9 route predates this correction; it is not acceptance of this change.
+
+
+SPLAY restoration primitive (not yet dispatched): Mover::restore_after_splay
+implements the existing-mover coordinate/route part transactionally. Equal
+positions return without changes. It retains the ultimate target and path
+constraint mode, writes mover coordinates before STAND, and restarts targets
+with both axes enabled through the normal or ignore-path route entry point.
+That increments the mover serial without acquiring a script walk token.
+Disabled-axis targets remain suspended in the standing special-reel mode;
+no-target movers remain standing. Visibility follows STAND and walking-reel
+selection rather than being unconditionally reset.
+
+Focused tests cover equal-position identity, ordinary-path repositioning,
+constrained/ignore-path restart, absent and all disabled-axis target forms,
+serial/visibility/reel-state results, exact save state, and rollback on invalid
+resources/declarations. Node-path and out-of-path restoration still need
+expanded coverage. This helper is not yet called by the runtime, and therefore
+does not establish SPLAY support or alter existing PLAY dispatch.
+
+Lifecycle integration must retain replaced SPLAY reels until their exit side
+effect runs: claim_reel currently discards nonblocking superseded films. Merely
+adding an SPLAY flag and restoring only current owners would lose the reference's
+restoreMovement call after replacement. The eventual save extension must retain
+that pending cleanup as well as active primary/secondary SPLAY state.
+
+The isolated restoration helper passes the workspace suite (324 core tests),
+Clippy and WASM checking; logs use assets/logs/splay-restore-*. Existing hosts
+have not been rebuilt for this undispatched helper. Full SPLAY acceptance
+requires lifecycle/dispatch/save integration and additional route coverage.

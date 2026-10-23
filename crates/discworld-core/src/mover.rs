@@ -1737,6 +1737,46 @@ impl Mover {
         self.last_film = handle;
         Ok(())
     }
+    /// V1 restoreMovement/SSetActorDest after SPLAY. The caller supplies the
+    /// actor's stored film coordinates (which may belong to a replacement).
+    /// This does not acquire a script walk token. A restarted route advances
+    /// the mover serial through SetActorDest's normal path.
+    pub fn restore_after_splay(
+        &mut self,
+        resources: &crate::graphics::Resources<'_>,
+        declarations: &Declarations,
+        polygons: &Polygons,
+        position: [i32; 2],
+        cursor: [i32; 2],
+    ) -> Result<(), Error> {
+        if self.placement.position == position {
+            return Ok(());
+        }
+        let mut next = self.clone();
+        let target = next.walk_target;
+        let constrained = next.constrained_walk;
+        // restoreMovement writes objX/Y before calling STAND. Its animation
+        // position is updated only if STAND accepts both coordinates.
+        next.placement.position = position;
+        if position[0] != -1 && position[1] != -1 {
+            // Preserve the standing special-reel state even for a legacy mover:
+            // a disabled-axis target remains suspended rather than restarting.
+            next.reel_state.get_or_insert_default();
+        }
+        next.stand(resources, declarations, polygons, position, Handle(0))?;
+        if let Some(target) = target.filter(|target| !target.contains(&-1)) {
+            if constrained {
+                next.begin_walk(resources, declarations, polygons, target, cursor)?;
+            } else {
+                next.begin_direct_walk(resources, declarations, polygons, target, cursor)?;
+            }
+        } else {
+            next.walk_target = target;
+        }
+        *self = next;
+        Ok(())
+    }
+
     pub fn stand(
         &mut self,
         resources: &crate::graphics::Resources<'_>,
