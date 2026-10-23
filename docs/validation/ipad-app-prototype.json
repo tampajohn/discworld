@@ -1,0 +1,47 @@
+{
+  "artifact": "assets/apps/Discworld-iPad-4.app",
+  "binary_sha256": "1880a24970adcfe5a051f798f049e6d80fbc76d9f1504143206f23d04e532336",
+  "target": "aarch64-apple-ios-sim",
+  "simulator": "iPad Pro 11-inch (M5), iOS 26.5",
+  "ad_hoc_signature_verified": true,
+  "bundled_resources_verified": {
+    "discworld.iso": {
+      "bytes": 396863488,
+      "sha256": "5354f74582375b1f6350e33b4dfd5df6b2bcd79a30f471a9307e017235570e05"
+    },
+    "music.sf2": {
+      "bytes": 5969788,
+      "sha256": "c5378b62028c920cb11e4803327983fee2f2cdff5dc89c708e39da417e51c854"
+    },
+    "SoundFont-COPYRIGHT.txt": {
+      "bytes": 2307,
+      "sha256": "6ef01652619cf29b289a9403cd2ab59550fa3e2c30844c67292eea5421f993e9"
+    }
+  },
+  "startup": {
+    "menu_requests": [],
+    "tick": 8500,
+    "scene": "rinceroo.scn",
+    "quick_save_reload_frame_equal": true
+  },
+  "separate_process_load": {
+    "menu_requests": [],
+    "tick": 8500,
+    "scene": "rinceroo.scn"
+  },
+  "workspace_tests_exit_code": 0,
+  "workspace_clippy_exit_code": 0,
+  "source_files": {
+    "platform/ipad/App.swift": "837426401d6348cedb50fd86cb39b6d0ac1b74cbd0a21f848697fed1178ca979",
+    "platform/ipad/Bridge.h": "94f6fffbcfb7faa209ad7768bf205411f542fca75b59ba06de23237e65c6972d",
+    "crates/discworld-ipad/src/lib.rs": "3ba1de9dc600110e1d2ae533ab2c30a326b88815ab7afd6493f9f18abf998c7e",
+    "scripts/build-ipad.py": "4f4b284fc44b57ff5ce7aa98d50d4f1b03ba6bfedc06ec013a5278170f398fbc"
+  },
+  "limits": [
+    "Simulator app only; no signed device installation",
+    "Portrait presentation observed despite requested landscape; unresolved",
+    "Tap and audio controls implemented but actual gesture/audio-device acceptance not performed",
+    "Inventory dragging, original save menus and export/import incomplete",
+    "Smoke path intentionally accelerated and paused; not a manual playthrough"
+  ]
+}

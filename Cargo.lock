@@ -223,6 +223,14 @@ dependencies = [
 ]
 
 [[package]]
+name = "discworld-ipad"
+version = "0.1.0"
+dependencies = [
+ "discworld-web",
+ "serde_json",
+]
+
+[[package]]
 name = "discworld-native"
 version = "0.1.0"
 dependencies = [

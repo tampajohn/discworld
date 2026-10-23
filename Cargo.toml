@@ -1,5 +1,5 @@
 [workspace]
-members = ["crates/discworld-core", "crates/discworld-tools", "crates/discworld-audio", "crates/discworld-native", "crates/discworld-web", "crates/discworld-replay"]
+members = ["crates/discworld-core", "crates/discworld-tools", "crates/discworld-audio", "crates/discworld-native", "crates/discworld-web", "crates/discworld-replay", "crates/discworld-ipad"]
 exclude = ["vendor/rustysynth"]
 resolver = "3"
 

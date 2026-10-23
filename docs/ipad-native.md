@@ -5,6 +5,42 @@ ISO and music SoundFont bundled. One installation must be sufficient to start
 playing offline; no browser, file import, or separate sound download is required
 for this internal test configuration. The browser host remains supported.
 
+## Initial application prototype
+
+`platform/ipad/App.swift` is a native UIKit host linked to the Rust session
+through `discworld-ipad`. It copies the original framebuffer for presentation
+and supplies generated stereo PCM to AVAudioEngine. No web view is used.
+
+```sh
+python3 scripts/build-ipad.py --output assets/apps/Discworld-iPad.app
+xcrun simctl install booted assets/apps/Discworld-iPad.app
+xcrun simctl launch booted org.tampajohn.discworld.dev
+```
+
+The script currently builds **only for the Apple Silicon simulator**. It
+includes the staged ISO and SoundFont in one ad-hoc-signed app. The observed
+prototype is `assets/apps/Discworld-iPad-4.app`. Startup reaches the bedroom;
+quick-save/load preserves pixels, and a separate app launch loads the same
+save from the application container. See [application evidence](validation/ipad-app-prototype.json).
+
+Tap modes, mute, pause, and quick-save/load controls are implemented. Actual
+gesture and audible-device acceptance remain untested. The simulator still
+presents the app in portrait despite the requested landscape orientation;
+this is an unresolved host issue. Inventory dragging, the original save menus,
+save export/import, physical-device signing and full touch play remain pending.
+
+`--smoke-room` is a diagnostic launch argument: it runs the opening to tick
+8,500, saves, advances, reloads and compares the frame, then pauses. A subsequent
+`--smoke-load` launch loads that saved session and pauses. These arguments
+write results to the app's Documents directory; ordinary launch plays normally.
+
+The C ABI exposes uniquely prefixed symbol attributes with a local lint
+exception for Rust 2024 `unsafe(no_mangle)`. It contains no unsafe blocks or
+pointer dereferences. Shared engine crates retain `forbid(unsafe_code)`.
+All calls occur on the main thread; Swift immediately copies borrowed frame,
+audio and response buffers before the next call can replace them. This narrow
+boundary does not provide a general thread-safe foreign API.
+
 ## Verified foundation
 
 With Rust 1.95.0, Xcode 26.6 and the installed iOS 26.5 SDKs, the shared engine
@@ -71,5 +107,5 @@ Validate startup, speech/music/effects, mute, inventory, save/relaunch/load,
 background/foreground, and full touch-only play on a real iPad. Simulator or
 library-build success does not establish these results.
 
-No native iPad app, signed IPA, TestFlight upload, or physical-device result is
-claimed by the current library and resource-staging checks.
+No device-signed IPA, TestFlight upload, or physical-device result is claimed.
+The simulator prototype does not close the remaining acceptance items above.
