@@ -67,6 +67,8 @@ struct TalkWait {
 }
 #[derive(serde::Serialize, serde::Deserialize, Debug, Clone, PartialEq, Eq)]
 struct ScriptProcess {
+    #[serde(skip)]
+    reel_task: Option<ReelTask>,
     walked_wait: Option<WalkedWait>,
     restored_context: bool,
     effect_actor: Option<i32>,
@@ -123,6 +125,7 @@ impl ScriptProcess {
 
     fn new(code: Handle) -> Self {
         Self {
+            reel_task: None,
             walked_wait: None,
             restored_context: false,
             effect_actor: None,
@@ -150,6 +153,22 @@ impl ScriptProcess {
             sample_serial: None,
         }
     }
+}
+
+#[derive(serde::Serialize, serde::Deserialize, Debug, Clone, PartialEq, Eq)]
+pub(crate) struct ReelRequest {
+    film: Handle,
+    column: usize,
+    position: [i32; 2],
+    top: bool,
+    splay: bool,
+    escape: Option<u64>,
+}
+
+#[derive(serde::Serialize, serde::Deserialize, Debug, Clone, PartialEq, Eq)]
+pub(crate) enum ReelTask {
+    Pending(ReelRequest),
+    Active(u64),
 }
 
 #[derive(serde::Serialize, serde::Deserialize, Debug, Clone, PartialEq, Eq)]
@@ -280,6 +299,9 @@ pub struct Engine {
     /// visibility, unlike hiding an existing mover. Stored separately in v20.
     #[serde(skip)]
     pub(crate) created_reel_movers: std::collections::BTreeMap<i32, u64>,
+    /// V1 firstColZ/fColZfactor are shared across reel dispatches.
+    #[serde(skip)]
+    pub(crate) reel_dispatch_depth: [i64; 2],
     next_playback: u64,
     pub polygons: crate::polygon::Polygons,
     pub random: crate::random::Random,
@@ -332,6 +354,40 @@ fn args(vm: &Machine, n: usize) -> Result<&[i32], Error> {
     .ok_or(Error("engine argument underflow"))
 }
 impl Engine {
+    pub(crate) fn reel_tasks(&self) -> Vec<(crate::scheduler::ProcessId, ReelTask)> {
+        self.processes
+            .entries()
+            .filter_map(|(id, p)| p.reel_task.clone().map(|task| (id, task)))
+            .collect()
+    }
+
+    pub(crate) fn clear_reel_tasks(&mut self) {
+        for process in self.processes.states_mut() {
+            process.reel_task = None;
+        }
+    }
+
+    pub(crate) fn restore_reel_tasks(
+        &mut self,
+        tasks: Vec<(crate::scheduler::ProcessId, ReelTask)>,
+    ) -> Result<(), Error> {
+        let expected = tasks.clone();
+        for (id, task) in tasks {
+            let process = self
+                .processes
+                .state_mut(id)
+                .ok_or(Error("missing reel task process"))?;
+            if process != &ScriptProcess::new(Handle(0)) {
+                return Err(Error("invalid reel task process"));
+            }
+            process.reel_task = Some(task);
+        }
+        if self.reel_tasks() != expected {
+            return Err(Error("noncanonical reel task order"));
+        }
+        Ok(())
+    }
+
     fn capture_escape(counter: &mut Option<u64>, vm: &mut Machine, enabled: bool) {
         vm.escape_generation = if enabled {
             Some(*counter.get_or_insert(1))
@@ -381,7 +437,12 @@ impl Engine {
 
     fn escape_contexts(&self) -> impl Iterator<Item = &Machine> {
         std::iter::once(&self.master)
-            .chain(self.processes.states().map(|p| &p.vm))
+            .chain(
+                self.processes
+                    .states()
+                    .filter(|p| p.reel_task.is_none())
+                    .map(|p| &p.vm),
+            )
             .chain(
                 self.saved_scenes
                     .iter()
@@ -395,7 +456,12 @@ impl Engine {
     }
     fn escape_contexts_mut(&mut self) -> impl Iterator<Item = &mut Machine> {
         std::iter::once(&mut self.master)
-            .chain(self.processes.states_mut().map(|p| &mut p.vm))
+            .chain(
+                self.processes
+                    .states_mut()
+                    .filter(|p| p.reel_task.is_none())
+                    .map(|p| &mut p.vm),
+            )
             .chain(
                 self.saved_scenes
                     .iter_mut()
@@ -493,6 +559,43 @@ impl Engine {
     }
 
     pub(crate) fn validate_snapshot_structure(&self) -> Result<(), Error> {
+        if self
+            .reel_dispatch_depth
+            .iter()
+            .any(|v| !(-(1i64 << 43)..=(1i64 << 43)).contains(v))
+        {
+            return Err(Error("invalid reel dispatch depth"));
+        }
+        let mut reel_tasks = std::collections::BTreeSet::new();
+        for process in self.processes.states() {
+            if let Some(task) = &process.reel_task {
+                let mut expected = ScriptProcess::new(Handle(0));
+                expected.reel_task = Some(task.clone());
+                if process != &expected {
+                    return Err(Error("invalid reel task process"));
+                }
+                match task {
+                    ReelTask::Pending(request) => {
+                        if request.film.0 == 0
+                            || request.column >= 4096
+                            || request
+                                .escape
+                                .is_some_and(|e| self.escape_events.is_none_or(|now| e > now))
+                        {
+                            return Err(Error("invalid pending reel task"));
+                        }
+                    }
+                    ReelTask::Active(playback) => {
+                        if *playback == 0
+                            || *playback > self.next_playback
+                            || !reel_tasks.insert(*playback)
+                        {
+                            return Err(Error("invalid active reel task"));
+                        }
+                    }
+                }
+            }
+        }
         for (&actor, &playback) in &self.created_reel_movers {
             let matches = self
                 .films
@@ -799,6 +902,18 @@ impl Engine {
         self.master
             .validate_snapshot_code(scene::script_bytes(resources, self.master_code)?)?;
         for (id, process) in self.processes.entries() {
+            if let Some(task) = &process.reel_task {
+                if let ReelTask::Pending(request) = task {
+                    let film = Film::read(resources, request.film)?;
+                    let reel = film
+                        .reels
+                        .get(request.column)
+                        .ok_or(Error("pending reel outside film"))?;
+                    crate::film::Object::read(resources, reel.object)?;
+                    resources.resolve(reel.script, 4)?;
+                }
+                continue;
+            }
             // Walk and ordinary putdown tasks are native coroutines, not
             // bytecode. Structural validation requires pristine task state.
             if process.player_walk.is_some()
@@ -2988,6 +3103,7 @@ impl Engine {
             reel_escape: std::collections::BTreeMap::new(),
             splay_reels: std::collections::BTreeSet::new(),
             created_reel_movers: std::collections::BTreeMap::new(),
+            reel_dispatch_depth: [0; 2],
             next_playback: 0,
             polygons: crate::polygon::Polygons::default(),
             random: crate::random::Random::default(),
@@ -3541,6 +3657,7 @@ impl Engine {
         Ok(reels)
     }
 
+    #[cfg(test)]
     fn prepare_top_film(
         &self,
         resources: &Resources<'_>,
@@ -3571,17 +3688,170 @@ impl Engine {
         self.actor_steps.insert(actor, 0);
     }
 
-    fn launch_film(&mut self, resources: &Resources<'_>, film: Handle) -> Result<(), Error> {
-        let reels = self.prepare_actor_film(resources, film, [-1, -1])?;
-        for reel in &reels {
-            self.schedule_actor_film(reel.object.id, film);
-        }
-        for mut reel in reels {
-            if self.playback.start(reel.object.id, film) && self.claim_reel(&mut reel)? {
-                self.create_claimed_mover(resources, &reel)?;
-                self.films.push(reel);
+    fn schedule_film(
+        &mut self,
+        resources: &Resources<'_>,
+        request: ReelRequest,
+        blocking: bool,
+    ) -> Result<Option<ReelRequest>, Error> {
+        let film = Film::read(resources, request.film)?;
+        for column in (0..film.reels.len()).rev() {
+            let object = crate::film::Object::read(resources, film.reels[column].object)?;
+            self.actors.get(object.id as u32)?;
+            self.schedule_actor_film(object.id, request.film);
+            let mut request = request.clone();
+            request.column = column;
+            if blocking && column == 0 {
+                return Ok(Some(request));
             }
+            let mut process = ScriptProcess::new(Handle(0));
+            process.reel_task = Some(ReelTask::Pending(request));
+            self.processes.spawn(Some(self.generation), process)?;
         }
+        Ok(None)
+    }
+
+    fn begin_reel(
+        &mut self,
+        resources: &Resources<'_>,
+        request: &ReelRequest,
+    ) -> Result<Option<Animation>, Error> {
+        let film = Film::read(resources, request.film)?;
+        let definition = film
+            .reels
+            .get(request.column)
+            .ok_or(Error("pending reel outside film"))?;
+        let object = crate::film::Object::read(resources, definition.object)?;
+        let actor = object.id;
+        if !self.actors.get(actor as u32)?.alive {
+            return Ok(None);
+        }
+        self.capture_reel_escape(actor, request.escape);
+        if !self.playback.start(actor, request.film) {
+            return Ok(None);
+        }
+        let identity = Handle(
+            request
+                .film
+                .0
+                .checked_add(8 + request.column as u32 * 8)
+                .ok_or(Error("reel identity overflow"))?,
+        );
+        if self
+            .reel_owners
+            .get(&actor)
+            .is_some_and(|(reel, _)| *reel == identity)
+        {
+            return Ok(None);
+        }
+        let mut reel = Animation::new(resources, definition, 24 / film.rate as u32)?;
+        reel.reel = Some(identity);
+        let position = self.place_actor_reel(&mut reel, request.column, request.position)?;
+        // Resolve depth before creating a declared mover: a newly created
+        // mover uses actor masking for this dispatch, not its new path factor.
+        let mask = self.actors.get(actor as u32)?.masking;
+        let mover_factor = self
+            .movers
+            .get(&actor)
+            .map(|m| i64::from(m.placement.z_factor));
+        let current = mover_factor.unwrap_or(match mask {
+            0 | -1 => 0,
+            -2 => 10,
+            _ => i64::from(mask),
+        });
+        let [mut base, mut factor] = self.reel_dispatch_depth;
+        if request.top {
+            if request.column == 0 {
+                base = 100 + i64::from(mask);
+            }
+        } else if request.column == 0 {
+            factor = current;
+            let bottom = reel.bounds(resources)?.map(|b| b[3]).unwrap_or(0);
+            base = if mover_factor.is_some() {
+                bottom + ((factor - i64::from(factor != 0)) << 10)
+            } else {
+                match mask {
+                    0 => 2,
+                    -1 => bottom,
+                    -2 => 10000,
+                    _ => (bottom + ((factor - i64::from(factor != 0)) << 10)).max(2),
+                }
+            };
+        } else if current > factor {
+            factor = current;
+            base = factor << 10;
+        }
+        reel.object.z = i32::try_from(base + request.column as i64)
+            .map_err(|_| Error("film depth overflow"))?;
+        reel.status_layer = request.top;
+        reel.source = Some(crate::animation::ReelSource {
+            film: request.film,
+            column: request.column,
+            position,
+            depth: reel.object.z,
+        });
+        if !self.claim_reel(&mut reel)? {
+            return Ok(None);
+        }
+        self.reel_dispatch_depth = [base, factor];
+        self.create_claimed_mover(resources, &reel)?;
+        if request.splay {
+            self.splay_reels.insert(reel.playback);
+        }
+        if let Some(escape) = request.escape {
+            self.reel_escape.insert(actor, (reel.playback, escape));
+        }
+        Ok(Some(reel))
+    }
+
+    fn run_reel_task(
+        &mut self,
+        resources: &Resources<'_>,
+        task: ReelTask,
+    ) -> Result<Option<ReelTask>, Error> {
+        let starting = matches!(task, ReelTask::Pending(_));
+        let reel = match task {
+            ReelTask::Pending(request) => self.begin_reel(resources, &request)?,
+            ReelTask::Active(playback) => self
+                .films
+                .iter()
+                .position(|a| a.playback == playback)
+                .map(|index| self.films.remove(index)),
+        };
+        let Some(mut reel) = reel else {
+            return Ok(None);
+        };
+        // t1PlayReel checks Escape after its first sleep, not before the
+        // initial step. The generation can change after PLAY queued this job.
+        if !self.owns_reel(&reel) || (!starting && self.reel_escaped(&reel)) {
+            self.finish_reel(resources, &reel)?;
+            return Ok(None);
+        }
+        let state = reel.tick(resources)?;
+        self.actor_steps.insert(reel.object.id, reel.steps);
+        if state == Tick::Finished {
+            self.finish_reel(resources, &reel)?;
+            return Ok(None);
+        }
+        self.actors.get_mut(reel.object.id as u32)?.position = [reel.object.x, reel.object.y];
+        let task = ReelTask::Active(reel.playback);
+        self.films.push(reel);
+        Ok(Some(task))
+    }
+
+    fn launch_film(&mut self, resources: &Resources<'_>, film: Handle) -> Result<(), Error> {
+        self.schedule_film(
+            resources,
+            ReelRequest {
+                film,
+                column: 0,
+                position: [-1, -1],
+                top: false,
+                splay: false,
+                escape: None,
+            },
+            false,
+        )?;
         Ok(())
     }
     fn migrate_legacy_talk_reels(&mut self, resources: &Resources<'_>) -> Result<(), Error> {
@@ -4121,7 +4391,19 @@ impl Engine {
             }
         }
         let mut active = Vec::new();
+        let scheduled: std::collections::BTreeSet<_> = self
+            .processes
+            .states()
+            .filter_map(|p| match p.reel_task {
+                Some(ReelTask::Active(playback)) => Some(playback),
+                _ => None,
+            })
+            .collect();
         for mut a in std::mem::take(&mut self.films) {
+            if scheduled.contains(&a.playback) {
+                active.push(a);
+                continue;
+            }
             if !self.owns_reel(&a) {
                 self.finish_reel(resources, &a)?;
                 continue;
@@ -4254,6 +4536,20 @@ impl Engine {
         self.processes.begin()?;
         let mut blocked = None;
         while let Some(id) = self.processes.ready()? {
+            let task = self
+                .processes
+                .state_mut(id)
+                .and_then(|p| p.reel_task.take());
+            if let Some(task) = task {
+                let next = self.run_reel_task(resources, task)?;
+                let sleep = next.as_ref().map(|_| 1);
+                self.processes
+                    .state_mut(id)
+                    .ok_or(Error("missing reel task"))?
+                    .reel_task = next;
+                self.processes.finish(sleep)?;
+                continue;
+            }
             let double_click_ticks = self
                 .configuration
                 .as_ref()
@@ -4330,7 +4626,7 @@ impl Engine {
         }
         self.timers.tick()?;
         Ok(
-            if self.processes.is_empty()
+            if self.processes.states().all(|p| p.reel_task.is_some())
                 && self.scene_restore.is_none()
                 && self.pending_scene.is_none()
                 && self.master_wait.is_none()
@@ -6178,50 +6474,23 @@ impl Engine {
                     if !splay && !matches!(a[5], 0 | 1) {
                         return Ok(Status::Unsupported(call));
                     }
-                    let film = Handle(a[0] as u32);
-                    let reels = if call.id == 81 {
-                        self.prepare_top_film(resources, film, [a[1], a[2]])?
-                    } else {
-                        self.prepare_actor_film(resources, film, [a[1], a[2]])?
-                    };
-                    for reel in &reels {
-                        self.schedule_actor_film(reel.object.id, film);
-                    }
                     let blocking = if splay { a[5] != 0 } else { a[5] == 1 };
-                    let mut primary = None;
-                    for (column, mut reel) in reels.into_iter().enumerate() {
-                        let captured = process
+                    let request = ReelRequest {
+                        film: Handle(a[0] as u32),
+                        column: 0,
+                        position: [a[1], a[2]],
+                        top: call.id == 81,
+                        splay,
+                        escape: process
                             .vm
                             .escape_generation
-                            .filter(|_| process.vm.escape_enabled);
-                        // V1 updates actor escape flags before its duplicate
-                        // reel and normal/talk arbitration checks.
-                        if self.actors.get(reel.object.id as u32)?.alive {
-                            self.capture_reel_escape(reel.object.id, captured);
-                        }
-
-                        if self.playback.start(reel.object.id, film)
-                            && self.claim_reel(&mut reel)?
-                        {
-                            self.create_claimed_mover(resources, &reel)?;
-                            if splay {
-                                self.splay_reels.insert(reel.playback);
-                            }
-                            if let Some(captured) = process
-                                .vm
-                                .escape_generation
-                                .filter(|_| process.vm.escape_enabled)
-                            {
-                                self.reel_escape
-                                    .insert(reel.object.id, (reel.playback, captured));
-                            }
-                            if blocking && column == 0 {
-                                primary = Some(reel);
-                            } else {
-                                self.films.push(reel);
-                            }
-                        }
-                    }
+                            .filter(|_| process.vm.escape_enabled),
+                    };
+                    let primary = self.schedule_film(resources, request, blocking)?;
+                    let primary = match primary {
+                        Some(request) => self.begin_reel(resources, &request)?,
+                        None => None,
+                    };
                     if let Some(mut primary) = primary {
                         // V1 PlayFilmc invokes the primary reel in the calling coroutine.
                         // Secondary reels have independent lifetimes and do not delay return.
@@ -6446,6 +6715,32 @@ impl Engine {
 #[cfg(test)]
 mod tests {
     use super::*;
+    // Build isolated reel fixtures using the real queue and dispatch path,
+    // without advancing movement, audio or scripts belonging to the fixture.
+    fn dispatch_reel_fixture(engine: &mut Engine, resources: &Resources<'_>) {
+        engine.processes.begin().unwrap();
+        while let Some(id) = engine.processes.ready().unwrap() {
+            let task = engine
+                .processes
+                .state_mut(id)
+                .unwrap()
+                .reel_task
+                .take()
+                .unwrap();
+            let task = engine.run_reel_task(resources, task).unwrap();
+            let sleep = task.as_ref().map(|_| 1);
+            engine.processes.state_mut(id).unwrap().reel_task = task;
+            engine.processes.finish(sleep).unwrap();
+        }
+    }
+
+    fn legacy_reel_fixture(engine: &mut Engine) {
+        for (id, _) in engine.reel_tasks() {
+            engine.processes.cancel(id).unwrap();
+        }
+        engine.reel_dispatch_depth = [0; 2];
+    }
+
     #[test]
     fn completed_pointed_script_waits_then_runs_fresh_unpoint_after_save() {
         let (master, mut scene) = fixtures();
@@ -9461,6 +9756,7 @@ mod tests {
                                     playing.processes.spawn(None, process).unwrap();
                                     reel
                                 } else {
+                                    dispatch_reel_fixture(&mut playing, &play_resources);
                                     playing.films[0].clone()
                                 };
                                 if legacy {
@@ -9468,6 +9764,10 @@ mod tests {
                                 }
                                 {
                                     use sha2::{Digest, Sha256};
+                                    // Exercise legacy v19/v20 envelopes independently of
+                                    // the new dispatch-order extension.
+                                    let mut playing = playing.clone();
+                                    legacy_reel_fixture(&mut playing);
                                     let original =
                                         Snapshot::capture(&playing, [7; 32]).to_bytes().unwrap();
                                     let mut flagged = playing.clone();
@@ -10467,6 +10767,10 @@ mod tests {
                             .run_process(&resources, None, None, None, &mut duplicate)
                             .unwrap();
                         assert_eq!(engine.reel_owners, owners);
+                        // Nonblocking duplicate children clear escape flags at
+                        // dispatch; the library call alone does not run them.
+                        engine.tick(&resources).unwrap();
+                        assert_eq!(engine.reel_owners, owners);
                         assert!(engine.reel_escape.is_empty());
                     }
                     if mode == 4 {
@@ -10484,10 +10788,14 @@ mod tests {
                         .to_bytes()
                         .unwrap();
                     if mode == 1 {
-                        assert_eq!(u32::from_le_bytes(bytes[8..12].try_into().unwrap()), 15);
-                    }
-                    if mode == 1 {
+                        assert_eq!(u32::from_le_bytes(bytes[8..12].try_into().unwrap()), 21);
                         use sha2::{Digest, Sha256};
+                        let mut legacy = engine.clone();
+                        legacy_reel_fixture(&mut legacy);
+                        let bytes = crate::save::Snapshot::capture(&legacy, [7; 32])
+                            .to_bytes()
+                            .unwrap();
+                        assert_eq!(u32::from_le_bytes(bytes[8..12].try_into().unwrap()), 15);
                         type ReelCaptures = Vec<(i32, (u64, u64))>;
                         let (inner, captures): (Vec<u8>, ReelCaptures) =
                             postcard::from_bytes(&bytes[80..]).unwrap();
@@ -10537,6 +10845,208 @@ mod tests {
     }
 
     #[test]
+    fn queued_films_keep_column_and_peer_order_across_passes() {
+        let (master, mut scene) = fixtures();
+        let base = 2u32 << 23;
+        let mut code = Vec::new();
+        for film in [base, base + 24] {
+            code.push(1);
+            code.extend(film.to_le_bytes());
+            code.extend([4, 4, 2, 2, 2, 0x4e, 49]);
+        }
+        code.extend([3, 3, 0x4e, 100, 0x41, 77, 0x4c, 0, 0]);
+        scene[8..8 + code.len()].copy_from_slice(&code);
+        let mut film = vec![0; 176];
+        for (at, word) in [
+            (0, 24u32),
+            (4, 2),
+            (8, base + 64),
+            (12, base + 160),
+            (16, base + 88),
+            (20, base + 160),
+            (24, 24),
+            (28, 2),
+            (32, base + 112),
+            (36, base + 160),
+            (40, base + 136),
+            (44, base + 160),
+            (72, 1),
+            (96, 2),
+            (120, 3),
+            (144, 4),
+            (160, 10),
+            (164, 10),
+        ] {
+            film[at..at + 4].copy_from_slice(&word.to_le_bytes());
+        }
+        let resources = Resources(vec![&master, &scene, &film]);
+        let mut engine = Engine::bootstrap(&resources).unwrap();
+        engine.master_stopped = true;
+        engine.actors = crate::actor::Actors::new(4).unwrap();
+        engine.actors.get_mut(1).unwrap().masking = 2;
+        engine.actors.get_mut(4).unwrap().masking = 4;
+        engine.tick(&resources).unwrap();
+        let actors = |engine: &Engine| engine.films.iter().map(|a| a.object.id).collect::<Vec<_>>();
+        assert_eq!(actors(&engine), [3, 4, 1, 2]);
+        assert_eq!(
+            engine.films.iter().map(|a| a.object.z).collect::<Vec<_>>(),
+            [2, 4097, 1024, 1025]
+        );
+        assert_eq!(engine.reel_dispatch_depth, [1024, 2]);
+        assert_eq!(engine.globals, [0]);
+        let bytes = crate::save::Snapshot::capture(&engine, [7; 32])
+            .to_bytes()
+            .unwrap();
+        let decoded = crate::save::Snapshot::from_bytes(&bytes, [7; 32]).unwrap();
+        assert_eq!(decoded.to_bytes().unwrap(), bytes);
+        let mut restored = decoded.state().clone();
+        engine.tick(&resources).unwrap();
+        restored.tick(&resources).unwrap();
+        assert_eq!(engine, restored);
+        assert_eq!(actors(&engine), [3, 4, 1, 2]);
+        assert!(engine.films.iter().all(|a| a.steps == 2));
+        assert_eq!(engine.globals, [77]);
+    }
+
+    #[test]
+    fn deferred_reel_arbitration_waitframe_and_snapshot_order() {
+        let (master, mut scene) = fixtures();
+        scene[8] = 0;
+        let base = 2u32 << 23;
+        let mut code = Vec::new();
+        for film in [base, base + 16] {
+            code.push(1);
+            code.extend(film.to_le_bytes());
+            code.extend([4, 4, 2, 2, 2, 0x4e, 49]);
+        }
+        // Wait for actor 1's first frame. This must yield before either child
+        // starts, despite both PLAY calls returning in this dispatch.
+        code.extend([3, 3, 0x4e, 100, 0x41, 77, 0x4c, 0, 0]);
+        scene[8..8 + code.len()].copy_from_slice(&code);
+        let mut film = vec![0; 128];
+        for (at, word) in [
+            (0, 24u32),
+            (4, 1),
+            (8, base + 64),
+            (12, u32::MAX),
+            (16, 24),
+            (20, 1),
+            (24, base + 88),
+            (28, base + 112),
+            (64, u32::MAX),
+            (72, 1),
+            (96, 1),
+            (112, 10),
+            (116, 1),
+            (120, (-2i32) as u32),
+        ] {
+            film[at..at + 4].copy_from_slice(&word.to_le_bytes());
+        }
+        let resources = Resources(vec![&master, &scene, &film]);
+        let mut engine = Engine::bootstrap(&resources).unwrap();
+        engine.processes = Scheduler::default();
+        engine.master_stopped = true;
+        engine.actors = crate::actor::Actors::new(1).unwrap();
+        engine
+            .declarations
+            .movers
+            .insert(1, [[Handle(base + 16); 12]; 10]);
+        engine
+            .processes
+            .spawn(
+                Some(engine.generation),
+                ScriptProcess::new(Handle((1 << 23) | 8)),
+            )
+            .unwrap();
+        // A queued reel can outlive the caller's captured Escape generation.
+        // It still takes its initial step, then observes Escape on resumption.
+        let mut pending = engine.clone();
+        pending.processes = Scheduler::default();
+        pending.escape_events = Some(2);
+        pending
+            .schedule_film(
+                &resources,
+                ReelRequest {
+                    film: Handle(base + 16),
+                    column: 0,
+                    position: [-1, -1],
+                    top: false,
+                    splay: false,
+                    escape: Some(1),
+                },
+                false,
+            )
+            .unwrap();
+        assert!(pending.movers.is_empty());
+        assert!(pending.films.is_empty());
+        let pending_bytes = crate::save::Snapshot::capture(&pending, [7; 32])
+            .to_bytes()
+            .unwrap();
+        let pending_snapshot = crate::save::Snapshot::from_bytes(&pending_bytes, [7; 32]).unwrap();
+        pending_snapshot.verify_scripts(&resources).unwrap();
+        assert_eq!(pending_snapshot.to_bytes().unwrap(), pending_bytes);
+        let mut pending_restored = pending_snapshot.state().clone();
+        for expected_films in [1, 0] {
+            pending.tick(&resources).unwrap();
+            pending_restored.tick(&resources).unwrap();
+            assert_eq!(pending, pending_restored);
+            assert_eq!(pending.films.len(), expected_films);
+            assert_eq!(pending.actor_steps[&1], 1);
+        }
+        engine.tick(&resources).unwrap();
+        assert_eq!(
+            engine.globals,
+            [0],
+            "caller must yield before child dispatch"
+        );
+        assert_eq!(engine.next_playback, 1, "rejected A never claims the actor");
+        assert_eq!(engine.films.len(), 1);
+        assert_eq!(
+            engine.films[0].source.as_ref().unwrap().film,
+            Handle(base + 16)
+        );
+        assert_eq!(
+            engine.actor_steps[&1], 1,
+            "child starts in its creation pass"
+        );
+        assert_eq!(engine.created_reel_movers[&1], 1);
+        let saved = crate::save::Snapshot::capture(&engine, [7; 32])
+            .to_bytes()
+            .unwrap();
+        assert_eq!(u32::from_le_bytes(saved[8..12].try_into().unwrap()), 21);
+        let snapshot = crate::save::Snapshot::from_bytes(&saved, [7; 32]).unwrap();
+        snapshot.verify_scripts(&resources).unwrap();
+        assert_eq!(snapshot.to_bytes().unwrap(), saved);
+        let mut restored = snapshot.state().clone();
+        engine.tick(&resources).unwrap();
+        restored.tick(&resources).unwrap();
+        assert_eq!(engine, restored);
+        assert_eq!(engine.globals, [77]);
+        assert_eq!(engine.actor_steps[&1], 2);
+
+        use sha2::{Digest, Sha256};
+        type Tasks = Vec<(crate::scheduler::ProcessId, ReelTask)>;
+        let (inner, tasks, depth): (Vec<u8>, Tasks, [i64; 2]) =
+            postcard::from_bytes(&saved[80..]).unwrap();
+        let wrap = |tasks: Tasks, depth: [i64; 2]| {
+            let payload = postcard::to_allocvec(&(inner.clone(), tasks, depth)).unwrap();
+            let mut bytes = saved[..80].to_vec();
+            bytes[44..48].copy_from_slice(&(payload.len() as u32).to_le_bytes());
+            bytes[48..80].copy_from_slice(&Sha256::digest(&payload));
+            bytes.extend(payload);
+            bytes
+        };
+        for bad in [
+            wrap(vec![tasks[0].clone(), tasks[0].clone()], depth),
+            wrap(vec![(tasks[0].0, ReelTask::Active(0))], depth),
+            wrap(vec![(tasks[0].0, ReelTask::Active(u64::MAX))], depth),
+            wrap(tasks.clone(), [i64::MIN, 0]),
+        ] {
+            assert!(crate::save::Snapshot::from_bytes(&bad, [7; 32]).is_err());
+        }
+    }
+
+    #[test]
     fn new_film_waitframe_does_not_use_previous_film_steps() {
         for opcode in [49, 81] {
             let (master, mut scene) = fixtures();
@@ -10571,13 +11081,13 @@ mod tests {
                 )
                 .unwrap();
             engine.tick(&resources).unwrap();
-            assert_eq!(engine.actor_steps[&1], 0);
-            assert_eq!(engine.globals, [0]);
-            engine.tick(&resources).unwrap();
             assert_eq!(engine.actor_steps[&1], 1);
             assert_eq!(engine.globals, [0]);
             engine.tick(&resources).unwrap();
             assert_eq!(engine.actor_steps[&1], 2);
+            assert_eq!(engine.globals, [0]);
+            engine.tick(&resources).unwrap();
+            assert_eq!(engine.actor_steps[&1], 3);
             assert_eq!(engine.globals, [77]);
             assert!(
                 engine
@@ -12633,6 +13143,10 @@ mod tests {
                     assert_eq!(invalid, before, "failed restored creation is atomic");
                 }
                 start(&mut engine).unwrap();
+                if !restoring {
+                    assert!(engine.films.is_empty(), "launch is deferred");
+                    dispatch_reel_fixture(&mut engine, &resources);
+                }
                 if rejected {
                     assert!(engine.movers.is_empty());
                     assert!(engine.created_reel_movers.is_empty());
@@ -12653,7 +13167,12 @@ mod tests {
                 }
                 let before = engine.clone();
                 start(&mut engine).unwrap();
-                assert_eq!(engine, before, "duplicate must preserve the new mover");
+                assert_eq!(
+                    engine.movers, before.movers,
+                    "duplicate must preserve the new mover"
+                );
+                assert_eq!(engine.films, before.films);
+                assert_eq!(engine.next_playback, before.next_playback);
                 let bytes = crate::save::Snapshot::capture(&engine, [7; 32])
                     .to_bytes()
                     .unwrap();
@@ -12749,9 +13268,12 @@ mod tests {
                                 .unwrap(),
                             Status::Halted
                         );
+                        assert_eq!(engine.movers, before.movers, "duplicate launch is deferred");
+                        assert_eq!(engine.films, before.films);
+                        assert_eq!(engine.next_playback, before.next_playback);
                         assert_eq!(
-                            engine, before,
-                            "duplicate does not recreate or restart mover"
+                            engine.actor_steps[&1], 0,
+                            "scheduling resets steps even for duplicates"
                         );
                     }
                 }
@@ -13901,7 +14423,7 @@ mod tests {
         let bytes = crate::save::Snapshot::capture(&slow, [7; 32])
             .to_bytes()
             .unwrap();
-        assert_eq!(u32::from_le_bytes(bytes[8..12].try_into().unwrap()), 11);
+        assert_eq!(u32::from_le_bytes(bytes[8..12].try_into().unwrap()), 21);
         let decoded = crate::save::Snapshot::from_bytes(&bytes, [7; 32]).unwrap();
         assert_eq!(decoded.to_bytes().unwrap(), bytes);
         let mut resumed = decoded
@@ -13945,7 +14467,14 @@ mod tests {
                     assert_eq!(instance.globals, [9]);
                     assert!(instance.control.tags_enabled);
                     assert!(instance.processes.states().all(|p| p.talk_wait.is_none()));
-                    assert_eq!(instance.films[0].reel, Some(Handle(base + 72)));
+                    if source.finished_talks().is_empty() {
+                        assert_eq!(instance.films[0].reel, Some(Handle(base + 72)));
+                        assert_eq!(instance.films[0].steps, 1);
+                    } else {
+                        // The normal film started during the prior text phase;
+                        // its one-frame script now finishes without restarting.
+                        assert!(instance.films.is_empty());
+                    }
                     if replacement {
                         assert_eq!(instance.sample_player, audio);
                     } else {
@@ -13999,7 +14528,10 @@ mod tests {
             assert!(instance.sample_player.id.is_none());
             assert_eq!(instance.films.len(), 1);
             assert_eq!(instance.films[0].reel, Some(Handle(base + 72)));
-            assert_eq!(instance.films[0].steps, 0, "normal film restarts");
+            assert_eq!(
+                instance.films[0].steps, 1,
+                "normal film starts in the same pass"
+            );
         }
         assert_eq!(engine, restored);
     }

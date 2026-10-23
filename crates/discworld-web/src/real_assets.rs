@@ -57,7 +57,7 @@ fn original_menu_controller_transitions_render_and_resolve_live_selection() {
             .unwrap();
         assert_eq!(
             u32::from_le_bytes(snapshot_bytes[8..12].try_into().unwrap()),
-            17
+            21 // Reel dispatch order wraps the intro and menu checkpoints.
         );
         let snapshot =
             discworld_core::save::Snapshot::from_bytes(&snapshot_bytes, game.assets.identity)

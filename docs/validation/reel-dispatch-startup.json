@@ -1,0 +1,59 @@
+{
+  "schema": 1,
+  "status": "Startup phase discrepancy resolved for the captured sequence; broader runtime acceptance remains open.",
+  "runtime_build": {
+    "baseline_revision": "3b657d88558e1a5147758c9da6c5285d3c26ab1e",
+    "working_tree": true,
+    "binary_sha256": "8c5997fa3d56f2fc55d72f64368b3564ebe14edc903cdf4749dda909a366a3e2",
+    "source_sha256": {
+      "crates/discworld-core/src/engine.rs": "ba9f9c493c23e16c95d03361372bf091fd4f8f0029159726908fa73ebc48a49d",
+      "crates/discworld-core/src/save.rs": "ab56dcd253db7ce1adc3ebccc8e8a47032a0cc98af453334d6dafcc76e4248c8"
+    }
+  },
+  "reference_revision": "96b42d42bc8533953bdd701db059cc33c839a9ff",
+  "reference_binary_sha256": "1e8b098f0e9f6da44062aa19c195a5771a4a5dbc806cb3d3a9c3eb0e8fb6f524",
+  "reference_capture_sha256": "e646c3a0c90535abbca8f409d9eb2a104e6639b85bfc4d931fc473fa9517f3b8",
+  "rust_capture_sha256": "f0c3e5f6f5600df4754284600dcdf10a38c3cf2ffe31d27ca3100e4b1ec5f77f",
+  "comparison_sha256": "07850210fb0d4d85e334b58fdb51a5c20082c41308241b4c4613b12b55665ca4",
+  "local_artifacts": "assets/validation/reel-dispatch-final",
+  "reference_artifacts": "assets/validation/reference-frames-step-cycles",
+  "reference_frames": 120,
+  "pixel_matched_frames": 120,
+  "scene_aligned_equal_frames": 120,
+  "scene_aligned_mismatches": [],
+  "baseline_scene_aligned_equal_frames": 103,
+  "baseline_scene_aligned_mismatches": [
+    81,
+    83,
+    85,
+    87,
+    89,
+    91,
+    93,
+    95,
+    97,
+    99,
+    101,
+    103,
+    105,
+    113,
+    115,
+    117,
+    119
+  ],
+  "validation": {
+    "workspace": "passed, 337 core tests",
+    "original_assets": "19 passed in full suite; menu test passed separately after updating outer save-version expectation to 21",
+    "clippy": "passed, all targets with warnings denied",
+    "wasm": "passed",
+    "native_tools_release": "passed",
+    "browser_release": "passed"
+  },
+  "scope": [
+    "Full RGB frames compared without masks after per-scene start alignment.",
+    "Uses the existing completed read-only LLDB reference capture; no new reference run is claimed.",
+    "The two startup scenes do not establish full-game timing, device audio or physical-iPad acceptance.",
+    "Legacy and scene-reconstructed reels without jobs still use the earlier animation phase; ordering with master, cursor, background and movers needs further reference work.",
+    "Full recorded route with the new dispatch implementation has not yet completed."
+  ]
+}

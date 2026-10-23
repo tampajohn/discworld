@@ -1,12 +1,9 @@
 # Tinsel 1 reel scheduling contract
 
-Status: implementation work remains. The startup first-step discrepancy in
-[reference-startup-phase.json](validation/reference-startup-phase.json) is
-confirmed. This document records the source-derived ordering needed to fix it;
-it does not claim that the current engine satisfies that ordering.
-
-The empty-film return described below is implemented and tested. The deferred
-dispatch integration for nonempty films remains outstanding.
+Status: script-started and internal PLAY reels now share the scene-script
+scheduler. The initial comparison against the recorded reference startup has
+120/120 aligned RGB matches, eliminating the prior 17 phase mismatches. This
+is startup evidence, not proof of complete scheduler equivalence.
 
 Reference: ScummVM `96b42d42bc8533953bdd701db059cc33c839a9ff`,
 `common/coroutines.cpp` and `engines/tinsel/play.cpp`. The reference source and
@@ -74,26 +71,46 @@ reel checks at dispatch, not at `PlayFilm` scheduling (lines 419–487). Object
 creation and animation initialization follow those checks. These checks must
 observe changes made by the caller before it yielded, and by earlier children.
 
-## Current implementation mismatch
+## Implementation and remaining scope
 
-The Rust script scheduler already implements insertion after the current job
-and reverse creation order. Its existing tests cover same-pass children, parent
-termination, cancellation and scene replacement. Films, however, live outside
-that queue in `Engine::films` and advance before scene script dispatch.
+PLAY/SPLAY/TOPPLAY enqueue requests containing the film, column, position,
+layer and captured Escape generation. Only the scheduling-time actor lookup
+and latest-film/step reset happen before the caller yields. Each queued job
+then checks actor life and arbitration, resolves placement and depth, claims
+the actor, creates a declared mover if needed, and takes its first step.
+Rejected superseded reels do not initialize animation resources. The blocking
+primary still runs inside its caller. Internal TALK film launches use the same
+queue.
 
-The scene PLAY/SPLAY handler currently prepares all columns, claims ownership
-and creates movers during the library call. It appends nonblocking columns to
-the film vector. Their first step waits for the next engine tick. Internal
-`launch_film` and restored reels also bypass the script queue. This is a
-scheduling integration problem; changing the generic queue's insertion rule
-would not fix it.
+Active jobs retain their scheduler position. `Engine::films` remains drawable
+storage, but its earlier animation phase skips reels with queue jobs. Completion,
+replacement and Escape use the existing ownership/SPLAY cleanup. A new reel
+checks Escape after its initial step and sleep, matching the reference loop.
+The shared first-column depth and factor persist across dispatches rather than
+being computed eagerly for all columns at library-call time.
 
-Stepping every new film immediately inside PLAY would incorrectly run children
-before their caller yields. Stepping all new films at the end of a tick would
-also lose ordering with newly spawned scripts and existing peers. A correct
-integration must represent reel dispatch relative to those jobs, retain that
-order on later ticks, and defer dispatch-time side effects. Resource preparation
-must distinguish scheduling data from actor/mover state read during dispatch.
+Save version 21 wraps the existing snapshot with ordered process-to-reel-task
+associations and shared depth state. Both pending and active jobs are restored;
+script validation distinguishes these native tasks from bytecode contexts.
+Malformed identities, duplicate associations, noncanonical order and invalid
+state are checked. No new wrapper is emitted for a legacy state with no tasks
+and zero dispatch-depth state. Legacy films without jobs retain their old
+advance phase; source-specific `restore_actor_reel` rebuilding still uses that
+path. That restoration scheduling, and ordering against the separate master,
+background, cursor and mover phases, remain compatibility work.
+
+Regressions cover superseded films with deliberately unusable animation data,
+WAITFRAME before/after the first child dispatch, pending Escape, exact pending
+and active snapshot continuation, multiple films/columns retaining their order
+across passes, and malformed version-21 saves. Existing blocking-primary,
+SPLAY, actor death, TALK and legacy envelope tests are retained with their
+assertions updated where the reference requires same-pass first steps.
+
+The rebuilt runtime comparison and validation summary are in
+[reel-dispatch-startup.json](validation/reel-dispatch-startup.json), against the
+unchanged 120-frame reference capture. Workspace tests (337 core), all 20
+original-asset checks (19 plus a menu-version assertion recheck), Clippy, WASM
+and both host builds pass. Full recorded-route results remain pending.
 
 ## Required regression evidence
 

@@ -25,6 +25,7 @@ const INTRO_VERSION: u32 = 17;
 const MOVER_VISIBILITY_VERSION: u32 = 18;
 const SPLAY_VERSION: u32 = 19;
 const CREATED_MOVER_VERSION: u32 = 20;
+const REEL_TASK_VERSION: u32 = 21;
 const HEADER: usize = 80;
 pub const MAX_SAVE_BYTES: usize = 16 * 1024 * 1024;
 
@@ -143,6 +144,26 @@ impl Snapshot {
 
     pub fn to_bytes(&self) -> Result<Vec<u8>, Error> {
         self.state.validate_snapshot_structure()?;
+        let tasks = self.state.reel_tasks();
+        if !tasks.is_empty() || self.state.reel_dispatch_depth != [0; 2] {
+            let mut legacy = self.clone();
+            legacy.state.clear_reel_tasks();
+            legacy.state.reel_dispatch_depth = [0; 2];
+            let payload =
+                postcard::to_allocvec(&(legacy.to_bytes()?, tasks, self.state.reel_dispatch_depth))
+                    .map_err(|_| Error("snapshot reel task encode failed"))?;
+            if payload.len() > MAX_SAVE_BYTES - HEADER {
+                return Err(Error("save size limit"));
+            }
+            let mut bytes = Vec::with_capacity(HEADER + payload.len());
+            bytes.extend_from_slice(MAGIC);
+            bytes.extend_from_slice(&REEL_TASK_VERSION.to_le_bytes());
+            bytes.extend_from_slice(&self.asset_id);
+            bytes.extend_from_slice(&(payload.len() as u32).to_le_bytes());
+            bytes.extend_from_slice(&Sha256::digest(&payload));
+            bytes.extend_from_slice(&payload);
+            return Ok(bytes);
+        }
         if !self.state.created_reel_movers.is_empty() {
             let created: Vec<(i32, u64)> = self
                 .state
@@ -459,6 +480,7 @@ impl Snapshot {
             MOVER_VISIBILITY_VERSION,
             SPLAY_VERSION,
             CREATED_MOVER_VERSION,
+            REEL_TASK_VERSION,
         ]
         .contains(&word(8))
         {
@@ -473,6 +495,24 @@ impl Snapshot {
         }
         if Sha256::digest(payload)[..] != bytes[48..80] {
             return Err(Error("save checksum mismatch"));
+        }
+        if word(8) == REEL_TASK_VERSION {
+            type Tasks = Vec<(crate::scheduler::ProcessId, crate::engine::ReelTask)>;
+            let ((legacy, tasks, depth), remaining) =
+                postcard::take_from_bytes::<(Vec<u8>, Tasks, [i64; 2])>(payload)
+                    .map_err(|_| Error("invalid snapshot reel task payload"))?;
+            if !remaining.is_empty()
+                || legacy.len() < HEADER
+                || u32::from_le_bytes(legacy[8..12].try_into().unwrap()) > CREATED_MOVER_VERSION
+                || (tasks.is_empty() && depth == [0; 2])
+            {
+                return Err(Error("invalid snapshot reel task extension"));
+            }
+            let mut snapshot = Self::from_bytes(&legacy, asset_id)?;
+            snapshot.state.restore_reel_tasks(tasks)?;
+            snapshot.state.reel_dispatch_depth = depth;
+            snapshot.state.validate_snapshot_structure()?;
+            return Ok(snapshot);
         }
         if word(8) == CREATED_MOVER_VERSION {
             let ((legacy, created), remaining) =

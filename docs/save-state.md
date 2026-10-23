@@ -560,3 +560,33 @@ web tests, Clippy and WASM checks pass. Both release hosts rebuilt after the
 6167511 browser audit finished, including the implicit film-position correction.
 Logs use assets/logs/created-mover-codec-*. This does not establish automatic
 mover creation behavior; the new metadata is not yet populated by dispatch.
+
+## Version 21: reel dispatch order
+
+Newly scheduled PLAY/SPLAY/TOPPLAY and internal film launches now have native
+jobs in the script scheduler. Version 21 wraps a v1–v20 snapshot, an ordered
+list of `(process ID, reel task)` pairs, and the shared first-column depth and
+factor. A pending task stores its film, column, requested position, status-layer
+flag, SPLAY flag and captured Escape generation. An active task identifies the
+playback generation in the existing film storage. Scheduler positions, sleeps
+and process identities stay in the inner snapshot; the extension identifies
+which otherwise pristine native process slots are reel jobs rather than VMs.
+
+Decoding checks process existence and pristine state, uniqueness/canonical
+queue order, pending column bounds and Escape generation, active generation
+bounds and uniqueness, and depth bounds. Standard checksum, asset, length and
+size validation applies. A nested v21 wrapper, trailing bytes, and an entirely
+empty extension are rejected. Resource validation checks pending film/reel
+references; it does not interpret native task slots as script bytecode.
+
+A stale active task may legitimately remain for its next cleanup dispatch after
+a replacement removes its animation. The task need not own a current film, but
+must identify a nonzero generation no newer than the playback counter. Existing
+SPLAY cleanup and created-mover ownership validation still apply separately.
+
+States with no reel tasks and zero shared dispatch depth retain their previous
+encoding. Legacy imported films without jobs keep their prior animation phase;
+newly scheduled films use the shared queue. Exact pending/active continuation,
+WAITFRAME ordering, pending Escape, multi-column order, malformed associations
+and extreme depth values have regression coverage. The complete-game reference
+and scene-reconstruction scheduling audit remain separate acceptance work.
