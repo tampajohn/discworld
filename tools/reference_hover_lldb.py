@@ -17,6 +17,7 @@ import reference_frames_lldb as frames
 INVENTORY = os.environ.get("DISCWORLD_REFERENCE_INVENTORY") == "1"
 LOOK = os.environ.get("DISCWORLD_REFERENCE_LOOK") == "1"
 WALK = os.environ.get("DISCWORLD_REFERENCE_WALK") == "1"
+WALK_FROM_ACTOR = os.environ.get("DISCWORLD_REFERENCE_WALK_FROM_ACTOR") == "1"
 WALK_DELAY = int(os.environ.get("DISCWORLD_REFERENCE_WALK_DELAY", "1"))
 START = None
 ACTIONS = []
@@ -25,7 +26,7 @@ ROOM = 18 << 23
 POINTS = [[50, 120], [147, 110], [294, 56], [250, 160], [149, 60], [10, 10]]
 
 if WALK:
-    POINTS[0] = [250, 180]
+    POINTS[0] = [200, 140] if WALK_FROM_ACTOR else [250, 180]
 
 
 def invoke(frame, expression):
@@ -84,6 +85,8 @@ def cycle(frame, location, dictionary):
         if START is not None:
             elapsed = frames.CYCLES - START
             if WALK and WALK_DELAY == 1 and elapsed == 1:
+                if WALK_FROM_ACTOR:
+                    PENDING.append('Tinsel::_vm->_mousePos.x = 250, Tinsel::_vm->_mousePos.y = 180, Tinsel::_vm->_cursor->DoCursorMove()')
                 PENDING.append('Tinsel::PlayerEvent((Tinsel::PLR_EVENT)1, Tinsel::_vm->_mousePos)')
                 return True
             if elapsed % 12 == 0 and elapsed // 12 < len(POINTS):
@@ -244,7 +247,7 @@ def finish(debugger):
     path = frames.OUTPUT / 'capture.json'
     report = json.loads(path.read_text())
     report.update(scope='Controlled original debug scene entry, logical driver writes and original DoCursorMove; not normal host input or full gameplay equivalence.',
-                  injected_actions=ACTIONS, hover_start_cycle=START, inventory_diagnostic=INVENTORY, look_diagnostic=LOOK, walk_diagnostic=WALK, walk_delay=WALK_DELAY)
+                  injected_actions=ACTIONS, hover_start_cycle=START, inventory_diagnostic=INVENTORY, look_diagnostic=LOOK, walk_diagnostic=WALK, walk_delay=WALK_DELAY, walk_from_actor=WALK_FROM_ACTOR)
     path.write_text(json.dumps(report, indent=2) + '\n')
 
 

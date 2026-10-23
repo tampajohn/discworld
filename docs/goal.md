@@ -16,6 +16,8 @@ Touch gestures and presentation technology remain implementation decisions to va
 
 ## Latest validation follow-up
 
+Cached actor selection is confirmed against the pinned reference, but its inventory-opening follow-up exposes a trail discrepancy: the first 13 of 72 frames match, then Rust removes trails under a stationary cursor while the original continues them. Movement-triggered inventory trail suppression is the next engine correction to investigate; see [failing capture](validation/cached-actor-trail-observation.json). This diagnostic adds no production engine change.
+
 Timed world clicks now use the original scheduled cached tag before coordinate fallback. The immediate move/click discrepancy is resolved: both immediate and delayed scenarios match all 72 reference frames at the same cycles, with pre-click and per-frame save continuation checks. Workspace, 25 original-asset cases, Clippy, native/WASM builds and 49 browser UI cases pass; one unsupported WebKit multi-touch injection case is skipped. Full-route reruns for this engine change are running in native, Chrome and WebKit. Updated Finder and browser packages pass extracted startup/legacy-load checks; see [package evidence](validation/packages-07e395f.json). See [cached-click evidence](validation/cached-world-click.json).
 
 A controlled player WALKTO on the starting-room floor now matches the pinned reference in all 72 full RGB frames at the same cycles, including walking and the standing transition. This uses one hover-update cycle before clicking; immediate move/click cached-tag behavior remains separate. No engine change was needed. See [walking evidence](validation/reference-player-walk.json).

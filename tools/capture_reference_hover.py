@@ -26,9 +26,13 @@ def main():
     mode.add_argument('--inventory', action='store_true', help='dispatch original lead WALKTO and close inventory halfway through')
     mode.add_argument('--look', action='store_true', help='dispatch original lead LOOK with speech and subtitles')
     mode.add_argument('--walk', action='store_true', help='send a player WALKTO on the room floor')
+    mode.add_argument('--walk-from-actor', action='store_true', help='move off a cached actor and send WALKTO immediately')
     parser.add_argument('--walk-delay', type=int, choices=[0, 1], default=1, help='cycles between cursor injection and WALKTO')
     parser.add_argument('--frames', type=int, default=72, help='capture 72..240 frames')
     args = parser.parse_args()
+    if args.walk_from_actor:
+        args.walk = True
+        args.walk_delay = 1
     if not 72 <= args.frames <= 240:
         parser.error('frames must be between 72 and 240')
     binary = ROOT / f'.reference/scummvm-{REVISION}/scummvm'
@@ -66,7 +70,8 @@ def main():
     environment['DISCWORLD_REFERENCE_LOOK'] = '1' if args.look else '0'
     environment['DISCWORLD_REFERENCE_WALK'] = '1' if args.walk else '0'
     environment['DISCWORLD_REFERENCE_WALK_DELAY'] = str(args.walk_delay)
-    metadata = dict(walk_delay=args.walk_delay, walk_diagnostic=args.walk, frame_limit=args.frames, look_diagnostic=args.look, inventory_diagnostic=args.inventory, reference_revision=REVISION, binary_sha256=BINARY_SHA256,
+    environment['DISCWORLD_REFERENCE_WALK_FROM_ACTOR'] = '1' if args.walk_from_actor else '0'
+    metadata = dict(walk_from_actor=args.walk_from_actor, walk_delay=args.walk_delay, walk_diagnostic=args.walk, frame_limit=args.frames, look_diagnostic=args.look, inventory_diagnostic=args.inventory, reference_revision=REVISION, binary_sha256=BINARY_SHA256,
                     probe_sha256=digest(probe), config_sha256=digest(config), command=command,
                     scope='Controlled scene and logical cursor injection; not ordinary input acceptance.')
     metadata_path = output / 'launch.json'
@@ -92,15 +97,18 @@ def main():
     points = [[50, 120], [147, 110], [294, 56], [250, 160], [149, 60], [10, 10]]
     if args.walk:
         points[0] = [250, 180]
+    if args.walk_from_actor:
+        points[0] = [200, 140]
     # After the six injected movement blocks, LOOK can restore the saved cursor
     # itself. Retain that position as observed output rather than requiring a
     # constant driver position after all controlled input has ended.
     accepted = (metadata.get('exit_code') == 0 and report.get('complete') is True
                 and report.get('errors') == [] and len(frames) == args.frames
-                and len(report.get('injected_actions', [])) == (10 if args.inventory else 9 if args.look or args.walk else 8)
+                and len(report.get('injected_actions', [])) == (10 if args.inventory or args.walk_from_actor else 9 if args.look or args.walk else 8)
                 and all(f['scene'] == 18 << 23
                         and ((args.look and i >= 72)
-                             or f['driver_cursor'] == points[min(i // 12, len(points) - 1)])
+                             or f['driver_cursor'] == ([250, 180] if args.walk_from_actor and 1 <= i < 12
+                                                      else points[min(i // 12, len(points) - 1)]))
                         for i, f in enumerate(frames)))
     if accepted and args.inventory:
         accepted = (frames[12]['inventory'] == [2, 2]

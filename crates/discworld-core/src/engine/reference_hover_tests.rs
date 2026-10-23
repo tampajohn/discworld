@@ -42,10 +42,15 @@ fn capture_original_debug_room_hover() {
     let walk_delay =
         std::env::var("DISCWORLD_HOVER_WALK_DELAY").map_or(1, |s| s.parse::<u64>().unwrap());
     assert!(walk_delay <= 1);
+    let walk_from_actor = std::env::var_os("DISCWORLD_HOVER_WALK_FROM_ACTOR").is_some();
     let walk_mode = std::env::var_os("DISCWORLD_HOVER_WALK").is_some();
     assert!(usize::from(inventory_mode) + usize::from(look_mode) + usize::from(walk_mode) <= 1);
     if walk_mode {
-        points[0] = [250, 180];
+        points[0] = if walk_from_actor {
+            [200, 140]
+        } else {
+            [250, 180]
+        };
     }
     let frame_limit =
         std::env::var("DISCWORLD_HOVER_FRAMES").map_or(72, |s| s.parse::<usize>().unwrap());
@@ -80,9 +85,25 @@ fn capture_original_debug_room_hover() {
         if let Some(start) = start {
             let elapsed = engine.ticks - start;
             if walk_mode && walk_delay == 1 && elapsed == 1 {
+                let click_point = if walk_from_actor {
+                    assert_eq!(
+                        engine.world_hover.as_ref().unwrap().display.selection(),
+                        Some(crate::world_hover::Selection::Actor(7))
+                    );
+                    engine
+                        .cursor_trails
+                        .as_mut()
+                        .unwrap()
+                        .move_to(&resources, [250, 180], false)
+                        .unwrap();
+                    engine.move_cursor([250, 180]);
+                    [250, 180]
+                } else {
+                    points[0]
+                };
                 assert!(
                     engine
-                        .world_click(&resources, points[0], PolygonInteraction::WalkTo)
+                        .world_click(&resources, click_point, PolygonInteraction::WalkTo)
                         .unwrap()
                 );
             }
@@ -517,6 +538,9 @@ fn capture_original_debug_room_hover() {
         }
     }
     assert_eq!(rows.len(), frame_limit, "room did not reach active tags");
+    if walk_from_actor {
+        assert_eq!(engine.active_inventory(), Some(2));
+    }
     if look_mode && frame_limit >= 144 {
         let source = bank.sample(3636).unwrap().unwrap();
         let expected: Vec<i16> = source.iter().map(|&s| (i16::from(s) - 128) * 256).collect();

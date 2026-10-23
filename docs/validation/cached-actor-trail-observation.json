@@ -1,0 +1,54 @@
+{
+  "runtime_revision": "07e395f",
+  "scope": "Controlled cached-actor click and subsequent inventory/trail frames. Partial match, not a fidelity pass.",
+  "reference_click": {
+    "cycle": 1258,
+    "expression": "Tinsel::PlayerEvent((Tinsel::PLR_EVENT)1, Tinsel::_vm->_mousePos)",
+    "error": "success",
+    "target_before_dispatch": {
+      "g_TaggedActor": 7,
+      "g_hTaggedPolygon": -1
+    }
+  },
+  "frames": 72,
+  "same_cycle_rgb_matches": 13,
+  "first_mismatch_cycle": 1270,
+  "mismatch_pixels_range": [
+    1,
+    18
+  ],
+  "observation": "Frames1..13 match. Before1270 both engines have identical trail clocks. At1271 Rust has removed all three trails, while original still advances all three. Original invCursor suppresses via xMovement/yMovement only with nonzero deltas; Rust update_cursor_trails computes inside and suppresses every tick.",
+  "reference_trail_steps_cycle1271": [
+    {
+      "kind": "animation_step",
+      "cycle": 1271,
+      "address": 34543125480,
+      "script": 374408,
+      "index": 8,
+      "period": 2,
+      "remaining": 2
+    },
+    {
+      "kind": "animation_step",
+      "cycle": 1271,
+      "address": 34543125512,
+      "script": 374468,
+      "index": 7,
+      "period": 2,
+      "remaining": 1
+    },
+    {
+      "kind": "animation_step",
+      "cycle": 1271,
+      "address": 34543125544,
+      "script": 374528,
+      "index": 2,
+      "period": 2,
+      "remaining": 2
+    }
+  ],
+  "rust_trails_before1271": [],
+  "next_required": "Match original inventory movement-triggered trail suppression, including open-under-stationary-cursor, close, dragging, immediate injected moves and save/load; retain earlier hover/inventory reference matches.",
+  "engine_changed_this_followup": false,
+  "comparison_sha256": "0d11240d47ba1c5602de7bba95e914bb6c991fd03328417696ed93f80f2fde56"
+}
