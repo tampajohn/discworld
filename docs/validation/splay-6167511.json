@@ -1,0 +1,26 @@
+{
+  "runtime_revision": "6167511a2fdad3fdd724dfc0b58da22eebf25061",
+  "route": "evidence/act4-ending-input.json",
+  "route_sha256": "30c227553695638a78495f4cf56731f841e89188c8faa75821e50c164ddf4ddb",
+  "binary_sha256": "27e26d99db90f1f2d3a6abed04e9d73b48927dfa74bf335210c9f6e5510da49d",
+  "schema": 1,
+  "local_artifacts": "assets/validation/splay-6167511",
+  "native": {
+    "ticks": 2630000,
+    "status": "Running",
+    "scene_name": "title.scn",
+    "has_restarted": true,
+    "snapshot_checks": 5048,
+    "audio_snapshot_checks": 5048,
+    "snapshot_max_bytes": 48155,
+    "audio_snapshot_max_bytes": 317221,
+    "accepted_inputs": 1652,
+    "core_sha256": "d4a60d7dd6637c3c8f5cd5131b29868e40afd06f45559e7cd8dafa42711de4eb",
+    "report_sha256": "0d56aa96e4af901e4e12f18a7bf4dffb9e83a33f571eb0649a81f03aec7a8763"
+  },
+  "scope": [
+    "Recorded native full route; no additional SPLAY inputs.",
+    "Includes SPLAY lifecycle integration; predates implicit mover film-coordinate correction.",
+    "Final title image inspected. Not manual UI, browser or physical iPad acceptance."
+  ]
+}

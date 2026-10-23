@@ -44,6 +44,14 @@ Keep the user's visible native session current with newly verified engine builds
 
 ## Current progress (2026-10-22)
 
+SPLAY runtime `6167511` completed the native recorded route with all 1,652
+inputs accepted, 5,048 engine and 5,048 audio continuation checks, and final
+restart/title at tick 2,630,000. Its production browser host passed four Node
+clock/audio tests and 44 Chrome/WebKit UI cases. See
+[native evidence](validation/splay-6167511.json) and
+[browser UI evidence](validation/browser-splay-6167511.json). Both audits
+predate the implicit mover film-coordinate correction at `34da839`.
+
 Continued movement under PLAY at `a768ad9` completed the recorded native
 route: all 1,652 inputs accepted, 5,048 engine and 5,048 audio continuation
 checks, and restart/title at tick 2,630,000. See

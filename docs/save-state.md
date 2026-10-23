@@ -533,3 +533,29 @@ identities; see the mover lifecycle document for integration coverage.
 Validation passes: workspace suite (324 core tests), 20 original-asset web
 tests, Clippy and WASM checks. Logs use assets/logs/splay-codec-*. Subsequent SPLAY lifecycle integration rebuilt native and browser release
 hosts and passed the same checks; logs use assets/logs/splay-lifecycle-*.
+
+
+## Version 20: movers initialized during a film
+
+The initial movie-created-mover extension wraps an exact v1–v19 snapshot and
+a sorted, nonempty list of (actor ID, playback generation) pairs. Empty metadata
+uses the prior encoding unchanged. The marker distinguishes initialization
+visibility from hiding an existing mover; HIDEACTOR's current hidden flag remains
+independent.
+
+Each pair must identify an existing matching mover and actor, a nonzero playback
+generation within the current counter, and exactly one live owned film or
+blocking primary. Decode rejects duplicate/unsorted actors, missing movers,
+wrong generations, trailing bytes, and nested v20 wrappers, with the standard
+asset, length, checksum and size checks. Scene transitions clear the map.
+Tests cover v19 nesting, blocking/nonblocking holders, legacy visibility, exact
+round-trip, malformed metadata, and unchanged bytes after clearing markers.
+
+This is persistence infrastructure only. Automatic mover creation, visibility
+handling, render/scroll behavior and lifecycle cleanup are not connected yet.
+
+Validation: workspace suite and final 327-core-test run, all 20 original-asset
+web tests, Clippy and WASM checks pass. Both release hosts rebuilt after the
+6167511 browser audit finished, including the implicit film-position correction.
+Logs use assets/logs/created-mover-codec-*. This does not establish automatic
+mover creation behavior; the new metadata is not yet populated by dispatch.

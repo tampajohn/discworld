@@ -24,6 +24,7 @@ const SAMPLE_WAIT_VERSION: u32 = 16;
 const INTRO_VERSION: u32 = 17;
 const MOVER_VISIBILITY_VERSION: u32 = 18;
 const SPLAY_VERSION: u32 = 19;
+const CREATED_MOVER_VERSION: u32 = 20;
 const HEADER: usize = 80;
 pub const MAX_SAVE_BYTES: usize = 16 * 1024 * 1024;
 
@@ -142,6 +143,29 @@ impl Snapshot {
 
     pub fn to_bytes(&self) -> Result<Vec<u8>, Error> {
         self.state.validate_snapshot_structure()?;
+        if !self.state.created_reel_movers.is_empty() {
+            let created: Vec<(i32, u64)> = self
+                .state
+                .created_reel_movers
+                .iter()
+                .map(|(&actor, &playback)| (actor, playback))
+                .collect();
+            let mut legacy = self.clone();
+            legacy.state.created_reel_movers.clear();
+            let payload = postcard::to_allocvec(&(legacy.to_bytes()?, created))
+                .map_err(|_| Error("snapshot created mover encode failed"))?;
+            if payload.len() > MAX_SAVE_BYTES - HEADER {
+                return Err(Error("save size limit"));
+            }
+            let mut bytes = Vec::with_capacity(HEADER + payload.len());
+            bytes.extend_from_slice(MAGIC);
+            bytes.extend_from_slice(&CREATED_MOVER_VERSION.to_le_bytes());
+            bytes.extend_from_slice(&self.asset_id);
+            bytes.extend_from_slice(&(payload.len() as u32).to_le_bytes());
+            bytes.extend_from_slice(&Sha256::digest(&payload));
+            bytes.extend_from_slice(&payload);
+            return Ok(bytes);
+        }
         if !self.state.splay_reels.is_empty() {
             let ids: Vec<u64> = self.state.splay_reels.iter().copied().collect();
             let mut legacy = self.clone();
@@ -434,6 +458,7 @@ impl Snapshot {
             INTRO_VERSION,
             MOVER_VISIBILITY_VERSION,
             SPLAY_VERSION,
+            CREATED_MOVER_VERSION,
         ]
         .contains(&word(8))
         {
@@ -448,6 +473,23 @@ impl Snapshot {
         }
         if Sha256::digest(payload)[..] != bytes[48..80] {
             return Err(Error("save checksum mismatch"));
+        }
+        if word(8) == CREATED_MOVER_VERSION {
+            let ((legacy, created), remaining) =
+                postcard::take_from_bytes::<(Vec<u8>, Vec<(i32, u64)>)>(payload)
+                    .map_err(|_| Error("invalid snapshot created mover payload"))?;
+            if !remaining.is_empty()
+                || legacy.len() < HEADER
+                || u32::from_le_bytes(legacy[8..12].try_into().unwrap()) > SPLAY_VERSION
+                || created.is_empty()
+                || created.windows(2).any(|pair| pair[0].0 >= pair[1].0)
+            {
+                return Err(Error("invalid snapshot created mover extension"));
+            }
+            let mut snapshot = Self::from_bytes(&legacy, asset_id)?;
+            snapshot.state.created_reel_movers = created.into_iter().collect();
+            snapshot.state.validate_snapshot_structure()?;
+            return Ok(snapshot);
         }
         if word(8) == SPLAY_VERSION {
             let ((legacy, ids), remaining) =

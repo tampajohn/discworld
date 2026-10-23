@@ -1,0 +1,16 @@
+{
+  "runtime_revision": "6167511",
+  "test_revision": "b992ac9fbd98a57956115667b09649de47747089",
+  "files": {
+    "web/player.js": "489954f3ff9dee8cf724a7248f8b97133ff5fccaa4a586683c4fcb6b747b1709",
+    "web/worker.js": "cd0ac16cacb52124adb7533f3268241403feac437d28b11bc24905633ab67a5d",
+    "web/pkg/discworld_web_bg.wasm": "0044726573e533fa932cb1fe31a8915dc119069d23fe0c5c7167c920ddeeb2d0",
+    "web/tests/player.spec.js": "e9f4486b627dff7c857be6d406f52fdd7869bb5d044eed9d3984b092b2bb5a89"
+  },
+  "log": "assets/logs/browser-splay-6167511-full.log",
+  "scope": "Production 6167511 WASM: four Node clock/audio tests and 44 Chrome/WebKit UI cases. Not full-route, manual visible session or physical iPad acceptance.",
+  "exit_code": 0,
+  "playwright_passed": 44,
+  "node_passed": 4,
+  "schema": 1
+}

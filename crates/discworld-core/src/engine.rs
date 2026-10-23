@@ -276,6 +276,10 @@ pub struct Engine {
     /// superseded reels waiting for their next coroutine turn.
     #[serde(skip)]
     pub(crate) splay_reels: std::collections::BTreeSet<u64>,
+    /// Movers created by their current PLAY reel. Initialization resets their
+    /// visibility, unlike hiding an existing mover. Stored separately in v20.
+    #[serde(skip)]
+    pub(crate) created_reel_movers: std::collections::BTreeMap<i32, u64>,
     next_playback: u64,
     pub polygons: crate::polygon::Polygons,
     pub random: crate::random::Random,
@@ -489,6 +493,33 @@ impl Engine {
     }
 
     pub(crate) fn validate_snapshot_structure(&self) -> Result<(), Error> {
+        for (&actor, &playback) in &self.created_reel_movers {
+            let matches = self
+                .films
+                .iter()
+                .chain(
+                    self.processes
+                        .states()
+                        .filter_map(|p| p.play_wait.as_ref().map(|w| &w.1)),
+                )
+                .filter(|a| a.object.id == actor && a.playback == playback && self.owns_reel(a))
+                .count();
+            if playback == 0
+                || playback > self.next_playback
+                || matches != 1
+                || self.actors.get(actor as u32).is_err()
+                || self
+                    .movers
+                    .get(&actor)
+                    .is_none_or(|m| m.placement.actor != actor)
+                || self
+                    .reel_owners
+                    .get(&actor)
+                    .is_none_or(|(_, owner)| *owner != playback)
+            {
+                return Err(Error("invalid snapshot created mover reel"));
+            }
+        }
         for &playback in &self.splay_reels {
             let matches = self
                 .films
@@ -2946,6 +2977,7 @@ impl Engine {
             reel_owners: std::collections::BTreeMap::new(),
             reel_escape: std::collections::BTreeMap::new(),
             splay_reels: std::collections::BTreeSet::new(),
+            created_reel_movers: std::collections::BTreeMap::new(),
             next_playback: 0,
             polygons: crate::polygon::Polygons::default(),
             random: crate::random::Random::default(),
@@ -3254,6 +3286,7 @@ impl Engine {
         };
         self.films.clear();
         self.splay_reels.clear();
+        self.created_reel_movers.clear();
         self.reel_owners.clear();
         self.reel_escape.clear();
         self.playback.clear();
@@ -9190,6 +9223,91 @@ mod tests {
                                         Snapshot::capture(&playing, [7; 32]).to_bytes().unwrap();
                                     let mut flagged = playing.clone();
                                     flagged.splay_reels.insert(reel.playback);
+                                    {
+                                        let inner = Snapshot::capture(&flagged, [7; 32])
+                                            .to_bytes()
+                                            .unwrap();
+                                        let mut created = flagged.clone();
+                                        created.created_reel_movers.insert(1, reel.playback);
+                                        let encoded = Snapshot::capture(&created, [7; 32])
+                                            .to_bytes()
+                                            .unwrap();
+                                        assert_eq!(
+                                            u32::from_le_bytes(encoded[8..12].try_into().unwrap()),
+                                            20
+                                        );
+                                        let decoded =
+                                            Snapshot::from_bytes(&encoded, [7; 32]).unwrap();
+                                        assert_eq!(decoded.state(), &created);
+                                        assert_eq!(decoded.to_bytes().unwrap(), encoded);
+                                        let (legacy, ids): (Vec<u8>, Vec<(i32, u64)>) =
+                                            postcard::from_bytes(&encoded[80..]).unwrap();
+                                        assert_eq!(legacy, inner);
+                                        assert_eq!(ids, vec![(1, reel.playback)]);
+                                        let wrap = |legacy: Vec<u8>, ids: Vec<(i32, u64)>, trailing: bool| {
+                                            let mut payload = postcard::to_allocvec(&(legacy, ids)).unwrap();
+                                            if trailing { payload.push(0); }
+                                            let mut out = encoded[..80].to_vec();
+                                            out[44..48].copy_from_slice(&(payload.len() as u32).to_le_bytes());
+                                            out[48..80].copy_from_slice(&Sha256::digest(&payload));
+                                            out.extend(payload);
+                                            out
+                                        };
+                                        for bad in [
+                                            wrap(inner.clone(), vec![], false),
+                                            wrap(inner.clone(), vec![(0, reel.playback)], false),
+                                            wrap(inner.clone(), vec![(1, 0)], false),
+                                            wrap(
+                                                inner.clone(),
+                                                vec![(1, reel.playback + 1)],
+                                                false,
+                                            ),
+                                            wrap(inner.clone(), vec![(1, reel.playback); 2], false),
+                                            wrap(inner.clone(), vec![(2, 1), (1, 1)], false),
+                                            wrap(inner.clone(), ids.clone(), true),
+                                            wrap(encoded.clone(), ids, false),
+                                        ] {
+                                            assert!(Snapshot::from_bytes(&bad, [7; 32]).is_err());
+                                        }
+                                        let mut missing = created.clone();
+                                        missing.movers.clear();
+                                        assert!(
+                                            Snapshot::capture(&missing, [7; 32])
+                                                .to_bytes()
+                                                .is_err()
+                                        );
+                                        for mode in 0..4 {
+                                            let mut invalid = created.clone();
+                                            match mode {
+                                                0 => invalid.reel_owners.clear(),
+                                                1 => invalid.next_playback = 0,
+                                                2 => {
+                                                    invalid
+                                                        .movers
+                                                        .get_mut(&1)
+                                                        .unwrap()
+                                                        .placement
+                                                        .actor = 2
+                                                }
+                                                _ => {
+                                                    invalid.films.clear();
+                                                    invalid.processes = Scheduler::default();
+                                                }
+                                            }
+                                            assert!(
+                                                Snapshot::capture(&invalid, [7; 32])
+                                                    .to_bytes()
+                                                    .is_err()
+                                            );
+                                        }
+                                        created.created_reel_movers.clear();
+                                        assert_eq!(
+                                            Snapshot::capture(&created, [7; 32])
+                                                .to_bytes()
+                                                .unwrap(),
+                                            inner
+                                        );
+                                    }
                                     let bytes =
                                         Snapshot::capture(&flagged, [7; 32]).to_bytes().unwrap();
                                     assert_eq!(
