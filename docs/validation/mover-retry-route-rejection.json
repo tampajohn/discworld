@@ -23,7 +23,7 @@
     "event": "walkto"
   },
   "observation": "All three hosts stop at the same recorded input after the movement retry correction. Native refuses to save an incomplete run and leaves report.json empty. No claim yet whether replay timing or engine behavior is responsible.",
-  "next_diagnostic": "Previous6061cc3 prefix replay to1109019 running; compare state and puzzle prerequisites before adjusting input timing.",
+  "next_diagnostic": "Trace original map enabling condition for tag182/global360 and identify preceding route timing that establishes it; late map-click trial does not complete visitor puzzle.",
   "checkpoint": {
     "path": "assets/validation/mover-retry-rejection1/before.dws",
     "tick": 1109019,
@@ -61,5 +61,49 @@
     "status": "Running",
     "scene": "pasthide.scn",
     "puzzle_result": "No brethren.scn or dragon.scn transition; timed visitor missed, scene script waits at instruction1166. This is not an accepted replay repair."
+  },
+  "previous_build_comparison": {
+    "runtime": "6061cc3",
+    "report": "assets/validation/mover-retry-rejection1/previous-report.json",
+    "tick": 1109019,
+    "polygon80_enabled": true,
+    "global_differences_old_new": [
+      [
+        280,
+        21,
+        18
+      ],
+      [
+        296,
+        479,
+        448
+      ],
+      [
+        297,
+        148,
+        200
+      ],
+      [
+        298,
+        479,
+        448
+      ],
+      [
+        299,
+        148,
+        200
+      ],
+      [
+        360,
+        1,
+        0
+      ],
+      [
+        368,
+        1,
+        0
+      ]
+    ],
+    "interpretation": "Do not treat every differing global as a prerequisite: 368 is repeatedly set/cleared by dining.scn, while 360 is written in pastankh.scn and pasthide.scn. Map entry logic and the earlier map visit need investigation before changing the trace."
   }
 }
