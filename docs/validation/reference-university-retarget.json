@@ -1,0 +1,40 @@
+{
+  "runtime": "bad0d45",
+  "reference_revision": "96b42d42bc8533953bdd701db059cc33c839a9ff",
+  "reference": "assets/validation/reference-university-retarget1",
+  "rust": "assets/validation/rust-university-retarget1",
+  "comparison": "assets/validation/university-retarget-compare1.json",
+  "scope": "Controlled door exit and original PlayerEvent floor walk, then logical cursor move at elapsed192 and second PlayerEvent WALKTO at193. Not raw host-input or full-game equivalence.",
+  "same_cycle_frames": 240,
+  "save_continuations": 240,
+  "matching_position_phase_ticks": 73,
+  "retarget_actions": [
+    {
+      "cycle": 1449,
+      "expression": "Tinsel::_vm->_mousePos.x = 110, Tinsel::_vm->_mousePos.y = 180, Tinsel::_vm->_cursor->DoCursorMove()",
+      "error": "success"
+    },
+    {
+      "cycle": 1450,
+      "expression": "Tinsel::PlayerEvent((Tinsel::PLR_EVENT)1, Tinsel::_vm->_mousePos)",
+      "error": "success",
+      "target_before_dispatch": {
+        "g_TaggedActor": 0,
+        "g_hTaggedPolygon": -1
+      }
+    }
+  ],
+  "old_destination": [
+    814,
+    179
+  ],
+  "new_destination": [
+    809,
+    187
+  ],
+  "production_change": false,
+  "validation": [
+    "Original-asset diagnostic passed",
+    "discworld-core all-target Clippy passed"
+  ]
+}
