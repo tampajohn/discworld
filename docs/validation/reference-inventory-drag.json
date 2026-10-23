@@ -36,5 +36,18 @@
   "clippy": "core all-target check passed",
   "comparison_sha256": "ce8dbaaf741670efe0055eb8758bd60ca536b75c828de9952831937452a6b381",
   "reference_capture_sha256": "7978b040cfdbb78cd57851a4f6e95ec4c479a6cc8d57905bf3fbe06da71311ef",
-  "rust_capture_sha256": "2b3ce43e373314bf17945f866fe7efb48945451ce0a84931c829ad56be06c45b"
+  "rust_capture_sha256": "2b3ce43e373314bf17945f866fe7efb48945451ce0a84931c829ad56be06c45b",
+  "drag_state_gate_recheck": {
+    "reference_capture": "reference-inventory-drag2",
+    "accepted": true,
+    "reference_probe_sha256": "ee4977ddc9c49ccffae68e3a021bb3bcc073ba96faf6b790894d3c11e8ec7fa8",
+    "held_frame12_drag_state": 1,
+    "held_frame24_drag_state": 1,
+    "released_frame36_drag_state": 0,
+    "same_cycle_matches": 72,
+    "comparison_sha256": "606aa2f90374be28f5456a28dd76570062e4a329929cfcd251730a7608d99adb",
+    "reference_capture_sha256": "7d06c191e90b9c938719156f55a78fd1c873326dd95ce554975dc324b834b1eb",
+    "rust_capture_sha256": "2b3ce43e373314bf17945f866fe7efb48945451ce0a84931c829ad56be06c45b",
+    "scope": "Fresh reference run with required active drag and release states; compared against existing unchanged Rust header-drag capture."
+  }
 }

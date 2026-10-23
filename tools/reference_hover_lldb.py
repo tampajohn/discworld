@@ -16,6 +16,7 @@ import reference_frames_lldb as frames
 
 INVENTORY = os.environ.get("DISCWORLD_REFERENCE_INVENTORY") == "1"
 INVENTORY_DRAG = os.environ.get("DISCWORLD_REFERENCE_INVENTORY_DRAG") == "1"
+INVENTORY_FIXED_CORNER = os.environ.get("DISCWORLD_REFERENCE_INVENTORY_FIXED_CORNER") == "1"
 LOOK = os.environ.get("DISCWORLD_REFERENCE_LOOK") == "1"
 WALK = os.environ.get("DISCWORLD_REFERENCE_WALK") == "1"
 WALK_FROM_ACTOR = os.environ.get("DISCWORLD_REFERENCE_WALK_FROM_ACTOR") == "1"
@@ -31,6 +32,9 @@ if WALK:
 
 if INVENTORY_DRAG:
     POINTS = [[50, 120], [140, 110], [170, 130], [180, 135], [10, 10], [10, 10]]
+
+if INVENTORY_FIXED_CORNER:
+    POINTS = [[50, 120], [169, 147], [189, 167], [189, 167], [10, 10], [10, 10]]
 
 
 def invoke(frame, expression):
@@ -162,6 +166,7 @@ def capture(frame, location, dictionary):
             dialogs = vm.Dereference().GetChildMemberWithName('_dialogs').Dereference()
             frames.RECORDS[-1]['inventory'] = [frames.unsigned(dialogs.GetChildMemberWithName(name))
                                                for name in ['_inventoryState', '_activeInv']]
+            frames.RECORDS[-1]['inventory_dragging'] = frames.unsigned(dialogs.GetChildMemberWithName('_invDragging'))
         if LOOK:
             try:
                 mixer_type = target.FindFirstType('Audio::MixerImpl')
@@ -256,7 +261,7 @@ def finish(debugger):
     path = frames.OUTPUT / 'capture.json'
     report = json.loads(path.read_text())
     report.update(scope='Controlled original debug scene entry, logical driver writes and original DoCursorMove; not normal host input or full gameplay equivalence.',
-                  injected_actions=ACTIONS, hover_start_cycle=START, inventory_diagnostic=INVENTORY, inventory_drag=INVENTORY_DRAG, look_diagnostic=LOOK, walk_diagnostic=WALK, walk_delay=WALK_DELAY, walk_from_actor=WALK_FROM_ACTOR)
+                  injected_actions=ACTIONS, hover_start_cycle=START, inventory_diagnostic=INVENTORY, inventory_drag=INVENTORY_DRAG, inventory_fixed_corner=INVENTORY_FIXED_CORNER, look_diagnostic=LOOK, walk_diagnostic=WALK, walk_delay=WALK_DELAY, walk_from_actor=WALK_FROM_ACTOR)
     path.write_text(json.dumps(report, indent=2) + '\n')
 
 

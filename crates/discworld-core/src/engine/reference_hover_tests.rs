@@ -37,6 +37,8 @@ fn capture_original_debug_room_hover() {
         [10, 10],
     ];
     let direct_entry = std::env::var_os("DISCWORLD_HOVER_DIRECT_ENTRY").is_some();
+    let inventory_fixed_corner =
+        std::env::var_os("DISCWORLD_HOVER_INVENTORY_FIXED_CORNER").is_some();
     let inventory_drag = std::env::var_os("DISCWORLD_HOVER_INVENTORY_DRAG").is_some();
     if inventory_drag {
         points = [
@@ -44,6 +46,16 @@ fn capture_original_debug_room_hover() {
             [140, 110],
             [170, 130],
             [180, 135],
+            [10, 10],
+            [10, 10],
+        ];
+    }
+    if inventory_fixed_corner {
+        points = [
+            [50, 120],
+            [169, 147],
+            [189, 167],
+            [189, 167],
             [10, 10],
             [10, 10],
         ];
@@ -167,16 +179,36 @@ fn capture_original_debug_room_hover() {
                     );
                 }
                 if inventory_drag && elapsed == 12 {
+                    if inventory_fixed_corner {
+                        assert_eq!(
+                            engine
+                                .inventory_display
+                                .as_ref()
+                                .unwrap()
+                                .0
+                                .layout
+                                .inventory_area_at(position),
+                            crate::conversation_window::Area::BottomRight
+                        );
+                    }
                     engine
                         .mouse_button(&resources, crate::mouse::Button::Left, true)
                         .unwrap();
-                    assert!(engine.inventory_dragging());
+                    if inventory_fixed_corner {
+                        let window = engine.declarations.windows[2].as_ref().unwrap();
+                        assert_eq!(window.min, window.max, "pockets have fixed dimensions");
+                        assert!(!engine.inventory_dragging());
+                        assert!(engine.inventory_resize.is_none());
+                    } else {
+                        assert!(engine.inventory_dragging());
+                    }
                 }
                 if inventory_drag && elapsed == 36 {
                     engine
                         .mouse_button(&resources, crate::mouse::Button::Left, false)
                         .unwrap();
                     assert!(!engine.inventory_dragging());
+                    assert!(engine.inventory_resize.is_none());
                 }
                 if inventory_mode && elapsed == (if inventory_drag { 48 } else { 36 }) {
                     assert_eq!(engine.active_inventory(), Some(2));

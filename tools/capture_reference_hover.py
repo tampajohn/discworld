@@ -25,12 +25,15 @@ def main():
     mode = parser.add_mutually_exclusive_group()
     mode.add_argument('--inventory', action='store_true', help='dispatch original lead WALKTO and close inventory halfway through')
     mode.add_argument('--inventory-drag', action='store_true', help='open inventory, drag its header, release and close')
+    mode.add_argument('--inventory-fixed-corner', action='store_true', help='attempt to resize fixed-size pockets, release and close')
     mode.add_argument('--look', action='store_true', help='dispatch original lead LOOK with speech and subtitles')
     mode.add_argument('--walk', action='store_true', help='send a player WALKTO on the room floor')
     mode.add_argument('--walk-from-actor', action='store_true', help='move off a cached actor and send WALKTO immediately')
     parser.add_argument('--walk-delay', type=int, choices=[0, 1], default=1, help='cycles between cursor injection and WALKTO')
     parser.add_argument('--frames', type=int, default=72, help='capture 72..240 frames')
     args = parser.parse_args()
+    if args.inventory_fixed_corner:
+        args.inventory_drag = True
     if args.inventory_drag:
         args.inventory = True
     if args.walk_from_actor:
@@ -75,7 +78,8 @@ def main():
     environment['DISCWORLD_REFERENCE_WALK_DELAY'] = str(args.walk_delay)
     environment['DISCWORLD_REFERENCE_WALK_FROM_ACTOR'] = '1' if args.walk_from_actor else '0'
     environment['DISCWORLD_REFERENCE_INVENTORY_DRAG'] = '1' if args.inventory_drag else '0'
-    metadata = dict(inventory_drag=args.inventory_drag, walk_from_actor=args.walk_from_actor, walk_delay=args.walk_delay, walk_diagnostic=args.walk, frame_limit=args.frames, look_diagnostic=args.look, inventory_diagnostic=args.inventory, reference_revision=REVISION, binary_sha256=BINARY_SHA256,
+    environment['DISCWORLD_REFERENCE_INVENTORY_FIXED_CORNER'] = '1' if args.inventory_fixed_corner else '0'
+    metadata = dict(inventory_fixed_corner=args.inventory_fixed_corner, inventory_drag=args.inventory_drag, walk_from_actor=args.walk_from_actor, walk_delay=args.walk_delay, walk_diagnostic=args.walk, frame_limit=args.frames, look_diagnostic=args.look, inventory_diagnostic=args.inventory, reference_revision=REVISION, binary_sha256=BINARY_SHA256,
                     probe_sha256=digest(probe), config_sha256=digest(config), command=command,
                     scope='Controlled scene and logical cursor injection; not ordinary input acceptance.')
     metadata_path = output / 'launch.json'
@@ -105,6 +109,8 @@ def main():
         points[0] = [200, 140]
     if args.inventory_drag:
         points = [[50, 120], [140, 110], [170, 130], [180, 135], [10, 10], [10, 10]]
+    if args.inventory_fixed_corner:
+        points = [[50, 120], [169, 147], [189, 167], [189, 167], [10, 10], [10, 10]]
     # After the six injected movement blocks, LOOK can restore the saved cursor
     # itself. Retain that position as observed output rather than requiring a
     # constant driver position after all controlled input has ended.
@@ -119,6 +125,11 @@ def main():
     if accepted and args.inventory:
         accepted = (frames[12]['inventory'] == [2, 2]
                     and frames[48]['inventory'][0] == 1)
+    if accepted and args.inventory_drag:
+        expected_drag = 0 if args.inventory_fixed_corner else 1
+        accepted = (frames[12].get('inventory_dragging') == expected_drag
+                    and frames[24].get('inventory_dragging') == expected_drag
+                    and frames[36].get('inventory_dragging') == 0)
     if accepted and args.look:
         accepted = any(e.get('kind') == 'sample_pcm' and e.get('type') == 3
                        and e['cycle'] >= report['hover_start_cycle']

@@ -1,0 +1,56 @@
+{
+  "runtime_revision": "9186705",
+  "reference_revision": "96b42d42bc8533953bdd701db059cc33c839a9ff",
+  "reference_binary_sha256": "1e8b098f0e9f6da44062aa19c195a5771a4a5dbc806cb3d3a9c3eb0e8fb6f524",
+  "reference_probe_sha256": "ee4977ddc9c49ccffae68e3a021bb3bcc073ba96faf6b790894d3c11e8ec7fa8",
+  "reference_capture_accepted": true,
+  "scope": "Controlled starting-room entry, resolved lead WALKTO opens fixed-size pockets, corner press/move/release and close. This verifies resize refusal, not positive Luggage resizing or physical input.",
+  "sequence": [
+    {
+      "elapsed": 0,
+      "action": "Open pockets via lead WALKTO"
+    },
+    {
+      "elapsed": 12,
+      "action": "Press bottom-right corner at169,147"
+    },
+    {
+      "elapsed": 24,
+      "action": "Move held pointer to189,167; no resize drag"
+    },
+    {
+      "elapsed": 36,
+      "action": "Release"
+    },
+    {
+      "elapsed": 48,
+      "action": "Move outside to10,10 and close"
+    }
+  ],
+  "frames": 72,
+  "rgb_content_matches": 72,
+  "same_cycle_matches": 72,
+  "full_save_restore_next_tick_checks": 72,
+  "rust_assertions": [
+    "Corner resolves to BottomRight",
+    "Pockets minimum and maximum dimensions are equal",
+    "No inventory drag or resize starts",
+    "No drag or resize remains on release"
+  ],
+  "reference_drag_states": {
+    "12": 0,
+    "24": 0,
+    "36": 0
+  },
+  "engine_changed": false,
+  "core_tests": 360,
+  "clippy": "core all-target check passed",
+  "comparison_sha256": "2fca205d68028bfef74db875f87aa1e6f5414fbdc1a0668b8e8e13bd44fed931",
+  "reference_capture_sha256": "3602477ef37448819b4a749160c71a381764ce430c783ba67340d2fb3b0c9278",
+  "rust_capture_sha256": "51ed01d91c3c1c1d509404655cab9a4fe2d3ad1af7fd2b294e59e84ded8c0ba9",
+  "rejected_probes": [
+    "reference-inventory-resize1 used a corner from a different, larger window; outside click closed pockets.",
+    "reference-inventory-resize2 hit the corner but correctly had drag state0; expected positive resize gate rejected it. Neither attempt is counted as resize acceptance."
+  ],
+  "next_reference_gap": "Positive resizing of the Luggage inventory remains unverified by this diagnostic."
+}
