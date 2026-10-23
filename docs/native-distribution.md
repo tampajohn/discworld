@@ -55,3 +55,23 @@ with tick 2,630,013, title.scn, stopped=false. This validates accelerated native
 route preparation and the headless host loop; it is not visible interaction,
 device audio, or a snapshot audit. The later internal/restored-film creation
 correction at 9ba83fb is not included in this package.
+
+## Finder development bundle
+
+`scripts/package-macos-app.py OUTPUT.zip` packages the verified native distribution
+inside `Discworld.app`. It requires the same clean Apple Silicon checkout as the
+CLI builder. Double-clicking the app asks for the English DOS CD v2 ISO and a
+SoundFont, then runs the native host. Cancelling either picker exits without
+starting a session. Assets are selected on each launch and are never bundled.
+
+Quick saves, named slots and preferences live under
+`~/Library/Application Support/Discworld Rust/`. The current session log is
+`last-session.log` there. Use the original load menu to resume a saved game;
+launch does not automatically load the quick save. Closing the game ends the
+launcher. Paths are individually quoted, including spaces and shell characters.
+
+The bundle contains the exact source archive and native manifest in
+`Contents/Resources/runtime/`. It is ad-hoc signed, not Developer ID signed or
+notarized. Finder/Gatekeeper behavior on another Mac and visible picker/window
+interaction remain acceptance checks; successful packaging alone does not prove
+them. The app uses the system AppleScript applet icon pending original artwork.
