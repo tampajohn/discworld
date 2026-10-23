@@ -1,0 +1,66 @@
+#!/usr/bin/env python3
+"""Build the native iPad host and run its XCTest UI suite on a simulator."""
+import argparse
+from pathlib import Path
+import plistlib
+import subprocess
+
+ROOT = Path(__file__).resolve().parent.parent
+
+
+def main():
+    parser = argparse.ArgumentParser(description=__doc__)
+    parser.add_argument("device", help="simulator UDID")
+    parser.add_argument("output", type=Path, help="new evidence directory under assets")
+    args = parser.parse_args()
+    out = args.output.resolve()
+    if not out.is_relative_to(ROOT / "assets") or out.exists():
+        parser.error("choose a new output directory inside assets")
+    subprocess.run(["cargo", "build", "--locked", "--release", "--target", "aarch64-apple-ios-sim", "-p", "discworld-ipad"], cwd=ROOT, check=True)
+    subprocess.run(["open", "-a", "Simulator", "--args", "-CurrentDeviceUDID", args.device], check=True)
+    out.mkdir(parents=True)
+    project = out / "Discworld.xcodeproj"
+    project.mkdir()
+    objects = {}
+
+    def obj(isa, **values):
+        key = f"{len(objects) + 1:024X}"
+        objects[key] = dict(isa=isa, **values)
+        return key
+
+    def config(settings):
+        build = obj("XCBuildConfiguration", name="Debug", buildSettings=settings)
+        return obj("XCConfigurationList", buildConfigurations=[build], defaultConfigurationIsVisible=0, defaultConfigurationName="Debug")
+
+    def source(path):
+        file = obj("PBXFileReference", lastKnownFileType="sourcecode.swift", path=str(path), sourceTree="<absolute>")
+        return file, obj("PBXBuildFile", fileRef=file)
+
+    app_source, app_build = source(ROOT / "platform/ipad/App.swift")
+    test_source, test_build = source(ROOT / "platform/ipad/UITests.swift")
+    resources = obj("PBXFileReference", lastKnownFileType="folder", name="GameData.bundle", path=str(ROOT / "assets/private/ipad/GameData.bundle"), sourceTree="<absolute>")
+    resource_build = obj("PBXBuildFile", fileRef=resources)
+    app_product = obj("PBXFileReference", explicitFileType="wrapper.application", path="Discworld.app", sourceTree="BUILT_PRODUCTS_DIR")
+    test_product = obj("PBXFileReference", explicitFileType="wrapper.cfbundle", path="DiscworldUITests.xctest", sourceTree="BUILT_PRODUCTS_DIR")
+    products = obj("PBXGroup", name="Products", children=[app_product, test_product], sourceTree="<group>")
+    group = obj("PBXGroup", children=[app_source, test_source, resources, products], sourceTree="<group>")
+    common = {"ARCHS": "arm64", "ONLY_ACTIVE_ARCH": "YES", "SDKROOT": "iphonesimulator", "IPHONEOS_DEPLOYMENT_TARGET": "17.0", "TARGETED_DEVICE_FAMILY": "2", "SWIFT_VERSION": "5.0", "CODE_SIGNING_ALLOWED": "NO", "GENERATE_INFOPLIST_FILE": "YES", "PRODUCT_NAME": "$(TARGET_NAME)"}
+    app_settings = dict(common, PRODUCT_BUNDLE_IDENTIFIER="org.tampajohn.discworld.dev", SWIFT_OBJC_BRIDGING_HEADER=str(ROOT / "platform/ipad/Bridge.h"), LIBRARY_SEARCH_PATHS=[str(ROOT / "target/aarch64-apple-ios-sim/release")], OTHER_LDFLAGS=["-ldiscworld_ipad", "-framework", "Security"], INFOPLIST_KEY_UILaunchScreen_Generation="YES", INFOPLIST_KEY_UIApplicationSceneManifest_Generation="YES", INFOPLIST_KEY_UISupportedInterfaceOrientations_iPad="UIInterfaceOrientationPortrait UIInterfaceOrientationPortraitUpsideDown UIInterfaceOrientationLandscapeLeft UIInterfaceOrientationLandscapeRight")
+    app = obj("PBXNativeTarget", name="Discworld", productName="Discworld", productReference=app_product, productType="com.apple.product-type.application", buildConfigurationList=config(app_settings), buildPhases=[obj("PBXSourcesBuildPhase", files=[app_build], buildActionMask=2147483647, runOnlyForDeploymentPostprocessing=0), obj("PBXResourcesBuildPhase", files=[resource_build], buildActionMask=2147483647, runOnlyForDeploymentPostprocessing=0)], buildRules=[], dependencies=[])
+    test = obj("PBXNativeTarget", name="DiscworldUITests", productName="DiscworldUITests", productReference=test_product, productType="com.apple.product-type.bundle.ui-testing", buildConfigurationList=config(dict(common, PRODUCT_BUNDLE_IDENTIFIER="org.tampajohn.discworld.uitests", TEST_TARGET_NAME="Discworld")), buildPhases=[obj("PBXSourcesBuildPhase", files=[test_build], buildActionMask=2147483647, runOnlyForDeploymentPostprocessing=0)], buildRules=[], dependencies=[obj("PBXTargetDependency", target=app)])
+    root = obj("PBXProject", buildConfigurationList=config({}), compatibilityVersion="Xcode 14.0", developmentRegion="en", knownRegions=["en", "Base"], mainGroup=group, productRefGroup=products, projectDirPath="", projectRoot="", targets=[app, test], attributes={"LastUpgradeCheck": "2600"})
+    with (project / "project.pbxproj").open("wb") as file:
+        plistlib.dump(dict(archiveVersion="1", classes={}, objectVersion="56", objects=objects, rootObject=root), file)
+    schemes = project / "xcshareddata/xcschemes"
+    schemes.mkdir(parents=True)
+    reference = lambda key, name: f'<BuildableReference BuildableIdentifier="primary" BlueprintIdentifier="{key}" BuildableName="{name}" BlueprintName="{name.split(".")[0]}" ReferencedContainer="container:Discworld.xcodeproj"/>'
+    (schemes / "Discworld.xcscheme").write_text(f'''<?xml version="1.0" encoding="UTF-8"?>
+<Scheme LastUpgradeVersion="2600" version="1.3">
+<BuildAction><BuildActionEntries><BuildActionEntry buildForTesting="YES" buildForRunning="YES" buildForProfiling="NO" buildForArchiving="NO" buildForAnalyzing="YES">{reference(app, "Discworld.app")}</BuildActionEntry></BuildActionEntries></BuildAction>
+<TestAction buildConfiguration="Debug" selectedDebuggerIdentifier="Xcode.DebuggerFoundation.Debugger.LLDB" selectedLauncherIdentifier="Xcode.IDEFoundation.Launcher.LLDB" shouldUseLaunchSchemeArgsEnv="YES"><Testables><TestableReference skipped="NO">{reference(test, "DiscworldUITests.xctest")}</TestableReference></Testables></TestAction>
+</Scheme>''')
+    subprocess.run(["xcodebuild", "test", "-project", str(project), "-scheme", "Discworld", "-destination", f"platform=iOS Simulator,id={args.device}", "-derivedDataPath", str(out / "derived"), "-resultBundlePath", str(out / "results.xcresult"), "-parallel-testing-enabled", "NO"], cwd=ROOT, check=True)
+
+
+if __name__ == "__main__":
+    main()

@@ -39,12 +39,26 @@ final class GameController: UIViewController {
     var action = "walk"
     let pauseButton = UIButton(type: .system)
 
-    override var supportedInterfaceOrientations: UIInterfaceOrientationMask { .landscape }
-    override func viewDidAppear(_ animated: Bool) {
-        super.viewDidAppear(animated)
-        setNeedsUpdateOfSupportedInterfaceOrientations()
-        view.window?.windowScene?.requestGeometryUpdate(.iOS(interfaceOrientations: .landscapeRight)) { [weak self] error in
-            self?.status.text = "Orientation: \(error.localizedDescription)"
+    override var supportedInterfaceOrientations: UIInterfaceOrientationMask { .all }
+    override func viewDidLayoutSubviews() {
+        super.viewDidLayoutSubviews()
+        DispatchQueue.main.async { [weak self] in self?.recordGeometry() }
+    }
+    func recordGeometry() {
+        guard ProcessInfo.processInfo.arguments.contains(where: { $0.hasPrefix("--smoke-") }),
+              let scene = view.window?.windowScene else { return }
+        let orientation: UIInterfaceOrientation
+        if #available(iOS 26.0, *) { orientation = scene.effectiveGeometry.interfaceOrientation }
+        else { orientation = scene.interfaceOrientation }
+        let result: [String: Any] = [
+            "view_width": view.bounds.width, "view_height": view.bounds.height,
+            "picture_width": picture.bounds.width, "picture_height": picture.bounds.height,
+            "interface_orientation": orientation.rawValue,
+            "safe_top": view.safeAreaInsets.top, "safe_bottom": view.safeAreaInsets.bottom
+        ]
+        if let bytes = try? JSONSerialization.data(withJSONObject: result),
+           let documents = FileManager.default.urls(for: .documentDirectory, in: .userDomainMask).first {
+            try? bytes.write(to: documents.appendingPathComponent("geometry-probe.json"), options: .atomic)
         }
     }
     override func viewDidLoad() {

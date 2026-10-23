@@ -1,0 +1,42 @@
+{
+  "simulator": "iPad Pro 11-inch (M5), iOS 26.5",
+  "result_bundle": "assets/validation/ipad-ui4/results.xcresult",
+  "test": "DiscworldLayoutTests.testLandscapeAndPortraitKeepControlsReachable",
+  "exit_code": 0,
+  "tested_orientations": [
+    "landscapeLeft",
+    "portrait",
+    "landscapeRight"
+  ],
+  "assertions": [
+    "Window aspect follows requested device orientation",
+    "All nine host buttons are hittable",
+    "Full bounds of all nine buttons lie within the app window"
+  ],
+  "screenshots_visually_inspected": true,
+  "screenshots": {
+    "assets/validation/ipad-ui4/attachments/176C8602-94B4-4603-8B54-40B5FC5FCC20.png": "356d8808897b2a074130321529af07ea64477a5a98e753c31eb3de3da1259b20",
+    "assets/validation/ipad-ui4/attachments/446A99CC-AD93-42AB-813E-3DA895D6A39C.png": "be0e4ef7f3af6378381d3e49739ae8287ce4be491227d390a45cd2cb438639d8",
+    "assets/validation/ipad-ui4/attachments/D19A1625-0B95-40BA-8E06-BEA906447A06.png": "b0f3983cd7f0afc7031f327d5048017af1e3a13ec255624686bd1d09ee5f1c42"
+  },
+  "latest_geometry": {
+    "interface_orientation": 4,
+    "picture_height": 628,
+    "picture_width": 1194,
+    "safe_bottom": 20,
+    "view_width": 1210,
+    "safe_top": 32,
+    "view_height": 834
+  },
+  "source_files": {
+    "platform/ipad/App.swift": "1258609e530f605ee9f10dd1caec60f6a245ab576a55a1f17a167bdcfa650b51",
+    "platform/ipad/UITests.swift": "91006f8a5203a65a08c862bfa9f380153d01282c39ba97aa64cf6da8b1d03ab8",
+    "scripts/test-ipad-ui.py": "ad4fc25eb199c94f992a3bca7e5ca1fd9236efa2000fb25b83b9e04c416b8c0e",
+    "scripts/build-ipad.py": "1579006c3121ce3c81be1e7c20115f851bd8028acf210f38ef683b38eb11b506"
+  },
+  "standalone_app": "assets/apps/Discworld-iPad-6.app",
+  "standalone_binary_sha256": "9e5b34faa35513ea5557e58b8a0ee1845d29143fce599aa3bf2bd6dccae1cc97",
+  "capture_finding": "App-only XCTest screenshots clipped rotated content despite valid logical layout. Full-screen XCUIScreen captures and direct display capture show the complete scene and controls. Failed/partial attempts retained in ipad-ui1 through ipad-ui3.",
+  "reference": "https://developer.apple.com/documentation/technotes/tn3192-migrating-your-app-from-the-deprecated-uirequiresfullscreen-key",
+  "limitations": "Simulator rotation, layout and accessibility reachability only. No button activation or full touch gameplay in this test; audio output, native menus, inventory dragging, signing and real-device acceptance remain incomplete."
+}

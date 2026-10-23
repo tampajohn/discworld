@@ -45,8 +45,8 @@ def main():
         "CFBundleName": "Discworld", "CFBundleDisplayName": "Discworld Dev",
         "CFBundlePackageType": "APPL", "CFBundleVersion": "1", "CFBundleShortVersionString": "0.1",
         "MinimumOSVersion": "17.0", "UIDeviceFamily": [2], "LSRequiresIPhoneOS": True,
-        "UISupportedInterfaceOrientations": ["UIInterfaceOrientationLandscapeLeft", "UIInterfaceOrientationLandscapeRight"],
-        "UILaunchScreen": {}, "UIRequiresFullScreen": True,
+        "UISupportedInterfaceOrientations": ["UIInterfaceOrientationLandscapeLeft", "UIInterfaceOrientationLandscapeRight", "UIInterfaceOrientationPortrait", "UIInterfaceOrientationPortraitUpsideDown"],
+        "UILaunchScreen": {},
         "UIApplicationSceneManifest": {"UIApplicationSupportsMultipleScenes": False, "UISceneConfigurations": {}},
     }
     with (output / "Info.plist").open("wb") as target:

@@ -19,15 +19,32 @@ xcrun simctl launch booted org.tampajohn.discworld.dev
 
 The script currently builds **only for the Apple Silicon simulator**. It
 includes the staged ISO and SoundFont in one ad-hoc-signed app. The observed
-prototype is `assets/apps/Discworld-iPad-4.app`. Startup reaches the bedroom;
+prototype is `assets/apps/Discworld-iPad-6.app`. Startup reaches the bedroom;
 quick-save/load preserves pixels, and a separate app launch loads the same
 save from the application container. See [application evidence](validation/ipad-app-prototype.json).
 
 Tap modes, mute, pause, and quick-save/load controls are implemented. Actual
-gesture and audible-device acceptance remain untested. The simulator still
-presents the app in portrait despite the requested landscape orientation;
-this is an unresolved host issue. Inventory dragging, the original save menus,
-save export/import, physical-device signing and full touch play remain pending.
+gesture and audible-device acceptance remain untested. The host now adapts to
+both landscape orientations and portrait, with the full game scene and controls
+visible in inspected full-screen simulator captures. XCTest verifies that all
+nine host buttons are hittable and wholly inside the window after each rotation.
+See [layout evidence](validation/ipad-native-layout.json). Inventory dragging,
+the original save menus, save export/import, physical-device signing and full
+touch play remain pending.
+
+The layout follows the available window size rather than relying on the
+deprecated full-screen compatibility setting. See
+[Apple's migration guidance](https://developer.apple.com/documentation/technotes/tn3192-migrating-your-app-from-the-deprecated-uirequiresfullscreen-key).
+To repeat the simulator rotation test (use a new output directory):
+
+```sh
+python3 scripts/test-ipad-ui.py SIMULATOR-UDID assets/validation/ipad-ui-test
+```
+
+The test builds a local Xcode project with the same Swift host, bundled test
+resources and Rust library. It launches the Simulator window, runs XCTest,
+and retains its result bundle. Full-screen captures are used because app-only
+XCTest screenshots clipped rotated content in this environment.
 
 `--smoke-room` is a diagnostic launch argument: it runs the opening to tick
 8,500, saves, advances, reloads and compares the frame, then pauses. A subsequent
