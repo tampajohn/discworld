@@ -96,7 +96,8 @@ fn capture_original_debug_room_hover() {
         points = [[50, 120], corner, moved, moved, [10, 10], [10, 10]];
     }
     let inventory_mode = inventory_drag || std::env::var_os("DISCWORLD_HOVER_INVENTORY").is_some();
-    let door_exit = std::env::var_os("DISCWORLD_HOVER_DOOR_EXIT").is_some();
+    let university_walk = std::env::var_os("DISCWORLD_HOVER_UNIVERSITY_WALK").is_some();
+    let door_exit = university_walk || std::env::var_os("DISCWORLD_HOVER_DOOR_EXIT").is_some();
     let door_action = door_exit || std::env::var_os("DISCWORLD_HOVER_DOOR_ACTION").is_some();
     let look_mode = std::env::var_os("DISCWORLD_HOVER_LOOK").is_some();
     let walk_delay =
@@ -132,6 +133,7 @@ fn capture_original_debug_room_hover() {
     let mut door_control_off = false;
     let mut clocks = Vec::new();
     let mut mover_states = Vec::new();
+    let mut university_walk_start = None;
     engine.scene_calls = Some(Default::default());
     for _ in 0..4000 {
         // The reference requests its debugger scene change before cycle 450.
@@ -154,6 +156,20 @@ fn capture_original_debug_room_hover() {
         }
         if let Some(start) = start {
             let elapsed = engine.ticks - start;
+            if university_walk && elapsed == 168 {
+                assert_eq!(index[engine.scene.resource()].name, "unseen.scn");
+                university_walk_start = Some(engine.movers[&7].placement.position);
+                engine
+                    .move_cursor_with_configuration(&resources, [175, 180])
+                    .unwrap();
+            }
+            if university_walk && elapsed == 169 {
+                assert!(
+                    engine
+                        .world_click(&resources, [175, 180], PolygonInteraction::WalkTo)
+                        .unwrap()
+                );
+            }
             if door_exit && elapsed == 72 {
                 assert!(
                     engine
@@ -731,6 +747,13 @@ fn capture_original_debug_room_hover() {
     assert_eq!(rows.len(), frame_limit, "room did not reach active tags");
     if door_exit {
         assert_eq!(index[engine.scene.resource()].name, "unseen.scn");
+    }
+    if university_walk {
+        assert_ne!(
+            Some(engine.movers[&7].placement.position),
+            university_walk_start,
+            "university floor click must move Rincewind"
+        );
     }
     if door_action {
         assert!(!door_calls.is_empty(), "original door script must execute");

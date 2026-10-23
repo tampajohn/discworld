@@ -21,6 +21,7 @@ INVENTORY_RESIZE = os.environ.get("DISCWORLD_REFERENCE_INVENTORY_RESIZE") == "1"
 RESIZE_CORNER = os.environ.get("DISCWORLD_REFERENCE_RESIZE_CORNER", "bottom-right")
 RESIZE_DELTA = int(os.environ.get("DISCWORLD_REFERENCE_RESIZE_DELTA", "26"))
 DOOR_EXIT = os.environ.get("DISCWORLD_REFERENCE_DOOR_EXIT") == "1"
+UNIVERSITY_WALK = os.environ.get("DISCWORLD_REFERENCE_UNIVERSITY_WALK") == "1"
 DOOR_ACTION = os.environ.get("DISCWORLD_REFERENCE_DOOR_ACTION") == "1"
 LOOK = os.environ.get("DISCWORLD_REFERENCE_LOOK") == "1"
 WALK = os.environ.get("DISCWORLD_REFERENCE_WALK") == "1"
@@ -103,6 +104,12 @@ def cycle(frame, location, dictionary):
                 START = frames.CYCLES
         if START is not None:
             elapsed = frames.CYCLES - START
+            if UNIVERSITY_WALK and elapsed == 168:
+                PENDING.append('Tinsel::_vm->_mousePos.x = 175, Tinsel::_vm->_mousePos.y = 180, Tinsel::_vm->_cursor->DoCursorMove()')
+                return True
+            if UNIVERSITY_WALK and elapsed == 169:
+                PENDING.append('Tinsel::PlayerEvent((Tinsel::PLR_EVENT)1, Tinsel::_vm->_mousePos)')
+                return True
             if DOOR_EXIT and elapsed == 72:
                 PENDING.append('Tinsel::RunPolyTinselCode(6, (Tinsel::TINSEL_EVENT)9, (Tinsel::PLR_EVENT)16, false)')
                 return True
@@ -282,7 +289,7 @@ def finish(debugger):
     path = frames.OUTPUT / 'capture.json'
     report = json.loads(path.read_text())
     report.update(scope='Controlled original debug scene entry, logical driver writes and original DoCursorMove; not normal host input or full gameplay equivalence.',
-                  injected_actions=ACTIONS, hover_start_cycle=START, inventory_diagnostic=INVENTORY, inventory_drag=INVENTORY_DRAG, door_exit=DOOR_EXIT, door_action=DOOR_ACTION, resize_delta=RESIZE_DELTA, resize_corner=RESIZE_CORNER, inventory_resize=INVENTORY_RESIZE, inventory_fixed_corner=INVENTORY_FIXED_CORNER, look_diagnostic=LOOK, walk_diagnostic=WALK, walk_delay=WALK_DELAY, walk_from_actor=WALK_FROM_ACTOR)
+                  injected_actions=ACTIONS, hover_start_cycle=START, inventory_diagnostic=INVENTORY, university_walk=UNIVERSITY_WALK, inventory_drag=INVENTORY_DRAG, door_exit=DOOR_EXIT, door_action=DOOR_ACTION, resize_delta=RESIZE_DELTA, resize_corner=RESIZE_CORNER, inventory_resize=INVENTORY_RESIZE, inventory_fixed_corner=INVENTORY_FIXED_CORNER, look_diagnostic=LOOK, walk_diagnostic=WALK, walk_delay=WALK_DELAY, walk_from_actor=WALK_FROM_ACTOR)
     path.write_text(json.dumps(report, indent=2) + '\n')
 
 
