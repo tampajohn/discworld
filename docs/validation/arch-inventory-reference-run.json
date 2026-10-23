@@ -1,0 +1,29 @@
+{
+  "runtime": "bad0d45",
+  "reference": "assets/validation/reference-arch-inventory2",
+  "rust": "assets/validation/rust-arch-inventory-cycle6000-frames",
+  "reference_status": "running; not a pass",
+  "reference_session": 81543,
+  "reference_pid": 93529,
+  "input_cycle": 6000,
+  "capture_cycles": [
+    [
+      1257,
+      1736
+    ],
+    [
+      6000,
+      6023
+    ]
+  ],
+  "rust_frames": 504,
+  "rust_control_return_tick": 3843,
+  "rust_overlay_save_continuation": true,
+  "checks": [
+    "Rust original-asset capture passes",
+    "Core all-target Clippy passes",
+    "Python probes compile"
+  ],
+  "production_change": false,
+  "next_step": "Poll the existing reference session, require accepted launch and complete/error-free capture, then compare all504 RGB frames. Do not restart the live reference run or infer acoustic equality from pixels."
+}

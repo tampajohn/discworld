@@ -821,6 +821,12 @@ fn capture_original_debug_room_hover() {
         }
         assert!(engine.control.enabled, "entry dialogue did not finish");
         let control_tick = engine.ticks;
+        while engine.ticks < 5999 {
+            engine
+                .tick_content(&resources, Some(&bank), Some(&tracks), Some(&strings))
+                .unwrap();
+        }
+        assert!(engine.control.enabled);
         assert!(
             engine
                 .interact_actor(&resources, 7, PolygonInteraction::WalkTo)
@@ -830,6 +836,23 @@ fn capture_original_debug_room_hover() {
             engine
                 .tick_content(&resources, Some(&bank), Some(&tracks), Some(&strings))
                 .unwrap();
+            let surface = engine.render(&resources).unwrap();
+            let rgb: Vec<_> = surface
+                .rgba
+                .chunks_exact(4)
+                .flat_map(|pixel| pixel[..3].iter().copied())
+                .collect();
+            std::fs::write(
+                directory.join(format!("tick-{:06}.rgb", engine.ticks)),
+                &rgb,
+            )
+            .unwrap();
+            rows.push(format!(
+                "{{\"tick\":{},\"scene\":{},\"rgb_sha256\":\"{:x}\"}}",
+                engine.ticks,
+                engine.scene.0,
+                Sha256::digest(&rgb)
+            ));
         }
         assert_eq!(engine.active_inventory(), Some(2));
         let overlay = engine.render(&resources).unwrap();
@@ -928,7 +951,8 @@ fn capture_original_debug_room_hover() {
     .unwrap();
     std::fs::write(directory.join("capture.json"), format!("{{\"scope\":\"Integrated runtime output; controlled original scene entry and immediate cursor movement, not ordinary host-input replay\",\"hover_start_tick\":{},\"frames\":[{}]}}\n", start.unwrap(), rows.join(","))).unwrap();
     println!(
-        "Captured {frame_limit} hover frames beginning at tick {}",
+        "Captured {} hover frames beginning at tick {}",
+        rows.len(),
         start.unwrap()
     );
 }

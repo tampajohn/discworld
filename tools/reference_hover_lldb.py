@@ -24,6 +24,7 @@ DOOR_EXIT = os.environ.get("DISCWORLD_REFERENCE_DOOR_EXIT") == "1"
 UNIVERSITY_WALK = os.environ.get("DISCWORLD_REFERENCE_UNIVERSITY_WALK") == "1"
 UNIVERSITY_RETARGET = os.environ.get("DISCWORLD_REFERENCE_UNIVERSITY_RETARGET") == "1"
 ARCH_ENTRY = os.environ.get("DISCWORLD_REFERENCE_ARCH_ENTRY") == "1"
+ARCH_INVENTORY = os.environ.get("DISCWORLD_REFERENCE_ARCH_INVENTORY") == "1"
 ARCH_SKIP = os.environ.get("DISCWORLD_REFERENCE_ARCH_SKIP") == "1"
 DOOR_ACTION = os.environ.get("DISCWORLD_REFERENCE_DOOR_ACTION") == "1"
 LOOK = os.environ.get("DISCWORLD_REFERENCE_LOOK") == "1"
@@ -81,6 +82,12 @@ def cycle(frame, location, dictionary):
     global START
     frames.CYCLES += 1
     try:
+        if ARCH_INVENTORY and frames.CYCLES == 6000:
+            value = frame.EvaluateExpression('Tinsel::ControlIsOn()')
+            if value.GetError().Fail() or not value.GetValueAsUnsigned():
+                raise RuntimeError('entry dialogue has not returned control before pockets input')
+            PENDING.append('Tinsel::ActorEvent(7, (Tinsel::TINSEL_EVENT)9, (Tinsel::PLR_EVENT)16)')
+            return True
         if frames.CYCLES == 450:
             PENDING.extend(['Tinsel::EndDw1Intro()', f'Tinsel::SetNewScene({ROOM}u, 1, 1)'])
             return True
@@ -163,7 +170,7 @@ def cycle(frame, location, dictionary):
                 if INVENTORY and elapsed == (48 if INVENTORY_DRAG else 36):
                     PENDING.append('Tinsel::_vm->_dialogs->closeInventory()')
                 return True
-        if frames.CYCLES >= 4000:
+        if frames.CYCLES >= (6100 if ARCH_INVENTORY else 4000):
             raise RuntimeError('hover diagnostic cycle budget exhausted')
         return False
     except Exception as error:
@@ -194,6 +201,8 @@ def drive(debugger):
 def capture(frame, location, dictionary):
     if START is None:
         return False
+    if ARCH_INVENTORY and len(frames.RECORDS) >= 480 and frames.CYCLES < 6000:
+        return False
     result = frames.capture(frame, location, dictionary)
     if frames.RECORDS:
         target = frame.GetThread().GetProcess().GetTarget()
@@ -204,7 +213,7 @@ def capture(frame, location, dictionary):
             return True
         frames.RECORDS[-1]['driver_cursor'] = [
             mouse.GetChildMemberWithName(axis).GetValueAsSigned() for axis in ['x', 'y']]
-        if INVENTORY:
+        if INVENTORY or ARCH_INVENTORY:
             dialogs = vm.Dereference().GetChildMemberWithName('_dialogs').Dereference()
             frames.RECORDS[-1]['inventory'] = [frames.unsigned(dialogs.GetChildMemberWithName(name))
                                                for name in ['_inventoryState', '_activeInv']]
@@ -305,13 +314,13 @@ def finish(debugger):
     path = frames.OUTPUT / 'capture.json'
     report = json.loads(path.read_text())
     report.update(scope='Controlled original debug scene entry, logical driver writes and original DoCursorMove; not normal host input or full gameplay equivalence.',
-                  injected_actions=ACTIONS, hover_start_cycle=START, inventory_diagnostic=INVENTORY, arch_skip=ARCH_SKIP, arch_entry=ARCH_ENTRY, university_retarget=UNIVERSITY_RETARGET, university_walk=UNIVERSITY_WALK, inventory_drag=INVENTORY_DRAG, door_exit=DOOR_EXIT, door_action=DOOR_ACTION, resize_delta=RESIZE_DELTA, resize_corner=RESIZE_CORNER, inventory_resize=INVENTORY_RESIZE, inventory_fixed_corner=INVENTORY_FIXED_CORNER, look_diagnostic=LOOK, walk_diagnostic=WALK, walk_delay=WALK_DELAY, walk_from_actor=WALK_FROM_ACTOR)
+                  arch_inventory=ARCH_INVENTORY, injected_actions=ACTIONS, hover_start_cycle=START, inventory_diagnostic=INVENTORY, arch_skip=ARCH_SKIP, arch_entry=ARCH_ENTRY, university_retarget=UNIVERSITY_RETARGET, university_walk=UNIVERSITY_WALK, inventory_drag=INVENTORY_DRAG, door_exit=DOOR_EXIT, door_action=DOOR_ACTION, resize_delta=RESIZE_DELTA, resize_corner=RESIZE_CORNER, inventory_resize=INVENTORY_RESIZE, inventory_fixed_corner=INVENTORY_FIXED_CORNER, look_diagnostic=LOOK, walk_diagnostic=WALK, walk_delay=WALK_DELAY, walk_from_actor=WALK_FROM_ACTOR)
     path.write_text(json.dumps(report, indent=2) + '\n')
 
 
 def __lldb_init_module(debugger, dictionary):
-    if frames.BACKEND != 'surfacesdl' or not 72 <= frames.LIMIT <= 480:
-        raise ValueError('hover probe requires surfacesdl and 72..480 frames')
+    if frames.BACKEND != 'surfacesdl' or not 72 <= frames.LIMIT <= 504:
+        raise ValueError('hover probe requires surfacesdl and 72..504 frames')
     frames.OUTPUT.mkdir()
     target = debugger.GetSelectedTarget()
     points = [

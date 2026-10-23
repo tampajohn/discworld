@@ -31,6 +31,7 @@ def main():
     mode.add_argument('--university-walk', action='store_true', help='exit the starting room then click the university floor')
     mode.add_argument('--university-retarget', action='store_true', help='change destination during the university floor walk')
     mode.add_argument('--arch-entry', action='store_true', help='walk through the university and enter the archchancellor room')
+    mode.add_argument('--arch-inventory', action='store_true', help='open pockets at cycle6000 after entry dialogue; capture initial480 and final24 frames')
     mode.add_argument('--arch-skip', action='store_true', help='press Escape during the archchancellor entry speech')
     mode.add_argument('--door-action', action='store_true', help='dispatch original starting-room door ACTION')
     mode.add_argument('--look', action='store_true', help='dispatch original lead LOOK with speech and subtitles')
@@ -39,8 +40,10 @@ def main():
     parser.add_argument('--walk-delay', type=int, choices=[0, 1], default=1, help='cycles between cursor injection and WALKTO')
     parser.add_argument('--resize-corner', choices=['bottom-right', 'top-left'], default='bottom-right', help='corner used by --inventory-resize')
     parser.add_argument('--resize-delta', type=int, choices=[-26, 26], default=26, help='signed size change for --inventory-resize')
-    parser.add_argument('--frames', type=int, default=None, help='capture 72..480 frames (default72; door exit240; arch entry480)')
+    parser.add_argument('--frames', type=int, default=None, help='capture 72..504 frames (default72; door exit240; arch entry480; arch inventory504)')
     args = parser.parse_args()
+    if args.arch_inventory:
+        args.arch_skip = True
     if args.arch_skip:
         args.arch_entry = True
     if args.university_retarget or args.arch_entry:
@@ -50,7 +53,7 @@ def main():
     if args.door_exit:
         args.door_action = True
     if args.frames is None:
-        args.frames = 480 if args.arch_entry else 240 if args.door_exit else 72
+        args.frames = 504 if args.arch_inventory else 480 if args.arch_entry else 240 if args.door_exit else 72
     if (args.resize_corner != 'bottom-right' or args.resize_delta != 26) and not args.inventory_resize:
         parser.error('resize options require --inventory-resize')
     if args.inventory_fixed_corner or args.inventory_resize:
@@ -60,8 +63,10 @@ def main():
     if args.walk_from_actor:
         args.walk = True
         args.walk_delay = 1
-    if not 72 <= args.frames <= 480:
-        parser.error('frames must be between 72 and 480')
+    if args.arch_inventory and args.frames != 504:
+        parser.error('arch inventory requires 504 frames: initial480 plus final24')
+    if not 72 <= args.frames <= 504:
+        parser.error('frames must be between 72 and 504')
     binary = ROOT / f'.reference/scummvm-{REVISION}/scummvm'
     if digest(binary) != BINARY_SHA256:
         parser.error('reference binary differs from the validated pinned build')
@@ -112,6 +117,8 @@ def main():
     metadata = dict(arch_skip=args.arch_skip, arch_entry=args.arch_entry, university_retarget=args.university_retarget, university_walk=args.university_walk, door_exit=args.door_exit, door_action=args.door_action, resize_delta=args.resize_delta, resize_corner=args.resize_corner, inventory_resize=args.inventory_resize, inventory_fixed_corner=args.inventory_fixed_corner, inventory_drag=args.inventory_drag, walk_from_actor=args.walk_from_actor, walk_delay=args.walk_delay, walk_diagnostic=args.walk, frame_limit=args.frames, look_diagnostic=args.look, inventory_diagnostic=args.inventory, reference_revision=REVISION, binary_sha256=BINARY_SHA256,
                     probe_sha256=digest(probe), config_sha256=digest(config), command=command,
                     scope='Controlled scene and logical cursor injection; not ordinary input acceptance.')
+    environment['DISCWORLD_REFERENCE_ARCH_INVENTORY'] = '1' if args.arch_inventory else '0'
+    metadata['arch_inventory'] = args.arch_inventory
     metadata_path = output / 'launch.json'
     with (output / 'console.log').open('w') as log:
         process = subprocess.Popen(command, cwd=ROOT, env=environment, stdout=log,
@@ -120,7 +127,7 @@ def main():
         metadata_path.write_text(json.dumps(metadata, indent=2) + '\n')
         print(json.dumps(dict(pid=process.pid, output=str(output))), flush=True)
         try:
-            metadata.update(status='exited', exit_code=process.wait(timeout=300))
+            metadata.update(status='exited', exit_code=process.wait(timeout=600 if args.arch_inventory else 300))
         except subprocess.TimeoutExpired:
             os.killpg(process.pid, signal.SIGTERM)
             try:
@@ -151,7 +158,7 @@ def main():
     # constant driver position after all controlled input has ended.
     accepted = (metadata.get('exit_code') == 0 and report.get('complete') is True
                 and report.get('errors') == [] and len(frames) == args.frames
-                and len(report.get('injected_actions', [])) == (14 if args.arch_skip else 13 if args.arch_entry else 14 if args.university_retarget else 12 if args.university_walk else 13 if args.inventory_drag else 10 if args.inventory or args.walk_from_actor or args.door_exit else 9 if args.look or args.walk or args.door_action else 8)
+                and len(report.get('injected_actions', [])) == (15 if args.arch_inventory else 14 if args.arch_skip else 13 if args.arch_entry else 14 if args.university_retarget else 12 if args.university_walk else 13 if args.inventory_drag else 10 if args.inventory or args.walk_from_actor or args.door_exit else 9 if args.look or args.walk or args.door_action else 8)
                 and all((f['scene'] in ((18 << 23, 61 << 23, 60 << 23) if args.arch_entry else (18 << 23, 61 << 23)) if args.door_exit else f['scene'] == 18 << 23)
                         and (((args.look or args.door_exit) and i >= 72)
                              or f['driver_cursor'] == ([250, 180] if args.walk_from_actor and 1 <= i < 12
@@ -159,6 +166,8 @@ def main():
                         for i, f in enumerate(frames)))
     if accepted and args.door_exit:
         accepted = frames[0]['scene'] == 18 << 23 and frames[-1]['scene'] == (60 << 23 if args.arch_entry else 61 << 23)
+    if accepted and args.arch_inventory:
+        accepted = frames[-1].get('inventory') == [2, 2] and frames[-1]['cycle'] == 6023
     if accepted and args.inventory:
         accepted = (frames[12]['inventory'] == [2, 1 if args.inventory_resize else 2]
                     and frames[48]['inventory'][0] == 1)
