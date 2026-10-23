@@ -2222,7 +2222,33 @@ impl Engine {
                 }
             }
         }
+        if let Some(trails) = &mut self.cursor_trails {
+            if self.control.hidden {
+                trails.hide_images();
+            } else {
+                trails.tick(resources)?;
+            }
+        }
+        if !self.control.hidden && !self.control.frozen {
+            self.move_cursor_trails(resources)?;
+        }
+        Ok(())
+    }
+
+    /// DoCursorMove notifies inventory only for a nonzero position delta.
+    /// Opening a window under a stationary cursor must retain existing trails.
+    fn move_cursor_trails(&mut self, resources: &Resources<'_>) -> Result<(), Error> {
         use crate::conversation_window::Area;
+        let active = self
+            .configuration
+            .as_ref()
+            .is_some_and(|menu| menu.page().is_some())
+            || (self.active_inventory.is_some() && !self.conversation.hidden);
+        let dragging = self.inventory_drag.is_some()
+            || self
+                .configuration
+                .as_ref()
+                .is_some_and(|menu| menu.dragging());
         let inside = self
             .configuration
             .as_ref()
@@ -2234,17 +2260,15 @@ impl Engine {
                     frame.layout.inventory_area_at(self.control.cursor) != Area::Outside
                 }));
         if let Some(trails) = &mut self.cursor_trails {
-            if self.control.hidden {
-                trails.hide_images();
-            } else {
-                trails.tick(resources)?;
-                if !self.control.frozen {
-                    trails.move_to(resources, self.control.cursor, false)?;
-                }
+            let moved = trails.position() != self.control.cursor;
+            trails.move_to(resources, self.control.cursor, self.control.hidden)?;
+            // Entry deletes the just-emitted trail. The first move out is still
+            // suppressed. invCursor does not change suppression during a drag.
+            if !active {
+                trails.suppress(false);
+            } else if moved && !dragging {
+                trails.suppress(inside);
             }
-            // DoCursorMove notifies inventory after emitting at the old position.
-            // Entry deletes that trail; the first move out remains suppressed.
-            trails.suppress(inside);
         }
         Ok(())
     }
@@ -3063,6 +3087,9 @@ impl Engine {
 
     /// Close the active window without a conversation postamble (scripted CLOSEINVENTORY).
     pub fn close_inventory(&mut self) {
+        if let Some(trails) = &mut self.cursor_trails {
+            trails.suppress(false);
+        }
         if let Some(menu) = &mut self.configuration {
             if menu.page().is_some() {
                 menu.close();

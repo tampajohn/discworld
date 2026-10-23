@@ -39,7 +39,7 @@
       "skip_reason": "WebKit multi-contact input injection unavailable",
       "node_tests": 4
     },
-    "full_route": "not yet rerun on this change"
+    "full_route": "Native, Chrome and WebKit completed2630000 ticks,1652 inputs; final engine/RGBA identical. See cached-click-route.json."
   },
   "save_validation": "Full pre-click snapshot restore yields identical cached-polygon dispatch;72 per-frame save/restore next-tick checks in each scenario.",
   "logs": {

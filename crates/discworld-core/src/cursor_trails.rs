@@ -146,6 +146,10 @@ impl Trails {
         Ok(())
     }
 
+    pub(crate) fn position(&self) -> [i32; 2] {
+        self.previous
+    }
+
     pub(crate) fn film(&self) -> Handle {
         self.film
     }

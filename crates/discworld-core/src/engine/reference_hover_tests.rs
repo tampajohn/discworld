@@ -90,13 +90,8 @@ fn capture_original_debug_room_hover() {
                         engine.world_hover.as_ref().unwrap().display.selection(),
                         Some(crate::world_hover::Selection::Actor(7))
                     );
-                    engine
-                        .cursor_trails
-                        .as_mut()
-                        .unwrap()
-                        .move_to(&resources, [250, 180], false)
-                        .unwrap();
                     engine.move_cursor([250, 180]);
+                    engine.move_cursor_trails(&resources).unwrap();
                     [250, 180]
                 } else {
                     points[0]
@@ -110,13 +105,8 @@ fn capture_original_debug_room_hover() {
             if elapsed % 12 == 0 && elapsed / 12 < points.len() as u64 {
                 let position = points[(elapsed / 12) as usize];
                 // Match the probe's immediate original DoCursorMove call.
-                engine
-                    .cursor_trails
-                    .as_mut()
-                    .unwrap()
-                    .move_to(&resources, position, false)
-                    .unwrap();
                 engine.move_cursor(position);
+                engine.move_cursor_trails(&resources).unwrap();
                 if walk_mode && walk_delay == 0 && elapsed == 0 {
                     assert_eq!(
                         engine.world_hover.as_ref().unwrap().display.selection(),
@@ -245,6 +235,15 @@ fn capture_original_debug_room_hover() {
             .tick_content(&resources, Some(&bank), Some(&tracks), Some(&strings))
             .unwrap();
         crate::animation::trace_tick(None);
+        if walk_from_actor && start.is_some_and(|start| tick == start + 14) {
+            // Original cycle1271 still steps all three trails after the window
+            // appeared under a stationary cursor; opening is not movement.
+            assert_eq!(engine.active_inventory(), Some(2));
+            assert_eq!(
+                engine.cursor_trails.as_ref().unwrap().animations().count(),
+                3
+            );
+        }
         if collecting_look {
             let source = bank.sample(3636).unwrap().unwrap();
             let count = engine.audio_frame.len().min(source.len() - look_position);

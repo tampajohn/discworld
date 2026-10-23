@@ -1600,3 +1600,18 @@ checks 72 complete save/restore next-tick continuations. These controlled
 captures do not establish raw SDL input delivery or every alternate route.
 
 Validation and remaining full-route scope: [cached-click evidence](validation/cached-world-click.json).
+
+## Inventory movement and cursor trails
+
+Original `Dialogs::xMovement`/`yMovement` calls `invCursor(IC_AREA)` only for
+nonzero movement and existing window objects. That call suppresses trails inside
+the window, permits them outside, and is skipped during dragging. Opening a
+window under a stationary cursor does not itself delete existing trails.
+`killInventory` permits new trails when closing the active window.
+
+The engine now shares trail movement/notification with its controlled diagnostic
+injections and stops reapplying suppression on every stationary tick. Existing
+trail position and suppression fields are saved unchanged; no new format is
+needed. The original actor/inventory comparison improves from 13 to all 72 exact
+frames, and the inventory-open/close, floor-walk and voiced-LOOK comparisons
+remain exact. See [validation](validation/inventory-trail-movement.json).

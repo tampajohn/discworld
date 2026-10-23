@@ -1,0 +1,51 @@
+{
+  "base_revision": "6617b6b",
+  "change": "Preserve cursor trails when inventory opens under a stationary cursor; update suppression on cursor movement, retain it during dragging, unhide on close.",
+  "scope": "Original controlled frame comparisons and runtime regressions; not physical iPad or visible native acceptance.",
+  "save_format_changed": false,
+  "prior_actor_capture_matches": 13,
+  "comparisons": {
+    "cached-actor-trails-compare1.json": {
+      "frames": 72,
+      "rgb_matches": 72,
+      "same_cycle_matches": 72,
+      "sha256": "5f3caec55af9e22a3f12c1151cc3d7898a07b55ea6059a3d7b1c9c74f0b6deab"
+    },
+    "inventory-trails-inventory-compare1.json": {
+      "frames": 72,
+      "rgb_matches": 72,
+      "same_cycle_matches": 72,
+      "sha256": "32d65864d9055cba89b112812aa92e020ebb40bef664e4c6ac74296a4f5ca899"
+    },
+    "inventory-trails-walk-compare1.json": {
+      "frames": 72,
+      "rgb_matches": 72,
+      "same_cycle_matches": 72,
+      "sha256": "40857a75cd940726cdf2647b64d7893502cee1862265776e5a35106e98b721d5"
+    },
+    "inventory-trails-look-compare1.json": {
+      "frames": 72,
+      "rgb_matches": 72,
+      "same_cycle_matches": 72,
+      "sha256": "d90409ae2b762afd16f8d7a699bef0571c37bada6ad9a0afd36038581ffc15e3"
+    }
+  },
+  "validation": {
+    "workspace": "passed (360 core tests)",
+    "asset_tests": 25,
+    "browser_passed": 23,
+    "browser_skipped": 1,
+    "skip_reason": "WebKit simultaneous touch injection unavailable",
+    "clippy": "passed",
+    "native_tools_release": "passed",
+    "wasm_release": "passed",
+    "full_route": "07e395f predecessor completed all three hosts; this trail correction is not included in those route binaries."
+  },
+  "regression": "At tick1270 three original trails remain after inventory opens; the asset test asserts that count and verifies full save/restore next-tick continuation in all72 frames.",
+  "logs": {
+    "inventory-trails-workspace.log": "34f230213d40c9a708bc17d37dbef92e926653b10d9a488de997802a8e94249e",
+    "inventory-trails-assets.log": "b3b4778d4a1feade91ab6c180aec0ed5de25645a382b1362073b82c868f733bc",
+    "inventory-trails-browser-ui.log": "f5b4f566cefe91d1710dbd16c39625bb1aa018cb237897689e7ba941a1ac63e3",
+    "inventory-trails-final-clippy.log": "25de82b304bdf9e1288c6f6b416d1693c8a7ef19ad75afeac81c7c5e56197a23"
+  }
+}
