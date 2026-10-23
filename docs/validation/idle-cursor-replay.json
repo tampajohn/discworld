@@ -23,23 +23,26 @@
   ],
   "full_route": {
     "directory": "assets/validation/idle-active-3df76c8",
-    "status": "Native failed at88000 in square.scn: interaction scene mismatch; browser runs pending",
+    "status": "All3 hosts failed at88000 in square.scn; next recorded key expects closeup.scn",
     "ticks": 2635725,
     "runs": {
       "run.json": {
         "pid": 4145,
         "status": "failed",
-        "confirmed_live": false
+        "confirmed_live": false,
+        "exit_code": 1
       },
       "chrome-run.json": {
         "pid": 4251,
-        "status": "running",
-        "confirmed_live": true
+        "status": "failed",
+        "confirmed_live": false,
+        "exit_code": 1
       },
       "webkit-run.json": {
         "pid": 4252,
-        "status": "running",
-        "confirmed_live": true
+        "status": "failed",
+        "confirmed_live": false,
+        "exit_code": 1
       }
     }
   },
