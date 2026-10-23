@@ -272,6 +272,10 @@ pub struct Engine {
     reel_owners: std::collections::BTreeMap<i32, (Handle, u64)>,
     #[serde(skip)]
     pub(crate) reel_escape: std::collections::BTreeMap<i32, (u64, u64)>,
+    /// Live SPLAY reels whose exit must restore mover coordinates, including
+    /// superseded reels waiting for their next coroutine turn.
+    #[serde(skip)]
+    pub(crate) splay_reels: std::collections::BTreeSet<u64>,
     next_playback: u64,
     pub polygons: crate::polygon::Polygons,
     pub random: crate::random::Random,
@@ -485,6 +489,21 @@ impl Engine {
     }
 
     pub(crate) fn validate_snapshot_structure(&self) -> Result<(), Error> {
+        for &playback in &self.splay_reels {
+            let matches = self
+                .films
+                .iter()
+                .chain(
+                    self.processes
+                        .states()
+                        .filter_map(|p| p.play_wait.as_ref().map(|w| &w.1)),
+                )
+                .filter(|a| a.playback == playback && a.reel.is_some())
+                .count();
+            if playback == 0 || playback > self.next_playback || matches != 1 {
+                return Err(Error("invalid snapshot SPLAY reel identity"));
+            }
+        }
         if let Some(intro) = &self.intro {
             intro.validate(
                 self.escape_events
@@ -2926,6 +2945,7 @@ impl Engine {
             fade_on_background: false,
             reel_owners: std::collections::BTreeMap::new(),
             reel_escape: std::collections::BTreeMap::new(),
+            splay_reels: std::collections::BTreeSet::new(),
             next_playback: 0,
             polygons: crate::polygon::Polygons::default(),
             random: crate::random::Random::default(),
@@ -3233,6 +3253,7 @@ impl Engine {
             None
         };
         self.films.clear();
+        self.splay_reels.clear();
         self.reel_owners.clear();
         self.reel_escape.clear();
         self.playback.clear();
@@ -9013,6 +9034,81 @@ mod tests {
                                 };
                                 if legacy {
                                     playing.movers.get_mut(&1).unwrap().hidden = false;
+                                }
+                                {
+                                    use sha2::{Digest, Sha256};
+                                    let original =
+                                        Snapshot::capture(&playing, [7; 32]).to_bytes().unwrap();
+                                    let mut flagged = playing.clone();
+                                    flagged.splay_reels.insert(reel.playback);
+                                    let bytes =
+                                        Snapshot::capture(&flagged, [7; 32]).to_bytes().unwrap();
+                                    assert_eq!(
+                                        u32::from_le_bytes(bytes[8..12].try_into().unwrap()),
+                                        19
+                                    );
+                                    let decoded = Snapshot::from_bytes(&bytes, [7; 32]).unwrap();
+                                    assert_eq!(decoded.state(), &flagged);
+                                    assert_eq!(decoded.to_bytes().unwrap(), bytes);
+                                    let (inner, ids): (Vec<u8>, Vec<u64>) =
+                                        postcard::from_bytes(&bytes[80..]).unwrap();
+                                    assert_eq!(inner, original);
+                                    assert_eq!(ids, vec![reel.playback]);
+                                    let wrap = |inner: Vec<u8>, ids: Vec<u64>, trailing: bool| {
+                                        let mut payload =
+                                            postcard::to_allocvec(&(inner, ids)).unwrap();
+                                        if trailing {
+                                            payload.push(0);
+                                        }
+                                        let mut bytes = bytes[..80].to_vec();
+                                        bytes[44..48]
+                                            .copy_from_slice(&(payload.len() as u32).to_le_bytes());
+                                        bytes[48..80].copy_from_slice(&Sha256::digest(&payload));
+                                        bytes.extend(payload);
+                                        bytes
+                                    };
+                                    for bad in [
+                                        wrap(inner.clone(), vec![], false),
+                                        wrap(inner.clone(), vec![0], false),
+                                        wrap(inner.clone(), vec![reel.playback; 2], false),
+                                        wrap(
+                                            inner.clone(),
+                                            vec![reel.playback + 1, reel.playback],
+                                            false,
+                                        ),
+                                        wrap(inner.clone(), vec![reel.playback + 1], false),
+                                        wrap(inner, ids.clone(), true),
+                                        wrap(bytes.clone(), ids, false),
+                                    ] {
+                                        assert!(Snapshot::from_bytes(&bad, [7; 32]).is_err());
+                                    }
+                                    // Cleanup belongs to a live reel, even when it
+                                    // no longer owns the actor. Multiple generations
+                                    // must survive together without merging them.
+                                    let mut superseded = flagged.clone();
+                                    superseded.reel_owners.clear();
+                                    superseded.reel_escape.clear();
+                                    superseded.next_playback += 1;
+                                    let mut second = reel.clone();
+                                    second.playback = superseded.next_playback;
+                                    superseded.splay_reels.insert(second.playback);
+                                    superseded.films.push(second);
+                                    let saved =
+                                        Snapshot::capture(&superseded, [7; 32]).to_bytes().unwrap();
+                                    assert_eq!(
+                                        Snapshot::from_bytes(&saved, [7; 32]).unwrap().state(),
+                                        &superseded
+                                    );
+                                    flagged.films.push(reel.clone());
+                                    assert!(
+                                        Snapshot::capture(&flagged, [7; 32]).to_bytes().is_err()
+                                    );
+                                    flagged.films.pop();
+                                    flagged.splay_reels.clear();
+                                    assert_eq!(
+                                        Snapshot::capture(&flagged, [7; 32]).to_bytes().unwrap(),
+                                        original
+                                    );
                                 }
                                 let start = playing.movers[&1].placement.position;
                                 for _ in 0..2 {

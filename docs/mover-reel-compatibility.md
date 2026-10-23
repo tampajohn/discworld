@@ -721,3 +721,12 @@ The isolated restoration helper passes the workspace suite (324 core tests),
 Clippy and WASM checking; logs use assets/logs/splay-restore-*. Existing hosts
 have not been rebuilt for this undispatched helper. Full SPLAY acceptance
 requires lifecycle/dispatch/save integration and additional route coverage.
+
+
+SPLAY persistence infrastructure now records live pending-cleanup playback
+generations in the [v19 exact-save extension](save-state.md#version-19-pending-splay-reel-cleanup).
+It permits superseded reels that still exist, while rejecting missing or
+ambiguous reel identities. Existing saves are unchanged when the set is empty.
+The runtime still does not set or consume these flags through SPLAY dispatch;
+lifecycle integration, retained replaced films, and exit-side-effect tests remain
+required before SPLAY support can be claimed.

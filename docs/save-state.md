@@ -503,6 +503,34 @@ Actor.hidden, identical inner legacy bytes, malformed extensions and return
 to the original bytes when visibility is cleared. Logs:
 `assets/logs/mover-visibility-codec-*`.
 
-This is persistence infrastructure for HIDEACTOR. The script handler,
-behind-background composition, movement and unhide ownership are still pending;
-the new field alone does not establish runtime hiding support.
+HIDEACTOR now uses this persistence extension together with behind-background
+composition, independent mover visibility and ownership-aware release. See
+[mover lifecycle](mover-reel-compatibility.md) for implementation and evidence.
+
+
+## Version 19: pending SPLAY reel cleanup
+
+DWRSAVE v19 wraps a v1–v18 snapshot and a sorted, nonempty list of SPLAY
+playback generations. The runtime field is excluded from the legacy Engine
+layout. With no SPLAY generations, encoding follows the previous path exactly.
+Flags identify live nonblocking films or blocking primary reels, including
+replaced reels that no longer own their actor but still owe restoration. They
+do not identify mover animations or arbitrary render objects.
+
+Each generation must be nonzero, no newer than the playback counter, and
+resolve to exactly one live film/primary reel with a reel identity. Decoding
+checks canonical ordering, empty/duplicate lists, missing identities, nested
+v19 wrappers, trailing bytes, asset identity, length, size and checksum.
+Scene transitions clear this scene-local cleanup set. V1 scene-stack reel
+restoration remains separate from exact runtime snapshots.
+
+Tests cover blocking/nonblocking holders, legacy visibility state, multiple
+superseded generations, exact state and byte round-trips, identical inner
+legacy bytes, malformed wrappers, duplicate live reel identities, and returning
+to the original bytes after clearing metadata. This is persistence infrastructure:
+SPLAY dispatch and exit-side-effect handling are not connected yet.
+
+Validation passes: workspace suite (324 core tests), 20 original-asset web
+tests, Clippy and WASM checks. Logs use assets/logs/splay-codec-*. Native and
+browser release hosts remain at the preceding STAND correction until SPLAY
+lifecycle integration; this extension alone does not change gameplay.
