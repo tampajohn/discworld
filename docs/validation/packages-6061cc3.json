@@ -1,0 +1,64 @@
+{
+  "finder": {
+    "source_revision": "6061cc31b905135a1c08b0f2b60932bbb37f1d25",
+    "archive_sha256": "36685d9558792e9bc283ec7814bf13f02e10a2d80d0bd699451ee1c34fddf68e",
+    "archive_bytes": 4590273,
+    "verified_files": 5,
+    "exact_source_verified": true,
+    "extracted_directory": "/var/folders/1j/8_5gj1n12qn9xxxqp9n_0nq80000gp/T/discworld-6061cc3-packages-dglw76ap/finder",
+    "strict_deep_signature_verified": true,
+    "runs": {
+      "startup": {
+        "exit_code": 0,
+        "last_line": "Window closed after 30 frames, tick 13, scene psygnosi.scn, stopped=false"
+      },
+      "legacy_load": {
+        "exit_code": 0,
+        "last_line": "Window closed after 30 frames, tick 33213, scene rinceroo.scn, stopped=false"
+      }
+    }
+  },
+  "web": {
+    "source_revision": "6061cc31b905135a1c08b0f2b60932bbb37f1d25",
+    "archive_sha256": "a9df19b2fc49d8075297c32fe7c0936a893ea93adfb751af24405e122ce27235",
+    "archive_bytes": 3144307,
+    "verified_files": 14,
+    "exact_source_verified": true,
+    "extracted_directory": "/var/folders/1j/8_5gj1n12qn9xxxqp9n_0nq80000gp/T/discworld-6061cc3-packages-dglw76ap/web",
+    "runs": [
+      {
+        "scenario": "startup",
+        "browser": "chrome",
+        "version": "156.0.8078.47",
+        "tick": "13",
+        "headroom": true,
+        "errors": []
+      },
+      {
+        "scenario": "startup",
+        "browser": "webkit",
+        "version": "27.2",
+        "tick": "13",
+        "headroom": true,
+        "errors": []
+      },
+      {
+        "scenario": "legacy-save",
+        "browser": "chrome",
+        "version": "156.0.8078.47",
+        "tick": "33213",
+        "headroom": true,
+        "errors": []
+      },
+      {
+        "scenario": "legacy-save",
+        "browser": "webkit",
+        "version": "27.2",
+        "tick": "33213",
+        "headroom": true,
+        "errors": []
+      }
+    ]
+  },
+  "scope": "Extracted native dummy-video/audio startup and legacy save load; extracted Chrome/WebKit startup/load/save/audio-control smoke. Not visible Finder or physical iPad acceptance; full-route audits are separate."
+}

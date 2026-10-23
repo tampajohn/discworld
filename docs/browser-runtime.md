@@ -575,3 +575,9 @@ errors. Full-route audits now pass with identical final engine state and pixels
 in native, Chrome and WebKit; see [route evidence](validation/hidden-trails-route.json).
 The UI suite passes 49 cases with one known WebKit multi-touch injection skip,
 plus four Node tests. Physical iPad acceptance remains open. See [package evidence](validation/packages-ea6d560.json).
+
+Package `6061cc3` includes the scene-entry cursor timing correction. All extracted
+manifest files and bundled source verify. Chrome and WebKit pass fresh startup,
+legacy-load, save-export and audio-headroom checks without page errors.
+Full-route and broader UI audits are running separately; physical iPad acceptance
+remains open. See [package evidence](validation/packages-6061cc3.json).
