@@ -26,12 +26,37 @@
     "Workspace all-target Clippy passes",
     "Native/tools release build passes",
     "Original-asset idle cutscene diagnostic passes",
-    "Boundary, reset, overflow and master/scene library-stack checks pass"
+    "Boundary, reset, overflow and master/scene library-stack checks pass",
+    "Production/replay WASM builds pass",
+    "All25 original-asset web checks pass"
   ],
   "pending": [
-    "Production/replay WASM builds and original-asset web checks",
-    "Full native/Chrome/WebKit route audits",
+    "Recover recorded-route idle pauses using ordinary player input, then rerun all hosts",
     "Updated packages and visible/physical-device validation"
   ],
-  "limitations": "Deterministic nominal24Hz virtual time is deliberate; debugger wall time, wall-clock wrapping and mixer-driven speech duration are not reproduced. This is not same-cycle equality for a long debugger-instrumented reference run."
+  "limitations": "Deterministic nominal24Hz virtual time is deliberate; debugger wall time, wall-clock wrapping and mixer-driven speech duration are not reproduced. This is not same-cycle equality for a long debugger-instrumented reference run.",
+  "runtime": "18d3f91",
+  "full_route": {
+    "directory": "assets/validation/idle-clock-18d3f91",
+    "ticks_requested": 2635725,
+    "inputs_requested": 1657,
+    "status": "failed on all3 hosts at tick24500 after7 accepted inputs; expected closet interaction meets idle closeup scene",
+    "runs": {
+      "run.json": {
+        "pid": 1531,
+        "status": "failed",
+        "exit_code": 1
+      },
+      "chrome-run.json": {
+        "pid": 1693,
+        "status": "failed",
+        "exit_code": 1
+      },
+      "webkit-run.json": {
+        "pid": 1692,
+        "status": "failed",
+        "exit_code": 1
+      }
+    }
+  }
 }
