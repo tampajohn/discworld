@@ -1529,6 +1529,19 @@ impl Engine {
         Ok(dispatch)
     }
 
+    fn script_subtitles(&mut self, value: i32) -> Result<(), Error> {
+        let enabled = match value {
+            0 => true,  // ST_ON
+            1 => false, // ST_OFF
+            _ => return Err(Error("invalid subtitle mode")),
+        };
+        self.subtitles = enabled;
+        if let Some(menu) = &mut self.configuration {
+            menu.set_subtitles(enabled);
+        }
+        Ok(())
+    }
+
     fn finish_configuration_transition(&mut self, was_active: bool, refresh_pointer: bool) {
         if let Some(menu) = &mut self.configuration {
             let active = menu.page().is_some();
@@ -3145,6 +3158,10 @@ impl Engine {
                 96 => {
                     let seconds = self.control.idle_seconds(self.ticks)?;
                     self.master.complete_library(call, 1, Some(seconds))?;
+                }
+                123 => {
+                    self.script_subtitles(args(&self.master, 1)?[0])?;
+                    self.master.complete_library(call, 1, None)?;
                 }
                 116 => {
                     // V1 FRAMEGRAB is inert but consumes its argument.
@@ -6215,6 +6232,10 @@ impl Engine {
                     }
                     process.vm.complete_library(call, consumed, None)?;
                 }
+                123 => {
+                    self.script_subtitles(args(&process.vm, 1)?[0])?;
+                    process.vm.complete_library(call, 1, None)?;
+                }
                 116 => {
                     // V1 FRAMEGRAB is inert but consumes its argument.
                     process.vm.complete_library(call, 1, None)?;
@@ -6837,6 +6858,114 @@ mod tests {
             .tick_content(&resources, Some(&bank), Some(&tracks), Some(&strings))
             .unwrap();
         assert_eq!(input.configuration.as_ref(), Some(&expected_menu));
+        // Script SUBTITLES shares the live menu setting and survives both
+        // the next InventoryProcess cycle and a resource-validated save/load.
+        for page in [
+            None,
+            Some(crate::menu_navigation::Page::Subtitles),
+            Some(crate::menu_navigation::Page::Controls),
+        ] {
+            for value in [0u8, 1] {
+                let mut instance = engine.clone();
+                instance.close_inventory();
+                if let Some(page) = page {
+                    instance
+                        .configuration
+                        .as_mut()
+                        .unwrap()
+                        .open(
+                            page,
+                            &crate::menu_controller::Assets {
+                                resources: &resources,
+                                strings: &strings,
+                                declarations: &instance.declarations,
+                                saves: &[],
+                            },
+                        )
+                        .unwrap();
+                }
+                let code = [
+                    0x0a, 0x00, 0x34, 0x33, 0, 0, 0, 0, 0x41, value, 0x4e, 123, 0,
+                ];
+                let handle = Handle(((resources.0.len() as u32) << 23) | 8);
+                let mut call_resources = Resources(resources.0.clone());
+                call_resources.0.push(&code);
+                let mut process = ScriptProcess::new(handle);
+                assert_eq!(
+                    instance
+                        .run_process(
+                            &call_resources,
+                            Some(&bank),
+                            Some(&tracks),
+                            Some(&strings),
+                            &mut process
+                        )
+                        .unwrap(),
+                    Status::Halted
+                );
+                assert_eq!(instance.subtitles, value == 0);
+                assert_eq!(
+                    instance
+                        .configuration
+                        .as_ref()
+                        .unwrap()
+                        .settings()
+                        .subtitles,
+                    value == 0
+                );
+                let bytes = crate::save::Snapshot::capture(&instance, [9; 32])
+                    .to_bytes()
+                    .unwrap();
+                let mut restored = crate::save::Snapshot::from_bytes(&bytes, [9; 32])
+                    .unwrap()
+                    .restore_with_strings(&call_resources, &bank, &tracks, &strings)
+                    .unwrap();
+                assert_eq!(instance, restored);
+                assert_eq!(
+                    instance
+                        .advance_configuration(&call_resources, &strings, &[])
+                        .unwrap(),
+                    restored
+                        .advance_configuration(&call_resources, &strings, &[])
+                        .unwrap()
+                );
+                assert_eq!(instance, restored);
+                assert_eq!(instance.subtitles, value == 0);
+                assert_eq!(instance.configuration.as_ref().unwrap().page(), page);
+            }
+        }
+        // A pending toggle must invert the newly scripted value, including
+        // after Escape retains its original setting pointer on the main page.
+        for retained in [false, true] {
+            let assets = crate::menu_controller::Assets {
+                resources: &resources,
+                strings: &strings,
+                declarations: &engine.declarations,
+                saves: &[],
+            };
+            let mut menu = engine.configuration.clone().unwrap();
+            menu.close();
+            menu.open(crate::menu_navigation::Page::Subtitles, &assets)
+                .unwrap();
+            assert!(menu.click_settings([163, 77], false));
+            menu.step(&assets, true).unwrap();
+            if retained {
+                menu.escape(&assets).unwrap();
+            }
+            menu.set_subtitles(false);
+            let checkpoint = menu.checkpoint().unwrap();
+            let mut restored =
+                crate::menu_controller::Controller::from_checkpoint(&checkpoint, &assets).unwrap();
+            assert_eq!(menu, restored);
+            for overlay in [false, true] {
+                assert_eq!(
+                    menu.step(&assets, overlay).unwrap(),
+                    restored.step(&assets, overlay).unwrap()
+                );
+                assert_eq!(menu, restored);
+            }
+            assert!(menu.settings().subtitles);
+        }
         // Execute an actual CONTROL_ON bytecode call alongside original menu resources.
         let code = [0x0a, 0x00, 0x34, 0x33, 0, 0, 0, 0, 3, 0x4e, 14, 0];
         let handle = Handle(((resources.0.len() as u32) << 23) | 8);
@@ -11064,6 +11193,68 @@ mod tests {
             }
             assert!(engine.splay_reels.is_empty());
             assert!(engine.films.is_empty());
+        }
+    }
+
+    #[test]
+    fn subtitle_call_updates_shared_setting_without_yielding() {
+        for master_context in [false, true] {
+            for with_menu in [false, true] {
+                for value in [0u8, 1, 2, 255] {
+                    let (master, mut scene) = fixtures();
+                    let code = [0x41, 77, 0x41, value, 0x4e, 123, 0x4c, 0, 0];
+                    scene[8..8 + code.len()].copy_from_slice(&code);
+                    let resources = Resources(vec![&master, &scene]);
+                    let mut engine = Engine::bootstrap(&resources).unwrap();
+                    engine.subtitles = value != 0;
+                    if with_menu {
+                        engine.configuration = Some(
+                            crate::menu_controller::Controller::new(
+                                crate::menu_controller::Settings {
+                                    volumes: [255; 3],
+                                    double_click: 10,
+                                    swap_buttons: false,
+                                    text_speed: 50,
+                                    subtitles: engine.subtitles,
+                                    flipped: false,
+                                },
+                            )
+                            .unwrap(),
+                        );
+                    }
+                    engine.processes = Scheduler::default();
+                    engine.master_stopped = !master_context;
+                    engine.escape_events = Some(2);
+                    let mut process = ScriptProcess::new(Handle((1 << 23) | 8));
+                    process.vm.escape_enabled = true;
+                    process.vm.escape_generation = Some(1);
+                    if master_context {
+                        engine.master = process.vm;
+                        engine.master_code = process.code;
+                    } else {
+                        engine.processes.spawn(None, process).unwrap();
+                    }
+                    let before = engine.clone();
+                    let result = engine.tick(&resources);
+                    if value > 1 {
+                        assert_eq!(result, Err(Error("invalid subtitle mode")));
+                        assert_eq!(engine, before);
+                    } else {
+                        result.unwrap();
+                        assert_eq!(engine.globals[0], 77);
+                        assert_eq!(engine.subtitles, value == 0);
+                        if let Some(menu) = &engine.configuration {
+                            assert_eq!(menu.settings().subtitles, engine.subtitles);
+                        }
+                        let bytes = crate::save::Snapshot::capture(&engine, [7; 32])
+                            .to_bytes()
+                            .unwrap();
+                        let decoded = crate::save::Snapshot::from_bytes(&bytes, [7; 32]).unwrap();
+                        assert_eq!(decoded.to_bytes().unwrap(), bytes);
+                        assert_eq!(decoded.state().subtitles, value == 0);
+                    }
+                }
+            }
         }
     }
 

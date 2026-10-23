@@ -316,6 +316,10 @@ impl SettingsMenu {
             self.highlight.remove();
         }
     }
+    /// A script changes only the backing setting, not slider geometry.
+    pub(crate) fn set_script_enabled(&mut self, enabled: bool) {
+        self.enabled = enabled;
+    }
     pub(crate) fn set_shared_enabled(&mut self, enabled: bool) {
         self.enabled = enabled;
         self.thumb.object.x =

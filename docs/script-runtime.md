@@ -54,3 +54,30 @@ tests (329 core tests), all 20 original-asset web integration tests, and Clippy
 pass; native and browser release hosts rebuild.
 Logs use `assets/logs/framegrab-runmode-*`. The full-route 0ccdf9f audit
 predates these two calls and is not evidence of their coverage on the route.
+
+
+## Scripted subtitles
+
+SUBTITLES (123) is implemented in the continuing master and scene dispatchers.
+Pinned `tinlib.cpp::Subtitles` and `pcode.h` define ST_ON as zero and ST_OFF
+as one. The English DOS runtime consumes one argument immediately, independent
+of Escape; other values fail atomically. Existing speech timing and text
+selection continue to use the shared subtitle setting. This does not implement
+the separate Japanese-version override or startup-bootstrap dispatch.
+
+The operation updates both engine state and the configuration controller,
+including a live subtitle widget and a toggle retained across page changes.
+Script changes do not reset slider geometry or pending button timing. A pending
+toggle subsequently inverts the newly assigned value, matching its reference
+pointer to the shared configuration setting. The existing snapshot format
+preserves these fields; no new save version is needed.
+
+A bytecode matrix covers both process contexts, with and without a controller,
+valid/invalid modes, stale Escape, stack preservation, immediate completion and
+exact snapshot encoding. The opt-in core original-menu regression checks real
+Subtitles/Controls pages and a closed menu, resource-validated restoration, the
+next menu cycle, and active/retained toggle continuation through checkpoints.
+Workspace tests (330 core tests), Clippy, the original-menu regression and all
+20 original-asset web tests pass. Native and browser release hosts rebuild.
+Logs use `assets/logs/script-subtitles-*`. This targeted validation does not
+claim full-route coverage of the newly implemented operation.

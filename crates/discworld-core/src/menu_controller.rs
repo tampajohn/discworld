@@ -424,6 +424,24 @@ impl Controller {
         self.button_overlay = None;
         self.button_recipe = None;
     }
+    /// Script SUBTITLES writes the same setting observed by live and retained
+    /// subtitle widgets. Preserve their pending toggle animation and timing.
+    pub(crate) fn set_subtitles(&mut self, enabled: bool) {
+        self.settings.subtitles = enabled;
+        if let Some(view) = self
+            .settings_mut()
+            .filter(|view| view.kind() == Kind::Subtitles)
+        {
+            view.set_script_enabled(enabled);
+        }
+        if let Some(view) = self
+            .retained_toggle
+            .as_mut()
+            .filter(|view| view.kind() == Kind::Subtitles)
+        {
+            view.set_script_enabled(enabled);
+        }
+    }
     pub fn settings(&self) -> Settings {
         let mut settings = self.settings.clone();
         match &self.display {
