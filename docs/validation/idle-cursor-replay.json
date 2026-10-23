@@ -18,8 +18,31 @@
   "validation": [
     "Replay/tools release tests pass",
     "Workspace all-target Clippy passes",
-    "65000-tick original-asset prefix passes"
+    "65000-tick original-asset prefix passes",
+    "Native and production/replay WASM builds pass"
   ],
-  "full_route": "not yet validated",
-  "limits": "Synthetic cursor activity tests an active player route. It does not replace idle-cutscene acceptance, touch-only play, or full original-reference fidelity."
+  "full_route": {
+    "directory": "assets/validation/idle-active-3df76c8",
+    "status": "running; not a pass",
+    "ticks": 2635725,
+    "runs": {
+      "run.json": {
+        "pid": 4145,
+        "status": "failed",
+        "confirmed_live": false
+      },
+      "chrome-run.json": {
+        "pid": 4251,
+        "status": "running",
+        "confirmed_live": true
+      },
+      "webkit-run.json": {
+        "pid": 4252,
+        "status": "running",
+        "confirmed_live": true
+      }
+    }
+  },
+  "limits": "Synthetic cursor activity tests an active player route. It does not replace idle-cutscene acceptance, touch-only play, or full original-reference fidelity.",
+  "runtime": "3df76c8"
 }
