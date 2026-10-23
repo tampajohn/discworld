@@ -1,0 +1,15 @@
+{
+  "schema": 1,
+  "runtime_revision": "fad89dca5c3bb706de37b3f88cc02e77634f9f43",
+  "node_tests_passed": 4,
+  "playwright_tests_passed": 44,
+  "playwright_failures": 0,
+  "projects": [
+    "Chrome",
+    "WebKit"
+  ],
+  "wasm_sha256": "e58606bf65f94882166280562db4d1e7e597f3780c0dd41e23a506a4559b89f5",
+  "log": "assets/logs/deferred-restore-browser-ui.log",
+  "log_sha256": "1659531f5ea60c8d2dca4013708d05513cd1ad2c67f1345f4bb179b216ae6145",
+  "scope": "Production WASM with original assets, desktop and emulated touch; predates scripted QUITGAME. No physical iPad acceptance."
+}

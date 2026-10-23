@@ -1,0 +1,67 @@
+{
+  "schema": 1,
+  "runtime_revision": "fad89dca5c3bb706de37b3f88cc02e77634f9f43",
+  "native": {
+    "ticks": 2630000,
+    "status": "Running",
+    "scene_name": "title.scn",
+    "has_restarted": true,
+    "snapshot_checks": 5048,
+    "audio_snapshot_checks": 5048
+  },
+  "chrome": {
+    "browser": "chrome",
+    "browser_version": "156.0.8078.47",
+    "ticks": 2630000,
+    "scene": "title.scn",
+    "has_restarted": true,
+    "accepted_inputs": 1652,
+    "input_count": 1652,
+    "audio_samples": 4832625000,
+    "nonfinite_audio_samples": 0,
+    "elapsed_seconds": 1001.500700000003,
+    "scene_history_scope": "scene sampled after batches of up to 24 ticks; intermediate scenes may be omitted",
+    "rgba_sha256": "8833cac8d0cc20ebbfa5e7158676914ad7d9a82222812a3a91568cbb5a6e8978",
+    "core_sha256": "c3568ede023a2e9b48fa33f7364f52a443d27cd0b3af383ca6800788f8501b86",
+    "scope": "accelerated browser worker runtime; audio generated but not sent through Web Audio"
+  },
+  "chrome_native_comparison": {
+    "ticks": 2630000,
+    "ticks_equal": true,
+    "native_status": "Running",
+    "scene": "title.scn",
+    "scene_equal": true,
+    "has_restarted": true,
+    "restart_equal": true,
+    "accepted_inputs": 1652,
+    "native_inputs": 1652,
+    "native_inputs_accepted": true,
+    "engine_bytes_equal": true,
+    "rgba_equal": true,
+    "combined_save_equal": false,
+    "core_sha256": "c3568ede023a2e9b48fa33f7364f52a443d27cd0b3af383ca6800788f8501b86",
+    "audio_scope": "WASM checked for finite samples; cross-platform audio equality not established"
+  },
+  "webkit_first_attempt": {
+    "status": "failed",
+    "last_logged_tick": 2400000,
+    "error": "page.evaluate: Target page, context or browser has been closed",
+    "cause": "unestablished",
+    "log_sha256": "d9258b4069852a59c93de8331e1cd3db54b98cf98eec705afa7b629b3523de73"
+  },
+  "webkit_retry": {
+    "status": "running",
+    "path": "assets/validation/deferred-restore-fad89dc/webkit-retry1-run.json",
+    "same_frozen_host_files_verified": true
+  },
+  "reports": {
+    "assets/validation/deferred-restore-fad89dc/report.json": "cca852c4fec65085d503b995fbf1dfc23a023f1098228173a842f5bae575e323",
+    "assets/validation/deferred-restore-fad89dc/chrome/report.json": "a2b2206a771fd39cf277d176a150709d4e7a590fce0c7a9016b92408193a4275",
+    "assets/validation/deferred-restore-fad89dc/chrome/native-comparison.json": "647529cdc72215bd03cba24f6c391155f62fe9b0f0f1eb0a8e321988ccded0d6"
+  },
+  "scope": [
+    "Recorded route only; does not prove alternate interactions or reference fidelity.",
+    "Predates scripted QUITGAME support.",
+    "No physical iPad or audible-device acceptance."
+  ]
+}

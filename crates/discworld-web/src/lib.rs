@@ -166,6 +166,8 @@ pub struct BrowserGame {
     audio: MusicOutput,
     audio_headroom: bool,
     fault: Option<String>,
+    // Host-only request retained behind a same-cycle menu operation.
+    quit_pending: bool,
     menu_entries: Vec<discworld_core::save_menu::Entry>,
     menu_requests: std::collections::VecDeque<discworld_core::menu_controller::Dispatch>,
 }
@@ -188,6 +190,7 @@ impl BrowserGame {
             audio,
             audio_headroom: false,
             fault: None,
+            quit_pending: false,
             menu_entries: Vec::new(),
             menu_requests: std::collections::VecDeque::new(),
         })
@@ -215,7 +218,7 @@ impl BrowserGame {
         let result = (|| {
             let mut output = Vec::new();
             for _ in 0..ticks {
-                if !self.menu_requests.is_empty() {
+                if !self.menu_requests.is_empty() || self.quit_pending {
                     break;
                 }
                 let (status, dispatch) = self
@@ -228,6 +231,9 @@ impl BrowserGame {
                         &self.menu_entries,
                     )
                     .map_err(error)?;
+                self.quit_pending |= status == Status::Quit
+                    && dispatch.outcome.request
+                        != Some(discworld_core::menu_navigation::Request::Quit);
                 if dispatch.outcome.request.is_some() || dispatch.outcome.write_settings {
                     self.menu_requests.push_back(dispatch);
                 }
@@ -245,6 +251,11 @@ impl BrowserGame {
                     }
                 }
                 output.extend(audio);
+                if status == Status::Quit {
+                    // The queued quit request uses the same host lifecycle as
+                    // the original menu, without latching a runtime fault.
+                    break;
+                }
                 if status != Status::Running {
                     return Err(format!("runtime stopped: {status:?}"));
                 }
@@ -417,8 +428,19 @@ impl BrowserGame {
     /// Drain after each input/advance, before accepting the next command.
     pub fn take_menu_request(&mut self) -> Result<Option<String>> {
         use discworld_core::{menu_navigation::Request, save_menu::Target};
-        let Some(dispatch) = self.menu_requests.pop_front() else {
-            return Ok(None);
+        let dispatch = match self.menu_requests.pop_front() {
+            Some(dispatch) => dispatch,
+            None if self.quit_pending => {
+                self.quit_pending = false;
+                discworld_core::menu_controller::Dispatch {
+                    outcome: discworld_core::menu_navigation::Outcome {
+                        request: Some(Request::Quit),
+                        ..Default::default()
+                    },
+                    selection: None,
+                }
+            }
+            None => return Ok(None),
         };
         let request = dispatch.outcome.request.map(|request| match request {
             Request::Save => "save",

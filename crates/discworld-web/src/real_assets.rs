@@ -2317,3 +2317,42 @@ fn user_load_ends_intro_but_exact_restore_retains_it_atomically() {
     game.load(&saved).unwrap();
     assert!(game.engine.intro_active());
 }
+
+#[test]
+#[ignore = "requires DISCWORLD_TEST_ISO and DISCWORLD_TEST_SOUNDFONT"]
+fn scripted_quit_returns_host_request_without_fault_or_extra_ticks() {
+    let read = |name| std::fs::read(std::env::var_os(name).expect(name)).unwrap();
+    let mut game =
+        BrowserGame::new(read("DISCWORLD_TEST_ISO"), read("DISCWORLD_TEST_SOUNDFONT")).unwrap();
+    // Inject QUITGAME into private copies of initial scene scripts. Original
+    // files and original resource bytes stay untouched. This tests host wiring,
+    // not whether an unmodified original-game interaction reaches QUITGAME.
+    let scene = discworld_core::scene::read(&game.assets.resources(), game.engine.scene.resource())
+        .unwrap()
+        .unwrap();
+    let scripts =
+        std::iter::once(scene.script).chain(scene.entrances.iter().map(|(_, code)| *code));
+    for code in scripts.filter(|code| code.0 != 0) {
+        let mut copy = game.assets.iso[game.assets.resources[code.resource()].clone()].to_vec();
+        copy[code.offset()..code.offset() + 3].copy_from_slice(&[0x4e, 115, 0]);
+        let start = game.assets.iso.len();
+        game.assets.iso.extend(copy);
+        game.assets.resources[code.resource()] = start..game.assets.iso.len();
+    }
+    let before = game.tick();
+    let output = game.advance(24).unwrap();
+    assert_eq!(game.tick(), before + 1);
+    assert!(output.iter().all(|v| v.is_finite()));
+    assert!(game.fault.is_none());
+    assert!(game.advance(24).unwrap().is_empty());
+    assert_eq!(game.tick(), before + 1);
+    let request: serde_json::Value =
+        serde_json::from_str(&game.take_menu_request().unwrap().unwrap()).unwrap();
+    assert_eq!(request["request"], "quit");
+    assert!(game.take_menu_request().unwrap().is_none());
+    assert!(game.fault.is_none());
+    // Completing the DSP block before delivering Quit keeps export valid.
+    let bytes = game.save().unwrap();
+    game.load(&bytes).unwrap();
+    assert_eq!(game.save().unwrap(), bytes);
+}

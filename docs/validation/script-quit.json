@@ -1,0 +1,42 @@
+{
+  "schema": 1,
+  "baseline_revision": "2261206e4a98bf17f22473b4563f6ffdab07fe46",
+  "change": "Scripted QUITGAME: zero-argument call stops MIDI/PCM, lets the scheduler cycle complete, then hands a quit request to native/browser hosts.",
+  "source_reference": [
+    "Pinned tinlib.cpp QuitGame and QUITGAME dispatcher",
+    "Pinned tinsel.cpp run shouldQuit loop and NextGameCycle"
+  ],
+  "validation": {
+    "workspace": "passed",
+    "core_tests": 339,
+    "local_asset_integration_tests": 21,
+    "clippy_all_targets": "passed",
+    "wasm_check": "passed",
+    "native_tools_build": "passed",
+    "browser_build": "passed"
+  },
+  "files": {
+    "crates/discworld-core/src/engine.rs": "07e6299fd0c55022f43363da3ebc57e117f559e0ce46326b22ff6589790bbb15",
+    "crates/discworld-native/src/main.rs": "5bcec497c8b1bdfaf647cfaf4c347daa71ecc17f3dc60435d9f72e8edcc5d78e",
+    "crates/discworld-web/src/lib.rs": "46ec98c2ef1573926da9ac819e9e8d79905a51d10ff3773eca9d64648b4401fa",
+    "crates/discworld-web/src/real_assets.rs": "2572120c63e0853cc05b1aa914ad22525c57a0a201ee995979bcf104f3ae5ad6",
+    "target/release/discworld-native": "6b14a92efe66cd362772b19484492075ad8dc5548416f538b81e107d35333cfd",
+    "target/release/discworld-tools": "fc6cf30340848e69eb4047f9176151dbd1e165b7e2bef27d533872be5d0a9db8",
+    "web/pkg/discworld_web_bg.wasm": "02c91ee8feb98517a79eee20fb74b425019b516a3263c0ad5e88e9a87d36591d"
+  },
+  "logs": [
+    "assets/logs/script-quit-workspace.log",
+    "assets/logs/script-quit-assets.log",
+    "assets/logs/script-quit-clippy.log",
+    "assets/logs/script-quit-wasm.log",
+    "assets/logs/script-quit-build.log",
+    "assets/logs/script-quit-web-build.log"
+  ],
+  "scope": [
+    "The new browser-core fixture injects QUITGAME into private in-memory copies of original startup scripts; original files and original resource bytes are retained.",
+    "No original gameplay interaction reaching scripted QUITGAME was identified.",
+    "No new native-window exit or physical iPad acceptance run.",
+    "The fad89dc full-route and 44-case browser UI results predate this addition.",
+    "Same-cycle menu operation arbitration follows source ordering; a dedicated collision fixture remains outstanding."
+  ]
+}

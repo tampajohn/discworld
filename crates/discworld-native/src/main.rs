@@ -598,6 +598,12 @@ fn run() -> Result<(), Box<dyn std::error::Error>> {
                     &mut replay_position,
                     &menus.catalog.entries,
                 ) {
+                    Ok((Status::Quit, _, dispatch)) => {
+                        // Finish an already dispatched save/settings operation
+                        // before honoring the script's outer-loop quit flag.
+                        menus.dispatch(&dispatch, &engine, &synth)?;
+                        break 'running;
+                    }
                     Ok((Status::Running, audio, dispatch)) => {
                         let has_request = dispatch.outcome.request.is_some();
                         menu_requests.push_back(dispatch);

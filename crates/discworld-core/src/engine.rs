@@ -20,6 +20,8 @@ pub enum Status {
     Running,
     Unsupported(LibraryCall),
     Halted,
+    /// The host must stop this session after consuming the completed cycle.
+    Quit,
 }
 /// Original V1 EVENT values for resolved player interactions.
 #[derive(serde::Serialize, serde::Deserialize, Debug, Clone, Copy, PartialEq, Eq)]
@@ -3178,7 +3180,16 @@ impl Engine {
         }
         Err(Error("master instruction budget"))
     }
+    #[cfg(test)]
     fn run_master(&mut self, resources: &Resources<'_>) -> Result<Option<LibraryCall>, Error> {
+        self.run_master_with_requests(resources, &mut false)
+    }
+
+    fn run_master_with_requests(
+        &mut self,
+        resources: &Resources<'_>,
+        quit: &mut bool,
+    ) -> Result<Option<LibraryCall>, Error> {
         if self.master_stopped {
             return Ok(None);
         }
@@ -3284,6 +3295,12 @@ impl Engine {
                 96 => {
                     let seconds = self.control.idle_seconds(self.ticks)?;
                     self.master.complete_library(call, 1, Some(seconds))?;
+                }
+                115 => {
+                    self.music.stop();
+                    self.sample_player.stop();
+                    *quit = true;
+                    self.master.complete_library(call, 0, None)?;
                 }
                 123 => {
                     self.script_subtitles(args(&self.master, 1)?[0])?;
@@ -4291,6 +4308,10 @@ impl Engine {
             Some(strings),
             Some((saves, &mut dispatch)),
         )?;
+        if status == Status::Quit && dispatch.outcome.request.is_none() {
+            dispatch.outcome.request = Some(crate::menu_navigation::Request::Quit);
+            dispatch.selection = None;
+        }
         Ok((status, dispatch))
     }
 
@@ -4306,7 +4327,8 @@ impl Engine {
         )>,
     ) -> Result<Status, Error> {
         let mut next = self.clone();
-        let mut status = next.advance(resources, bank, tracks, strings, menu)?;
+        let mut quit = false;
+        let mut status = next.advance(resources, bank, tracks, strings, menu, &mut quit)?;
         if next.restart_pending && !matches!(status, Status::Unsupported(_)) {
             // Pinned V1 resets after the game cycle, outside script dispatch.
             // Keep host-facing time, settings and the RNG stream continuous.
@@ -4346,6 +4368,11 @@ impl Engine {
             next = fresh;
             status = Status::Running;
         }
+        // quitGame marks the host flag; the current scheduler pass and a
+        // requested restart still complete before the outer loop exits.
+        if quit && !matches!(status, Status::Unsupported(_)) {
+            status = Status::Quit;
+        }
         *self = next;
         Ok(status)
     }
@@ -4364,6 +4391,7 @@ impl Engine {
             &[crate::save_menu::Entry],
             &mut crate::menu_controller::Dispatch,
         )>,
+        quit: &mut bool,
     ) -> Result<Status, Error> {
         self.ticks = self.ticks.checked_add(1).ok_or(Error("tick overflow"))?;
         self.advance_scene_restore(resources, tracks)?;
@@ -4406,7 +4434,7 @@ impl Engine {
                 self.request_restart();
             }
         }
-        if let Some(call) = self.run_master(resources)? {
+        if let Some(call) = self.run_master_with_requests(resources, quit)? {
             return Ok(Status::Unsupported(call));
         }
         if !self.control.hidden {
@@ -4620,7 +4648,14 @@ impl Engine {
                 .state_mut(id)
                 .ok_or(Error("missing process"))?
                 .clone();
-            let mut result = self.run_process(resources, bank, tracks, strings, &mut process)?;
+            let mut result = self.run_process_with_requests(
+                resources,
+                bank,
+                tracks,
+                strings,
+                &mut process,
+                quit,
+            )?;
             if result == Status::Halted && process.event == 0 {
                 if let Some(item) = process.inventory_object {
                     let wait = self.inventory_hover.monitor.completed_pointed(item)?;
@@ -4787,6 +4822,7 @@ impl Engine {
         self.stand_mover(resources, actor, tag.node_position, film)
     }
 
+    #[cfg(test)]
     fn run_process(
         &mut self,
         resources: &Resources<'_>,
@@ -4794,6 +4830,18 @@ impl Engine {
         tracks: Option<&[crate::music::Track<'_>]>,
         strings: Option<&crate::text::Strings<'_>>,
         process: &mut ScriptProcess,
+    ) -> Result<Status, Error> {
+        self.run_process_with_requests(resources, bank, tracks, strings, process, &mut false)
+    }
+
+    fn run_process_with_requests(
+        &mut self,
+        resources: &Resources<'_>,
+        bank: Option<&SampleBank<'_>>,
+        tracks: Option<&[crate::music::Track<'_>]>,
+        strings: Option<&crate::text::Strings<'_>>,
+        process: &mut ScriptProcess,
+        quit: &mut bool,
     ) -> Result<Status, Error> {
         Self::migrate_escape(&mut self.escape_events, &mut process.vm);
         if let Some(index) = self
@@ -6543,6 +6591,12 @@ impl Engine {
                     }
                     process.vm.complete_library(call, consumed, None)?;
                 }
+                115 => {
+                    self.music.stop();
+                    self.sample_player.stop();
+                    *quit = true;
+                    process.vm.complete_library(call, 0, None)?;
+                }
                 123 => {
                     self.script_subtitles(args(&process.vm, 1)?[0])?;
                     process.vm.complete_library(call, 1, None)?;
@@ -7361,6 +7415,82 @@ mod tests {
         put(&mut scene, 112, 1);
         (master, scene)
     }
+    #[test]
+    fn scripted_quit_finishes_cycle_stops_audio_and_dispatches_without_saved_flag() {
+        let (master, mut scene) = fixtures();
+        scene[8..14].copy_from_slice(&[0x41, 88, 0x4c, 1, 0, 0]);
+        let mut quitter = vec![0; 32];
+        quitter[..4].copy_from_slice(&0x3334000au32.to_le_bytes());
+        quitter[4..8].copy_from_slice(&24u32.to_le_bytes());
+        let code = [0x41, 55, 0x4e, 115, 0x4c, 0, 3, 3, 0x4e, 86, 0];
+        quitter[8..8 + code.len()].copy_from_slice(&code);
+        let resources = Resources(vec![&master, &scene, &quitter]);
+        let strings = crate::text::Strings::new(&[1, 0, 0x34, 0x33, 0, 0, 0, 0]).unwrap();
+        let tracks = [crate::music::Track {
+            offset: 4,
+            events: &[0x90, 60, 100, 9, 12, 0xff, 0x2f, 0],
+        }];
+        for from_master in [false, true] {
+            let mut engine = Engine::bootstrap(&resources).unwrap();
+            engine.globals.resize(2, 0);
+            let handle = Handle((2 << 23) | 8);
+            if from_master {
+                engine.master_code = handle;
+                engine.master = Machine::default();
+            } else {
+                engine.master_stopped = true;
+                engine
+                    .processes
+                    .spawn(Some(engine.generation), ScriptProcess::new(handle))
+                    .unwrap();
+            }
+            engine.sample_player.id = Some(1);
+            engine.sample_player.position = 12;
+            engine.music.play(&tracks, 4, true).unwrap();
+            let bytes = crate::save::Snapshot::capture(&engine, [7; 32])
+                .to_bytes()
+                .unwrap();
+            let mut restored = crate::save::Snapshot::from_bytes(&bytes, [7; 32])
+                .unwrap()
+                .state()
+                .clone();
+            let mut plain = engine.clone();
+            assert_eq!(plain.tick(&resources).unwrap(), Status::Quit);
+            for instance in [&mut engine, &mut restored] {
+                let (status, dispatch) = instance
+                    .tick_with_configuration(&resources, None, Some(&tracks), &strings, &[])
+                    .unwrap();
+                assert_eq!(status, Status::Quit);
+                assert_eq!(
+                    dispatch.outcome.request,
+                    Some(crate::menu_navigation::Request::Quit)
+                );
+                assert!(dispatch.selection.is_none());
+                // Zero parameters consumed; caller and peer both finish their slice.
+                assert_eq!(instance.globals, [55, 88]);
+                assert!(instance.sample_player.id.is_none());
+                assert!(!instance.music.playing());
+                assert_eq!(instance, &plain);
+                let bytes = crate::save::Snapshot::capture(instance, [7; 32])
+                    .to_bytes()
+                    .unwrap();
+                let decoded = crate::save::Snapshot::from_bytes(&bytes, [7; 32]).unwrap();
+                decoded
+                    .state()
+                    .validate_snapshot_scripts(&resources)
+                    .unwrap();
+                assert_eq!(decoded.state(), instance);
+                // Quit is a consumed cycle result, never a hidden saved flag.
+                let (next, dispatch) = instance
+                    .tick_with_configuration(&resources, None, Some(&tracks), &strings, &[])
+                    .unwrap();
+                assert_ne!(next, Status::Quit);
+                assert!(dispatch.outcome.request.is_none());
+            }
+            assert_eq!(engine, restored);
+        }
+    }
+
     #[test]
     fn intro_scene_escape_ignores_opcodes_redirects_and_restores_exactly() {
         let (master, mut scene) = fixtures();

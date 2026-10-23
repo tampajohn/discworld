@@ -59,9 +59,14 @@ The earlier `85b728a` recorded route completed on native, Chrome and WebKit:
 bytes and RGBA. Native passed 5,048 engine and 5,048 DSP continuation checks;
 browser audio was finite, but cross-platform audio equality is not established.
 See [cross-host evidence](validation/reel-dispatch-browsers.json).
-Fresh frozen full-route audits of `fad89dc` are running in
-`assets/validation/deferred-restore-fad89dc`. Their completion and the current
-browser interaction suite remain unverified until terminal results are checked.
+The `fad89dc` native and Chrome routes have now completed with matching final
+engine bytes and RGBA. WebKit failed after 2.4 million ticks when its browser
+closed; the cause is unestablished and a preserved-build retry is running. See
+[restoration route evidence](validation/deferred-restore-route.json).
+The production host passed four Node tests and all 44 Chrome/WebKit interaction
+cases in one run; see [UI evidence](validation/deferred-restore-browser-ui.json).
+These results predate scripted QUITGAME support, described in
+[script runtime](script-runtime.md).
 
 The startup scheduling correction resolves the 17 scene-aligned mismatches
 reported in [historical phase evidence](validation/reference-startup-phase.json).

@@ -81,3 +81,42 @@ Workspace tests (330 core tests), Clippy, the original-menu regression and all
 20 original-asset web tests pass. Native and browser release hosts rebuild.
 Logs use `assets/logs/script-subtitles-*`. This targeted validation does not
 claim full-route coverage of the newly implemented operation.
+
+## Scripted quit
+
+QUITGAME (115) now stops the sample channel and MIDI playback, consumes no
+operands, and lets the current interpreter slice and scheduler pass finish.
+The cycle returns `Status::Quit`. The request is carried in a local cycle result,
+not an engine field, so save layouts are unchanged. Continuing master and scene
+interpreters both support it; bootstrap before the initial NEWSCENE remains a
+separate restricted declaration path.
+
+This follows pinned `tinlib.cpp::QuitGame` and its zero-argument dispatcher,
+plus `tinsel.cpp`'s outer `shouldQuit()` loop and `NextGameCycle` scheduler call.
+A same-cycle restart completes before the quit result is delivered. Unsupported
+operations still report their compatibility stop rather than being masked by a
+prior quit request.
+
+`tick_with_configuration` supplies a Quit dispatch when no menu request is
+already present. Native finishes an already-issued menu operation and exits.
+Browser completes the DSP block, stops advancing the batch, and delivers the
+existing worker/player quit lifecycle without latching a runtime fault. If a
+menu operation was already issued, a host-only pending quit follows it and
+survives the load handler's clearing of ordinary menu requests. Browser quit
+pauses presentation; it does not attempt to close the user's tab. The host must
+consume the cycle's request before continuing simulation.
+
+A bytecode regression covers master and scene callers, preservation of a lower
+stack value, execution after QUITGAME, a peer's same-pass execution, stopping
+active MIDI/sample state, pre-quit snapshot continuation and post-cycle saves.
+A browser-core integration injects QUITGAME into private copies of the initial
+scene scripts while keeping original files and original resource bytes intact.
+It verifies one cycle from a 24-cycle request, no further ticks before draining
+Quit, no fault, and exact combined engine/DSP save export and reload. This is
+host wiring evidence, not an original-asset route reaching QUITGAME or a new
+native-window/physical-device acceptance run. Simultaneous menu-operation/quit
+arbitration has source-informed handling but no dedicated integration fixture.
+
+Validation: workspace (339 core tests), all 21 local-asset integration checks,
+Clippy, WASM checking and native/tools/browser release builds pass. See
+[script-quit.json](validation/script-quit.json).
