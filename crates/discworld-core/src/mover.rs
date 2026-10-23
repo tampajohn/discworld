@@ -3135,6 +3135,53 @@ mod tests {
         assert!(entered_node);
         assert_eq!(mover.walk_target, None);
         assert_eq!(mover.placement.position, [110, 50]);
+        // Change direction before, during and after node-path transitions.
+        // Every requested point is on the fixture's node lines; no projection
+        // tolerance or forced completion is needed for these routes.
+        for (origin, initial_target) in [([20, 20], [100, 50]), ([100, 50], [20, 20])] {
+            for delay in [0, 1, 2, 4, 8, 12, 16, 24, 40] {
+                for target in [[20, 20], [50, 20], [70, 20], [100, 20], [100, 50]] {
+                    let mut probe = mover.clone();
+                    probe
+                        .stand(&resources, &declarations, &connected, origin, Handle(0))
+                        .unwrap();
+                    probe
+                        .begin_walk(
+                            &resources,
+                            &declarations,
+                            &connected,
+                            initial_target,
+                            initial_target,
+                        )
+                        .unwrap();
+                    for _ in 0..delay {
+                        probe
+                            .advance_direct_walk(&resources, &declarations, &connected, &[])
+                            .unwrap();
+                    }
+                    probe
+                        .begin_walk(&resources, &declarations, &connected, target, target)
+                        .unwrap_or_else(|e| {
+                            panic!("retarget delay={delay} target={target:?}: {e:?}")
+                        });
+                    for tick in 0..200 {
+                        if probe.walk_target.is_none() {
+                            break;
+                        }
+                        probe
+                            .advance_direct_walk(&resources, &declarations, &connected, &[])
+                            .unwrap_or_else(|e| {
+                                panic!("advance delay={delay} target={target:?} tick={tick}: {e:?}")
+                            });
+                    }
+                    assert!(
+                        probe.walk_target.is_none(),
+                        "unfinished delay={delay} target={target:?}"
+                    );
+                    assert_eq!(probe.placement.position, target, "delay={delay}");
+                }
+            }
+        }
     }
     #[test]
     fn standing_changes_script_but_preserves_base_object_and_capacity() {

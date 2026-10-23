@@ -1,0 +1,78 @@
+{
+  "production_change": false,
+  "test": "mover::tests::walk_reels_keep_object_phase_and_finish_scale_transitions",
+  "scope": "Synthetic connected-node-path retargeting, both directions; no original-asset or reference framebuffer comparison in this probe.",
+  "cases": 90,
+  "origins": [
+    [
+      20,
+      20
+    ],
+    [
+      100,
+      50
+    ]
+  ],
+  "initial_targets": [
+    [
+      100,
+      50
+    ],
+    [
+      20,
+      20
+    ]
+  ],
+  "retarget_delays": [
+    0,
+    1,
+    2,
+    4,
+    8,
+    12,
+    16,
+    24,
+    40
+  ],
+  "retarget_points": [
+    [
+      20,
+      20
+    ],
+    [
+      50,
+      20
+    ],
+    [
+      70,
+      20
+    ],
+    [
+      100,
+      20
+    ],
+    [
+      100,
+      50
+    ]
+  ],
+  "assertions": [
+    "Retarget and movement return no error",
+    "Walk completes within 200 subsequent mover updates",
+    "Final position equals requested point on node line"
+  ],
+  "core_tests": {
+    "passed": 362,
+    "failed": 0,
+    "ignored": 3,
+    "log": "assets/logs/node-retarget-core-tests.log"
+  },
+  "limitations": "Does not prove unsupported movement guards unreachable. Collision, off-path, degenerate-node and immediate-exit branches need separate reproduction/reference checks; this is not full user-input or physical-device acceptance.",
+  "clippy": {
+    "crate": "discworld-core",
+    "all_targets": true,
+    "warnings_denied": true,
+    "exit_code": 0,
+    "log": "assets/logs/node-retarget-clippy.log"
+  }
+}
