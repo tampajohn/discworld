@@ -42,6 +42,21 @@ def cycle(frame, location, dictionary):
             PENDING.extend(['Tinsel::EndDw1Intro()', f'Tinsel::SetNewScene({ROOM}u, 1, 1)'])
             return True
         target = frame.GetThread().GetProcess().GetTarget()
+        if 1108 <= frames.CYCLES <= 1130:
+            movers = target.FindFirstGlobalVariable('Tinsel::g_Movers')
+            mover = movers.GetChildAtIndex(0)
+            fields = ['actorID', 'objX', 'objY', 'targetX', 'targetY',
+                      'ItargetX', 'ItargetY', 'UtargetX', 'UtargetY',
+                      'hCpath', 'hIpath', 'hUpath', 'bMoving', 'bHidden',
+                      'bSpecReel', 'bNoPath', 'bIgPath', 'stepCount']
+            state = {}
+            for name in fields:
+                value = mover.GetChildMemberWithName(name)
+                if not value.IsValid() or value.GetError().Fail():
+                    raise RuntimeError(f'mover field unavailable: {name}')
+                state[name] = value.GetValueAsSigned()
+            frames.EVENTS.append(dict(kind='mover_before_cycle',
+                                      cycle=frames.CYCLES, state=state))
         scene = target.FindFirstGlobalVariable('Tinsel::g_SceneHandle')
         active = target.FindFirstGlobalVariable('Tinsel::g_bTagsActive')
         if frames.CYCLES > 450 and START is None:

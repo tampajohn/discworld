@@ -1,0 +1,38 @@
+{
+  "runtime_base": "0a52664",
+  "change": "Complete ordinary-path re-entry in the accepted movement step when within original SetNextDest arrival tolerance (x<4,y<2), excluding polygon corner destinations.",
+  "evidence": {
+    "assets/validation/reference-hover-movement1/frames/capture.json": "57d13b714efaeaa2cf2608a0f18dad9d5d7171fbbd8e48a6a1eab9129ffcbce7",
+    "assets/validation/rust-hover-movement1/mover-states.json": "212e2e621052782dce9ab8e59f124f3a64045d57973416000494c0c780a7337b",
+    "assets/validation/rust-hover-movement2/mover-states.json": "0b90db83b94b0a0e4ef9d75c7e12e84bf07dada4039db6a179ebee7179de914c",
+    "assets/validation/mover-reentry-compare.json": "b0033a35b3f937900a634eb4dc91728355f08c8ad91f144b773497d9078c58f4"
+  },
+  "reference_finding": "First movement is at1113, reaching200,178 and completing during EnteringNewPath at1124. Rust previously moved first at1114, reached destination1125, and completed1126.",
+  "result": "Rust now completes during path entry1125. Independent process scheduling discrepancy remains.",
+  "regression": {
+    "red": "assets/logs/path-reentry-completion-red2.log",
+    "failure": "SWALK reaching its non-corner destination upon path entry retained walk_target instead of completing.",
+    "green": "assets/logs/path-reentry-workspace.log",
+    "original_room": "assets/logs/rust-hover-movement2.log"
+  },
+  "frame_comparison": {
+    "total": 72,
+    "exact_content_before": 58,
+    "exact_content_after": 68,
+    "capture_aligned_before": 54,
+    "capture_aligned_after": 64,
+    "scope": "Controlled room diagnostic; frame content and capture-relative alignment are not full timing parity."
+  },
+  "checks": [
+    "Workspace release suite passes.",
+    "Workspace Clippy passes.",
+    "Original room capture and72 save/restore checks pass.",
+    "All25 original-asset browser-core tests pass.",
+    "WASM check and native/tools release builds pass."
+  ],
+  "remaining": [
+    "Full route727ccf8 remains active and predates this path-entry fix.",
+    "Resolve original mover process position relative to scripts.",
+    "Full route and package validation for the new runtime."
+  ]
+}

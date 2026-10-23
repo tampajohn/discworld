@@ -40,6 +40,7 @@ fn capture_original_debug_room_hover() {
     let mut start = None;
     let mut rows = Vec::new();
     let mut clocks = Vec::new();
+    let mut mover_states = Vec::new();
     engine.scene_calls = Some(Default::default());
     for _ in 0..4000 {
         // The reference requests its debugger scene change before cycle 450.
@@ -86,6 +87,17 @@ fn capture_original_debug_room_hover() {
             ));
         }
         let tick = engine.ticks + 1;
+        if (1108..=1130).contains(&tick) {
+            let mover = &engine.movers[&7];
+            let target = mover
+                .walk_target
+                .map_or("null".to_owned(), |p| format!("{p:?}"));
+            mover_states.push(format!(
+                "{{\"before_tick\":{tick},\"position\":{:?},\"target\":{target},\"hidden\":{},\"special\":{},\"no_path\":{},\"path\":{},\"phase\":{}}}",
+                mover.placement.position, mover.hidden, mover.special_reel(), mover.no_path,
+                mover.placement.path.map_or("null".to_owned(), |p| p.to_string()), mover.step_phase
+            ));
+        }
         crate::animation::trace_tick(
             ((450..=455).contains(&tick) || (1108..=1130).contains(&tick)).then_some(tick),
         );
@@ -267,6 +279,11 @@ fn capture_original_debug_room_hover() {
         }
     }
     assert_eq!(rows.len(), 72, "room did not reach active tags");
+    std::fs::write(
+        directory.join("mover-states.json"),
+        format!("[{}]\n", mover_states.join(",")),
+    )
+    .unwrap();
     std::fs::write(
         directory.join("animation-events.json"),
         format!("[{}]\n", crate::animation::take_trace().join(",")),

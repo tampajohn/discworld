@@ -1451,6 +1451,18 @@ impl Mover {
             }
             next.animate_move(resources, declarations, position, p.definition.z_factor)?;
             next.placement.path = Some(path);
+            // EnteringNewPath invokes SetNextDest on ordinary paths, even
+            // during SWALK. Its arrival tolerance applies in this same move.
+            if entered_path
+                && p.definition.kind == Kind::Path
+                && !p.definition.corners.contains(&target)
+                && position[0].abs_diff(target[0]) < 4
+                && position[1].abs_diff(target[1]) < 2
+            {
+                next.finish_walk(resources, declarations)?;
+                *self = next;
+                return Ok(());
+            }
             if next.constrained_walk
                 && (p.definition.kind == Kind::NodePath
                     || (entered_path && !p.definition.corners.contains(&target)))
@@ -2217,6 +2229,24 @@ mod tests {
             }],
             0,
         );
+        // EnteringNewPath calls SetNextDest even for an ignore-path walk.
+        // Arrival at a non-corner destination completes during that move.
+        let mut reentry = mover.clone();
+        reentry
+            .stand(&resources, &declarations, &polygons, [224, 50], Handle(0))
+            .unwrap();
+        reentry.placement.path = Some(0); // SWALK retains its previous path outside it.
+        reentry
+            .begin_direct_walk(&resources, &declarations, &polygons, [220, 50], [224, 50])
+            .unwrap();
+        assert!(reentry.no_path);
+        reentry
+            .advance_direct_walk(&resources, &declarations, &polygons, &[])
+            .unwrap();
+        assert_eq!(reentry.placement.position, [220, 50]);
+        assert!(!reentry.no_path);
+        assert_eq!(reentry.walk_target, None);
+        assert!(reentry.special_reel());
         // Raw -1 destinations are retained: arrival on the enabled axis
         // need not satisfy V1's raw-coordinate NotMoving completion check.
         for (start, target, positions, completes) in [
