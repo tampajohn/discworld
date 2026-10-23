@@ -67,23 +67,27 @@
   "scope": "Preserve stationary intervals preceding the8 recorded close-up keys. First interval verified by paired execution; remaining intervals await full-route replay. No engine clock reset or script edits.",
   "full_route": {
     "directory": "assets/validation/idle-waits-3df76c8",
-    "status": "running; not a pass",
+    "status": "failed on all3 hosts at1859225; key expected closeup.scn, native observed square3.scn",
+    "accepted_inputs_browser": 2879,
     "runs": {
       "run.json": {
-        "pid": 5720,
-        "status": "running",
-        "live": true
+        "status": "failed",
+        "exit_code": 1
       },
       "chrome-run.json": {
-        "pid": 5819,
-        "status": "running",
-        "live": true
+        "status": "failed",
+        "exit_code": 1
       },
       "webkit-run.json": {
-        "pid": 5820,
-        "status": "running",
-        "live": true
+        "status": "failed",
+        "exit_code": 1
       }
     }
+  },
+  "followup": {
+    "directory": "assets/validation/idle-last-closeup1",
+    "prefix_session": 35624,
+    "status": "prefix reconstruction running",
+    "observation": "Last added cursor sample1857001 leaves only2224 ticks before key1859225; below the approximately3142-tick idle threshold. Last preserved stationary window has only2000 ticks, unlike prior4000+ windows. Verify absence of cutscene and remove only redundant dismissal if confirmed."
   }
 }
