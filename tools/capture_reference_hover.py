@@ -32,10 +32,11 @@ def main():
     mode.add_argument('--walk-from-actor', action='store_true', help='move off a cached actor and send WALKTO immediately')
     parser.add_argument('--walk-delay', type=int, choices=[0, 1], default=1, help='cycles between cursor injection and WALKTO')
     parser.add_argument('--resize-corner', choices=['bottom-right', 'top-left'], default='bottom-right', help='corner used by --inventory-resize')
+    parser.add_argument('--resize-delta', type=int, choices=[-26, 26], default=26, help='signed size change for --inventory-resize')
     parser.add_argument('--frames', type=int, default=72, help='capture 72..240 frames')
     args = parser.parse_args()
-    if args.resize_corner != 'bottom-right' and not args.inventory_resize:
-        parser.error('--resize-corner requires --inventory-resize')
+    if (args.resize_corner != 'bottom-right' or args.resize_delta != 26) and not args.inventory_resize:
+        parser.error('resize options require --inventory-resize')
     if args.inventory_fixed_corner or args.inventory_resize:
         args.inventory_drag = True
     if args.inventory_drag:
@@ -85,7 +86,8 @@ def main():
     environment['DISCWORLD_REFERENCE_INVENTORY_FIXED_CORNER'] = '1' if args.inventory_fixed_corner else '0'
     environment['DISCWORLD_REFERENCE_INVENTORY_RESIZE'] = '1' if args.inventory_resize else '0'
     environment['DISCWORLD_REFERENCE_RESIZE_CORNER'] = args.resize_corner
-    metadata = dict(resize_corner=args.resize_corner, inventory_resize=args.inventory_resize, inventory_fixed_corner=args.inventory_fixed_corner, inventory_drag=args.inventory_drag, walk_from_actor=args.walk_from_actor, walk_delay=args.walk_delay, walk_diagnostic=args.walk, frame_limit=args.frames, look_diagnostic=args.look, inventory_diagnostic=args.inventory, reference_revision=REVISION, binary_sha256=BINARY_SHA256,
+    environment['DISCWORLD_REFERENCE_RESIZE_DELTA'] = str(args.resize_delta)
+    metadata = dict(resize_delta=args.resize_delta, resize_corner=args.resize_corner, inventory_resize=args.inventory_resize, inventory_fixed_corner=args.inventory_fixed_corner, inventory_drag=args.inventory_drag, walk_from_actor=args.walk_from_actor, walk_delay=args.walk_delay, walk_diagnostic=args.walk, frame_limit=args.frames, look_diagnostic=args.look, inventory_diagnostic=args.inventory, reference_revision=REVISION, binary_sha256=BINARY_SHA256,
                     probe_sha256=digest(probe), config_sha256=digest(config), command=command,
                     scope='Controlled scene and logical cursor injection; not ordinary input acceptance.')
     metadata_path = output / 'launch.json'
@@ -118,9 +120,10 @@ def main():
     if args.inventory_fixed_corner:
         points = [[50, 120], [169, 147], [189, 167], [189, 167], [10, 10], [10, 10]]
     if args.inventory_resize:
-        points = ([[50, 120], [100, 100], [74, 74], [74, 74], [10, 10], [10, 10]]
-                  if args.resize_corner == 'top-left' else
-                  [[50, 120], [194, 172], [220, 198], [220, 198], [10, 10], [10, 10]])
+        corner = [100, 100] if args.resize_corner == 'top-left' else [194, 172]
+        direction = -1 if args.resize_corner == 'top-left' else 1
+        moved = [p + direction * args.resize_delta for p in corner]
+        points = [[50, 120], corner, moved, moved, [10, 10], [10, 10]]
     # After the six injected movement blocks, LOOK can restore the saved cursor
     # itself. Retain that position as observed output rather than requiring a
     # constant driver position after all controlled input has ended.

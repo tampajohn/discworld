@@ -18,6 +18,10 @@ fn capture_original_debug_room_hover() {
         resize_corner.as_str(),
         "bottom-right" | "top-left"
     ));
+    let resize_delta =
+        std::env::var("DISCWORLD_HOVER_RESIZE_DELTA").map_or(26, |s| s.parse::<i32>().unwrap());
+    assert!(matches!(resize_delta, -26 | 26));
+    assert!(resize_delta == 26 || inventory_resize);
     let resize_top_left = resize_corner == "top-left";
     assert!(!resize_top_left || inventory_resize);
     let mut resources = Resources(
@@ -82,25 +86,14 @@ fn capture_original_debug_room_hover() {
         ];
     }
     if inventory_resize {
-        points = if resize_top_left {
-            [
-                [50, 120],
-                [100, 100],
-                [74, 74],
-                [74, 74],
-                [10, 10],
-                [10, 10],
-            ]
+        let corner = if resize_top_left {
+            [100, 100]
         } else {
-            [
-                [50, 120],
-                [194, 172],
-                [220, 198],
-                [220, 198],
-                [10, 10],
-                [10, 10],
-            ]
+            [194, 172]
         };
+        let direction = if resize_top_left { -1 } else { 1 };
+        let moved = corner.map(|p| p + direction * resize_delta);
+        points = [[50, 120], corner, moved, moved, [10, 10], [10, 10]];
     }
     let inventory_mode = inventory_drag || std::env::var_os("DISCWORLD_HOVER_INVENTORY").is_some();
     let look_mode = std::env::var_os("DISCWORLD_HOVER_LOOK").is_some();
@@ -296,12 +289,12 @@ fn capture_original_debug_room_hover() {
                     if inventory_resize {
                         assert_eq!(
                             engine.declarations.windows[1].as_ref().unwrap().size,
-                            [4, 3]
+                            if resize_delta > 0 { [4, 3] } else { [2, 1] }
                         );
                         assert_eq!(
                             engine.declarations.windows[1].as_ref().unwrap().position,
                             if resize_top_left {
-                                [74, 74]
+                                [100 - resize_delta, 100 - resize_delta]
                             } else {
                                 [100, 100]
                             }

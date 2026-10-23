@@ -1,0 +1,86 @@
+{
+  "runtime_revision": "30c2f69",
+  "reference_revision": "96b42d42bc8533953bdd701db059cc33c839a9ff",
+  "reference_binary_sha256": "1e8b098f0e9f6da44062aa19c195a5771a4a5dbc806cb3d3a9c3eb0e8fb6f524",
+  "engine_changed": false,
+  "scope": "Controlled scene/cursor and direct inventory1 API/library open. Signed resize delta -26; press at elapsed12, move24, release36, close48. Not physical input or gameplay unlock acceptance.",
+  "cases": [
+    {
+      "corner": "bottom-right",
+      "reference_capture": "reference-luggage-shrink1",
+      "rust_capture": "rust-luggage-shrink1",
+      "reference_probe_sha256": "e5f9b45e26b27eb90b59481394e57fea97d7a646b4223482d55e1641e23cafdc",
+      "frames": 72,
+      "same_cycle_matches": 72,
+      "save_restore_next_tick_checks": 72,
+      "initial_size": [
+        3,
+        2
+      ],
+      "released_size": [
+        2,
+        1
+      ],
+      "initial_origin": [
+        100,
+        100
+      ],
+      "released_origin": [
+        100,
+        100
+      ],
+      "reference_drag_states": {
+        "12": 10,
+        "24": 10,
+        "36": 0
+      },
+      "reference_capture_sha256": "8f0b265351aeac1ac5af60d1e519cf72edcd2057898dace8281e11a766035a17",
+      "rust_capture_sha256": "ae1389eb2c7b8120e39102e2322c2cdb03ec047af63468bcb0fdf5dc73503e45",
+      "comparison_sha256": "ede7c29d52022256723bdfb95d25121893c244c422b8446f369f1959f7bd9ac7"
+    },
+    {
+      "corner": "top-left",
+      "reference_capture": "reference-luggage-top-left-shrink1",
+      "rust_capture": "rust-luggage-top-left-shrink1",
+      "reference_probe_sha256": "e5f9b45e26b27eb90b59481394e57fea97d7a646b4223482d55e1641e23cafdc",
+      "frames": 72,
+      "same_cycle_matches": 72,
+      "save_restore_next_tick_checks": 72,
+      "initial_size": [
+        3,
+        2
+      ],
+      "released_size": [
+        2,
+        1
+      ],
+      "initial_origin": [
+        100,
+        100
+      ],
+      "released_origin": [
+        126,
+        126
+      ],
+      "reference_drag_states": {
+        "12": 7,
+        "24": 7,
+        "36": 0
+      },
+      "reference_capture_sha256": "7f7b893145ed3ad77798708ff267d7435618702da64e7fb761cee6d23a4adda1",
+      "rust_capture_sha256": "1d1c58123d580d432415c906bc2156a2d2a91c2f7ff78ea3d60d92e2ac52d47e",
+      "comparison_sha256": "23be68274e16a623eaba275efc972cddbb80b1a6ba057f4a07a77b8744b6a9ef"
+    }
+  ],
+  "growth_regressions": {
+    "bottom_right_same_cycle_matches": 72,
+    "top_left_same_cycle_matches": 72
+  },
+  "clippy": "core all-target passed",
+  "reference_command": "python3 tools/capture_reference_hover.py NEW_OUTPUT --inventory-resize --resize-corner CORNER --resize-delta=-26",
+  "rust_environment": {
+    "DISCWORLD_HOVER_INVENTORY_RESIZE": "1",
+    "DISCWORLD_HOVER_RESIZE_DELTA": "-26",
+    "DISCWORLD_HOVER_RESIZE_CORNER": "bottom-right or top-left"
+  }
+}
