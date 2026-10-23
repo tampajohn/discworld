@@ -648,6 +648,11 @@ impl BrowserGame {
             "inventory": self.engine.active_inventory(),
             "held_object": self.engine.held_object,
             "inventory_dragging": self.inventory_dragging(),
+            "inventory_first_cell": self.engine.inventory_cell_position(0),
+            "pockets": self.engine.declarations.windows[2].as_ref().map(|window| &window.contents),
+            "enabled_tags": self.engine.polygons.active.iter()
+                .filter(|polygon| polygon.enabled && polygon.definition.kind == discworld_core::polygon::Kind::Tag)
+                .map(|polygon| polygon.definition.id).collect::<Vec<_>>(),
             "inventory_position": self.engine.active_inventory()
                 .and_then(|slot| self.engine.declarations.windows.get(slot as usize))
                 .and_then(|window| window.as_ref()).map(|window| window.position),

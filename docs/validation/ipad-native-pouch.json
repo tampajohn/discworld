@@ -1,0 +1,231 @@
+{
+  "simulator": "iPad Pro 11-inch (M5), iOS 26.5",
+  "result_bundle": "assets/validation/ipad-pouch1/results.xcresult",
+  "tests_passed": 4,
+  "tests_failed": 0,
+  "states": {
+    "held": {
+      "audio_ready": false,
+      "completed_audio_buffers": 0,
+      "frame_sha256": "3979bfcdb7c915424932d741b070132e7b36c8400df3fa86d736281758730fb6",
+      "inspection": {
+        "control": true,
+        "cursor": [
+          133,
+          136
+        ],
+        "enabled_tags": [
+          1,
+          2,
+          406,
+          4,
+          555
+        ],
+        "held_object": 284,
+        "inventory": null,
+        "inventory_dragging": false,
+        "inventory_first_cell": null,
+        "inventory_position": null,
+        "lead_position": [
+          148,
+          177
+        ],
+        "pockets": [],
+        "walk_target": null
+      },
+      "last_operation": "advance",
+      "menu_requests": [],
+      "muted": true,
+      "paused": false,
+      "scene": "rinceroo.scn",
+      "tick": 8937
+    },
+    "opened": {
+      "audio_ready": false,
+      "completed_audio_buffers": 0,
+      "frame_sha256": "68185000abdbcf59bad609b05f0ad33ca0c3adf881aa3ca2efc1350987f2cf2e",
+      "inspection": {
+        "control": true,
+        "cursor": [
+          150,
+          110
+        ],
+        "enabled_tags": [
+          551,
+          1,
+          2,
+          406,
+          4,
+          555
+        ],
+        "held_object": -1,
+        "inventory": null,
+        "inventory_dragging": false,
+        "inventory_first_cell": null,
+        "inventory_position": null,
+        "lead_position": [
+          200,
+          178
+        ],
+        "pockets": [],
+        "walk_target": null
+      },
+      "last_operation": "advance",
+      "menu_requests": [],
+      "muted": true,
+      "paused": false,
+      "scene": "rinceroo.scn",
+      "tick": 8902
+    },
+    "restored": {
+      "audio_ready": false,
+      "completed_audio_buffers": 0,
+      "frame_sha256": "22cca6ce965ce8a3943d16454ea43b7f52d29038a609a5c16733c06717e2845e",
+      "inspection": {
+        "control": true,
+        "cursor": [
+          118,
+          132
+        ],
+        "enabled_tags": [
+          1,
+          2,
+          406,
+          4,
+          555
+        ],
+        "held_object": -1,
+        "inventory": 2,
+        "inventory_dragging": false,
+        "inventory_first_cell": [
+          118,
+          132
+        ],
+        "inventory_position": [
+          100,
+          100
+        ],
+        "lead_position": [
+          148,
+          177
+        ],
+        "pockets": [
+          284
+        ],
+        "walk_target": null
+      },
+      "last_operation": "load",
+      "menu_requests": [],
+      "muted": true,
+      "paused": true,
+      "scene": "rinceroo.scn",
+      "tick": 9057
+    },
+    "retrieved": {
+      "audio_ready": false,
+      "completed_audio_buffers": 0,
+      "frame_sha256": "141ef7353b38965ba7d931f5817f620eba705441056db29e4eb86ef0ea4fbdb3",
+      "inspection": {
+        "control": true,
+        "cursor": [
+          118,
+          132
+        ],
+        "enabled_tags": [
+          1,
+          2,
+          406,
+          4,
+          555
+        ],
+        "held_object": 284,
+        "inventory": 2,
+        "inventory_dragging": false,
+        "inventory_first_cell": [
+          118,
+          132
+        ],
+        "inventory_position": [
+          100,
+          100
+        ],
+        "lead_position": [
+          148,
+          177
+        ],
+        "pockets": [
+          284
+        ],
+        "walk_target": null
+      },
+      "last_operation": "advance",
+      "menu_requests": [],
+      "muted": true,
+      "paused": false,
+      "scene": "rinceroo.scn",
+      "tick": 9103
+    },
+    "stored": {
+      "audio_ready": false,
+      "completed_audio_buffers": 0,
+      "frame_sha256": "22cca6ce965ce8a3943d16454ea43b7f52d29038a609a5c16733c06717e2845e",
+      "inspection": {
+        "control": true,
+        "cursor": [
+          118,
+          132
+        ],
+        "enabled_tags": [
+          1,
+          2,
+          406,
+          4,
+          555
+        ],
+        "held_object": -1,
+        "inventory": 2,
+        "inventory_dragging": false,
+        "inventory_first_cell": [
+          118,
+          132
+        ],
+        "inventory_position": [
+          100,
+          100
+        ],
+        "lead_position": [
+          148,
+          177
+        ],
+        "pockets": [
+          284
+        ],
+        "walk_target": null
+      },
+      "last_operation": "advance",
+      "menu_requests": [],
+      "muted": true,
+      "paused": true,
+      "scene": "rinceroo.scn",
+      "tick": 9057
+    }
+  },
+  "inputs": "XCTest taps Action, wardrobe [150,110], pouch [133,136], Pockets, Walk, original first inventory cell, Save, retrieval tap, Pause and Load. No scripted state injection after startup.",
+  "assertions": [
+    "Wardrobe enables original pouch tag 551",
+    "Pouch pickup holds object 284",
+    "Storage clears held object and puts 284 in Pockets",
+    "Retrieval holds 284 while retaining original inventory membership",
+    "Load restores stored pouch and exact saved framebuffer",
+    "Existing movement, inventory drag/release, rotation, audio and relaunch tests pass"
+  ],
+  "screenshot": "assets/validation/ipad-pouch1/attachments/C310CBE0-39B9-4A88-A75A-17F1AD3DDA13.png",
+  "visually_inspected": "Original Pouch icon, blue Pouch and Rincewind text, inventory border and translucent backing visible.",
+  "standalone_app": "assets/apps/Discworld-iPad-11.app",
+  "standalone_binary_sha256": "916418ee38d60094f55f4ddb875afe10194de067fa98bbf9104b8e121096156b",
+  "checks": {
+    "clippy_exit_code": 0,
+    "standalone_build_exit_code": 0
+  },
+  "limits": "One item in simulator with synthesized touch. Broader puzzle item use, scene transitions, lifecycle interruptions, physical iPad and full native touch playthrough remain unverified. No production gameplay changes in this step."
+}

@@ -77,6 +77,67 @@ final class DiscworldLayoutTests: XCTestCase {
         evidence.lifetime = .keepAlways
         add(evidence)
     }
+    func testPouchPickupStorageAndRetrieval() throws {
+        let app = XCUIApplication(bundleIdentifier: "org.tampajohn.discworld.dev")
+        app.launchArguments = ["--smoke-room"]
+        app.launch()
+        XCTAssertTrue(app.buttons["Resume"].waitForExistence(timeout: 40))
+        XCUIDevice.shared.orientation = .landscapeLeft
+        app.buttons["Resume"].tap()
+        waitFor(app) { ($0["inspection"] as? [String: Any])?["control"] as? Bool == true }
+        let canvas = app.descendants(matching: .any).matching(identifier: "game-frame").firstMatch
+        func tapGame(_ x: Int, _ y: Int) {
+            let size = canvas.frame.size
+            let scale = min(size.width / 320, size.height / 200)
+            canvas.coordinate(withNormalizedOffset: .zero).withOffset(CGVector(
+                dx: (size.width - 320 * scale) / 2 + (CGFloat(x) + 0.5) * scale,
+                dy: (size.height - 200 * scale) / 2 + (CGFloat(y) + 0.5) * scale)).tap()
+        }
+        func waitItem(_ condition: @escaping ([String: Any]) -> Bool) {
+            let predicate = NSPredicate { _, _ in
+                guard let inspection = self.state(app)["inspection"] as? [String: Any] else { return false }
+                return condition(inspection)
+            }
+            wait(for: [expectation(for: predicate, evaluatedWith: app)], timeout: 70)
+        }
+        app.segmentedControls.buttons["Action"].tap()
+        tapGame(150, 110) // Closed wardrobe, original polygon 8.
+        waitItem { ($0["enabled_tags"] as? [Int] ?? []).contains(551) && $0["control"] as? Bool == true }
+        let opened = state(app)
+        tapGame(133, 136) // Revealed pouch, original polygon 7.
+        waitItem { $0["held_object"] as? Int == 284 && $0["control"] as? Bool == true }
+        let held = state(app)
+        app.buttons["Pockets"].tap()
+        waitItem { $0["inventory"] as? Int == 2 }
+        let cell = try XCTUnwrap((state(app)["inspection"] as? [String: Any])?["inventory_first_cell"] as? [Int])
+        app.segmentedControls.buttons["Walk"].tap()
+        tapGame(cell[0], cell[1])
+        waitItem { $0["held_object"] as? Int == -1 && ($0["pockets"] as? [Int] ?? []).contains(284) }
+        app.buttons["Pause"].tap()
+        let stored = state(app)
+        let shot = XCTAttachment(screenshot: XCUIScreen.main.screenshot())
+        shot.name = "touch-stored-pouch"
+        shot.lifetime = .keepAlways
+        add(shot)
+        app.buttons["Save"].tap()
+        app.buttons["Resume"].tap()
+        tapGame(cell[0], cell[1])
+        waitItem { $0["held_object"] as? Int == 284 }
+        let retrieved = state(app)
+        app.buttons["Pause"].tap()
+        app.buttons["Load"].tap()
+        let restored = state(app)
+        XCTAssertEqual((restored["inspection"] as? [String: Any])?["held_object"] as? Int, -1)
+        XCTAssertEqual((restored["inspection"] as? [String: Any])?["pockets"] as? [Int], [284])
+        XCTAssertEqual(restored["frame_sha256"] as? String, stored["frame_sha256"] as? String)
+        let results = try JSONSerialization.data(withJSONObject: ["opened": opened, "held": held,
+            "stored": stored, "retrieved": retrieved, "restored": restored], options: [.prettyPrinted, .sortedKeys])
+        let evidence = XCTAttachment(string: String(decoding: results, as: UTF8.self))
+        evidence.name = "pouch-touch-evidence"
+        evidence.lifetime = .keepAlways
+        add(evidence)
+    }
+
     func testTappedPlaybackAudioAndPersistentSave() throws {
         let app = XCUIApplication(bundleIdentifier: "org.tampajohn.discworld.dev")
         app.launchArguments = ["--smoke-room"]

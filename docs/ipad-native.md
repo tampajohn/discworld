@@ -19,7 +19,7 @@ xcrun simctl launch booted org.tampajohn.discworld.dev
 
 The script currently builds **only for the Apple Silicon simulator**. It
 includes the staged ISO and SoundFont in one ad-hoc-signed app. The observed
-prototype is `assets/apps/Discworld-iPad-10.app`. Startup reaches the bedroom;
+prototype is `assets/apps/Discworld-iPad-11.app`. Startup reaches the bedroom;
 quick-save/load preserves pixels, and a separate app launch loads the same
 save from the application container. See [application evidence](validation/ipad-app-prototype.json).
 
@@ -33,8 +33,13 @@ One landscape game-canvas tap now moves Rincewind from `[200,178]` to
 `[160,185]`, with the actual cursor and completed mover state checked through
 read-only native inspection. Pockets opens inventory 2 and Close removes it;
 the original-font title, border and backing were visually inspected. See
-[canvas evidence](validation/ipad-native-canvas.json). This does not yet cover
-item handling, resizing or scene transitions through touch.
+[canvas evidence](validation/ipad-native-canvas.json).
+A second touch sequence opens the wardrobe, picks up pouch 284, stores it in
+Pockets, retrieves it, and loads a save restoring the stored item and exact
+framebuffer. It uses screen taps and the original object scripts, with read-only
+observations for assertions. See [pouch evidence](validation/ipad-native-pouch.json).
+This covers one item; broader item use, resizing and scene transitions remain
+unverified through native touch.
 One-finger pans now use the engine's existing inventory hit regions and mouse
 press/move/release path. The native host preserves the initial touch before
 UIKit recognizes the pan and forwards its final position before releasing it.
@@ -47,7 +52,7 @@ The host adapts to
 both landscape orientations and portrait, with the full game scene and controls
 visible in inspected full-screen simulator captures. XCTest verifies that all
 nine host buttons are hittable and wholly inside the window after each rotation.
-See [layout evidence](validation/ipad-native-layout.json). Inventory item handling,
+See [layout evidence](validation/ipad-native-layout.json). Broader inventory item use,
 the original save menus, save export/import, physical-device signing and full
 touch play remain pending.
 
