@@ -10,7 +10,18 @@
     "wasm": "passed",
     "native_tools_build": "passed",
     "browser_and_replay_build": "passed",
-    "browser_ui": "retry running"
+    "browser_ui": {
+      "status": "passed across runs",
+      "cases": 44,
+      "full_retry_passed": 40,
+      "targeted_final_passed": 4,
+      "node_tests": 4,
+      "browsers": [
+        "Chrome",
+        "WebKit"
+      ],
+      "note": "The final targeted run covers both previously failing test cases on both browsers; no production code changed between these UI runs."
+    }
   },
   "coverage": [
     "Preserves existing process order, IDs, sleeps, VM/global/audio state and active scrolling",
@@ -57,12 +68,58 @@
     "ui": {
       "path": "assets/logs/hover-migration-ui.log",
       "sha256": "57e611f4b933a111bb541fc7a0d15dae9e46179988ac879430d7f465b081ecce"
+    },
+    "ui-retry": {
+      "path": "assets/logs/hover-migration-ui-retry.log",
+      "sha256": "875af8b2181682223fb98cb4ee518fa198c2e383459a19dea9adc80157085dc1"
+    },
+    "ui-final": {
+      "path": "assets/logs/hover-migration-ui-final.log",
+      "sha256": "3b123ca64c0852def760783d8f1522f29c6302d1d727403345237d5416ce549c"
     }
   },
   "remaining": [
-    "Browser UI retry pending",
-    "Full-route replay of new hover runtime pending",
+    "Full-route native/Chrome/WebKit replay running",
     "Deferred POINTED continuation and independent reference hover/input comparison pending",
     "Visible manual session and physical iPad acceptance unverified"
-  ]
+  ],
+  "ui_retry": {
+    "passed": 40,
+    "failed": 4,
+    "cause": "New test helper incorrectly treated v10-v12 as nested envelopes; corrected to unwrap v13-v24. One remaining touch assertion still checked the old outer version. All four corrected cases pass in the final targeted rerun."
+  },
+  "full_route": {
+    "revision": "cdd5b02",
+    "directory": "assets/validation/world-hover-cdd5b02",
+    "status": "running",
+    "ticks": 2630000,
+    "native_pid": 30914,
+    "chrome_pid": 30935,
+    "webkit_pid": 30957,
+    "http_pid": 30923,
+    "http_port": 52360,
+    "scope": "Frozen native and production/replay WASM, unchanged original-input trace, save audits and final native/browser comparison pending.",
+    "exec_sessions": {
+      "native": 95319,
+      "http": 95461,
+      "chrome": 7954,
+      "webkit": 52131
+    },
+    "last_observed": {
+      "tick_lower_bound": 600000,
+      "scene": "unseen.scn",
+      "chrome_inputs": 281,
+      "webkit_inputs": 281
+    }
+  },
+  "sha256": {
+    "crates/discworld-core/src/engine.rs": "54468160282fc17b26f59843de3cd1b8ca88b553e079948c9f2ba78a5b64e8bc",
+    "crates/discworld-core/src/scheduler.rs": "64155a5c413d80db9d6122b7a48f2eb93cc12ac49dbc714bd3c62b6f395abfc2",
+    "crates/discworld-native/src/main.rs": "3b645c3bd4e893dd322cf4a7f017cc83b3e8e60135855c4e2889c13b3e061a02",
+    "crates/discworld-native/src/menu.rs": "ff6d042afa019fab4c4f1a6917b87a8cad4cefaa0c05c8e1a5bb09b17f4b1747",
+    "crates/discworld-web/src/lib.rs": "ad214eed106806d3a9229efade4d18fb7ed0c1da78ec4b97767a6a9be64d2407",
+    "web/tests/save-format.js": "4437a346ff3e386ffca95bf1e253fd69ba23a8fe29f4af64bb1748c008c60f6e",
+    "target/release/discworld-native": "31cf8383459d8bc03d47baaabf3e4e6cba80e52f90e71379fa3a7cb42ff15a05",
+    "target/release/discworld-tools": "5af0124b4e1db8096817e90610861d33e641ac67f3de186cdf7d780495ff8e55"
+  }
 }

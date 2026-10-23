@@ -53,11 +53,15 @@ five polygon labels and exact save/frame continuation. See
 
 Player loads now migrate legacy rooms without re-entry while preserving script
 order/sleeps and active scrolling. Exact replay restoration stays unchanged.
-Validation: 354 core tests and 25 original-asset tests; see
+Validation: 354 core tests, 25 original-asset tests, and all 44 Chrome/WebKit
+UI cases pass (40 in the full rerun, four corrected cases in a targeted rerun); see
 [hover-migration.json](validation/hover-migration.json).
 Remaining hover work: verify deferred POINTED scripts and additional actor animation paths,
-compare interactive hover frames to the independent reference, and rerun the
-full route/UI checks on the new engine. The visible session has not been
+compare interactive hover frames to the independent reference, and finish the
+new full-route checks. Native/Chrome/WebKit replays are running on frozen
+revision cdd5b02 under assets/validation/world-hover-cdd5b02, targeting
+2,630,000 ticks with the unchanged original-input trace. Each has passed
+tick 600,000 (unseen.scn); this is progress, not a completed route audit. The visible session has not been
 restarted or verified with this build. Existing full-route evidence predates
 world hover and does not prove its fidelity.
 
