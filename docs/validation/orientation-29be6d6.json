@@ -1,0 +1,26 @@
+{
+  "runtime_revision": "29be6d6a7d60332a01e8ff9dcd998035f716d8d3",
+  "binary_sha256": "31302eab33d8c87ed4adcdcac6115952fbb555f330777bf02ae77bb6fc0936d3",
+  "trace_sha256": "30c227553695638a78495f4cf56731f841e89188c8faa75821e50c164ddf4ddb",
+  "schema": 1,
+  "local_artifacts": "assets/validation/orientation-29be6d6",
+  "native": {
+    "ticks": 2630000,
+    "status": "Running",
+    "scene_name": "title.scn",
+    "has_restarted": true,
+    "snapshot_checks": 5048,
+    "audio_snapshot_checks": 5048,
+    "snapshot_max_bytes": 48155,
+    "audio_snapshot_max_bytes": 317221,
+    "accepted_inputs": 1652,
+    "core_sha256": "d4a60d7dd6637c3c8f5cd5131b29868e40afd06f45559e7cd8dafa42711de4eb",
+    "report_sha256": "813a2c8939e528a719cfc8d44d2a308d0ead92e015de9b17ad774313fde40ee1"
+  },
+  "scope": [
+    "Recorded native route includes d702cd1 animation flip reset and tracing refactor.",
+    "Final title image inspected; core bytes match previous 9ba83fb native/browser audits.",
+    "No additional alternate-route inputs, current-build browser route, physical-device or manual-session acceptance.",
+    "Does not establish reference scheduler equivalence; newly measured first-step phase discrepancy remains open."
+  ]
+}

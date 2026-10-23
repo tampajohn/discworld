@@ -44,13 +44,23 @@ Keep the user's visible native session current with newly verified engine builds
 
 ## Current progress (2026-10-23)
 
+The orientation-corrected native route at `29be6d6` is complete: 1,652 accepted
+inputs, 5,048 engine/DSP continuation checks each, final restart/title at
+2,630,000 ticks. See [route evidence](validation/orientation-29be6d6.json).
+
+Independent startup comparison now covers 120 reference draws across Psygnosis
+and TWG: every image has an exact Rust match, but 17 scene-aligned draws differ.
+A live cycle/animation probe confirms a one-tick delay in Rust's first step
+of a new nonblocking reel. This scheduling gap is unresolved and is the next
+engine compatibility correction; see [phase evidence](validation/reference-startup-phase.json).
+
 A fresh, read-only LLDB capture from the pinned ScummVM executable provides
 an independent pixel comparison: the complete 320x200 Psygnosis logo at Rust
 tick 24 matches reference draw ordinals 7–50 exactly. All 156 reference asset
 files match the supplied ISO. See [reference pixel evidence](validation/reference-logo-pixels.json).
 This validates that one fully visible image; animated frames, fades, scheduler
 timing and later scenes remain outside its scope. The orientation-corrected
-full native route at 29be6d6 is running separately.
+full native route at 29be6d6 completed separately.
 
 Runtime `9ba83fb` completed the recorded route in native, Chrome and WebKit,
 accepting all 1,652 inputs. Final engine save bytes and pixels match. Native

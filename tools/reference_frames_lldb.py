@@ -16,6 +16,9 @@ LIMIT = int(os.environ.get('DISCWORLD_REFERENCE_FRAME_LIMIT', '400'))
 PALETTE_ADDRESS = None
 RECORDS = []
 FAILURES = []
+CYCLES = 0
+ANIMATIONS = []
+STEPS = []
 
 
 def read(process, address, size):
@@ -24,6 +27,27 @@ def read(process, address, size):
     if error.Fail() or len(data) != size:
         raise RuntimeError(f'memory read failed: {error}')
     return data
+
+
+def cycle(frame, location, dictionary):
+    global CYCLES
+    CYCLES += 1
+    return False
+
+
+def animation(frame, location, dictionary):
+    ANIMATIONS.append({'cycle': CYCLES,
+                       'script': frame.FindVariable('hNewScript').GetValueAsUnsigned(),
+                       'period': frame.FindVariable('aniSpeed').GetValueAsUnsigned()})
+    return False
+
+
+def step(frame, location, dictionary):
+    state = frame.FindVariable('pAnim').Dereference()
+    STEPS.append({'cycle': CYCLES,
+                  'script': state.GetChildMemberWithName('hScript').GetValueAsUnsigned(),
+                  'index': state.GetChildMemberWithName('scriptIndex').GetValueAsUnsigned()})
+    return False
 
 
 def palette(frame, location, dictionary):
@@ -66,7 +90,7 @@ def capture(frame, location, dictionary):
         stem = f'frame-{number:04d}'
         (OUTPUT / (stem + '.idx')).write_bytes(indices)
         (OUTPUT / (stem + '.pal')).write_bytes(colors)
-        RECORDS.append({'frame': number, 'scene': scene.GetValueAsUnsigned(),
+        RECORDS.append({'frame': number, 'cycle': CYCLES, 'scene': scene.GetValueAsUnsigned(),
                         'rgb_sha256': hashlib.sha256(rgb).hexdigest(),
                         'indices_sha256': hashlib.sha256(indices).hexdigest(),
                         'palette_sha256': hashlib.sha256(colors).hexdigest()})
@@ -77,7 +101,7 @@ def capture(frame, location, dictionary):
 
 
 def finish(debugger):
-    report = {'frames': RECORDS, 'errors': FAILURES, 'limit': LIMIT,
+    report = {'frames': RECORDS, 'animations': ANIMATIONS, 'steps': STEPS, 'errors': FAILURES, 'limit': LIMIT,
               'complete': len(RECORDS) == LIMIT and not FAILURES,
               'scope': 'Read-only LLDB capture at DrawBackgnd before updateScreen; frame ordinals are not engine ticks. Debugger pauses alter wall-clock timing. Input determinism is not established.'}
     (OUTPUT / 'capture.json').write_text(json.dumps(report, indent=2) + '\n')
@@ -91,7 +115,13 @@ def __lldb_init_module(debugger, dictionary):
     target = debugger.GetSelectedTarget()
     pal = target.BreakpointCreateByName('OpenGLGraphicsManager::setPalette')
     draw = target.BreakpointCreateByLocation('background.cpp', 288)
-    if pal.GetNumLocations() != 1 or draw.GetNumLocations() != 1:
+    tick = target.BreakpointCreateByName('Tinsel::TinselEngine::NextGameCycle')
+    anim = target.BreakpointCreateByName('Tinsel::InitStepAnimScript')
+    advance = target.BreakpointCreateByName('Tinsel::DoNextFrame')
+    if any(bp.GetNumLocations() != 1 for bp in [pal, draw, tick, anim, advance]):
         raise RuntimeError('pinned reference breakpoint locations not unique')
+    advance.SetScriptCallbackFunction(__name__ + '.step')
+    anim.SetScriptCallbackFunction(__name__ + '.animation')
+    tick.SetScriptCallbackFunction(__name__ + '.cycle')
     pal.SetScriptCallbackFunction(__name__ + '.palette')
     draw.SetScriptCallbackFunction(__name__ + '.capture')

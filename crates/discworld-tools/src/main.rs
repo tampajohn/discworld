@@ -6,6 +6,7 @@ use serde_json::json;
 use sha2::{Digest, Sha256};
 mod animation_trace;
 mod audio;
+mod frame_capture;
 mod music;
 mod probe;
 mod render;
@@ -23,6 +24,9 @@ fn run() -> Result<(), Box<dyn std::error::Error>> {
         .next()
         .ok_or("usage: discworld-tools inspect-iso <image.iso>")?;
     let path = args.next().ok_or("missing ISO path")?;
+    if command == "capture-startup-frames" {
+        return frame_capture::startup(path, args);
+    }
     if command == "compare-animation-trace" {
         return animation_trace::compare(path, args);
     }

@@ -128,3 +128,43 @@ not just LLDB's exit code. The hook writes `.idx` and `.pal` files plus hashes;
 it stops on an invalid framebuffer, unavailable symbols or failed memory read.
 The source-line breakpoint and debug member names are specific to the pinned
 reference build.
+
+
+## Startup sequence and first-step phase
+
+The read-only probe now counts `NextGameCycle` entries and records
+`InitStepAnimScript` plus `DoNextFrame` entry events. Four independent
+120-draw captures produced identical scene/RGB sequences. The first rendered
+frame occurs in reference cycle 2; draw ordinals therefore are not cycle
+numbers. The two startup scenes contain 25 distinct scene/image pairs.
+
+`discworld-tools capture-startup-frames ISO TICKS NEW_DIRECTORY` captures
+unscaled RGB after each Rust startup tick, advancing original script, PCM
+and MIDI state without user input or device audio. It also records active
+film state and scene calls. The new directory is required and tick count is
+bounded to 1–10,000. Compare verified capture files with:
+
+```sh
+python3 tools/compare_reference_frames.py REFERENCE_FRAMES RUST_CAPTURE NEW_REPORT.json
+```
+
+The comparator verifies every raw-frame/palette hash and distinguishes image
+coverage from scene-start-aligned equality. All 120 reference images have
+exact matches in their corresponding Rust scenes. After aligning each scene's
+first draw, 103 frames match at the corresponding tick and 17 TWG frames do
+not. Those mismatches are not timing passes. The detailed
+[phase evidence](validation/reference-startup-phase.json) records both outcomes.
+
+The independent event capture confirms the cause to investigate: TWG script
+125903660 is initialized and first stepped in reference cycle 58. Rust creates
+it at tick 57 with zero steps and first steps it at tick 58. Relative to reel
+creation, this is reference offset zero versus Rust offset one. The ordinary
+nonblocking film pass currently precedes scene-script dispatch, so a newly
+created film misses that pass. Correcting this requires scheduling its first
+step in the creation cycle while preserving film arbitration, caller/peer
+ordering, WAITFRAME counts and blocking-primary behavior. No engine scheduling
+change has been applied in this diagnostic commit.
+
+The tools build, workspace suite and Clippy pass. Original captures run under
+Cocoa/OpenGL with dummy audio; neither these diagnostics nor the matching
+images establish wall-clock, audio or full-game reference equivalence.

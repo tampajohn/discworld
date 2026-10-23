@@ -954,3 +954,12 @@ was inspected. See [audit evidence](validation/internal-film-9ba83fb.json).
 This validates internal/restored mover creation on the recorded route and
 predates the d702cd1 animation orientation correction. It adds no alternate
 inputs and does not establish visible manual-session or physical iPad acceptance.
+
+
+The orientation-corrected runtime 29be6d6 completed the native recorded route
+at 2,630,000 ticks, accepting all 1,652 inputs and passing 5,048 engine plus
+5,048 DSP continuation checks. Final title image was inspected and core save
+bytes match the prior 9ba83fb run. See
+[orientation route evidence](validation/orientation-29be6d6.json). This does
+not resolve the newly observed nonblocking first-step scheduling discrepancy
+in the independent startup reference capture.
