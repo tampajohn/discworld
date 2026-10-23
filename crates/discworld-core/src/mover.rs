@@ -2688,6 +2688,47 @@ mod tests {
             [-40, 0, 2400, 0, 0, 0, 0, 0, 0, 0],
             [0, 40, -2400, 0, 0, 0, 0, 0, 0, 0],
         ];
+        // SPLAY restarts the saved ultimate destination from its film position,
+        // including PositionMover's node snap and off-path reentry.
+        for position in [[61, 58], [248, 178]] {
+            let mut resumed = mover.clone();
+            resumed
+                .stand(&resources, &declarations, &nodes, [20, 20], Handle(0))
+                .unwrap();
+            resumed.no_path = false;
+            resumed
+                .begin_walk(&resources, &declarations, &nodes, [90, 62], [90, 62])
+                .unwrap();
+            let serial = resumed.walk_serial;
+            resumed.hidden = true;
+            resumed
+                .restore_after_splay(&resources, &declarations, &nodes, position, [90, 62])
+                .unwrap();
+            assert_eq!(resumed.walk_serial, serial + 1);
+            assert!(!resumed.hidden);
+            assert_eq!(resumed.walk_target, Some([90, 60]));
+            if position == [61, 58] {
+                assert_eq!(resumed.placement.position, [60, 60]);
+            } else {
+                assert!(resumed.no_path);
+                assert_eq!(resumed.placement.position, position);
+            }
+            let mut continuation = resumed.clone();
+            for _ in 0..200 {
+                if resumed.walk_target.is_none() {
+                    break;
+                }
+                resumed
+                    .advance_direct_walk(&resources, &declarations, &nodes, &[])
+                    .unwrap();
+                continuation
+                    .advance_direct_walk(&resources, &declarations, &nodes, &[])
+                    .unwrap();
+                assert_eq!(resumed, continuation);
+            }
+            assert_eq!(resumed.walk_target, None);
+            assert_eq!(resumed.placement.position, [90, 60]);
+        }
         // PositionMover preserves bNoPath after a scripted off-path pose,
         // even when a later STAND places the actor on a node polygon.
         let mut reentry = mover.clone();

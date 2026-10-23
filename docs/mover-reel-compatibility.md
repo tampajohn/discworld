@@ -763,3 +763,31 @@ Integration validation: 325 core tests, the workspace suite, all 20 original-ass
 web tests, Clippy, WASM checking and native/browser release builds pass. Logs
 use assets/logs/splay-lifecycle-*. This does not establish full-route SPLAY
 coverage, live reference equivalence, or visible/physical iPad acceptance.
+
+
+## Expanded SPLAY restoration regressions
+
+A two-actor script fixture now verifies independent primary/secondary cleanup
+with real SPLAY dispatch and two existing stationary movers. The finite primary
+restores its mover and returns to the caller while the looping secondary stays
+hidden. Secondary Escape restores its embedded position; replacement retains
+cleanup until the next tick, restores the stored replacement coordinates, and
+leaves the replacement owner hidden; actor removal clears obsolete cleanup.
+Exact snapshot round-trip and next-tick equality are checked before/during
+playback and after each exit trigger.
+
+The movement fixture additionally restores an interrupted node-path walk from
+a nearby film coordinate (snapping to the nearest node) and from outside the
+path. Both restart the saved projected destination, increment the walk serial,
+reveal the moving reel, and reach the destination with identical cloned
+continuation. These node cases exercise the restoration helper, not a full
+node-path SPLAY script or resource-validated saved session.
+
+These tests passed without changing production behavior. Declared movers not
+yet created, mixed moving secondary actors, broader cancellation/arrival
+ordering, and live-reference comparisons remain outstanding.
+
+Validation: workspace suite (326 core tests) and Clippy pass. Focused logs
+are assets/logs/splay-secondary-focused.log and splay-nodes-focused.log;
+broader logs use assets/logs/splay-expanded-*. Production hosts remain at
+6167511 because this change adds tests and documentation only.

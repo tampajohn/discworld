@@ -12041,6 +12041,118 @@ mod tests {
         }
     }
     #[test]
+    fn splay_secondary_mover_cleanup_outlives_primary_and_restores_independently() {
+        use crate::save::Snapshot;
+        let (master, mut scene) = fixtures();
+        let code = [
+            3, 1, 0, 0, 0, 1, 0x41, 12, 0x41, 13, 2, 2, 3, 0x4e, 71, 0x41, 7, 0x4c, 0, 0,
+        ];
+        scene[8..8 + code.len()].copy_from_slice(&code);
+        let base = 2u32 << 23;
+        let mut film = vec![0; 104];
+        for (at, value) in [
+            (0, 24),
+            (4, 2),
+            (8, base + 24),
+            (12, base + 72),
+            (16, base + 48),
+            (20, base + 84),
+            (32, 1),
+            (56, 2),
+            (60, 5),
+            (72, 10),
+            (76, 10),
+            (80, 0),
+            (84, 10),
+            (88, 1),
+            (92, (-2i32) as u32),
+        ] {
+            film[at..at + 4].copy_from_slice(&value.to_le_bytes());
+        }
+        let resources = Resources(vec![&master, &scene, &film]);
+        for exit in 0..3 {
+            let mut engine = Engine::bootstrap(&resources).unwrap();
+            engine.actors = crate::actor::Actors::new(2).unwrap();
+            engine.escape_events = Some(1);
+            for process in engine.processes.states_mut() {
+                process.vm.escape_enabled = true;
+                process.vm.escape_generation = Some(1);
+            }
+            for actor in [1, 2] {
+                engine
+                    .declarations
+                    .movers
+                    .insert(actor, [[Handle(base); 12]; 10]);
+                let placement = crate::mover::Placement::initial(
+                    &engine.declarations,
+                    &engine.polygons,
+                    actor,
+                    [100 + actor * 10, 100],
+                    Handle(base),
+                )
+                .unwrap();
+                engine.movers.insert(
+                    actor,
+                    crate::mover::Mover::new(&resources, placement).unwrap(),
+                );
+            }
+            for tick in 1..=3 {
+                let bytes = Snapshot::capture(&engine, [7; 32]).to_bytes().unwrap();
+                let snapshot = Snapshot::from_bytes(&bytes, [7; 32]).unwrap();
+                assert_eq!(snapshot.to_bytes().unwrap(), bytes);
+                let mut restored = snapshot.state().clone();
+                engine.tick(&resources).unwrap();
+                restored.tick(&resources).unwrap();
+                assert_eq!(engine, restored);
+                assert_eq!(engine.globals[0], if tick == 3 { 7 } else { 0 });
+                assert_eq!(engine.splay_reels.len(), if tick == 3 { 1 } else { 2 });
+            }
+            assert_eq!(engine.movers[&1].placement.position, [12, 13]);
+            assert!(!engine.movers[&1].hidden);
+            assert_eq!(engine.movers[&2].placement.position, [120, 100]);
+            assert!(engine.movers[&2].hidden);
+            match exit {
+                0 => engine.script_escape_event().unwrap(),
+                1 => {
+                    let mut replacement = engine.films[0].clone();
+                    replacement.reel = Some(Handle(base + 8));
+                    replacement.object.x = 20;
+                    replacement.object.y = 21;
+                    assert!(engine.claim_reel(&mut replacement).unwrap());
+                    engine.actors.get_mut(2).unwrap().position = [20, 21];
+                    engine.films.push(replacement);
+                    assert_eq!(engine.films.len(), 2, "superseded SPLAY retains cleanup");
+                }
+                _ => engine.disable_actor(2).unwrap(),
+            }
+            let bytes = Snapshot::capture(&engine, [7; 32]).to_bytes().unwrap();
+            let mut restored = Snapshot::from_bytes(&bytes, [7; 32])
+                .unwrap()
+                .state()
+                .clone();
+            engine.tick(&resources).unwrap();
+            restored.tick(&resources).unwrap();
+            assert_eq!(engine, restored);
+            assert!(engine.splay_reels.is_empty());
+            match exit {
+                0 => {
+                    assert_eq!(engine.movers[&2].placement.position, [5, 0]);
+                    assert!(!engine.movers[&2].hidden);
+                }
+                1 => {
+                    assert_eq!(engine.movers[&2].placement.position, [20, 21]);
+                    assert!(
+                        engine.movers[&2].hidden,
+                        "replacement keeps its mover hidden"
+                    );
+                    assert!(engine.reel_owners.contains_key(&2));
+                }
+                _ => assert!(!engine.movers.contains_key(&2)),
+            }
+        }
+    }
+
+    #[test]
     fn blocking_play_waits_only_for_primary_and_allows_peer_scripts() {
         let (master, mut scene) = fixtures();
         // PLAY(resource 2, 12, 13, -1, 0, complete), then set global 0 to 7.
