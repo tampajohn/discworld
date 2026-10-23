@@ -96,7 +96,7 @@
     "clippy": "passed",
     "host_builds": "native, production WASM and replay WASM passed",
     "browser_ui": "49 Playwright passed, one known WebKit multi-touch injection skip; four Node tests passed",
-    "full_routes": "All three frozen bad0d45 routes rejected recorded input at tick1109020 after544 accepted inputs. See mover-retry-route-rejection.json. Not a full-route pass."
+    "full_routes": "Original recorded route rejected input1109020 on all hosts; retained in mover-retry-route-rejection.json. Ordinary gameplay recovery passes through Brotherhood/dragon scenes; fresh native/Chrome/WebKit audits of revised1657-input route running in assets/validation/mover-retry-recovered-bad0d45."
   },
   "scope": "Controlled original-game capture, not full original-engine or physical-device acceptance."
 }
