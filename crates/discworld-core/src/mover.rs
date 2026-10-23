@@ -886,7 +886,9 @@ impl Mover {
         let no_path = placement.path.is_none();
         let mut mover = Self {
             hidden: false,
-            reel_state: None,
+            // Fresh standing movers use AlterMover's explicit special-reel
+            // state. None is reserved for decoding historical snapshots.
+            reel_state: Some(crate::mover_reel::State::default()),
             last_film: Handle(0),
             node_travel: placement.node.map(|line| crate::nodepath::Travel {
                 line,
@@ -2020,6 +2022,11 @@ mod tests {
             },
         )
         .unwrap();
+        assert!(
+            mover.special_reel(),
+            "new standing movers use the special reel mode"
+        );
+        assert_eq!(mover.reel_state.unwrap().pushed(), Handle(0));
         // Empty PLAY films are legal, but cannot provide a mover's saved reel.
         // The checked save-resource path must reject them rather than index [0].
         let mut empty_reel = mover.clone();
@@ -2037,6 +2044,7 @@ mod tests {
         talking.animation.flip_x = true;
         talking.animation.flip_y = true;
         let initial = crate::mover_reel::State::default();
+        talking.reel_state = Some(initial); // This fixture is an interrupted ordinary walk.
         talking
             .alter_reel(
                 &resources,
@@ -2226,8 +2234,12 @@ mod tests {
                 .begin_direct_walk(&resources, &declarations, &polygons, target, start)
                 .unwrap();
             for tick in 0..8 {
-                let bytes = postcard::to_allocvec(&axis).unwrap();
-                let mut restored: Mover = postcard::from_bytes(&bytes).unwrap();
+                // Reel state is a versioned game-save extension, excluded from
+                // the legacy mover payload. Preserve both parts in this fixture.
+                let bytes = postcard::to_allocvec(&(&axis, axis.reel_state)).unwrap();
+                let (mut restored, reel_state): (Mover, Option<crate::mover_reel::State>) =
+                    postcard::from_bytes(&bytes).unwrap();
+                restored.reel_state = reel_state;
                 for m in [&mut axis, &mut restored] {
                     m.advance_direct_walk(&resources, &declarations, &polygons, &[])
                         .unwrap();

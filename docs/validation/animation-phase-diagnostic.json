@@ -45,5 +45,10 @@
     "scope": "Initialization cycles and before-tick state are different observation points. Do not infer a production scheduling correction solely from their numeric offset.",
     "final_capture": "assets/validation/cursor-clocks-queued2",
     "comparison": "assets/validation/cursor-clocks-queued-compare2.json"
-  }
+  },
+  "queued_absolute_clock_comparison": {
+    "path": "assets/validation/cursor-clock-queued-comparison.json",
+    "finding": "With queued scene entry, scripts151329632 and151328420 match all72 absolute-cycle clock comparisons; main cursor matches at+1 and mover349552 at+2. Capture-relative offsets must not be interpreted as a global runtime delay."
+  },
+  "followup": "hidden-standing-mover.json"
 }

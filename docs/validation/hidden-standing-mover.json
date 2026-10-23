@@ -1,0 +1,46 @@
+{
+  "runtime_base": "de56201",
+  "change": "Fresh Mover::new initializes explicit reel state before applying standing; legacy decoded None remains unchanged.",
+  "reference_evidence": {
+    "capture": "assets/validation/reference-hover-portable1/frames/capture.json",
+    "sha256": "73e7744e7345a646aabc6bdc518555221ef1b0a7fe5c09b33b243c6ea71bdcb1",
+    "accepted": true,
+    "finding": "No reference StepAnimScript calls for standing script349552 during hidden idle ticks452..455 or1108..1112. Rust previously stepped it every tick.",
+    "remaining_timing": "Reference final standing reset at1125 includes an ordinary mover step in that cycle. Rust reset remains1126 and its ordinary step is1127. This separate scheduling/walk-completion gap is unresolved."
+  },
+  "regression": {
+    "red": "assets/logs/hidden-standing-red.log",
+    "failure": "Original-asset hidden standing animation changed at tick452 despite reference inactivity.",
+    "green": "assets/logs/hidden-standing-green1.log",
+    "checks": "Hidden standing clock unchanged at452..455;72 complete v25 game-save restore/next-tick checks pass."
+  },
+  "compatibility": [
+    "Existing pre-v13 fixture explicitly clears optional reel state. Historical decoding/re-export stays byte-preserving.",
+    "Ordinary-walk fixture explicitly selects normal reel state; standalone mover serialization fixture now includes its separately versioned reel state.",
+    "Visible controlled-frame coverage remains58/72 content matches and54/72 capture-aligned matches; this fix does not resolve remaining visible phases."
+  ],
+  "tests": [
+    "Workspace release suite passes:360 core tests,2 opt-in tests ignored.",
+    "All25 original-asset browser-core tests pass.",
+    "Workspace Clippy and browser WASM checking pass."
+  ],
+  "launcher": {
+    "path": "tools/capture_reference_hover.py",
+    "check": "Pinned binary hash, fresh output directory,300-second timeout, correct room, all72 expected cursor positions and8 injections required for acceptance.",
+    "startup_fix": "Set gfx_mode in the configuration before backend initialization; avoid the command-line graphics transaction that can blit a missing source surface.",
+    "failed_attempts": {
+      "12": "Dummy SDL source-surface startup failure; zero frames.",
+      "13": "Same failure; SDL_GetError reports Parameter src is invalid.",
+      "14": "Offscreen driver failed to initialize OpenGL/GLES and exited before game startup."
+    },
+    "successful_attempts": [
+      "assets/validation/reference-hover-attempt15",
+      "assets/validation/reference-hover-portable1"
+    ]
+  },
+  "remaining": [
+    "Full-route regression for this constructor change.",
+    "Resolve mover reset/step scheduling gap.",
+    "Refresh verified hosts and visible session; retain full goal acceptance requirements."
+  ]
+}

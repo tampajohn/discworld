@@ -5,6 +5,21 @@ use crate::{
     graphics::{Handle, Resources},
     iso::Error,
 };
+#[cfg(test)]
+thread_local! {
+    static DIAGNOSTIC_TICK: std::cell::Cell<Option<u64>> = const { std::cell::Cell::new(None) };
+    static DIAGNOSTIC_EVENTS: std::cell::RefCell<Vec<String>> = const { std::cell::RefCell::new(Vec::new()) };
+}
+
+#[cfg(test)]
+pub(crate) fn trace_tick(tick: Option<u64>) {
+    DIAGNOSTIC_TICK.set(tick);
+}
+
+#[cfg(test)]
+pub(crate) fn take_trace() -> Vec<String> {
+    DIAGNOSTIC_EVENTS.with(|events| std::mem::take(&mut *events.borrow_mut()))
+}
 #[derive(serde::Serialize, serde::Deserialize, Debug, Clone, Copy, PartialEq, Eq)]
 pub enum Tick {
     Waiting,
@@ -41,6 +56,17 @@ pub struct Animation {
     finished: bool,
 }
 impl Animation {
+    #[cfg(test)]
+    fn trace_clock(&self, kind: &str) {
+        if let Some(tick) = DIAGNOSTIC_TICK.get() {
+            DIAGNOSTIC_EVENTS.with(|events| {
+                let mut events = events.borrow_mut();
+                assert!(events.len() < 10000, "animation diagnostic budget");
+                events.push(format!("{{\"tick\":{tick},\"kind\":\"{kind}\",\"script\":{},\"index\":{},\"period\":{},\"remaining\":{},\"actor\":{}}}",
+                    self.script.0, self.index, self.period, self.remaining, self.object.id));
+            });
+        }
+    }
     pub(crate) fn validate_snapshot_structure(&self) -> Result<(), Error> {
         if self.period == 0
             || self.remaining == 0
@@ -160,6 +186,8 @@ impl Animation {
         self.index = 0;
         self.steps = 0;
         self.finished = false;
+        #[cfg(test)]
+        self.trace_clock("reset");
         Ok(())
     }
     pub fn new(resources: &Resources<'_>, reel: &Reel, period: u32) -> Result<Self, Error> {
@@ -224,6 +252,8 @@ impl Animation {
         resources: &Resources<'_>,
         mut observe: impl FnMut(usize, u32),
     ) -> Result<Tick, Error> {
+        #[cfg(test)]
+        self.trace_clock("step");
         if self.finished {
             return Ok(Tick::Finished);
         }

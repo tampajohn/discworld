@@ -127,7 +127,7 @@ def animation_init(frame, location, dictionary):
 
 
 def animation_step(frame, location, dictionary):
-    if START is None:
+    if START is None and not (450 <= frames.CYCLES <= 455 or 1108 <= frames.CYCLES <= 1130):
         return False
     try:
         state = frame.FindVariable('pAnim').Dereference()

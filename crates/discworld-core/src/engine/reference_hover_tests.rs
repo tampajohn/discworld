@@ -85,9 +85,27 @@ fn capture_original_debug_room_hover() {
                 states.join(",")
             ));
         }
+        let tick = engine.ticks + 1;
+        crate::animation::trace_tick(
+            ((450..=455).contains(&tick) || (1108..=1130).contains(&tick)).then_some(tick),
+        );
+        let hidden_standing = if (452..=455).contains(&tick) {
+            let mover = engine.movers.get(&7).unwrap();
+            assert!(mover.hidden && mover.walk_target.is_none());
+            Some(mover.animation.clone())
+        } else {
+            None
+        };
         let status = engine
             .tick_content(&resources, Some(&bank), Some(&tracks), Some(&strings))
             .unwrap();
+        crate::animation::trace_tick(None);
+        if let Some(before) = hidden_standing {
+            assert_eq!(
+                engine.movers[&7].animation, before,
+                "original reference does not step the hidden standing mover at tick {tick}"
+            );
+        }
         assert!(!matches!(status, Status::Unsupported(_) | Status::Quit));
         if start.is_some() {
             let surface = engine.render(&resources).unwrap();
@@ -249,6 +267,11 @@ fn capture_original_debug_room_hover() {
         }
     }
     assert_eq!(rows.len(), 72, "room did not reach active tags");
+    std::fs::write(
+        directory.join("animation-events.json"),
+        format!("[{}]\n", crate::animation::take_trace().join(",")),
+    )
+    .unwrap();
     std::fs::write(
         directory.join("entry-mode.json"),
         format!("{{\"direct_entry\":{direct_entry}}}\n"),

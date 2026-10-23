@@ -15975,6 +15975,7 @@ mod tests {
         .unwrap();
         mover.walk_target = Some([100, 20]);
         mover.walk_serial = 7;
+        mover.reel_state = None; // Explicit pre-v13 fixture, not a freshly created mover.
         engine.movers.insert(1, mover);
         let legacy = Snapshot::capture(&engine, [7; 32]).to_bytes().unwrap();
         assert_eq!(
