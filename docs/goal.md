@@ -44,6 +44,12 @@ Keep the user's visible native session current with newly verified engine builds
 
 ## Current progress (2026-10-23)
 
+A new independent 1,000-frame reference capture exposed and drove a font
+palette correction. All 1,000 captured images now have exact RGB matches;
+351 second-credits frames still match one Rust tick late. The source and
+pixel evidence, failed capture attempts, and validation scope are in
+[longer reference comparison](validation/reference-software-frames.json).
+
 Continuing master/scene scripts now implement QUITGAME with a cycle-boundary
 host handoff and the reference V1 CDLOAD behavior. Same-cycle Save/Load plus
 Quit preserves the selected slot and delivers Quit afterward without additional
@@ -67,9 +73,10 @@ The earlier `85b728a` recorded route completed on native, Chrome and WebKit:
 bytes and RGBA. Native passed 5,048 engine and 5,048 DSP continuation checks;
 browser audio was finite, but cross-platform audio equality is not established.
 See [cross-host evidence](validation/reel-dispatch-browsers.json).
-The `fad89dc` native and Chrome routes have now completed with matching final
-engine bytes and RGBA. WebKit failed after 2.4 million ticks when its browser
-closed; the cause is unestablished and a preserved-build retry is running. See
+The `fad89dc` native, Chrome and WebKit routes have completed with matching
+final engine bytes and RGBA. WebKit completed on a preserved-build retry; its
+first attempt failed after 2.4 million ticks when its browser closed. The first
+failure is retained and its cause remains unestablished. See
 [restoration route evidence](validation/deferred-restore-route.json).
 The production host passed four Node tests and all 44 Chrome/WebKit interaction
 cases in one run; see [UI evidence](validation/deferred-restore-browser-ui.json).

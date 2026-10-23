@@ -262,6 +262,7 @@ dependencies = [
  "discworld-core",
  "discworld-replay",
  "serde_json",
+ "sha2",
  "wasm-bindgen",
 ]
 

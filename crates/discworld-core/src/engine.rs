@@ -6697,7 +6697,9 @@ impl Engine {
         if let Some(background) = &self.background {
             if let Some(image) = background.images(resources)?.first() {
                 let palette = crate::graphics::Image::read(resources, *image)?.palette;
-                result.enable_backdrop(&crate::graphics::read_palette(resources, palette)?)?;
+                result.set_scene_palette(&crate::palette::BackgroundPalette::new(
+                    resources, palette,
+                )?)?;
             }
             if let Some(palette) = &self.background_palette {
                 result.set_scene_palette(palette)?;

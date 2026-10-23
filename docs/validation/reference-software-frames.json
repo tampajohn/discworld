@@ -1,0 +1,126 @@
+{
+  "schema": 1,
+  "reference_revision": "96b42d42bc8533953bdd701db059cc33c839a9ff",
+  "reference_binary_sha256": "1e8b098f0e9f6da44062aa19c195a5771a4a5dbc806cb3d3a9c3eb0e8fb6f524",
+  "probe_sha256": "2f6c647fdb68db318a902062f03f613c52f0b7499e4d4791ff95a1161e5a3339",
+  "runtime_baseline": "6113d86ea714a56a579a73a91aa7ec8034ebc411",
+  "current_files": {
+    "crates/discworld-core/src/engine.rs": "368bf845f13ba1748623a729004fa89d3c038647dfeae25df2ecb51903ad9747",
+    "crates/discworld-web/src/real_assets.rs": "131e69c004d23f3263b587ab5a9857ce6c22b8c45f49bba0a9ef3a16109955a7",
+    "target/release/discworld-tools": "06d27fa95012738f93c13b5f4753572e2cae7b833efb6aa2a1a9138b827d75aa",
+    "target/release/discworld-native": "8b27128356b684179798b89bcb9e4c0ace9b18a4c3583ac9cc1cc0f7fc0d16fb",
+    "web/pkg/discworld_web_bg.wasm": "3642b5f3eb00150aa392c5ed1837558036bce2c64917ef18778939108df2b3da"
+  },
+  "capture": {
+    "directory": "assets/validation/reference-software-error-scummvm/frames",
+    "sha256": "98c939ec1a9ee1b395eaa69148b0bd7efb16dda9c7aee98cec04dfeeb02a5d8c",
+    "complete": true,
+    "frames": 1000,
+    "scenes": 5,
+    "ordered_events": 1103,
+    "backend": "surfacesdl",
+    "video_driver": "dummy",
+    "first_120_rgb_frames_equal_prior_opengl_capture": true,
+    "reference_files_modified": false
+  },
+  "before": {
+    "rust_capture_sha256": "c51ad1845f79f0db4b9053dba5a2e5b96aa99ff7fc7f30c87e46343dde61b6db",
+    "content_matches": 806,
+    "scene_aligned_mismatches": 545
+  },
+  "after": {
+    "rust_capture_sha256": "2b090a73881b05e4b380b2aaeae3f86d71caff5e2208353846b4f037ed1313bc",
+    "content_matches": 1000,
+    "distinct_scene_images": 461,
+    "scene_aligned_mismatches": 351,
+    "remaining_interval": [
+      650,
+      1000
+    ],
+    "remaining_scene": "credits.scn",
+    "all_remaining_frames_match_rust_one_tick_later": true
+  },
+  "palette_defect": {
+    "first_reference_frame": 420,
+    "reference_cycle": 421,
+    "aligned_rust_tick": 420,
+    "changed_pixels": 191,
+    "bounds": [
+      108,
+      181,
+      212,
+      189
+    ],
+    "reference_rgb": [
+      247,
+      255,
+      119
+    ],
+    "old_rust_rgb": [
+      127,
+      215,
+      255
+    ],
+    "cause": "Font palette inherited background only after SETPALETTE. Reference Background::SetBackPal always calls Font::FettleFontPal.",
+    "fix": "Always establish the current background palette on the compositor, including before any explicit palette replacement."
+  },
+  "validation": {
+    "workspace": "passed",
+    "core_tests": 340,
+    "local_asset_integration_tests": 23,
+    "clippy": "passed",
+    "wasm_check": "passed",
+    "native_browser_builds": "passed",
+    "independent_title_frame_regression": "failed before fix, passes after, including exact reload",
+    "ui_suite": {
+      "node_passed": 4,
+      "playwright_passed": 42,
+      "playwright_failed": 2,
+      "failures": "Chrome and WebKit menu-save exact-pixel checks against the historical pre-fix native RGBA fixture",
+      "log": "assets/logs/title-palette-browser-ui.log",
+      "log_sha256": "849d3d7d98e4a80c0d27baf260708ea881a69391c5e8d66643f507c12ed3864f"
+    },
+    "menu_recheck": {
+      "passed": 2,
+      "failed": 0,
+      "projects": [
+        "Chrome",
+        "WebKit"
+      ],
+      "save_bytes_unchanged": true,
+      "native_render_tick": 500,
+      "changed_pixels_from_historical_fixture": 164,
+      "new_fixture": "assets/validation/title-palette-menu/checkpoint.dws",
+      "native_render_sha256": "3710e28f1325ad668c098cc329cdc1e5053e0f49bcf80e476a35faf98c4a139d",
+      "save_sha256": "bcef101b9be816ecfc2f9a8b48205d459086aa20a58263f4a8ad2de47fba50e6",
+      "rgba_sha256": "151f58485d7bf597bdd547244f0dd4c92e3f60ecb3e401c92c6a76648cb0df57",
+      "log": "assets/logs/title-palette-menu-recheck.log",
+      "log_sha256": "2040252afa4d9a447c26297117bec3a9346d964ca7792ec5e6a203e7fa6b4487",
+      "scope": "Native-rendered expectation; historical fixture preserved. This is 42 initial passes plus two rechecks, not one clean 44-case run."
+    }
+  },
+  "attempts": [
+    {
+      "directory": "assets/validation/reference-software-frames",
+      "result": "No frames; normal selected OpenGL and no graphics mode loaded."
+    },
+    {
+      "directory": "assets/validation/reference-software-frames-surfacesdl",
+      "result": "No frames; SDL_BlitSurface invalid source before gameplay."
+    },
+    {
+      "directory": "assets/validation/reference-software-error-stack",
+      "result": "Generic error breakpoint matched Foundation; stopped before gameplay."
+    },
+    {
+      "directory": "assets/validation/reference-software-error-scummvm",
+      "result": "1000 frames, module-scoped error breakpoint not hit; stopped at frame limit and owned process terminated."
+    }
+  ],
+  "limitations": [
+    "Startup/title/credits only. No independent gameplay, restoration or audio equivalence established.",
+    "Dummy backend initialization failed on an earlier identical-mode attempt; cause and launch reliability remain unestablished.",
+    "Remaining credits phase difference is unresolved; all image contents matching does not establish timing fidelity.",
+    "Full fad89dc routes predate this renderer change."
+  ]
+}

@@ -231,3 +231,36 @@ Chrome and WebKit audit of `fad89dc` is running in
 The added four-actor regression and all 338 core tests pass; core Clippy with
 all targets passes (`assets/logs/restored-actor-order*.log`). These additions
 change tests only; the native and production browser builds remain `fad89dc`.
+
+
+## Longer software-backend reference capture
+
+The read-only LLDB probe now also supports SurfaceSDL palettes, validating
+SDL_Color stride and RGB field offsets before reading. A completed 1,000-frame
+capture from the unmodified pinned binary covers Psygnosis, TWG, Perfect,
+credits and title. Its first 120 RGB frames equal the earlier OpenGL capture.
+The new capture includes 1,103 ordered scheduling/animation events. Earlier
+failed backend starts and an overly broad debugger breakpoint are retained;
+headless launch reliability is not established.
+
+This exposed a font palette defect: all 191 differing pixels at title frame
+420 are the prompt's foreground color. Reference Background::SetBackPal always
+calls Font::FettleFontPal; Rust used the background palette for fonts only
+after SETPALETTE. Establishing the background palette on every rendered frame
+fixes that fallback. The full-frame reference hash regression fails before the
+change and passes afterward, including save/reload.
+
+All 1,000 reference images now have exact RGB matches, up from 806. There are
+still 351 scene-aligned mismatches, frames 650–1000 in the second credits visit;
+every one matches Rust one tick later. Scene visit boundaries retain their
+consistent one-cycle reference/Rust offset. Scroll process scheduling is a
+candidate to investigate, not an established cause. See
+[reference-software-frames.json](validation/reference-software-frames.json).
+
+Palette correction validation: workspace (340 core tests), all 23 local-asset
+integration checks, Clippy, WASM checking and native/tools/browser builds pass.
+Browser UI completed with 42 passes and two old menu-image fixture mismatches.
+The unchanged legacy save was separately rendered by the corrected native
+engine; Chrome and WebKit both pass exact-pixel/export checks against that
+new expectation. Historical save/image fixtures remain untouched. These are
+42 initial passes plus two rechecks, not one clean 44-case run.

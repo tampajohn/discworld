@@ -3,6 +3,7 @@
 No expressions invoke target code. The launcher owns process startup/termination.
 Environment: DISCWORLD_REFERENCE_FRAMES (new output directory),
 DISCWORLD_REFERENCE_FRAME_LIMIT (positive frame count, default 400).
+DISCWORLD_REFERENCE_BACKEND (opengl or surfacesdl, default opengl).
 """
 import hashlib
 import json
@@ -13,7 +14,9 @@ import lldb
 
 OUTPUT = Path(os.environ['DISCWORLD_REFERENCE_FRAMES'])
 LIMIT = int(os.environ.get('DISCWORLD_REFERENCE_FRAME_LIMIT', '400'))
+BACKEND = os.environ.get("DISCWORLD_REFERENCE_BACKEND", "opengl")
 PALETTE_ADDRESS = None
+PALETTE_STRIDE = 3
 RECORDS = []
 FAILURES = []
 CYCLES = 0
@@ -96,11 +99,22 @@ def step(frame, location, dictionary):
 
 
 def palette(frame, location, dictionary):
-    global PALETTE_ADDRESS
+    global PALETTE_ADDRESS, PALETTE_STRIDE
     try:
         obj = frame.FindVariable('this').Dereference()
-        array = obj.GetChildMemberWithName('_gamePalette')
-        PALETTE_ADDRESS = array.GetLoadAddress()
+        if BACKEND == 'surfacesdl':
+            array = obj.GetChildMemberWithName('_currentPalette')
+            PALETTE_ADDRESS = unsigned(array)
+            element = array.GetType().GetPointeeType()
+            fields = {element.GetFieldAtIndex(i).GetName():
+                      element.GetFieldAtIndex(i).GetOffsetInBytes()
+                      for i in range(element.GetNumberOfFields())}
+            PALETTE_STRIDE = element.GetByteSize()
+            if PALETTE_STRIDE != 4 or any(fields.get(c) != i for i, c in enumerate('rgb')):
+                raise RuntimeError('unexpected SDL palette layout')
+        else:
+            array = obj.GetChildMemberWithName('_gamePalette')
+            PALETTE_ADDRESS = array.GetLoadAddress()
         if PALETTE_ADDRESS == lldb.LLDB_INVALID_ADDRESS:
             raise RuntimeError('palette member unavailable')
         return False
@@ -126,7 +140,8 @@ def capture(frame, location, dictionary):
         process = frame.GetThread().GetProcess()
         padded = read(process, pixels, pitch * height)
         indices = b''.join(padded[y*pitch:y*pitch+width] for y in range(height))
-        colors = read(process, PALETTE_ADDRESS, 768)
+        packed = read(process, PALETTE_ADDRESS, 256 * PALETTE_STRIDE)
+        colors = b''.join(packed[i:i+3] for i in range(0, len(packed), PALETTE_STRIDE))
         rgb = b''.join(colors[index*3:index*3+3] for index in indices)
         scene = target.FindFirstGlobalVariable('Tinsel::g_SceneHandle')
         if not scene.IsValid():
@@ -146,7 +161,7 @@ def capture(frame, location, dictionary):
 
 
 def finish(debugger):
-    report = {'frames': RECORDS, 'animations': ANIMATIONS, 'steps': STEPS, 'events': EVENTS, 'errors': FAILURES, 'limit': LIMIT,
+    report = {'frames': RECORDS, 'animations': ANIMATIONS, 'steps': STEPS, 'events': EVENTS, 'errors': FAILURES, 'limit': LIMIT, 'graphics_backend': BACKEND,
               'complete': len(RECORDS) == LIMIT and not FAILURES,
               'scope': 'Read-only LLDB capture at DrawBackgnd before updateScreen; frame ordinals are not engine ticks. Debugger pauses alter wall-clock timing. Input determinism is not established.'}
     (OUTPUT / 'capture.json').write_text(json.dumps(report, indent=2) + '\n')
@@ -156,9 +171,13 @@ def finish(debugger):
 def __lldb_init_module(debugger, dictionary):
     if not 1 <= LIMIT <= 1000:
         raise ValueError('frame limit must be between 1 and 1000')
+    if BACKEND not in ('opengl', 'surfacesdl'):
+        raise ValueError('unsupported reference graphics backend')
     OUTPUT.mkdir()
     target = debugger.GetSelectedTarget()
-    pal = target.BreakpointCreateByName('OpenGLGraphicsManager::setPalette')
+    pal = target.BreakpointCreateByName(
+        'SurfaceSdlGraphicsManager::setPalette' if BACKEND == 'surfacesdl'
+        else 'OpenGLGraphicsManager::setPalette')
     draw = target.BreakpointCreateByLocation('background.cpp', 288)
     tick = target.BreakpointCreateByName('Tinsel::TinselEngine::NextGameCycle')
     anim = target.BreakpointCreateByName('Tinsel::InitStepAnimScript')
