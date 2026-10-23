@@ -61,12 +61,12 @@ missing hover geometry for non-moving actors in blocking PLAY. Current validatio
 356 core tests, 25 original-asset tests, Clippy, WASM and rebuilt hosts pass. See
 [blocking-actor-hover.json](validation/blocking-actor-hover.json).
 
-The frozen cdd5b02 native/Chrome/WebKit full-route audits completed 2,630,000
+The frozen 61b9d73 native/Chrome/WebKit full-route audits completed 2,630,000
 ticks, accepted all 1,652 inputs, restarted and returned to title.scn. Final core
 bytes and RGBA match exactly; native completed 5,048 engine and 5,048 DSP save
 checks. Browser audio is finite, but DSP saves are not byte-identical across
-platforms. This audit predates the small blocking-PLAY hover lookup fix above.
-See [world-hover-route.json](validation/world-hover-route.json). Remaining:
+platforms. This audit includes the blocking-PLAY hover fix and cursor trails.
+See [cursor-trails-route.json](validation/cursor-trails-route.json). Remaining:
 independent interactive hover/reference comparison, updated visible session,
 physical iPad acceptance, Finder application delivery and broader fidelity gates.
 Current development packages are refreshed at 61b9d73 with original cursor
@@ -77,7 +77,7 @@ The integrated 72-frame controlled reference comparison matches 58 images
 exactly (54 at the same capture cycle); remaining animation-phase differences
 are unresolved. All 44 browser UI cases are covered across the full run and
 corrected drag-test rerun. Frozen native/Chrome/WebKit full-route audits on this
-runtime are running; see [cursor-trails-runtime.json](validation/cursor-trails-runtime.json).
+runtime pass; see [cursor-trails-runtime.json](validation/cursor-trails-runtime.json).
 No visible native process was running at the last process check; a current
 manual session still needs to be launched and verified advancing.
 

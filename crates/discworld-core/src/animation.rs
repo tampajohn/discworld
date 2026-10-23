@@ -139,6 +139,11 @@ impl Animation {
         }
         Err(Error("animation skip instruction budget exhausted"))
     }
+    #[cfg(test)]
+    pub(crate) fn diagnostic_clock(&self) -> (u32, usize, u32, u32) {
+        (self.script.0, self.index, self.period, self.remaining)
+    }
+
     pub(crate) fn uses_script(&self, script: Handle) -> bool {
         self.script == script
     }

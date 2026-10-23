@@ -58,12 +58,12 @@
   "save_checks": "Legacy load initially exports v24 without advancing. All four extracted-browser scenarios export v25 after advancing at least 12 ticks. No page errors.",
   "limitations": [
     "Native remains a CLI development archive, not a Finder app.",
-    "Full-route audits on this runtime are still running.",
     "No current visible native session verification or physical iPad/audio listening acceptance."
   ],
   "logs": [
     "assets/logs/package-61b9d73-native.log",
     "assets/logs/package-61b9d73-native-load.log",
     "assets/logs/package-61b9d73-smoke.log"
-  ]
+  ],
+  "full_route_report": "cursor-trails-route.json"
 }

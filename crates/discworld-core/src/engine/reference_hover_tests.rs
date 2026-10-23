@@ -36,15 +36,22 @@ fn capture_original_debug_room_hover() {
         [149, 60],
         [10, 10],
     ];
+    let direct_entry = std::env::var_os("DISCWORLD_HOVER_DIRECT_ENTRY").is_some();
     let mut start = None;
     let mut rows = Vec::new();
+    let mut clocks = Vec::new();
     engine.scene_calls = Some(Default::default());
     for _ in 0..4000 {
         // The reference requests its debugger scene change before cycle 450.
-        // Here the same original scene/entrance is dispatched before tick 450.
+        // Queue the same scene/entrance; optional direct entry isolates the
+        // earlier harness dispatch difference.
         if engine.ticks == 449 {
             engine.end_intro();
-            engine.enter_scene(&resources, room, Some(1), 1).unwrap();
+            if !direct_entry {
+                engine.pending_scene = Some((room, 1, 1, None));
+            } else {
+                engine.enter_scene(&resources, room, Some(1), 1).unwrap();
+            }
         }
         if engine.ticks > 449
             && engine.scene == room
@@ -66,6 +73,17 @@ fn capture_original_debug_room_hover() {
                     .unwrap();
                 engine.move_cursor(position);
             }
+        }
+        if engine.ticks >= 449 {
+            let states: Vec<_> = engine.snapshot_animations().map(|a| {
+                let (script, index, period, remaining) = a.diagnostic_clock();
+                format!("{{\"script\":{script},\"index\":{index},\"period\":{period},\"remaining\":{remaining},\"frame\":{},\"position\":[{},{}]}}", a.frame.0, a.object.x, a.object.y)
+            }).collect();
+            clocks.push(format!(
+                "{{\"before_tick\":{},\"animations\":[{}]}}",
+                engine.ticks + 1,
+                states.join(",")
+            ));
         }
         let status = engine
             .tick_content(&resources, Some(&bank), Some(&tracks), Some(&strings))
@@ -231,6 +249,16 @@ fn capture_original_debug_room_hover() {
         }
     }
     assert_eq!(rows.len(), 72, "room did not reach active tags");
+    std::fs::write(
+        directory.join("entry-mode.json"),
+        format!("{{\"direct_entry\":{direct_entry}}}\n"),
+    )
+    .unwrap();
+    std::fs::write(
+        directory.join("animation-clocks.json"),
+        format!("[{}]\n", clocks.join(",")),
+    )
+    .unwrap();
     std::fs::write(directory.join("capture.json"), format!("{{\"scope\":\"Integrated runtime output; controlled original scene entry and immediate cursor movement, not ordinary host-input replay\",\"hover_start_tick\":{},\"frames\":[{}]}}\n", start.unwrap(), rows.join(","))).unwrap();
     println!(
         "Captured 72 hover frames beginning at tick {}",

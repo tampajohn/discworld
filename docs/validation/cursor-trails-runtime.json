@@ -39,23 +39,18 @@
     ]
   },
   "remaining": [
-    "Complete frozen native/browser full-route audits and compare final engine bytes and pixels.",
     "Verify current visible manual session.",
     "Resolve remaining reference animation timing; physical iPad and broader compatibility acceptance remain open."
   ],
   "full_route": {
-    "status": "running",
+    "status": "passed",
+    "report": "docs/validation/cursor-trails-route.json",
     "runtime_revision": "61b9d73",
     "root": "assets/validation/cursor-trails-61b9d73",
-    "frozen_files_verified": true,
-    "native_pid": 59457,
-    "chrome_pid": 60138,
-    "webkit_pid": 60139,
-    "http": {
-      "pid": 60119,
-      "port": 65010,
-      "directory": "/Users/jadams/workspace/discworld/assets/validation/cursor-trails-61b9d73/web"
-    },
-    "scope": "Native and actual Chrome/WebKit workers run unchanged 2630000-tick input trace. Completion and cross-host comparison pending."
+    "ticks": 2630000,
+    "all_inputs_accepted": 1652,
+    "engine_and_rgba_equal": true,
+    "combined_audio_save_equal": false,
+    "http_server": "terminated after comparisons"
   }
 }

@@ -120,6 +120,31 @@ def print_tag(frame, location, dictionary):
         return True
 
 
+def animation_init(frame, location, dictionary):
+    if frames.CYCLES < 450:
+        return False
+    return frames.animation(frame, location, dictionary)
+
+
+def animation_step(frame, location, dictionary):
+    if START is None:
+        return False
+    try:
+        state = frame.FindVariable('pAnim').Dereference()
+        frames.EVENTS.append({
+            'kind': 'animation_step', 'cycle': frames.CYCLES,
+            'address': state.GetLoadAddress(),
+            'script': frames.unsigned(state.GetChildMemberWithName('hScript')),
+            'index': frames.unsigned(state.GetChildMemberWithName('scriptIndex')),
+            'period': frames.unsigned(state.GetChildMemberWithName('aniRate')),
+            'remaining': frames.unsigned(state.GetChildMemberWithName('aniDelta')),
+        })
+        return False
+    except Exception as error:
+        frames.FAILURES.append(str(error))
+        return True
+
+
 def finish(debugger):
     frames.finish(debugger)
     path = frames.OUTPUT / 'capture.json'
@@ -139,6 +164,8 @@ def __lldb_init_module(debugger, dictionary):
         (target.BreakpointCreateByLocation('background.cpp', 288), __name__ + '.capture'),
         (target.BreakpointCreateByName('Tinsel::TinselEngine::NextGameCycle'), __name__ + '.cycle'),
         (target.BreakpointCreateByName('Tinsel::PrintTag'), __name__ + '.print_tag'),
+        (target.BreakpointCreateByName('Tinsel::StepAnimScript'), __name__ + '.animation_step'),
+        (target.BreakpointCreateByName('Tinsel::InitStepAnimScript'), __name__ + '.animation_init'),
     ]
     for bp, callback in points:
         if bp.GetNumLocations() != 1:

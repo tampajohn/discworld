@@ -1,0 +1,108 @@
+{
+  "runtime_revision": "61b9d73",
+  "scope": "Unchanged original-input full route with cursor trails, engine/audio save audits and frozen browser workers. Not independent original-engine full-game equivalence or manual iPad acceptance.",
+  "ticks": 2630000,
+  "scene": "title.scn",
+  "status": "Running",
+  "has_restarted": true,
+  "accepted_inputs": 1652,
+  "native_engine_snapshot_checks": 5048,
+  "native_audio_snapshot_checks": 5048,
+  "comparisons": {
+    "chrome": {
+      "ticks": 2630000,
+      "ticks_equal": true,
+      "native_status": "Running",
+      "scene": "title.scn",
+      "scene_equal": true,
+      "has_restarted": true,
+      "restart_equal": true,
+      "accepted_inputs": 1652,
+      "native_inputs": 1652,
+      "native_inputs_accepted": true,
+      "engine_bytes_equal": true,
+      "rgba_equal": true,
+      "combined_save_equal": false,
+      "core_sha256": "828ce67dc12956e2729bba8f76de25dfa8739e731ba891170bd23abd274d1427",
+      "audio_scope": "WASM checked for finite samples; cross-platform audio equality not established"
+    },
+    "webkit": {
+      "ticks": 2630000,
+      "ticks_equal": true,
+      "native_status": "Running",
+      "scene": "title.scn",
+      "scene_equal": true,
+      "has_restarted": true,
+      "restart_equal": true,
+      "accepted_inputs": 1652,
+      "native_inputs": 1652,
+      "native_inputs_accepted": true,
+      "engine_bytes_equal": true,
+      "rgba_equal": true,
+      "combined_save_equal": false,
+      "core_sha256": "828ce67dc12956e2729bba8f76de25dfa8739e731ba891170bd23abd274d1427",
+      "audio_scope": "WASM checked for finite samples; cross-platform audio equality not established"
+    }
+  },
+  "browsers": {
+    "chrome": {
+      "browser_version": "156.0.8078.47",
+      "audio_samples": 4832625000,
+      "nonfinite_audio_samples": 0,
+      "elapsed_seconds": 582.258099999994,
+      "rgba_sha256": "a550cf7a6115492595cf4dd6dfa97c05a3033d6b42cd96c2cd5fcce7fb6176d4",
+      "core_sha256": "828ce67dc12956e2729bba8f76de25dfa8739e731ba891170bd23abd274d1427"
+    },
+    "webkit": {
+      "browser_version": "27.2",
+      "audio_samples": 4832625000,
+      "nonfinite_audio_samples": 0,
+      "elapsed_seconds": 599.406,
+      "rgba_sha256": "a550cf7a6115492595cf4dd6dfa97c05a3033d6b42cd96c2cd5fcce7fb6176d4",
+      "core_sha256": "828ce67dc12956e2729bba8f76de25dfa8739e731ba891170bd23abd274d1427"
+    }
+  },
+  "frozen_build": {
+    "runtime_revision": "61b9d73",
+    "served_files": {
+      "clock.js": "6c4ba606d676bf282d430968f77fdc4c026597ee2ce5c29c86f9b5fea00338b7",
+      "index.html": "3145fb0745f0cf73eee3de7fa2d49765b67fc1085db14573f38e9371e2178b49",
+      "worker.js": "cd0ac16cacb52124adb7533f3268241403feac437d28b11bc24905633ab67a5d",
+      "name-input.js": "f914a6b4445a24d942d5585add1c549cba318e00bc2538110d040599130a44a3",
+      "audio.js": "2a3cf2272be431ee876e47af99a26e9b7356f9b3faca61810a443299894d07c0",
+      "player.css": "8f4e4c9f1a0389b5c8d6be4b10de90ef3f43ba3e82f85c80f396cbc535aabd9f",
+      "player.js": "489954f3ff9dee8cf724a7248f8b97133ff5fccaa4a586683c4fcb6b747b1709",
+      "storage.js": "3708fd97c01a15f8f33e6f52ab9d811cb0cce602661b80e6a11ad0cee17472d4",
+      "tests/replay-worker.js": "2f5109458e6d2efc656c693177556bb6bbe46a6185f80cd5e8efc8da22385511",
+      "replay-pkg/discworld_web_bg.wasm": "8aa5b1292383f501db931113ea64250a0d9f39508aa1c53d35c13b43087a1fc0",
+      "replay-pkg/discworld_web.d.ts": "e9d3285875101b1cdca8523d123317d7e5f72a75a83ef5b153ffb79bf205fb0e",
+      "replay-pkg/discworld_web_bg.wasm.d.ts": "bb34725a60b0a7be3235d0d8081f2ad42060d400480e61950d226043476a503f",
+      "replay-pkg/discworld_web.js": "a66c421de228b557555dd99836f3a221490b45d3420aedfe09fb1d3ae7da1b96",
+      "pkg/discworld_web_bg.wasm": "70331712abec38f414334637c628c968c2bd54aea0a0c293898d1632249e593f",
+      "pkg/discworld_web.d.ts": "ca69de481792c0e0b32c8d02ecc96737b9fb9bbc337dc580ce192ace3601e9a2",
+      "pkg/discworld_web_bg.wasm.d.ts": "5592130a7b83fd7816f308ca18c4c627eaaa034078c83910da0d6008ab4c963b",
+      "pkg/discworld_web.js": "2fe95e25859afce2d3ea43b4b1a0e721b5333b2e41f4dbe88717682f93f295c2"
+    },
+    "scope": "Frozen production and replay WASM including integrated cursor trails"
+  },
+  "native_binary_sha256": "82a76860aa2843d5bcc0d4db3f487322c467880cf6ed04e252a8c90d64a1a822",
+  "trace_sha256": "30c227553695638a78495f4cf56731f841e89188c8faa75821e50c164ddf4ddb",
+  "artifacts": {
+    "assets/validation/cursor-trails-61b9d73/report.json": "fd8a0a5923a43505d8ba83853f4eedc400f592602f49c039e589c96d7b9fa45d",
+    "assets/validation/cursor-trails-61b9d73/final.dws": "3c7a1f7d6dafc0c1ea25521dc349c98fabd46fad43d42da101a2b3129478ae02",
+    "assets/validation/cursor-trails-61b9d73/final.png": "d447e78212245c97d78b24d8051494248773699e56288dc67479cdc23a2fb426",
+    "assets/validation/cursor-trails-61b9d73/chrome-compare.json": "1e35e1621e32f672395c93cc04524fa96e33aa5fbde2b98ac7ae2d747e076340",
+    "assets/validation/cursor-trails-61b9d73/webkit-compare.json": "1e35e1621e32f672395c93cc04524fa96e33aa5fbde2b98ac7ae2d747e076340"
+  },
+  "verification": [
+    "All three processes completed exit0.",
+    "Frozen native binary and17 served files checked unchanged after completion.",
+    "Native final title PNG visually inspected.",
+    "Owned HTTP server terminated after comparisons."
+  ],
+  "remaining": [
+    "Independent full-game behavioral/reference coverage beyond controlled probes.",
+    "Resolve mover/reel animation phase differences measured in the controlled room capture.",
+    "Visible native-session acceptance, Finder application delivery, physical iPad landscape acceptance and broader audio fidelity."
+  ]
+}

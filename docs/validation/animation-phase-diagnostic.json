@@ -1,0 +1,49 @@
+{
+  "runtime_revision": "61b9d73 (diagnostic-only changes afterward)",
+  "reference_revision": "96b42d42bc8533953bdd701db059cc33c839a9ff",
+  "scope": "Controlled original debugger scene dispatch and cursor calls. Rust before-tick animation snapshots versus reference StepAnimScript entry. These observations locate phase differences; no timing fix applied.",
+  "artifacts": {
+    "assets/validation/reference-hover-attempt8/frames/capture.json": "8041df857b3de08b8f6dd721ca17f221baa2abe24df5a6d2d44dca869511f125",
+    "assets/validation/cursor-clocks1/animation-clocks.json": "1188b30c0af41a8b87b48f1ab2866cbe0fb1525f750f6b48089c157617d17731",
+    "assets/validation/cursor-clock-comparison1.json": "3a2bf744494d3b97f8eb88564bbbee07a4566a873add99b7a861740c894b4903"
+  },
+  "reference_frames": 72,
+  "reference_animation_step_events": 814,
+  "reference_errors": [],
+  "observations": [
+    "Background script151333548 and main cursor374236 clocks agree at all72 same-cycle comparisons.",
+    "All five trail scripts agree at the same cycle whenever present (28,16,16,16,16 comparisons).",
+    "Mover script349552 has zero same-cycle clock matches; all71 overlapping comparisons match Rust at reference cycle+1. Rust is one clock step behind for this sequence.",
+    "Changing scene scripts151329632 and151328420 have zero same-cycle clock matches; all71 overlapping comparisons match Rust at reference cycle-1. Rust is one clock step ahead for these sequences.",
+    "Some static repeating reels match either +1 or -1; those clocks alone cannot identify direction.",
+    "Different script-specific offsets disprove a single global frame offset as a complete explanation."
+  ],
+  "initialization_probe": {
+    "attempt9": "Terminal original-reference SDL_BlitSurface failure during graphics startup; zero frames, complete=false. Not accepted as validation.",
+    "attempt10": "Same terminal SDL_BlitSurface startup failure; zero frames, rejected.",
+    "attempt11": {
+      "status": "complete",
+      "frames": 72,
+      "errors": [],
+      "entry_events": 29,
+      "configuration": "Original binary, normal scaler, factor1, no aspect correction.",
+      "frame_hashes_equal_attempt8": true,
+      "capture_sha256": "89714272743fe48a16065fd85c33d0a0bfaeeee76d9bb11ab8fae0e79f59465b"
+    }
+  },
+  "checks": [
+    "Original-asset Rust diagnostic passes and produces72 frames plus pre-tick animation-clock snapshots.",
+    "Core all-target Clippy passes.",
+    "Default queued-entry original-asset capture and final core Clippy pass."
+  ],
+  "next_steps": [
+    "Trace mover resets around original cycles1113\u20131125 and reel first-step dispatch; account for queued entry and observation point before applying a production timing correction."
+  ],
+  "harness_entry_check": {
+    "finding": "Earlier Rust diagnostic entered room directly before tick450; original InitStepAnimScript calls begin at cycle451. Revised diagnostic queues the original scene transition by default. DISCWORLD_HOVER_DIRECT_ENTRY retains the old comparison mode.",
+    "queued_result": "Hover becomes active at Rust tick1257 rather than1256. Relative-to-capture-start results remain58/72 exact-content and54/72 same-offset matches; simply queueing scene entry does not remove the residual differences.",
+    "scope": "Initialization cycles and before-tick state are different observation points. Do not infer a production scheduling correction solely from their numeric offset.",
+    "final_capture": "assets/validation/cursor-clocks-queued2",
+    "comparison": "assets/validation/cursor-clocks-queued-compare2.json"
+  }
+}
