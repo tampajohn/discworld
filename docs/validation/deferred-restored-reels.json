@@ -1,0 +1,35 @@
+{
+  "schema": 1,
+  "baseline_revision": "1545f7ffb1ae3bb0955076f18b28d49c6369e878",
+  "change": "Queue restored actor columns until scheduler dispatch after mover reconstruction; persist pending restored tasks in v22.",
+  "reference": "Pinned ScummVM savescn.cpp sortActors and play.cpp RestoreActorReels/t1PlayReel",
+  "files": {
+    "crates/discworld-core/src/engine.rs": "30558a330ec76f7c8852219ba018935958b4a01d8ffed746e4b2e433d96bc51e",
+    "crates/discworld-core/src/save.rs": "ad597689f23c3505ad243b87c240d66e2127515f903981c366b757eab8dd59d4",
+    "target/release/discworld-native": "6f6451788e929400b7e2d9ad4f8886afbdaefbe17cce58b5d41c52ec08b94ae1",
+    "target/release/discworld-tools": "d7fe4ded9424a6253bfb4795b8f3d608b7c70fe0b1855a0ddef312b59c6622e4",
+    "web/pkg/discworld_web_bg.wasm": "e58606bf65f94882166280562db4d1e7e597f3780c0dd41e23a506a4559b89f5"
+  },
+  "validation": {
+    "core_tests": 337,
+    "original_asset_tests": 20,
+    "workspace": "passed",
+    "clippy_all_targets": "passed",
+    "wasm_check": "passed",
+    "native_tools_release": "passed",
+    "browser_release": "passed"
+  },
+  "logs": [
+    "assets/logs/deferred-restore-workspace.log",
+    "assets/logs/deferred-restore-clippy.log",
+    "assets/logs/deferred-restore-wasm.log",
+    "assets/logs/deferred-restore-assets.log",
+    "assets/logs/deferred-restore-build.log",
+    "assets/logs/deferred-restore-web-build.log"
+  ],
+  "scope": [
+    "Synthetic restored-column and original-asset integration regressions; not a new full-route audit.",
+    "Existing 85b728a browser route completions predate this change.",
+    "Multiple restored actors, live-reference restore ordering, signed-short saved field semantics, physical iPad and visible-session acceptance remain outstanding."
+  ]
+}

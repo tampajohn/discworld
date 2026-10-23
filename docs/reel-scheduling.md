@@ -146,10 +146,13 @@ their moving actor. The order of queued restored columns also follows scheduler
 insertion, rather than the order in which an eager reconstruction loop appends
 drawable objects.
 
-The current `rebuild_scene_objects` calls the synchronous `restore_actor_reel`
-before `restore_scene_movers`. This can initialize/hide a mover before the mover
-map is replaced. Moving restored reels into queued jobs must defer those side
-effects until after mover restoration, not just defer their first frame.
+The previous `rebuild_scene_objects` called synchronous `restore_actor_reel`
+before `restore_scene_movers`, allowing initialization/hiding to be overwritten
+when the mover map was replaced. Restored columns now enqueue native jobs.
+Placement, ownership, mover creation/hiding and the first animation step occur
+at dispatch, after saved movers have been installed. Scheduling validates the
+requested column and actor without constructing its animation. Duplicate and
+dead-actor rejection occurs at dispatch, as for ordinary PLAY.
 
 There is a second integration requirement: the reference
 `DoRestoreSceneFrame` reconstructs objects at `RS_COUNT` and calls
@@ -166,9 +169,9 @@ resetting the process identity counter and accidentally reusing departed IDs.
 The regression retains four active reel jobs with sleep 3 and two pending
 duplicate jobs with sleep 1 across interpreter restoration. It checks identities,
 ordering, waits, unchanged state on invalid restoration, and exact version-21
-save/load continuation through wakeup. Moving `restore_actor_reel` itself to a
-deferred request remains outstanding; this change establishes the queue
-preservation that integration requires, including for atomic `rebuild_scene`.
+save/load continuation through wakeup. That queue preservation also retains
+pending restored columns during atomic `rebuild_scene`. Pending restored jobs
+use the version-22 extension; once dispatched they become ordinary active jobs.
 
 Validation: 337 core tests, all 20 original-asset checks, Clippy, WASM checking
 and native/tools/browser release builds pass. See
@@ -181,11 +184,13 @@ zero uses normal dispatch-time depth calculation (`t1PlayReel`, lines 541–596)
 Reusing PLAY's default request and overwriting Z after its ordinary startup
 would incorrectly alter that shared state.
 
-Required targeted cases include a restored film on an already restored mover,
-multiple saved actors, saved explicit and zero depths, dead actors, duplicate
-requests, pending save/reload before the reel runs, and the later interpreter
-resume retaining the live reel job. These are source-derived requirements;
-the current startup comparison and recorded-route runs do not establish them.
+Targeted regressions now check a restored film on an already restored mover,
+explicit and zero depths, dead actors, duplicate requests, pending save/reload,
+and interpreter resume preserving the pending job. They check that explicit
+depth leaves shared column depth unchanged and that an unreadable unrelated
+column is never initialized. Multi-actor reconstruction ordering still needs
+a dedicated restored-column case and live-reference comparison. The recorded
+route at `85b728a` predates this restoration change.
 
 ## Additional trace instrumentation
 
@@ -203,3 +208,11 @@ uniquely, but no new runtime ordering evidence is claimed. The log includes
 of the startup stall is not established. The launcher exited on timeout and
 its remaining owned reference process was explicitly terminated. The earlier
 completed first-step capture remains the live-reference timing evidence.
+
+Deferred restoration validation: workspace tests (337 core), all 20 original-asset
+checks, Clippy, WASM checking and native/tools/browser builds pass. See
+[deferred-restored-reels.json](validation/deferred-restored-reels.json).
+The earlier frozen Chrome and WebKit full routes both completed at 2,630,000
+ticks with identical final engine bytes and RGBA;
+[reel-dispatch-browsers.json](validation/reel-dispatch-browsers.json) records
+their narrower scope.

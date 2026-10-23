@@ -1,0 +1,51 @@
+{
+  "schema": 1,
+  "runtime_revision": "85b728a4a58009ed941d216bbdf76521fe27360a",
+  "browsers": {
+    "chrome": {
+      "browser": "chrome",
+      "browser_version": "156.0.8078.47",
+      "ticks": 2630000,
+      "scene": "title.scn",
+      "has_restarted": true,
+      "accepted_inputs": 1652,
+      "input_count": 1652,
+      "audio_samples": 4832625000,
+      "nonfinite_audio_samples": 0,
+      "elapsed_seconds": 2118.529899999991,
+      "scene_history_scope": "scene sampled after batches of up to 24 ticks; intermediate scenes may be omitted",
+      "rgba_sha256": "8833cac8d0cc20ebbfa5e7158676914ad7d9a82222812a3a91568cbb5a6e8978",
+      "core_sha256": "4d75b536cdacaa1069778c07872c960255e3a44b29d598ec12c5a1233e538f13",
+      "scope": "accelerated browser worker runtime; audio generated but not sent through Web Audio"
+    },
+    "webkit": {
+      "browser": "webkit",
+      "browser_version": "27.2",
+      "ticks": 2630000,
+      "scene": "title.scn",
+      "has_restarted": true,
+      "accepted_inputs": 1652,
+      "input_count": 1652,
+      "audio_samples": 4832625000,
+      "nonfinite_audio_samples": 0,
+      "elapsed_seconds": 2168.576,
+      "scene_history_scope": "scene sampled after batches of up to 24 ticks; intermediate scenes may be omitted",
+      "rgba_sha256": "8833cac8d0cc20ebbfa5e7158676914ad7d9a82222812a3a91568cbb5a6e8978",
+      "core_sha256": "4d75b536cdacaa1069778c07872c960255e3a44b29d598ec12c5a1233e538f13",
+      "scope": "accelerated browser worker runtime; audio generated but not sent through Web Audio"
+    }
+  },
+  "final_core_bytes_equal": true,
+  "final_rgba_equal": true,
+  "frozen_host_hashes_verified": 17,
+  "source_reports": {
+    "assets/validation/reel-dispatch-85b728a/chrome/report.json": "b362bfec47a93dec181a8164db73af4a0ede1540b726c2257f520c254b2daa8f",
+    "assets/validation/reel-dispatch-85b728a/webkit/report.json": "ccf0db0c6913a5a61565d288ccd832bf112a9cea766e4bec8ebcd48a2131e60d"
+  },
+  "scope": [
+    "Accelerated browser worker runs; no device audio or manual UI/physical iPad acceptance.",
+    "Native audit still running; no native equivalence claimed yet.",
+    "Predates interpreter queue preservation and deferred restored-column changes."
+  ],
+  "final_image_inspected": "Chrome browser-final.png displays Discworld title screen."
+}

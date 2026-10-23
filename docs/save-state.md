@@ -590,3 +590,22 @@ newly scheduled films use the shared queue. Exact pending/active continuation,
 WAITFRAME ordering, pending Escape, multi-column order, malformed associations
 and extreme depth values have regression coverage. The complete-game reference
 and scene-reconstruction scheduling audit remain separate acceptance work.
+
+
+## Version 22: pending restored columns
+
+A snapshot with a queued restored actor column uses version 22. It retains the
+version-21 wrapper shape (inner v1–v20 snapshot, ordered task associations, shared
+depth), adding the `Restored` task variant after the existing Pending and Active
+variants. A restored request contains the expected actor and its film, column,
+position and explicit depth. Zero depth requests ordinary dispatch-time depth
+calculation; nonzero depth leaves shared first-column depth/factor unchanged.
+
+Version 21 rejects restored requests, and version 22 requires at least one.
+Neither permits nested task wrappers. Structural checks validate actor existence
+and column bounds; resource verification also checks the column's actor identity
+and script address. Once all restored requests dispatch, snapshots use version
+21 or the appropriate older encoding again. Existing version-21 bytes retain
+their interpretation. A regression saves before dispatch, checks exact re-encoding
+and resource validation, rejects a mislabeled version-21 header, and compares
+exact engine state after both copies dispatch the restored animation.

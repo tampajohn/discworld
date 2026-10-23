@@ -169,6 +169,10 @@ pub(crate) struct ReelRequest {
 pub(crate) enum ReelTask {
     Pending(ReelRequest),
     Active(u64),
+    Restored {
+        actor: i32,
+        source: crate::animation::ReelSource,
+    },
 }
 
 #[derive(serde::Serialize, serde::Deserialize, Debug, Clone, PartialEq, Eq)]
@@ -585,6 +589,12 @@ impl Engine {
                             return Err(Error("invalid pending reel task"));
                         }
                     }
+                    ReelTask::Restored { actor, source } => {
+                        self.actors.get(*actor as u32)?;
+                        if source.film.0 == 0 || source.column >= 4096 {
+                            return Err(Error("invalid restored reel task"));
+                        }
+                    }
                     ReelTask::Active(playback) => {
                         if *playback == 0
                             || *playback > self.next_playback
@@ -911,6 +921,9 @@ impl Engine {
                         .ok_or(Error("pending reel outside film"))?;
                     crate::film::Object::read(resources, reel.object)?;
                     resources.resolve(reel.script, 4)?;
+                }
+                if let ReelTask::Restored { actor, source } = task {
+                    Self::validate_restored_reel(resources, *actor, source)?;
                 }
                 continue;
             }
@@ -1320,55 +1333,45 @@ impl Engine {
         sources
     }
 
-    /// Rebuild one V1 saved actor column from its beginning. Scene restoration
-    /// must establish the actor's life state before calling this operation.
-    pub fn restore_actor_reel(
-        &mut self,
+    fn validate_restored_reel(
         resources: &Resources<'_>,
         actor: i32,
         source: &crate::animation::ReelSource,
-    ) -> Result<bool, Error> {
+    ) -> Result<(), Error> {
         let film = Film::read(resources, source.film)?;
         let definition = film
             .reels
             .get(source.column)
             .ok_or(Error("saved reel column outside film"))?;
-        let mut reel = Animation::new(resources, definition, 24 / film.rate as u32)?;
-        if reel.object.id != actor {
+        if crate::film::Object::read(resources, definition.object)?.id != actor {
             return Err(Error("saved reel actor mismatch"));
         }
-        reel.reel = Some(Handle(
-            source
-                .film
-                .0
-                .checked_add(
-                    u32::try_from(8 + source.column * 8)
-                        .map_err(|_| Error("saved reel offset overflow"))?,
-                )
-                .ok_or(Error("saved reel identity overflow"))?,
-        ));
-        self.place_actor_reel(&mut reel, source.column, source.position)?;
-        // Zero is the reference sentinel for recomputing normal film depth.
-        reel.object.z = if source.depth == 0 {
-            self.prepare_actor_film(resources, source.film, source.position)?[source.column]
-                .object
-                .z
-        } else {
-            source.depth
-        };
-        reel.source = Some(crate::animation::ReelSource {
-            depth: reel.object.z,
-            ..source.clone()
-        });
+        resources.resolve(definition.script, 4)?;
+        Ok(())
+    }
+
+    /// Queue one saved actor column. Placement, ownership, mover creation and
+    /// the first animation step occur when the scheduler dispatches this job,
+    /// after scene restoration has installed the saved movers. A queued job
+    /// can still be rejected at dispatch if its actor dies or is superseded.
+    pub fn restore_actor_reel(
+        &mut self,
+        resources: &Resources<'_>,
+        actor: i32,
+        source: &crate::animation::ReelSource,
+    ) -> Result<(), Error> {
+        Self::validate_restored_reel(resources, actor, source)?;
+        self.actors.get(actor as u32)?;
         let mut next = self.clone();
         next.schedule_actor_film(actor, source.film);
-        let started = next.playback.start(actor, source.film) && next.claim_reel(&mut reel)?;
-        if started {
-            next.create_claimed_mover(resources, &reel)?;
-            next.films.push(reel);
-        }
+        let mut process = ScriptProcess::new(Handle(0));
+        process.reel_task = Some(ReelTask::Restored {
+            actor,
+            source: source.clone(),
+        });
+        next.processes.spawn(Some(next.generation), process)?;
         *self = next;
-        Ok(started)
+        Ok(())
     }
 
     fn queue_scene_request(&mut self, request: crate::scene_hook::Request) {
@@ -3573,6 +3576,7 @@ impl Engine {
         }
         Ok(())
     }
+    #[cfg(test)]
     fn set_film_depths(
         &self,
         resources: &Resources<'_>,
@@ -3644,6 +3648,7 @@ impl Engine {
         Ok(stored)
     }
 
+    #[cfg(test)]
     fn prepare_actor_film(
         &self,
         resources: &Resources<'_>,
@@ -3725,6 +3730,7 @@ impl Engine {
         &mut self,
         resources: &Resources<'_>,
         request: &ReelRequest,
+        saved_depth: i32,
     ) -> Result<Option<Animation>, Error> {
         let film = Film::read(resources, request.film)?;
         let definition = film
@@ -3770,29 +3776,35 @@ impl Engine {
             _ => i64::from(mask),
         });
         let [mut base, mut factor] = self.reel_dispatch_depth;
-        if request.top {
-            if request.column == 0 {
-                base = 100 + i64::from(mask);
-            }
-        } else if request.column == 0 {
-            factor = current;
-            let bottom = reel.bounds(resources)?.map(|b| b[3]).unwrap_or(0);
-            base = if mover_factor.is_some() {
-                bottom + ((factor - i64::from(factor != 0)) << 10)
-            } else {
-                match mask {
-                    0 => 2,
-                    -1 => bottom,
-                    -2 => 10000,
-                    _ => (bottom + ((factor - i64::from(factor != 0)) << 10)).max(2),
+        // Explicit restore depth must not change shared column depth.
+        if saved_depth == 0 {
+            if request.top {
+                if request.column == 0 {
+                    base = 100 + i64::from(mask);
                 }
-            };
-        } else if current > factor {
-            factor = current;
-            base = factor << 10;
+            } else if request.column == 0 {
+                factor = current;
+                let bottom = reel.bounds(resources)?.map(|b| b[3]).unwrap_or(0);
+                base = if mover_factor.is_some() {
+                    bottom + ((factor - i64::from(factor != 0)) << 10)
+                } else {
+                    match mask {
+                        0 => 2,
+                        -1 => bottom,
+                        -2 => 10000,
+                        _ => (bottom + ((factor - i64::from(factor != 0)) << 10)).max(2),
+                    }
+                };
+            } else if current > factor {
+                factor = current;
+                base = factor << 10;
+            }
         }
-        reel.object.z = i32::try_from(base + request.column as i64)
-            .map_err(|_| Error("film depth overflow"))?;
+        reel.object.z = if saved_depth != 0 {
+            saved_depth
+        } else {
+            i32::try_from(base + request.column as i64).map_err(|_| Error("film depth overflow"))?
+        };
         reel.status_layer = request.top;
         reel.source = Some(crate::animation::ReelSource {
             film: request.film,
@@ -3819,9 +3831,24 @@ impl Engine {
         resources: &Resources<'_>,
         task: ReelTask,
     ) -> Result<Option<ReelTask>, Error> {
-        let starting = matches!(task, ReelTask::Pending(_));
+        let starting = !matches!(task, ReelTask::Active(_));
         let reel = match task {
-            ReelTask::Pending(request) => self.begin_reel(resources, &request)?,
+            ReelTask::Pending(request) => self.begin_reel(resources, &request, 0)?,
+            ReelTask::Restored { actor, source } => {
+                Self::validate_restored_reel(resources, actor, &source)?;
+                self.begin_reel(
+                    resources,
+                    &ReelRequest {
+                        film: source.film,
+                        column: source.column,
+                        position: source.position,
+                        top: false,
+                        splay: false,
+                        escape: None,
+                    },
+                    source.depth,
+                )?
+            }
             ReelTask::Active(playback) => self
                 .films
                 .iter()
@@ -6498,7 +6525,7 @@ impl Engine {
                     };
                     let primary = self.schedule_film(resources, request, blocking)?;
                     let primary = match primary {
-                        Some(request) => self.begin_reel(resources, &request)?,
+                        Some(request) => self.begin_reel(resources, &request, 0)?,
                         None => None,
                     };
                     if let Some(mut primary) = primary {
@@ -11334,22 +11361,28 @@ mod tests {
         assert_eq!(engine.scroll.boundaries, saved.boundaries);
         assert!(engine.no_blocking && engine.control.enabled);
         assert!(engine.actors.get(1).unwrap().alive);
-        assert_eq!(engine.films.len(), 1);
-        assert_eq!(engine.films[0].steps, 0);
-        assert_eq!(
-            [engine.films[0].object.x, engine.films[0].object.y],
-            [20, 30]
-        );
+        assert!(engine.films.is_empty());
         assert_eq!(engine.background.as_ref().unwrap().steps, 0);
-        assert_eq!(engine.processes.states().count(), 1);
+        assert_eq!(engine.processes.states().count(), 2);
         assert!(
             engine
                 .processes
                 .states()
-                .all(|p| p.restored_context && p.wait.is_none())
+                .all(|p| p.reel_task.is_some() || (p.restored_context && p.wait.is_none()))
         );
         engine.tick(&resources).unwrap();
-        assert!(engine.processes.states().all(|p| p.wait.is_some()));
+        assert_eq!(engine.films.len(), 1);
+        assert_eq!(engine.films[0].steps, 1);
+        assert_eq!(
+            [engine.films[0].object.x, engine.films[0].object.y],
+            [20, 30]
+        );
+        assert!(
+            engine
+                .processes
+                .states()
+                .all(|p| p.reel_task.is_some() || p.wait.is_some())
+        );
     }
 
     #[test]
@@ -11409,6 +11442,47 @@ mod tests {
         assert_eq!(mover.step_phase, 0);
         assert_eq!(engine.actors.get(1).unwrap().position, [50, 70]);
         assert_eq!(engine.capture_scene_movers(), saved);
+        for depth in [0, 4321] {
+            let mut instance = engine.clone();
+            instance.reel_dispatch_depth = [777, 8];
+            instance.movers.clear();
+            let source = crate::animation::ReelSource {
+                film: Handle(base),
+                column: 0,
+                position: [-1, -1],
+                depth,
+            };
+            instance.restore_actor_reel(&resources, 1, &source).unwrap();
+            assert!(instance.movers.is_empty());
+            instance.restore_scene_movers(&resources, &saved).unwrap();
+            assert!(!instance.movers[&1].hidden);
+            let contexts = instance.capture_scene_scripts();
+            let jobs = instance.reel_tasks();
+            instance
+                .restore_scene_scripts(&resources, &contexts)
+                .unwrap();
+            assert_eq!(instance.reel_tasks(), jobs);
+            instance.tick(&resources).unwrap();
+            assert!(
+                instance.movers[&1].hidden,
+                "saved reel hides the restored mover"
+            );
+            assert!(instance.created_reel_movers.is_empty());
+            assert_eq!(
+                [instance.films[0].object.x, instance.films[0].object.y],
+                [50, 70]
+            );
+            if depth != 0 {
+                assert_eq!(instance.films[0].object.z, depth);
+                assert_eq!(instance.reel_dispatch_depth, [777, 8]);
+            } else {
+                assert_eq!(
+                    instance.films[0].object.z as i64,
+                    instance.reel_dispatch_depth[0]
+                );
+                assert_ne!(instance.reel_dispatch_depth, [777, 8]);
+            }
+        }
     }
 
     #[test]
@@ -11504,24 +11578,39 @@ mod tests {
             position: [100, 110],
             depth: 4321,
         };
-        // Column zero is deliberately unreadable; restoring column one must not
-        // initialize it or infer depth from its geometry.
-        assert!(engine.restore_actor_reel(&resources, 2, &source).unwrap());
-        assert_eq!(engine.films.len(), 1);
-        assert_eq!(engine.films[0].steps, 0);
-        assert_eq!(
-            [engine.films[0].object.x, engine.films[0].object.y],
-            [30, 40]
-        );
-        assert_eq!(engine.films[0].object.z, 4321);
-        engine.tick(&resources).unwrap();
-        assert_eq!(engine.films[0].object.x, 39);
-        let mut before = engine.clone();
-        assert!(!engine.restore_actor_reel(&resources, 2, &source).unwrap());
-        // Scheduling resets the actor's reported steps even if its duplicate
-        // reel keeps running from the current animation frame.
-        before.actor_steps.insert(2, 0);
-        assert_eq!(engine, before);
+        // Column zero is unreadable: explicit depth must only inspect the
+        // requested column and leave shared dispatch depth unchanged.
+        engine.reel_dispatch_depth = [777, 8];
+        engine.restore_actor_reel(&resources, 2, &source).unwrap();
+        assert!(engine.films.is_empty());
+        assert!(engine.reel_owners.is_empty());
+        let bytes = crate::save::Snapshot::capture(&engine, [7; 32])
+            .to_bytes()
+            .unwrap();
+        assert_eq!(u32::from_le_bytes(bytes[8..12].try_into().unwrap()), 22);
+        let mut wrong_version = bytes.clone();
+        wrong_version[8..12].copy_from_slice(&21u32.to_le_bytes());
+        assert!(crate::save::Snapshot::from_bytes(&wrong_version, [7; 32]).is_err());
+        let decoded = crate::save::Snapshot::from_bytes(&bytes, [7; 32]).unwrap();
+        decoded
+            .state()
+            .validate_snapshot_scripts(&resources)
+            .unwrap();
+        assert_eq!(decoded.to_bytes().unwrap(), bytes);
+        let mut restored = decoded.state().clone();
+        for instance in [&mut engine, &mut restored] {
+            instance.tick(&resources).unwrap();
+            assert_eq!(instance.films.len(), 1);
+            assert_eq!(instance.films[0].steps, 1);
+            assert_eq!(
+                [instance.films[0].object.x, instance.films[0].object.y],
+                [39, 40]
+            );
+            assert_eq!(instance.films[0].object.z, 4321);
+            assert_eq!(instance.reel_dispatch_depth, [777, 8]);
+        }
+        assert_eq!(engine, restored);
+        let before = engine.clone();
         for (actor, column) in [(1, 1), (2, 2), (2, 0)] {
             let invalid = crate::animation::ReelSource {
                 column,
@@ -11535,11 +11624,16 @@ mod tests {
             assert_eq!(engine, before);
         }
         engine.disable_actor(2).unwrap();
-        assert!(!engine.restore_actor_reel(&resources, 2, &source).unwrap());
+        engine.restore_actor_reel(&resources, 2, &source).unwrap();
+        engine.tick(&resources).unwrap();
+        assert!(engine.films.is_empty());
         engine.actors.enable(2).unwrap();
-        assert!(engine.restore_actor_reel(&resources, 2, &source).unwrap());
-        assert_eq!(engine.films[0].steps, 0);
-        assert_eq!(engine.films[0].object.x, 30);
+        // Duplicate requests arbitrate at dispatch; only one claims/steps.
+        engine.restore_actor_reel(&resources, 2, &source).unwrap();
+        engine.restore_actor_reel(&resources, 2, &source).unwrap();
+        engine.tick(&resources).unwrap();
+        assert_eq!(engine.films.len(), 1);
+        assert_eq!(engine.films[0].steps, 1);
         assert_eq!(engine.actor_reel_sources(), vec![(2, source)]);
     }
 
@@ -13191,28 +13285,15 @@ mod tests {
                 };
                 let start = |engine: &mut Engine| {
                     if restoring {
-                        engine
-                            .restore_actor_reel(&resources, 1, &source)
-                            .map(|_| ())
+                        engine.restore_actor_reel(&resources, 1, &source)
                     } else {
                         engine.launch_film(&resources, Handle(base))
                     }
                 };
-                if restoring && !rejected {
-                    let mut invalid = engine.clone();
-                    invalid
-                        .declarations
-                        .movers
-                        .insert(1, [[Handle(u32::MAX); 12]; 10]);
-                    let before = invalid.clone();
-                    assert!(start(&mut invalid).is_err());
-                    assert_eq!(invalid, before, "failed restored creation is atomic");
-                }
                 start(&mut engine).unwrap();
-                if !restoring {
-                    assert!(engine.films.is_empty(), "launch is deferred");
-                    dispatch_reel_fixture(&mut engine, &resources);
-                }
+                assert!(engine.films.is_empty(), "launch is deferred");
+                assert!(engine.movers.is_empty(), "creation is deferred");
+                dispatch_reel_fixture(&mut engine, &resources);
                 if rejected {
                     assert!(engine.movers.is_empty());
                     assert!(engine.created_reel_movers.is_empty());
