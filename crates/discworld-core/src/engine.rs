@@ -178,6 +178,8 @@ pub(crate) enum SceneTask {
     Scroll {
         initialized: bool,
     },
+    Point,
+    Tags,
 }
 
 #[derive(serde::Serialize, serde::Deserialize, Debug, Clone, PartialEq, Eq)]
@@ -293,6 +295,8 @@ pub struct Engine {
     scroll_maximum: [i32; 2],
     #[serde(skip)]
     pub(crate) scheduled_scroll: bool,
+    #[serde(skip)]
+    pub(crate) world_hover: Option<crate::world_hover::State>,
     pub world_origin: [i32; 2],
     pending_scene: Option<(Handle, i32, i32, Option<u8>)>,
     scene_hooks: crate::scene_hook::Hooks,
@@ -365,6 +369,13 @@ fn args(vm: &Machine, n: usize) -> Result<&[i32], Error> {
     .ok_or(Error("engine argument underflow"))
 }
 impl Engine {
+    /// Current cached V1 world label, drawn with the original tag font.
+    pub fn world_tag_layout(&self) -> Option<&crate::text::Layout> {
+        self.world_hover
+            .as_ref()
+            .and_then(|hover| hover.display.layout())
+    }
+
     pub(crate) fn scene_tasks(&self) -> Vec<(crate::scheduler::ProcessId, SceneTask)> {
         self.processes
             .entries()
@@ -579,6 +590,7 @@ impl Engine {
         }
         let mut scene_tasks = std::collections::BTreeSet::new();
         let mut scroll_tasks = 0;
+        let mut hover_tasks = [0; 2];
         for process in self.processes.states() {
             if let Some(task) = &process.scene_task {
                 let mut expected = ScriptProcess::new(Handle(0));
@@ -587,6 +599,9 @@ impl Engine {
                     return Err(Error("invalid reel task process"));
                 }
                 match task {
+                    SceneTask::Point | SceneTask::Tags => {
+                        hover_tasks[usize::from(matches!(task, SceneTask::Tags))] += 1;
+                    }
                     SceneTask::Scroll { .. } => {
                         scroll_tasks += 1;
                         if !self.scheduled_scroll || scroll_tasks > 1 {
@@ -619,6 +634,14 @@ impl Engine {
                     }
                 }
             }
+        }
+        if let Some(hover) = &self.world_hover {
+            hover.validate(&self.polygons, &self.actors)?;
+            if !self.scheduled_scroll || hover_tasks != [1, 1] {
+                return Err(Error("invalid world hover tasks"));
+            }
+        } else if hover_tasks != [0, 0] {
+            return Err(Error("world hover tasks without state"));
         }
         for (&actor, &playback) in &self.created_reel_movers {
             let matches = self
@@ -982,6 +1005,9 @@ impl Engine {
         }
         // Hidden inventory and deferred text must also have drawable resources.
         let mut scratch = Surface::new(320, 200)?;
+        if let Some(layout) = self.world_hover.as_ref().and_then(|h| h.display.layout()) {
+            layout.draw(resources, &mut scratch)?;
+        }
         for (_, wait) in &self.inventory_hover.waits {
             if let crate::inventory_hover::Wait::Label { layout, .. } = wait {
                 layout.draw(resources, &mut scratch)?;
@@ -2454,8 +2480,21 @@ impl Engine {
         if !self.control.tags_enabled || self.active_inventory.is_some() {
             return Ok(None);
         }
+        Ok(self
+            .actor_tag_at(resources, point)?
+            .map(|target| match target.selection {
+                crate::world_hover::Selection::Actor(id) => id,
+                _ => unreachable!("actor target"),
+            }))
+    }
+
+    fn actor_tag_at(
+        &self,
+        resources: &Resources<'_>,
+        point: [i32; 2],
+    ) -> Result<Option<crate::world_hover::Target>, Error> {
         let world = std::array::from_fn(|i| i64::from(point[i]) + i64::from(self.world_origin[i]));
-        for (&id, &(_, kind)) in &self.actor_tags {
+        for (&id, &(text, kind)) in &self.actor_tags {
             let actor = self.actors.get(id)?;
             if self
                 .movers
@@ -2485,12 +2524,116 @@ impl Engine {
                 } else {
                     world
                 };
-                if crate::actor::hotspot(bounds, kind, coordinates)?.is_some() {
-                    return Ok(Some(id));
+                if let Some(anchor) = crate::actor::hotspot(bounds, kind, coordinates)? {
+                    return Ok(Some(crate::world_hover::Target {
+                        selection: crate::world_hover::Selection::Actor(id),
+                        text: Some(text),
+                        anchor: [
+                            i32::try_from(anchor[0]).map_err(|_| Error("actor tag X overflow"))?,
+                            i32::try_from(anchor[1]).map_err(|_| Error("actor tag Y overflow"))?,
+                        ],
+                    }));
                 }
             }
         }
         Ok(None)
+    }
+
+    fn point_world(&mut self, resources: &Resources<'_>) -> Result<(), Error> {
+        let cursor = if self.cursor_animation.is_some() {
+            Some([
+                self.control.cursor[0]
+                    .checked_add(self.world_origin[0])
+                    .ok_or(Error("world cursor X overflow"))?,
+                self.control.cursor[1]
+                    .checked_add(self.world_origin[1])
+                    .ok_or(Error("world cursor Y overflow"))?,
+            ])
+        } else {
+            None
+        };
+        let entered = self
+            .world_hover
+            .as_mut()
+            .ok_or(Error("missing world hover state"))?
+            .tags
+            .point(&mut self.polygons, cursor)?;
+        for polygon in entered {
+            let code = self.polygons.active[polygon].definition.script;
+            if code.0 != 0 {
+                scene::script_bytes(resources, code)?;
+                let mut process = ScriptProcess::new(code);
+                process.polygon = Some(polygon);
+                process.event = 0; // POINTED, PLR_NOEVENT, no control gate.
+                self.processes.spawn(Some(self.generation), process)?;
+            }
+        }
+        Ok(())
+    }
+
+    fn tag_world(
+        &mut self,
+        resources: &Resources<'_>,
+        strings: Option<&crate::text::Strings<'_>>,
+    ) -> Result<(), Error> {
+        if !self.control.tags_enabled {
+            self.world_hover
+                .as_mut()
+                .ok_or(Error("missing world hover state"))?
+                .display
+                .clear();
+            return Ok(());
+        }
+        if self.cursor_animation.is_none() {
+            return Ok(());
+        }
+        let actor = self.actor_tag_at(resources, self.control.cursor)?;
+        let target = if actor.is_some() {
+            actor
+        } else {
+            self.world_hover
+                .as_ref()
+                .ok_or(Error("missing world hover state"))?
+                .tags
+                .candidate(&self.polygons)?
+                .map(|candidate| crate::world_hover::Target {
+                    selection: crate::world_hover::Selection::Polygon(candidate.polygon),
+                    text: candidate.text,
+                    anchor: self.polygons.active[candidate.polygon]
+                        .definition
+                        .tag_position,
+                })
+        };
+        if target.is_none() {
+            self.world_hover
+                .as_mut()
+                .ok_or(Error("missing world hover state"))?
+                .display
+                .clear();
+            return Ok(());
+        }
+        let strings = strings.ok_or(Error("world tag requires original strings"))?;
+        let assets = crate::world_hover::TextResources {
+            resources,
+            strings,
+            font: self
+                .declarations
+                .tag_font
+                .ok_or(Error("missing tag font"))?,
+            background_size: [
+                self.scroll_maximum[0]
+                    .checked_add(320)
+                    .ok_or(Error("scene width overflow"))?,
+                self.scroll_maximum[1]
+                    .checked_add(200)
+                    .ok_or(Error("scene height overflow"))?,
+            ],
+        };
+        self.world_hover
+            .as_mut()
+            .ok_or(Error("missing world hover state"))?
+            .display
+            .update(target, self.world_origin, &assets)
     }
 
     /// Dispatch a resolved tagged actor. V1 actor scripts do not perform the
@@ -3123,6 +3266,7 @@ impl Engine {
             scroll: crate::scroll::Scroll::default(),
             scroll_maximum: [0, 0],
             scheduled_scroll: false,
+            world_hover: None,
             pending_scene: None,
             fade_multiplier: 0x10000,
             fade_in_step: None,
@@ -3450,6 +3594,14 @@ impl Engine {
         let mut scroll = ScriptProcess::new(Handle(0));
         scroll.scene_task = Some(SceneTask::Scroll { initialized: false });
         self.processes.spawn(Some(self.generation), scroll)?;
+        self.world_hover = Some(crate::world_hover::State::new(&self.polygons));
+        // PrimeScene creates TagProcess then PointProcess. Head insertion puts
+        // Point first; its spawned POINTED scripts run before TagProcess.
+        for task in [SceneTask::Tags, SceneTask::Point] {
+            let mut process = ScriptProcess::new(Handle(0));
+            process.scene_task = Some(task);
+            self.processes.spawn(Some(self.generation), process)?;
+        }
         // V1 does not send STARTUP to tag scripts (that is V2-only).
         for (id, code) in actor_scripts {
             let mut process = ScriptProcess::new(code);
@@ -3872,8 +4024,17 @@ impl Engine {
     fn run_scene_task(
         &mut self,
         resources: &Resources<'_>,
+        strings: Option<&crate::text::Strings<'_>>,
         task: SceneTask,
     ) -> Result<Option<SceneTask>, Error> {
+        if matches!(task, SceneTask::Point | SceneTask::Tags) {
+            if task == SceneTask::Point {
+                self.point_world(resources)?;
+            } else {
+                self.tag_world(resources, strings)?;
+            }
+            return Ok(Some(task));
+        }
         if let SceneTask::Scroll { initialized } = task {
             if !initialized {
                 if self.background.is_none() {
@@ -3889,7 +4050,9 @@ impl Engine {
         }
         let starting = !matches!(task, SceneTask::Active(_));
         let reel = match task {
-            SceneTask::Scroll { .. } => unreachable!("scroll dispatched above"),
+            SceneTask::Scroll { .. } | SceneTask::Point | SceneTask::Tags => {
+                unreachable!("scene monitor dispatched above")
+            }
             SceneTask::Pending(request) => self.begin_reel(resources, &request, 0)?,
             SceneTask::Restored { actor, source } => {
                 Self::validate_restored_reel(resources, actor, &source)?;
@@ -4653,7 +4816,7 @@ impl Engine {
                 .state_mut(id)
                 .and_then(|p| p.scene_task.take());
             if let Some(task) = task {
-                let next = self.run_scene_task(resources, task)?;
+                let next = self.run_scene_task(resources, strings, task)?;
                 let sleep = next.as_ref().map(|_| 1);
                 self.processes
                     .state_mut(id)
@@ -5589,6 +5752,8 @@ impl Engine {
                     } else {
                         crate::polygon::Kind::Tag
                     };
+                    let enabled_before: Vec<_> =
+                        self.polygons.active.iter().map(|p| p.enabled).collect();
                     self.polygon_memory.set(
                         self.polygon_table,
                         &mut self.polygons,
@@ -5596,6 +5761,32 @@ impl Engine {
                         id,
                         matches!(call.id, 64 | 67),
                     )?;
+                    if matches!(call.id, 40 | 41) {
+                        if let Some(hover) = &mut self.world_hover {
+                            for (index, was_enabled) in enabled_before.into_iter().enumerate() {
+                                let polygon = &self.polygons.active[index];
+                                if polygon.definition.kind == kind
+                                    && polygon.definition.id == id
+                                    && was_enabled
+                                    && !polygon.enabled
+                                {
+                                    hover.tags.disable(&mut self.polygons, index)?;
+                                }
+                            }
+                        }
+                    }
+                    process.vm.complete_library(call, 1, None)?;
+                }
+                55 => {
+                    let text = Handle(args(&process.vm, 1)?[0] as u32);
+                    let polygon = process
+                        .polygon
+                        .ok_or(Error("PRINTTAG requires polygon context"))?;
+                    self.world_hover
+                        .as_mut()
+                        .ok_or(Error("PRINTTAG without world hover state"))?
+                        .tags
+                        .print_tag(polygon, text)?;
                     process.vm.complete_library(call, 1, None)?;
                 }
                 78 => {
@@ -6836,6 +7027,9 @@ impl Engine {
         if let Some(menu) = &self.configuration {
             menu.draw(resources, &mut result)?;
         }
+        if let Some(layout) = self.world_hover.as_ref().and_then(|h| h.display.layout()) {
+            layout.draw(resources, &mut result)?;
+        }
         if !self.control.hidden {
             if let Some(cursor) = &self.held_cursor.as_ref().filter(|_| {
                 self.configuration
@@ -6869,12 +7063,19 @@ mod tests {
         let ids: Vec<_> = engine
             .scene_tasks()
             .into_iter()
-            .filter_map(|(id, task)| matches!(task, SceneTask::Scroll { .. }).then_some(id))
+            .filter_map(|(id, task)| {
+                matches!(
+                    task,
+                    SceneTask::Scroll { .. } | SceneTask::Point | SceneTask::Tags
+                )
+                .then_some(id)
+            })
             .collect();
         for id in ids {
             engine.processes.cancel(id).unwrap();
         }
         engine.scheduled_scroll = false;
+        engine.world_hover = None;
     }
     fn legacy_fixture_bootstrap(resources: &Resources<'_>) -> Result<Engine, Error> {
         let mut engine = Engine::bootstrap(resources)?;
@@ -6902,7 +7103,7 @@ mod tests {
                 .scene_task
                 .take()
                 .unwrap();
-            let task = engine.run_scene_task(resources, task).unwrap();
+            let task = engine.run_scene_task(resources, None, task).unwrap();
             let sleep = task.as_ref().map(|_| 1);
             engine.processes.state_mut(id).unwrap().scene_task = task;
             engine.processes.finish(sleep).unwrap();
@@ -7499,6 +7700,172 @@ mod tests {
         put(&mut scene, 112, 1);
         (master, scene)
     }
+    #[test]
+    fn world_hover_runs_overlapping_scripts_before_labels_and_roundtrips_v24() {
+        let (master, mut scene) = fixtures();
+        scene[8] = 0;
+        for (offset, text) in [(32, 1u8), (48, 2)] {
+            scene[offset..offset + 9]
+                .copy_from_slice(&[0x41, text, 0x4e, 55, 0x41, text, 0x4c, 0, 0]);
+        }
+        let base = 2 << 23;
+        let mut font = vec![0; 1300];
+        let glyph = 44 + usize::from(b'W') * 4;
+        font[glyph..glyph + 4].copy_from_slice(&(base + 1100u32).to_le_bytes());
+        font[1100..1108].copy_from_slice(&[4, 0, 6, 0, 0, 0, 0, 0]);
+        font[1108..1112].copy_from_slice(&(base + 1176u32).to_le_bytes());
+        font[1112..1116].copy_from_slice(&(base + 1180u32).to_le_bytes());
+        font[1180..1184].copy_from_slice(&1u32.to_le_bytes());
+        font[1184..1188].copy_from_slice(&[255, 255, 255, 0]);
+        font[16..20].copy_from_slice(&1190u32.to_le_bytes());
+        font[1190..1206].fill(1);
+        font[1220..1224].copy_from_slice(&(base + 1100u32).to_le_bytes());
+        let resources = Resources(vec![&master, &scene, &font]);
+        let string_bytes = [1, 0, 52, 51, 0, 0, 0, 0, 0, 1, b'W', 2, b'W', b'W'];
+        let strings = crate::text::Strings::new(&string_bytes).unwrap();
+        let mut engine = Engine::bootstrap(&resources).unwrap();
+        engine.polygons = crate::polygon::Polygons::new(
+            [32, 48]
+                .into_iter()
+                .map(|offset| crate::polygon::Polygon {
+                    kind: crate::polygon::Kind::Tag,
+                    corners: [[0, 0], [20, 0], [20, 20], [0, 20]],
+                    tag_position: [10, 20],
+                    tag_text: Handle(2),
+                    node_position: [0; 2],
+                    film: Handle(0),
+                    refer_type: 0,
+                    id: offset,
+                    scales: [1, 0],
+                    reel: 0,
+                    z_factor: 0,
+                    nodes: vec![],
+                    lines: vec![],
+                    script: Handle((1 << 23) | offset as u32),
+                })
+                .collect(),
+            0,
+        );
+        engine.world_hover = Some(crate::world_hover::State::new(&engine.polygons));
+        engine.declarations.tag_font = Some(Handle(base));
+        engine.cursor_animation = Some(
+            Animation::new(
+                &resources,
+                &crate::film::Reel {
+                    object: Handle(base + 1120),
+                    script: Handle(base + 1168),
+                },
+                1,
+            )
+            .unwrap(),
+        );
+        engine.scene_calls = Some(Default::default());
+        engine.control.cursor = [10, 10];
+        engine.control.tags_enabled = true;
+        engine.control.enabled = false;
+        engine.control.hidden = true;
+        engine
+            .tick_content(&resources, None, None, Some(&strings))
+            .unwrap();
+        // Both scripts execute despite hidden cursor/control-off, in reverse
+        // creation order; the first polygon wins display arbitration.
+        assert_eq!(engine.globals, [1]);
+        let calls: Vec<_> = engine
+            .scene_calls
+            .as_ref()
+            .unwrap()
+            .iter()
+            .filter(|c| c.call.id == 55)
+            .map(|c| c.script.offset())
+            .collect();
+        assert_eq!(calls, [48, 32]);
+        assert_eq!(
+            engine
+                .world_hover
+                .as_ref()
+                .unwrap()
+                .display
+                .layout()
+                .unwrap()
+                .glyphs
+                .len(),
+            1
+        );
+        let bytes = crate::save::Snapshot::capture(&engine, [7; 32])
+            .to_bytes()
+            .unwrap();
+        assert_eq!(u32::from_le_bytes(bytes[8..12].try_into().unwrap()), 24);
+        let snapshot = crate::save::Snapshot::from_bytes(&bytes, [7; 32]).unwrap();
+        assert_eq!(snapshot.to_bytes().unwrap(), bytes);
+        snapshot.verify_scripts(&resources).unwrap();
+        snapshot.preview(&resources).unwrap();
+        let mut restored = snapshot.state().clone();
+        for point in [[10, 10], [30, 30], [10, 10]] {
+            for e in [&mut engine, &mut restored] {
+                e.control.cursor = point;
+                e.tick_content(&resources, None, None, Some(&strings))
+                    .unwrap();
+            }
+            assert_eq!(engine, restored);
+            assert_eq!(
+                engine
+                    .world_hover
+                    .as_ref()
+                    .unwrap()
+                    .display
+                    .layout()
+                    .is_some(),
+                point == [10, 10]
+            );
+        }
+        assert_eq!(
+            engine
+                .scene_calls
+                .as_ref()
+                .unwrap()
+                .iter()
+                .filter(|c| c.call.id == 55)
+                .count(),
+            4
+        );
+        let mut actors = engine.clone();
+        actors.actors = crate::actor::Actors::new(1).unwrap();
+        actors.actor_tags.insert(1, (Handle(2), 2));
+        let mut film = actors.cursor_animation.clone().unwrap();
+        film.frame = Handle(base + 1220);
+        film.reel = Some(Handle(base + 1120));
+        film.object.id = 1;
+        film.object.x = 8;
+        film.object.y = 10;
+        actors.claim_reel(&mut film).unwrap();
+        actors.films.push(film);
+        actors.tag_world(&resources, Some(&strings)).unwrap();
+        assert_eq!(
+            actors.world_tag_layout().unwrap().glyphs.len(),
+            2,
+            "actor takes priority over polygon"
+        );
+        actors.actors.get_mut(1).unwrap().hidden = true;
+        actors.tag_world(&resources, Some(&strings)).unwrap();
+        assert_eq!(actors.world_tag_layout().unwrap().glyphs.len(), 1);
+        actors.control.tags_enabled = false;
+        actors.tag_world(&resources, Some(&strings)).unwrap();
+        assert!(actors.world_tag_layout().is_none());
+        let mut invalid = engine.clone();
+        let point = invalid
+            .scene_tasks()
+            .into_iter()
+            .find(|(_, t)| *t == SceneTask::Point)
+            .unwrap()
+            .0;
+        invalid.processes.cancel(point).unwrap();
+        assert!(
+            crate::save::Snapshot::capture(&invalid, [7; 32])
+                .to_bytes()
+                .is_err()
+        );
+    }
+
     #[test]
     fn v1_cdload_consumes_distinct_nonzero_handles_without_loading_or_yielding() {
         for from_master in [false, true] {
@@ -9025,7 +9392,7 @@ mod tests {
         scene[8] = 0;
         scene[32..38].copy_from_slice(&[2, 0x4e, 60, 0x4c, 0, 0]);
         let resources = Resources(vec![&master, &scene]);
-        let mut engine = Engine::bootstrap(&resources).unwrap();
+        let mut engine = legacy_fixture_bootstrap(&resources).unwrap();
         engine.polygons = crate::polygon::Polygons::new(
             vec![crate::polygon::Polygon {
                 kind: crate::polygon::Kind::Tag,
@@ -9274,7 +9641,7 @@ mod tests {
         scene[8] = 0;
         scene[32..38].copy_from_slice(&[2, 0x4e, 31, 0x4c, 0, 0]);
         let resources = Resources(vec![&master, &scene]);
-        let mut engine = Engine::bootstrap(&resources).unwrap();
+        let mut engine = legacy_fixture_bootstrap(&resources).unwrap();
         engine.polygons = crate::polygon::Polygons::new(
             vec![crate::polygon::Polygon {
                 kind: crate::polygon::Kind::Tag,
@@ -9407,12 +9774,10 @@ mod tests {
         assert_eq!(engine.tick(&resources).unwrap(), Status::Halted);
         assert_eq!(engine.scene, Handle(2 << 23));
         assert_eq!(engine.globals, [9]);
-        assert!(
-            engine
-                .processes
-                .states()
-                .all(|p| matches!(p.scene_task, Some(SceneTask::Scroll { initialized: false })))
-        );
+        assert!(engine.processes.states().all(|p| matches!(
+            p.scene_task,
+            Some(SceneTask::Scroll { initialized: false } | SceneTask::Point | SceneTask::Tags)
+        )));
         assert!(
             engine.scene_transition_active(),
             "waiting for new background"
@@ -11222,7 +11587,7 @@ mod tests {
                 .iter()
                 .filter_map(|(_, task)| match task {
                     SceneTask::Restored { actor, .. } => Some(*actor),
-                    SceneTask::Scroll { .. } => None,
+                    SceneTask::Scroll { .. } | SceneTask::Point | SceneTask::Tags => None,
                     _ => panic!("expected queued restored actor"),
                 })
                 .collect::<Vec<_>>(),
@@ -11744,7 +12109,7 @@ mod tests {
         assert!(engine.actors.get(1).unwrap().alive);
         assert!(engine.films.is_empty());
         assert_eq!(engine.background.as_ref().unwrap().steps, 0);
-        assert_eq!(engine.processes.states().count(), 3);
+        assert_eq!(engine.processes.states().count(), 5);
         assert!(
             engine
                 .processes
@@ -12397,7 +12762,7 @@ mod tests {
                     let code = [0x41, 77, 0x41, value, 0x4e, 123, 0x4c, 0, 0];
                     scene[8..8 + code.len()].copy_from_slice(&code);
                     let resources = Resources(vec![&master, &scene]);
-                    let mut engine = Engine::bootstrap(&resources).unwrap();
+                    let mut engine = legacy_fixture_bootstrap(&resources).unwrap();
                     engine.subtitles = value != 0;
                     if with_menu {
                         engine.configuration = Some(
@@ -12508,7 +12873,7 @@ mod tests {
                 ];
                 scene[8..8 + code.len()].copy_from_slice(&code);
                 let resources = Resources(vec![&master, &scene]);
-                let mut engine = Engine::bootstrap(&resources).unwrap();
+                let mut engine = legacy_fixture_bootstrap(&resources).unwrap();
                 engine.processes = Scheduler::default();
                 engine.master_stopped = !master_context;
                 engine.escape_events = Some(2);
@@ -12562,7 +12927,7 @@ mod tests {
         let resources = Resources(vec![&master, &scene]);
         for master_context in [false, true] {
             for scenario in 0..4 {
-                let mut engine = Engine::bootstrap(&resources).unwrap();
+                let mut engine = legacy_fixture_bootstrap(&resources).unwrap();
                 engine.processes = Scheduler::default();
                 engine.master_stopped = !master_context;
                 engine.escape_events = Some(1);
@@ -13044,7 +13409,7 @@ mod tests {
         scene[8] = 0;
         scene[32..43].copy_from_slice(&[2, 0x4e, 31, 0x4c, 0, 2, 0x4e, 29, 0x4c, 1, 0]);
         let resources = Resources(vec![&master, &scene]);
-        let mut engine = Engine::bootstrap(&resources).unwrap();
+        let mut engine = legacy_fixture_bootstrap(&resources).unwrap();
         engine.globals.resize(2, 0);
         engine.polygons = crate::polygon::Polygons::new(
             vec![crate::polygon::Polygon {
@@ -13731,7 +14096,7 @@ mod tests {
         let resources = Resources(vec![&master, &scene, &film]);
         for restoring in [false, true] {
             for rejected in [false, true] {
-                let mut engine = Engine::bootstrap(&resources).unwrap();
+                let mut engine = legacy_fixture_bootstrap(&resources).unwrap();
                 engine.processes = Scheduler::default();
                 engine.master_stopped = true;
                 engine.actors = crate::actor::Actors::new(1).unwrap();
@@ -14461,8 +14826,8 @@ mod tests {
             let bytes = crate::save::Snapshot::capture(&engine, [7; 32])
                 .to_bytes()
                 .unwrap();
-            assert_eq!(u32::from_le_bytes(bytes[8..12].try_into().unwrap()), 23);
-            for version in [21u32, 22] {
+            assert_eq!(u32::from_le_bytes(bytes[8..12].try_into().unwrap()), 24);
+            for version in [21u32, 22, 23] {
                 let mut older = bytes.clone();
                 older[8..12].copy_from_slice(&version.to_le_bytes());
                 assert!(crate::save::Snapshot::from_bytes(&older, [7; 32]).is_err());
@@ -15459,7 +15824,7 @@ mod tests {
         let code = [40, 0x41, 5, 3, 0x4e, 86, 0x41, 77, 0x4c, 0, 0];
         scene[8..8 + code.len()].copy_from_slice(&code);
         let resources = Resources(vec![&master, &scene]);
-        let mut engine = Engine::bootstrap(&resources).unwrap();
+        let mut engine = legacy_fixture_bootstrap(&resources).unwrap();
         engine.master = Machine::default();
         engine.master_code = Handle((1 << 23) | 8);
         engine.master_stopped = false;

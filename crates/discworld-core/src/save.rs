@@ -28,6 +28,7 @@ const CREATED_MOVER_VERSION: u32 = 20;
 const REEL_TASK_VERSION: u32 = 21;
 const RESTORED_REEL_VERSION: u32 = 22;
 const SCROLL_TASK_VERSION: u32 = 23;
+const WORLD_HOVER_VERSION: u32 = 24;
 const HEADER: usize = 80;
 pub const MAX_SAVE_BYTES: usize = 16 * 1024 * 1024;
 
@@ -147,7 +148,8 @@ impl Snapshot {
     pub fn to_bytes(&self) -> Result<Vec<u8>, Error> {
         self.state.validate_snapshot_structure()?;
         let tasks = self.state.scene_tasks();
-        if self.state.scheduled_scroll
+        if self.state.world_hover.is_some()
+            || self.state.scheduled_scroll
             || !tasks.is_empty()
             || self.state.reel_dispatch_depth != [0; 2]
         {
@@ -155,7 +157,10 @@ impl Snapshot {
             legacy.state.clear_scene_tasks();
             legacy.state.scheduled_scroll = false;
             legacy.state.reel_dispatch_depth = [0; 2];
-            let version = if self.state.scheduled_scroll {
+            legacy.state.world_hover = None;
+            let version = if self.state.world_hover.is_some() {
+                WORLD_HOVER_VERSION
+            } else if self.state.scheduled_scroll {
                 SCROLL_TASK_VERSION
             } else if tasks
                 .iter()
@@ -165,9 +170,17 @@ impl Snapshot {
             } else {
                 REEL_TASK_VERSION
             };
-            let payload =
+            let payload = if let Some(hover) = &self.state.world_hover {
+                postcard::to_allocvec(&(
+                    legacy.to_bytes()?,
+                    tasks,
+                    self.state.reel_dispatch_depth,
+                    hover,
+                ))
+            } else {
                 postcard::to_allocvec(&(legacy.to_bytes()?, tasks, self.state.reel_dispatch_depth))
-                    .map_err(|_| Error("snapshot reel task encode failed"))?;
+            }
+            .map_err(|_| Error("snapshot scene task encode failed"))?;
             if payload.len() > MAX_SAVE_BYTES - HEADER {
                 return Err(Error("save size limit"));
             }
@@ -499,6 +512,7 @@ impl Snapshot {
             REEL_TASK_VERSION,
             RESTORED_REEL_VERSION,
             SCROLL_TASK_VERSION,
+            WORLD_HOVER_VERSION,
         ]
         .contains(&word(8))
         {
@@ -514,6 +528,27 @@ impl Snapshot {
         if Sha256::digest(payload)[..] != bytes[48..80] {
             return Err(Error("save checksum mismatch"));
         }
+        if word(8) == WORLD_HOVER_VERSION {
+            type Tasks = Vec<(crate::scheduler::ProcessId, crate::engine::SceneTask)>;
+            let ((legacy, tasks, depth, hover), remaining) =
+                postcard::take_from_bytes::<(Vec<u8>, Tasks, [i64; 2], crate::world_hover::State)>(
+                    payload,
+                )
+                .map_err(|_| Error("invalid snapshot world hover payload"))?;
+            if !remaining.is_empty()
+                || legacy.len() < HEADER
+                || u32::from_le_bytes(legacy[8..12].try_into().unwrap()) > CREATED_MOVER_VERSION
+            {
+                return Err(Error("invalid snapshot world hover extension"));
+            }
+            let mut snapshot = Self::from_bytes(&legacy, asset_id)?;
+            snapshot.state.scheduled_scroll = true;
+            snapshot.state.world_hover = Some(hover);
+            snapshot.state.restore_scene_tasks(tasks)?;
+            snapshot.state.reel_dispatch_depth = depth;
+            snapshot.state.validate_snapshot_structure()?;
+            return Ok(snapshot);
+        }
         if matches!(
             word(8),
             REEL_TASK_VERSION | RESTORED_REEL_VERSION | SCROLL_TASK_VERSION
@@ -523,6 +558,12 @@ impl Snapshot {
                 postcard::take_from_bytes::<(Vec<u8>, Tasks, [i64; 2])>(payload)
                     .map_err(|_| Error("invalid snapshot reel task payload"))?;
             if !remaining.is_empty()
+                || tasks.iter().any(|(_, task)| {
+                    matches!(
+                        task,
+                        crate::engine::SceneTask::Point | crate::engine::SceneTask::Tags
+                    )
+                })
                 || legacy.len() < HEADER
                 || u32::from_le_bytes(legacy[8..12].try_into().unwrap()) > CREATED_MOVER_VERSION
                 || (word(8) != SCROLL_TASK_VERSION && tasks.is_empty() && depth == [0; 2])

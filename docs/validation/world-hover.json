@@ -1,0 +1,70 @@
+{
+  "date": "2026-10-23",
+  "reference_commit": "96b42d42bc8533953bdd701db059cc33c839a9ff",
+  "scope": "V1 world PointProcess/TagProcess, PRINTTAG and DWRSAVE v24",
+  "results": {
+    "workspace": "passed",
+    "core_tests": 351,
+    "core_ignored": 1,
+    "original_asset_tests": 25,
+    "original_room": "rinceroo.scn",
+    "original_polygon_labels_checked": 5,
+    "clippy": "passed",
+    "wasm_check": "passed",
+    "native_tools_release": "passed",
+    "browser_release": "passed"
+  },
+  "coverage": [
+    "All overlapping TAG/EXIT entrants dispatch POINTED in original table/spawn order before tag selection",
+    "Hidden cursor and disabled control do not block PointProcess",
+    "No V1 UNPOINT on departure; late PRINTTAG and first-registration behavior",
+    "Actor priority, background clamping, original font glyphs and cached camera-relative text",
+    "Exact v24 snapshot bytes and next-tick continuation; original-room frame equality after reload",
+    "Scene-task count and malformed older-wrapper rejection"
+  ],
+  "limitations": [
+    "Legacy imported rooms gain monitoring on next scene entry/rebuild; in-place migration pending",
+    "Deferred POINTED save continuations and other actor animation paths need additional coverage",
+    "No independently captured hover framebuffer/input comparison yet",
+    "Full recorded route and browser UI suites not rerun on this engine revision",
+    "No verified update to the visible manual session or physical iPad acceptance"
+  ],
+  "logs": {
+    "workspace": {
+      "path": "assets/logs/world-hover-workspace.log",
+      "sha256": "1d5fd63e163178454c9d8cae9aef8bbe35a70de4b57a96dd8c1d68b0bb3c6273"
+    },
+    "clippy": {
+      "path": "assets/logs/world-hover-clippy.log",
+      "sha256": "3f330031a4e27d2d639c347d52c6633aa6918f68ec2a84f7c1ea756723073f2e"
+    },
+    "wasm": {
+      "path": "assets/logs/world-hover-wasm.log",
+      "sha256": "85a134f116b3a0231dfbc16a70260012d4155b2f32c684e981cb4f4258e5eb4d"
+    },
+    "hosts": {
+      "path": "assets/logs/world-hover-hosts.log",
+      "sha256": "6d357e7755912966c239afd87eade4466580b68382177ed14b9d129d4fc734ec"
+    },
+    "web-build": {
+      "path": "assets/logs/world-hover-web-build.log",
+      "sha256": "2ae889c253b05837b897d45059a6749be5656133f98744a46f1839e663da9c0f"
+    },
+    "assets": {
+      "path": "assets/logs/world-hover-assets.log",
+      "sha256": "e9fc740ca40a4f73a5f6e18f2a3217130411210a1ef2656f4c50af7e00baa92e"
+    },
+    "original-labels": {
+      "path": "assets/logs/world-hover-original-labels.log",
+      "sha256": "0a1b3da9a16ca3089260ed07028ab53cb98334200583819fa975108a69533d0b"
+    }
+  },
+  "sha256": {
+    "crates/discworld-core/src/world_hover.rs": "c6f72c9549eb25f614f07ca778539e724bfc55b492d824b45c51ae4a10c9be4c",
+    "crates/discworld-core/src/engine.rs": "7a023856bd6e1285ee75267ff2964796d084abc62c04aa4d6c8f0c7b54624852",
+    "crates/discworld-core/src/save.rs": "5580b15dd9a56f7064ccaa5decd4c06ef3035d0e85d255c18a2209d4a2473a6c",
+    "crates/discworld-web/src/real_assets.rs": "f00ca2c321bdd9f275f5e58e8573950a6ac0e90516337c89d6a04fcefaa6af9b",
+    "target/release/discworld-native": "1e1f44a7fbfbfc517df372684b060bb21cf8f427cbaf64375b58c333afd3adb6",
+    "target/release/discworld-tools": "e9eb56874dba09fdde2207d81c9fd7f8e133ec90c439840377c7b8a4c889feeb"
+  }
+}

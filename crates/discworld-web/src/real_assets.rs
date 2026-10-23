@@ -57,7 +57,7 @@ fn original_menu_controller_transitions_render_and_resolve_live_selection() {
             .unwrap();
         assert_eq!(
             u32::from_le_bytes(snapshot_bytes[8..12].try_into().unwrap()),
-            23 // Scene task order wraps the intro and menu checkpoints.
+            24 // World hover and scene task order wrap the intro and menu checkpoints.
         );
         let snapshot =
             discworld_core::save::Snapshot::from_bytes(&snapshot_bytes, game.assets.identity)
@@ -2538,4 +2538,91 @@ fn original_credits_scroll_matches_reference_cycle_and_save_continuation() {
             assert_eq!(format!("{:x}", Sha256::digest(&rgb)), expected);
         }
     }
+}
+
+#[test]
+#[ignore = "requires DISCWORLD_TEST_ISO, DISCWORLD_TEST_SOUNDFONT and DISCWORLD_TEST_SAVE"]
+fn original_world_hotspot_scripts_create_game_font_labels_and_restore() {
+    use discworld_core::{polygon::Kind, text::Font};
+    let read = |name| std::fs::read(std::env::var_os(name).expect(name)).unwrap();
+    let mut game =
+        BrowserGame::new(read("DISCWORLD_TEST_ISO"), read("DISCWORLD_TEST_SOUNDFONT")).unwrap();
+    game.load(&read("DISCWORLD_TEST_SAVE")).unwrap();
+    game.input("close").unwrap();
+    game.advance(24).unwrap();
+    // Re-enter through the actual cutaway restoration path so this historical
+    // checkpoint creates the new scene processes using unchanged original data.
+    let scene = game.engine.capture_scene().unwrap();
+    let tracks =
+        discworld_core::music::archive(&game.assets.iso[game.assets.music.clone()]).unwrap();
+    game.engine
+        .rebuild_scene(&game.assets.resources(), &tracks, &scene)
+        .unwrap();
+    game.advance(24).unwrap();
+    assert!(game.engine.control.tags_enabled);
+    game.engine.scene_calls = Some(Default::default());
+    let points: Vec<_> = game
+        .engine
+        .polygons
+        .active
+        .iter()
+        .filter(|p| p.enabled && matches!(p.definition.kind, Kind::Tag | Kind::Exit))
+        .map(|p| {
+            std::array::from_fn::<_, 2, _>(|i| {
+                p.definition.corners.iter().map(|c| c[i]).sum::<i32>() / 4
+                    - game.engine.world_origin[i]
+            })
+        })
+        .filter(|p| (0..320).contains(&p[0]) && (0..200).contains(&p[1]))
+        .collect();
+    let mut labeled = 0;
+    for [x, y] in points {
+        if game
+            .engine
+            .actor_at(&game.assets.resources(), [x, y])
+            .unwrap()
+            .is_some()
+        {
+            continue;
+        }
+        game.move_pointer(x, y);
+        game.advance(3).unwrap();
+        let Some(layout) = game.engine.world_tag_layout().cloned() else {
+            continue;
+        };
+        if layout.glyphs.is_empty() {
+            continue;
+        }
+        let font = Font::read(
+            &game.assets.resources(),
+            game.engine.declarations.tag_font.unwrap(),
+        )
+        .unwrap();
+        assert!(
+            layout
+                .glyphs
+                .iter()
+                .all(|glyph| font.glyphs.contains(&glyph.image))
+        );
+        let frame = game.frame().unwrap();
+        let saved = game.save().unwrap();
+        game.load(&saved).unwrap();
+        assert_eq!(game.engine.world_tag_layout(), Some(&layout));
+        assert_eq!(game.frame().unwrap(), frame);
+        roundtrip_pending(&mut game, 3);
+        labeled += 1;
+    }
+    assert!(labeled > 0, "original room must exercise a world label");
+    assert!(
+        game.engine
+            .scene_calls
+            .as_ref()
+            .unwrap()
+            .iter()
+            .any(|call| call.call.id == 55)
+    );
+    println!(
+        "{}: {labeled} original polygon labels checked",
+        game.scene()
+    );
 }

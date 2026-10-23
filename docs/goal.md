@@ -44,20 +44,19 @@ Keep the user's visible native session current with newly verified engine builds
 
 ## Current progress (2026-10-23)
 
-A complete linear bytecode inventory now identifies world hover as a priority
-gap: 843 PRINTTAG sites are encoded, but world PointProcess/TagProcess and the
-PRINTTAG handler remain unimplemented. Inventory hover and actor hit testing
-do not cover this. All 149 resources decode without errors (32,113 call sites,
-102 library IDs); SETLANGUAGE and the alternate-platform CDPLAY/PLAYRTF calls
-are absent. The next compatibility pass must implement original world-hover
-scripts, label rendering and save/load state. See
-[bytecode-library-audit.json](validation/bytecode-library-audit.json).
+The bytecode audit identified missing world hover (843 PRINTTAG sites). New
+scenes now schedule PointProcess/TagProcess, dispatch original POINTED scripts,
+register PRINTTAG, render cached original-font labels with actor priority and
+save the state in DWRSAVE v24. The original Rincewind-room integration checks
+five polygon labels and exact save/frame continuation. See
+[world-hover.json](validation/world-hover.json).
 
-The polygon hover state machine is now implemented separately, with regression
-coverage for overlapping entry, departure, late PRINTTAG, unlabeled priority,
-default text and disabling. It is not connected to a running engine yet. Next:
-scheduled Point/Tag processes, PRINTTAG dispatch, actor/text rendering and
-versioned save/load integration; then original-asset interaction validation.
+Remaining hover work: migrate loaded legacy rooms without requiring scene
+re-entry, verify deferred POINTED scripts and additional actor animation paths,
+compare interactive hover frames to the independent reference, and rerun the
+full route/UI checks on the new engine. The visible session has not been
+restarted or verified with this build. Existing full-route evidence predates
+world hover and does not prove its fidelity.
 
 PLAY/TOPPLAY completion arguments now match the pinned V1 integer dispatch:
 `1` blocks, `2` errors, other values play asynchronously. A 42-case bytecode

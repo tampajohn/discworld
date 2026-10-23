@@ -13,22 +13,35 @@ code are included, so this is an inventory, not a reachability/coverage proof.
 SETLANGUAGE, CDPLAY and PLAYRTF are absent from this data. Their absence should
 guide priorities rather than replacing their unimplemented behavior with no-ops.
 
-The audit identifies a substantial compatibility gap: PRINTTAG appears at 843
-sites, but the scene interpreter has no handler and world pointer/tag monitoring
-is absent. Inventory hover and actor hit testing are separate implemented paths.
-The recorded full-game route does not prove world-hover fidelity. See
-[bytecode-library-audit.json](validation/bytecode-library-audit.json).
+The bytecode audit found 843 PRINTTAG sites and exposed missing world hover.
+New scenes now create the V1 PointProcess and TagProcess in scheduler order,
+with PRINTTAG (55) registering text on its polygon context. Every overlapping
+TAG/EXIT receives POINTED; the spawned scripts run before tag selection.
+Control-off and cursor hiding do not suppress pointing. Leaving clears the tag
+without sending V1 UNPOINT. Disabling a live TAG/EXIT clears its state immediately.
 
-The new `world_hover::Tags` state machine implements polygon entry/leave,
-one-time PRINTTAG registration, default-text fallback, immediate disable-state
-clearing, and table-order polygon arbitration. It follows the pinned
-`pdisplay.cpp::PointProcess/PolyTag` and `tinlib.cpp::PrintTag`: every overlapping
-TAG/EXIT enters, leaving does not dispatch UNPOINT, an unlabeled pointed
-polygon can win, and a delayed PRINTTAG can register after departure. Four
-regressions cover these transitions and checked, non-mutating failure paths.
-This module is not yet wired into the engine: scheduler processes, the library
-handler, actor priority, cached text rendering and save-version integration
-remain required before world hover works in either host.
+Actor tags take priority; polygon arbitration follows table order, including
+unlabeled pointed polygons. Labels use the original declared tag font and active
+scene palette. The cached text follows camera movement, not subsequent actor
+movement or text changes. Polygon labels clamp to background bounds; actor
+labels do not. A selected unlabeled polygon stays unlabeled when a delayed
+PRINTTAG arrives until selection changes, matching the pinned reference.
+
+DWRSAVE v24 preserves registrations, selection, cached glyph layout, camera
+origin and scheduler tasks. Earlier saves retain their historical execution
+state until scene entry/rebuild creates the monitors; upgrading a loaded legacy
+room without re-entry remains follow-up work. Older wrapper versions reject
+new task variants. Validation checks task presence, polygon counts, selected
+IDs, glyph limits and drawable resources before restoring.
+
+Eight state/rendering regressions and an engine integration exercise overlapping
+script order, hidden-cursor/control-off dispatch, actor priority, original-font
+layout, exact v24 save continuation and malformed task rejection. An original-
+asset browser-core test rebuilds the saved Rincewind room through the existing
+cutaway restoration path and checks five polygon labels, original font glyphs,
+byte-identical saved continuation and identical frames after reload. These are
+compatibility tests, not an independent reference hover screenshot comparison
+or a new full-game replay. See [world-hover.json](validation/world-hover.json).
 
 The safe Rust bytecode machine implements the V1 instructions handled by the pinned ScummVM interpreter. Its state includes a 128-word stack, stack and base pointers, an instruction pointer, and a pending library call. Invalid operations leave the machine and globals unchanged.
 
