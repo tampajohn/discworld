@@ -91,3 +91,9 @@ muted dummy-video startup and legacy-save loading outside the checkout. Deep
 signature, all manifested hashes and exact source verification pass. This does
 not establish visible Finder/file-picker behavior. See
 [package evidence](validation/packages-07e395f.json).
+
+`assets/packages/discworld-finder-9186705.zip` includes the inventory trail
+movement correction. Its extracted runtime passes startup and legacy-save
+loading with dummy video/audio. Signature, manifest and exact source checks
+pass. Visible Finder launch remains unverified. See
+[package evidence](validation/packages-9186705.json).

@@ -547,3 +547,9 @@ WebKit both pass fresh startup, legacy-save loading, export and audio-headroom
 controls without page errors. Full-route audits of frozen modules from this
 revision are separate and still running. See
 [package evidence](validation/packages-07e395f.json).
+
+`assets/packages/discworld-web-9186705.zip` includes the inventory trail
+movement correction. The extracted package passes manifest/source checks and
+Chrome/WebKit startup, legacy-load, save-export and audio-headroom smoke checks.
+Full-route audits use separately frozen modules from9186705 and remain running.
+See [package evidence](validation/packages-9186705.json).
