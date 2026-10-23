@@ -92,6 +92,72 @@ fn capture_original_debug_room_hover() {
             trails.tick(&resources).unwrap();
             restored.tick(&resources).unwrap();
             assert_eq!(*trails, restored);
+            // Exercise the complete versioned game-save path, not only the
+            // trail component's serde representation.
+            let legacy_bytes = crate::save::Snapshot::capture(&engine, [7; 32])
+                .to_bytes()
+                .unwrap();
+            let legacy = crate::save::Snapshot::from_bytes(&legacy_bytes, [7; 32]).unwrap();
+            assert_eq!(legacy.to_bytes().unwrap(), legacy_bytes);
+            let mut saved_engine = engine.clone();
+            saved_engine.cursor_trails = Some(trails.clone());
+            let save_bytes = crate::save::Snapshot::capture(&saved_engine, [7; 32])
+                .to_bytes()
+                .unwrap();
+            assert_eq!(
+                u32::from_le_bytes(save_bytes[8..12].try_into().unwrap()),
+                25
+            );
+            let decoded = crate::save::Snapshot::from_bytes(&save_bytes, [7; 32]).unwrap();
+            assert_eq!(decoded.to_bytes().unwrap(), save_bytes);
+            let mut loaded = decoded
+                .restore_with_strings(&resources, &bank, &tracks, &strings)
+                .unwrap();
+            assert_eq!(loaded.cursor_trails, saved_engine.cursor_trails);
+            assert_eq!(
+                loaded
+                    .tick_content(&resources, Some(&bank), Some(&tracks), Some(&strings))
+                    .unwrap(),
+                saved_engine
+                    .tick_content(&resources, Some(&bank), Some(&tracks), Some(&strings))
+                    .unwrap()
+            );
+            assert_eq!(
+                crate::save::Snapshot::capture(&loaded, [7; 32])
+                    .to_bytes()
+                    .unwrap(),
+                crate::save::Snapshot::capture(&saved_engine, [7; 32])
+                    .to_bytes()
+                    .unwrap()
+            );
+            if rows.is_empty() {
+                std::fs::write(directory.join("trail-state-v25.dws"), &save_bytes).unwrap();
+                let mut invalid = saved_engine.clone();
+                invalid.declarations.cursor = None;
+                assert!(
+                    crate::save::Snapshot::capture(&invalid, [7; 32])
+                        .to_bytes()
+                        .is_err()
+                );
+                // An extension may not recursively contain itself, and trailing
+                // bytes must be rejected even with a valid envelope checksum.
+                for nested in [true, false] {
+                    let (mut inner, state): (Vec<u8>, crate::cursor_trails::Trails) =
+                        postcard::from_bytes(&save_bytes[80..]).unwrap();
+                    if nested {
+                        inner[8..12].copy_from_slice(&25u32.to_le_bytes());
+                    }
+                    let mut payload = postcard::to_allocvec(&(inner, state)).unwrap();
+                    if !nested {
+                        payload.push(0);
+                    }
+                    let mut malformed = save_bytes[..80].to_vec();
+                    malformed[44..48].copy_from_slice(&(payload.len() as u32).to_le_bytes());
+                    malformed[48..80].copy_from_slice(&Sha256::digest(&payload));
+                    malformed.extend(payload);
+                    assert!(crate::save::Snapshot::from_bytes(&malformed, [7; 32]).is_err());
+                }
+            }
             let mut candidate = surface.clone();
             for animation in trails.animations() {
                 candidate.draw_animation(&resources, animation).unwrap();

@@ -181,5 +181,37 @@
       "Original-ISO 72-frame diagnostic with 72 serialized continuation checks passes on final source.",
       "Core WASM check and all-target Clippy pass."
     ]
+  },
+  "trail_game_save_extension": {
+    "version": 25,
+    "encoding": "Postcard tuple (nested v1-v24 snapshot bytes, Trails), in the existing checksummed/asset-bound 80-byte save envelope.",
+    "engine_field": "Optional serde-skipped cursor_trails; None retains previous serialization. Startup and scene entry do not enable it yet.",
+    "validation": [
+      "Checks ring bounds and suppression invariants during snapshot validation.",
+      "Requires trail film to match the engine cursor declaration.",
+      "Preview/restore validates original film/reel identity, scripts, palettes and all trail animation resources.",
+      "Rejects trailing payload bytes, recursive v25 nesting, and missing/mismatched cursor declaration."
+    ],
+    "evidence": {
+      "sample": "assets/validation/cursor-trails-save2/trail-state-v25.dws",
+      "sha256": "2b8d361ccac98811ba51cbae6feba026583edc5e2f2f109a60b0ff08cc048398",
+      "original_asset_states_checked": 72,
+      "roundtrips": "At each state: unchanged legacy bytes, exact v25 decode/encode, full resource-checked restore, equal restored trail state, equal next engine tick/status and complete snapshot bytes.",
+      "scope": "Trail animation is still advanced by the diagnostic driver; normal engine ticks do not animate or render trails yet."
+    },
+    "checks": [
+      "cargo test --workspace --release passed (core: 359 passed, 2 opt-in tests ignored).",
+      "Original ISO capture_original_debug_room_hover passed with full save checks on 72 states.",
+      "cargo clippy --workspace --all-targets -- -D warnings passed.",
+      "cargo check -p discworld-web --target wasm32-unknown-unknown passed.",
+      "Node browser-test snapshot helper accepts real v25 wrapper and nested v24."
+    ],
+    "logs": [
+      "assets/logs/cursor-trails-save-workspace.log",
+      "assets/logs/cursor-trails-save-original-final.log",
+      "assets/logs/cursor-trails-save-clippy.log",
+      "assets/logs/cursor-trails-save-wasm.log"
+    ],
+    "remaining": "Connect emission/animation/reset/suppression and status-layer composition, migrate player loads appropriately, validate host behavior and refresh runnable packages/visible session."
   }
 }

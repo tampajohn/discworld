@@ -110,7 +110,7 @@ impl Trails {
         self.slots.iter().flatten()
     }
 
-    fn validate_structure(&self) -> Result<(), Error> {
+    pub(crate) fn validate_structure(&self) -> Result<(), Error> {
         if self.slots.len() > 10
             || self.next >= self.slots.len().max(1)
             || (self.suppressed && self.animations().next().is_some())
@@ -118,6 +118,10 @@ impl Trails {
             return Err(Error("invalid cursor trail state"));
         }
         Ok(())
+    }
+
+    pub(crate) fn film(&self) -> Handle {
+        self.film
     }
 
     pub fn validate(&self, resources: &Resources<'_>) -> Result<(), Error> {

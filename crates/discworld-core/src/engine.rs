@@ -297,6 +297,8 @@ pub struct Engine {
     pub(crate) scheduled_scroll: bool,
     #[serde(skip)]
     pub(crate) world_hover: Option<crate::world_hover::State>,
+    #[serde(skip)]
+    pub(crate) cursor_trails: Option<crate::cursor_trails::Trails>,
     pub world_origin: [i32; 2],
     pending_scene: Option<(Handle, i32, i32, Option<u8>)>,
     scene_hooks: crate::scene_hook::Hooks,
@@ -562,6 +564,7 @@ impl Engine {
         self.background
             .iter()
             .chain(self.cursor_animation.iter())
+            .chain(self.cursor_trails.iter().flat_map(|t| t.animations()))
             .chain(self.films.iter())
             .chain(self.movers.values().map(|m| &m.animation))
             .chain(
@@ -633,6 +636,12 @@ impl Engine {
                         }
                     }
                 }
+            }
+        }
+        if let Some(trails) = &self.cursor_trails {
+            trails.validate_structure()?;
+            if self.declarations.cursor.as_ref().map(|c| c.0) != Some(trails.film()) {
+                return Err(Error("cursor trail film does not match declaration"));
             }
         }
         if let Some(hover) = &self.world_hover {
@@ -1002,6 +1011,9 @@ impl Engine {
         }
         for animation in self.snapshot_animations() {
             animation.validate_snapshot_resources(resources)?;
+        }
+        if let Some(trails) = &self.cursor_trails {
+            trails.validate(resources)?;
         }
         // Hidden inventory and deferred text must also have drawable resources.
         let mut scratch = Surface::new(320, 200)?;
@@ -3313,6 +3325,7 @@ impl Engine {
             scroll_maximum: [0, 0],
             scheduled_scroll: false,
             world_hover: None,
+            cursor_trails: None,
             pending_scene: None,
             fade_multiplier: 0x10000,
             fade_in_step: None,
