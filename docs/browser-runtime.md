@@ -581,3 +581,9 @@ manifest files and bundled source verify. Chrome and WebKit pass fresh startup,
 legacy-load, save-export and audio-headroom checks without page errors.
 Full-route and broader UI audits are running separately; physical iPad acceptance
 remains open. See [package evidence](validation/packages-6061cc3.json).
+
+Package `bad0d45` includes the same-tick movement retry. Extracted native
+startup/legacy-load checks and Chrome/WebKit startup, load, export and
+audio-headroom checks pass. Manifests and exact source verify. Full routes
+and the broader UI suite are running separately; visible Finder and physical
+iPad acceptance remain unverified. See [package evidence](validation/packages-bad0d45.json).
