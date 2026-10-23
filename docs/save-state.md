@@ -551,8 +551,9 @@ asset, length, checksum and size checks. Scene transitions clear the map.
 Tests cover v19 nesting, blocking/nonblocking holders, legacy visibility, exact
 round-trip, malformed metadata, and unchanged bytes after clearing markers.
 
-This is persistence infrastructure only. Automatic mover creation, visibility
-handling, render/scroll behavior and lifecycle cleanup are not connected yet.
+Automatic mover creation, visibility, render/scroll behavior and lifecycle
+cleanup now use this extension. See the mover compatibility document for
+integration coverage.
 
 Validation: workspace suite and final 327-core-test run, all 20 original-asset
 web tests, Clippy and WASM checks pass. Both release hosts rebuilt after the

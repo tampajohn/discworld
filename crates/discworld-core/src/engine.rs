@@ -3784,6 +3784,7 @@ impl Engine {
     fn release_reel(&mut self, animation: &Animation) {
         if self.owns_reel(animation) {
             self.reel_owners.remove(&animation.object.id);
+            self.created_reel_movers.remove(&animation.object.id);
             self.reel_escape.remove(&animation.object.id);
             if let Some(mover) = self.movers.get_mut(&animation.object.id) {
                 mover.hidden = false;
@@ -3811,10 +3812,41 @@ impl Engine {
                 )?;
                 if !mover.hidden {
                     self.reel_owners.remove(&actor);
+                    self.created_reel_movers.remove(&actor);
                     self.reel_escape.remove(&actor);
                 }
             }
         }
+        Ok(())
+    }
+    fn create_claimed_mover(
+        &mut self,
+        resources: &Resources<'_>,
+        reel: &Animation,
+    ) -> Result<(), Error> {
+        let actor = reel.object.id;
+        if self.movers.contains_key(&actor) || !self.declarations.movers.contains_key(&actor) {
+            return Ok(());
+        }
+        // t1PlayReel invokes STAND(MAGICX, MAGICY, TF_NONE) only after
+        // arbitration succeeds. Film placement and new-mover masking are
+        // already resolved before this object exists.
+        let placement = crate::mover::Placement::initial(
+            &self.declarations,
+            &self.polygons,
+            actor,
+            [-101, -102],
+            Handle(0),
+        )?;
+        let mut mover = crate::mover::Mover::new(resources, placement)?;
+        mover.alter_reel(
+            resources,
+            &self.declarations,
+            crate::mover_reel::State::default(),
+            crate::mover_reel::Operation::Normal(mover.placement.standing),
+        )?;
+        self.movers.insert(actor, mover);
+        self.created_reel_movers.insert(actor, reel.playback);
         Ok(())
     }
     /// A duplicate reel does not restart. Replacement gets a distinct generation.
@@ -3840,6 +3872,7 @@ impl Engine {
             .checked_add(1)
             .ok_or(Error("playback generation overflow"))?;
         animation.playback = self.next_playback;
+        self.created_reel_movers.remove(&actor);
         self.reel_owners.insert(actor, (reel, animation.playback));
         self.reel_escape.remove(&actor);
         self.films
@@ -3853,6 +3886,7 @@ impl Engine {
         self.actors.disable(id)?;
         self.movers.remove(&(id as i32));
         self.reel_owners.remove(&(id as i32));
+        self.created_reel_movers.remove(&(id as i32));
         self.reel_escape.remove(&(id as i32));
         for animation in self.films.iter().chain(
             self.processes
@@ -4081,7 +4115,9 @@ impl Engine {
         self.migrate_legacy_talk_reels(resources)?;
         let mover_ids: Vec<_> = self.movers.keys().copied().collect();
         for actor in mover_ids {
-            if self.reel_owners.contains_key(&actor) {
+            if self.reel_owners.contains_key(&actor)
+                && !self.created_reel_movers.contains_key(&actor)
+            {
                 // Older snapshots predate independent mover visibility. PLAY
                 // hides its mover but does not suspend ordinary walking.
                 self.movers.get_mut(&actor).unwrap().hidden = true;
@@ -4111,6 +4147,7 @@ impl Engine {
                 // actor position distinct from the underlying moving object.
                 if !mover.hidden {
                     self.reel_owners.remove(&actor);
+                    self.created_reel_movers.remove(&actor);
                     self.reel_escape.remove(&actor);
                 }
                 let pending_restore = self
@@ -4141,7 +4178,10 @@ impl Engine {
         self.monitor_effects(resources, &effect_positions)?;
         if self.scroll_maximum != [0, 0] {
             if let Some(mover) = self.movers.get(&self.scroll.focus) {
-                if !self.reel_owners.contains_key(&self.scroll.focus) && !mover.hidden {
+                if (!self.reel_owners.contains_key(&self.scroll.focus)
+                    || self.created_reel_movers.contains_key(&self.scroll.focus))
+                    && !mover.hidden
+                {
                     if let Some([_, top, _, bottom]) = mover.animation.bounds(resources)? {
                         self.scroll.monitor(
                             mover.placement.position,
@@ -4460,6 +4500,7 @@ impl Engine {
                 )?;
                 self.scroll.follow_cursor = false;
                 self.reel_owners.remove(&actor);
+                self.created_reel_movers.remove(&actor);
                 self.reel_escape.remove(&actor);
                 self.films.retain(|a| a.object.id != actor);
             }
@@ -4545,6 +4586,7 @@ impl Engine {
                 wait.delay = 0;
                 self.scroll.follow_cursor = false;
                 self.reel_owners.remove(&wait.actor);
+                self.created_reel_movers.remove(&wait.actor);
                 self.reel_escape.remove(&wait.actor);
                 self.films.retain(|a| a.object.id != wait.actor);
             }
@@ -5368,6 +5410,7 @@ impl Engine {
                     self.acquire_walk_token(actor)?;
                     self.scroll.follow_cursor = false;
                     self.reel_owners.remove(&actor);
+                    self.created_reel_movers.remove(&actor);
                     self.reel_escape.remove(&actor);
                     self.films.retain(|a| a.object.id != actor);
                     if moving && a[4] != 2 {
@@ -5448,6 +5491,7 @@ impl Engine {
                     }
                     self.acquire_walk_token(actor)?;
                     self.reel_owners.remove(&actor);
+                    self.created_reel_movers.remove(&actor);
                     self.reel_escape.remove(&actor);
                     self.films.retain(|a| a.object.id != actor);
                     if moving && !entered {
@@ -5552,6 +5596,7 @@ impl Engine {
                     self.scroll.follow_cursor = false;
                     self.actors.get_mut(actor as u32)?.position = position;
                     self.reel_owners.remove(&actor);
+                    self.created_reel_movers.remove(&actor);
                     self.reel_escape.remove(&actor);
                     self.films.retain(|film| film.object.id != actor);
                     let restore_control = self.control.enabled
@@ -6128,6 +6173,7 @@ impl Engine {
                         if self.playback.start(reel.object.id, film)
                             && self.claim_reel(&mut reel)?
                         {
+                            self.create_claimed_mover(resources, &reel)?;
                             if splay {
                                 self.splay_reels.insert(reel.playback);
                             }
@@ -6242,7 +6288,11 @@ impl Engine {
         let hidden: Vec<_> = self
             .movers
             .iter()
-            .filter(|(id, mover)| mover.hidden && !self.reel_owners.contains_key(id))
+            .filter(|(id, mover)| {
+                mover.hidden
+                    && (!self.reel_owners.contains_key(id)
+                        || self.created_reel_movers.contains_key(id))
+            })
             .map(|(_, mover)| {
                 let mut animation = mover.animation.clone();
                 animation.object.z = -1;
@@ -6263,7 +6313,11 @@ impl Engine {
         films.extend(
             self.movers
                 .iter()
-                .filter(|(id, m)| !m.hidden && !self.reel_owners.contains_key(id))
+                .filter(|(id, m)| {
+                    !m.hidden
+                        && (!self.reel_owners.contains_key(id)
+                            || self.created_reel_movers.contains_key(id))
+                })
                 .map(|(_, m)| &m.animation),
         );
         let (status_films, world_films): (Vec<_>, Vec<_>) =
@@ -7226,7 +7280,7 @@ mod tests {
             (88, base + 96),
             (92, base + 100),
             (100, 2),
-            (136, 10),
+            (136, base + 64),
             (170, 1),
             (200, base + 208),
             (208, 0x00040004),
@@ -7384,6 +7438,31 @@ mod tests {
             assert!(mover.hidden, "explicit STAND preserves hidden state");
             assert_eq!(mover.placement.position, [644, 0]);
         }
+        // A mover created by a film remains visible at its sentinel position,
+        // despite the film owning this actor. Rendering must retain that object.
+        let mut born = engine.clone();
+        born.movers.clear();
+        born.background = None;
+        let mut reel = before.animation.clone();
+        reel.reel = Some(Handle(base + 8));
+        assert!(born.claim_reel(&mut reel).unwrap());
+        born.create_claimed_mover(&resources, &reel).unwrap();
+        born.films.push(reel);
+        assert!(!born.movers[&1].hidden);
+        assert!(born.movers[&1].special_reel());
+        assert_eq!(born.movers[&1].placement.position, [-101, -102]);
+        born.world_origin = [-101, -102];
+        assert_eq!(
+            &born.render(&resources).unwrap().rgba[..4],
+            &[90, 80, 70, 255]
+        );
+        let bytes = Snapshot::capture(&born, [7; 32]).to_bytes().unwrap();
+        let restored = Snapshot::from_bytes(&bytes, [7; 32]).unwrap();
+        assert_eq!(restored.state(), &born);
+        assert_eq!(
+            restored.preview(&resources).unwrap(),
+            born.render(&resources).unwrap()
+        );
         // An uncreated declared mover resets visibility on creation. Ordinary
         // actors use their own flag; hiding never changes alive state.
         engine.movers.clear();
@@ -12249,84 +12328,105 @@ mod tests {
             film[at..at + 4].copy_from_slice(&value.to_le_bytes());
         }
         let resources = Resources(vec![&master, &scene, &film]);
-        for exit in 0..3 {
-            let mut engine = Engine::bootstrap(&resources).unwrap();
-            engine.actors = crate::actor::Actors::new(2).unwrap();
-            engine.escape_events = Some(1);
-            for process in engine.processes.states_mut() {
-                process.vm.escape_enabled = true;
-                process.vm.escape_generation = Some(1);
-            }
-            for actor in [1, 2] {
-                engine
-                    .declarations
-                    .movers
-                    .insert(actor, [[Handle(base); 12]; 10]);
-                let placement = crate::mover::Placement::initial(
-                    &engine.declarations,
-                    &engine.polygons,
-                    actor,
-                    [100 + actor * 10, 100],
-                    Handle(base),
-                )
-                .unwrap();
-                engine.movers.insert(
-                    actor,
-                    crate::mover::Mover::new(&resources, placement).unwrap(),
+        for newborn in [false, true] {
+            for exit in 0..3 {
+                let mut engine = Engine::bootstrap(&resources).unwrap();
+                engine.actors = crate::actor::Actors::new(2).unwrap();
+                engine.escape_events = Some(1);
+                for process in engine.processes.states_mut() {
+                    process.vm.escape_enabled = true;
+                    process.vm.escape_generation = Some(1);
+                }
+                for actor in [1, 2] {
+                    engine
+                        .declarations
+                        .movers
+                        .insert(actor, [[Handle(base); 12]; 10]);
+                    if newborn {
+                        continue;
+                    }
+                    let placement = crate::mover::Placement::initial(
+                        &engine.declarations,
+                        &engine.polygons,
+                        actor,
+                        [100 + actor * 10, 100],
+                        Handle(base),
+                    )
+                    .unwrap();
+                    engine.movers.insert(
+                        actor,
+                        crate::mover::Mover::new(&resources, placement).unwrap(),
+                    );
+                }
+                for tick in 1..=3 {
+                    let bytes = Snapshot::capture(&engine, [7; 32]).to_bytes().unwrap();
+                    let snapshot = Snapshot::from_bytes(&bytes, [7; 32]).unwrap();
+                    assert_eq!(snapshot.to_bytes().unwrap(), bytes);
+                    let mut restored = snapshot.state().clone();
+                    engine.tick(&resources).unwrap();
+                    restored.tick(&resources).unwrap();
+                    assert_eq!(engine, restored);
+                    assert_eq!(engine.globals[0], if tick == 3 { 7 } else { 0 });
+                    assert_eq!(engine.splay_reels.len(), if tick == 3 { 1 } else { 2 });
+                    if newborn {
+                        assert_eq!(
+                            engine.created_reel_movers.len(),
+                            if tick == 3 { 1 } else { 2 }
+                        );
+                        assert!(!engine.movers[&2].hidden);
+                        assert!(engine.movers[&2].special_reel());
+                        if tick == 1 {
+                            assert_eq!(engine.movers[&1].placement.position, [-101, -102]);
+                            assert_eq!(engine.films[0].object.z, 3);
+                        }
+                    }
+                }
+                assert_eq!(engine.movers[&1].placement.position, [12, 13]);
+                assert!(!engine.movers[&1].hidden);
+                assert_eq!(
+                    engine.movers[&2].placement.position,
+                    if newborn { [-101, -102] } else { [120, 100] }
                 );
-            }
-            for tick in 1..=3 {
+                assert_eq!(engine.movers[&2].hidden, !newborn);
+                match exit {
+                    0 => engine.script_escape_event().unwrap(),
+                    1 => {
+                        let mut replacement = engine.films[0].clone();
+                        replacement.reel = Some(Handle(base + 8));
+                        replacement.object.x = 20;
+                        replacement.object.y = 21;
+                        assert!(engine.claim_reel(&mut replacement).unwrap());
+                        engine.actors.get_mut(2).unwrap().position = [20, 21];
+                        engine.films.push(replacement);
+                        assert_eq!(engine.films.len(), 2, "superseded SPLAY retains cleanup");
+                    }
+                    _ => engine.disable_actor(2).unwrap(),
+                }
                 let bytes = Snapshot::capture(&engine, [7; 32]).to_bytes().unwrap();
-                let snapshot = Snapshot::from_bytes(&bytes, [7; 32]).unwrap();
-                assert_eq!(snapshot.to_bytes().unwrap(), bytes);
-                let mut restored = snapshot.state().clone();
+                let mut restored = Snapshot::from_bytes(&bytes, [7; 32])
+                    .unwrap()
+                    .state()
+                    .clone();
                 engine.tick(&resources).unwrap();
                 restored.tick(&resources).unwrap();
                 assert_eq!(engine, restored);
-                assert_eq!(engine.globals[0], if tick == 3 { 7 } else { 0 });
-                assert_eq!(engine.splay_reels.len(), if tick == 3 { 1 } else { 2 });
-            }
-            assert_eq!(engine.movers[&1].placement.position, [12, 13]);
-            assert!(!engine.movers[&1].hidden);
-            assert_eq!(engine.movers[&2].placement.position, [120, 100]);
-            assert!(engine.movers[&2].hidden);
-            match exit {
-                0 => engine.script_escape_event().unwrap(),
-                1 => {
-                    let mut replacement = engine.films[0].clone();
-                    replacement.reel = Some(Handle(base + 8));
-                    replacement.object.x = 20;
-                    replacement.object.y = 21;
-                    assert!(engine.claim_reel(&mut replacement).unwrap());
-                    engine.actors.get_mut(2).unwrap().position = [20, 21];
-                    engine.films.push(replacement);
-                    assert_eq!(engine.films.len(), 2, "superseded SPLAY retains cleanup");
+                assert!(engine.splay_reels.is_empty());
+                assert!(engine.created_reel_movers.is_empty());
+                match exit {
+                    0 => {
+                        assert_eq!(engine.movers[&2].placement.position, [5, 0]);
+                        assert!(!engine.movers[&2].hidden);
+                    }
+                    1 => {
+                        assert_eq!(engine.movers[&2].placement.position, [20, 21]);
+                        assert!(
+                            engine.movers[&2].hidden,
+                            "replacement keeps its mover hidden"
+                        );
+                        assert!(engine.reel_owners.contains_key(&2));
+                    }
+                    _ => assert!(!engine.movers.contains_key(&2)),
                 }
-                _ => engine.disable_actor(2).unwrap(),
-            }
-            let bytes = Snapshot::capture(&engine, [7; 32]).to_bytes().unwrap();
-            let mut restored = Snapshot::from_bytes(&bytes, [7; 32])
-                .unwrap()
-                .state()
-                .clone();
-            engine.tick(&resources).unwrap();
-            restored.tick(&resources).unwrap();
-            assert_eq!(engine, restored);
-            assert!(engine.splay_reels.is_empty());
-            match exit {
-                0 => {
-                    assert_eq!(engine.movers[&2].placement.position, [5, 0]);
-                    assert!(!engine.movers[&2].hidden);
-                }
-                1 => {
-                    assert_eq!(engine.movers[&2].placement.position, [20, 21]);
-                    assert!(
-                        engine.movers[&2].hidden,
-                        "replacement keeps its mover hidden"
-                    );
-                    assert!(engine.reel_owners.contains_key(&2));
-                }
-                _ => assert!(!engine.movers.contains_key(&2)),
             }
         }
     }

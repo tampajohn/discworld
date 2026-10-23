@@ -829,3 +829,31 @@ Implicit film-position validation passes: workspace suite (327 core tests),
 Logs use assets/logs/film-position-*. Production web/pkg remains at 6167511
 while its full Chrome/WebKit UI suite is running; rebuild after that audit.
 The 6167511 native full-route audit also predates this coordinate correction.
+
+
+## Film-created mover integration
+
+Successful PLAY/SPLAY/TOPPLAY dispatch now creates an absent declared mover
+after film arbitration and placement/depth preparation, at (-101,-102). Its
+standing reel uses explicit special-reel state, and its initialized visibility
+is retained by the v20 owner marker. Existing movers still become hidden.
+Rejected/dead/duplicate/arbitrated-away reels do not enter the creation helper.
+
+Mover stepping, drawing and scroll monitoring honor the creation marker rather
+than applying legacy hidden-owner migration. An explicit HIDEACTOR can still
+hide it. Release, replacement, actor removal, scene transition and walking
+ownership changes clear the marker. SPLAY exit then restores coordinates
+through its existing helper; ordinary PLAY simply releases the mover.
+
+The two-actor SPLAY regression now runs with both existing and initially absent
+movers. It checks sentinel positions, special-reel state, primary/secondary
+depth, initialized visibility, exact saves between ticks, and cleanup through
+completion, Escape, replacement and actor removal. A visible-frame rendering
+fixture checks drawing an initialized mover despite film ownership and exact
+snapshot preview. Broader mixed-column, path-scale and live-reference cases
+remain to be tested. Earlier audit sections describe the pre-integration gaps.
+
+Integration validation passes: workspace suite (327 core tests), 20 original-asset
+web tests, Clippy, WASM checking and both release host builds. Logs use
+assets/logs/created-mover-integration-*. The completed 6167511 audits predate
+automatic creation; full-route acceptance of this change remains separate.
