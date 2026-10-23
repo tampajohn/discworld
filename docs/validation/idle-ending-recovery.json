@@ -38,23 +38,24 @@
   },
   "full_route": {
     "directory": "assets/validation/idle-ending-3df76c8",
-    "status": "running; not a pass",
+    "status": "passed: ending, scripted restart, matching engine bytes and pixels on all three hosts",
     "runs": {
       "run.json": {
         "pid": 20255,
-        "status": "running",
-        "confirmed_live": true
+        "status": "completed",
+        "exit_code": 0
       },
       "chrome-run.json": {
         "pid": 20369,
-        "status": "running",
-        "confirmed_live": true
+        "status": "completed",
+        "exit_code": 0
       },
       "webkit-run.json": {
         "pid": 20368,
-        "status": "running",
-        "confirmed_live": true
+        "status": "completed",
+        "exit_code": 0
       }
-    }
+    },
+    "evidence": "docs/validation/idle-clock-complete-route.json"
   }
 }

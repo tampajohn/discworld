@@ -4,9 +4,10 @@ A work-in-progress replacement for the **Tinsel 1** engine that runs the origina
 
 **Currently:** runnable macOS and browser development hosts and a reproducible original-input route through Acts I–IV, the ending, scrolling credits, and restart to the title screen. **Not yet:** a complete compatibility implementation, iPad release, or fully validated native/browser save/load. This is an independent compatibility project, informed by a pinned ScummVM reference, not an official release or a clean-room implementation.
 
-The latest idle-clock changes are undergoing full-route replay revalidation;
-[ending acceptance evidence](docs/validation/idle-ending-recovery.json) records
-the current result and required scripted-restart check.
+The corrected idle-clock runtime passes the complete 4,209-input route on native,
+Chrome and WebKit, including the ending and scripted restart. Final engine bytes
+and pixels match; native passes 7,615 engine and 7,615 audio-state save/load checks.
+See [route evidence](docs/validation/idle-clock-complete-route.json) for scope and limitations.
 
 ![Scenes rendered by the Rust runtime](docs/media/runtime-montage.gif)
 
@@ -131,7 +132,7 @@ and pixels matching native exactly. See [browser evidence and limitations](docs/
 
 Pass `--paused` to start a native session paused (including after `--from-tick` replay reconstruction); press **P** to resume. Replay reconstruction is not a persistent engine save.
 
-Double-click **Watch Discworld.command** to replay the recorded route from Rincewind's room, initially muted. It covers Acts I and II and the verified Act III route through the palace, toyshop, university closet and kitchen, continuing through the sailor exchange, birthmark, cart clue, moustache, bogeyman, sword upgrade, imp recovery, camera loading, Ramkin supplies, truth potion, sheep photo, gorge discovery and temple-eye escape and Act III climax and Act IV cage-key sequences. It pauses once after the recorded route, returned control, and completed scene fades; P continues simulation beyond that point, without further recorded inputs. Reaching that point is not evidence that the rest of the game works.
+Double-click **Watch Discworld.command** to replay the validated Acts I–IV route from Rincewind's room through the ending and credits, initially muted. It uses the corrected idle-clock input trace. The host pauses after the recorded route only when player control returns and scene fades finish; P resumes with manual controls. During playback, P pauses/resumes, F cycles 1×/4×/16×, M toggles sound, and Escape exits. This automated route does not establish complete interaction compatibility or physical iPad acceptance.
 
 | Replay control | Action |
 | --- | --- |

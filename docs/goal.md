@@ -19,7 +19,7 @@ and touch-only playthrough evidence. Its current status is not executed.
 
 ## Latest validation follow-up
 
-The4238-input run finishes identically on all hosts, but fails completion: cursor activity during the ending leads to credits/title looping with has_restarted=false. The full-route comparator now requires the scripted restart and was tested against a known pass and this rejection. A4209-input candidate removes only29 cursor movements after the final puzzle action; all hosts are rerunning. See [ending recovery](validation/idle-ending-recovery.json).
+The corrected 4,209-input route passes on native, Chrome and WebKit through the ending credits and scripted restart. Final engine bytes and pixels match, with 7,615 engine and 7,615 audio-state save/load checks in native. The watch launcher now selects this trace. See [complete-route evidence](validation/idle-clock-complete-route.json). Physical iPad and visible-session acceptance remain outstanding.
 
 The direct inventory-background comparison passes: Rust matches all24 original WrtTrans before/after framebuffer pairs, including clipping and pixels outside the rectangle; its integrated lookup matches all256 original entries. This verifies the translucent background operation independently of asynchronous character/cursor animation phases. No production change was needed. See [backdrop evidence](validation/reference-inventory-backdrop.json).
 

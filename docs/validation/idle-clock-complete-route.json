@@ -1,0 +1,114 @@
+{
+  "runtime_revision": "3df76c8835dc29a8bbc42a27dec16fa1a5c5485c",
+  "engine_revision": "18d3f91",
+  "binary_sha256": "c7886beb3d98e717d5dec8a63d8aa883a63b95f1be23130ddffdb1cc54e6e8e0",
+  "trace_sha256": "f50b0ed2175806f9ef06463ac656692d9717aaa48b5a97d2bb82f53c5fe8ac8b",
+  "input": "evidence/idle-clock-complete-input.json",
+  "ticks": 2635725,
+  "scene": "title.scn",
+  "status": "Running",
+  "has_restarted": true,
+  "accepted_inputs": 4209,
+  "engine_snapshot_checks": 7615,
+  "audio_snapshot_checks": 7615,
+  "frozen_web_files_verified": 17,
+  "final_png_inspected": true,
+  "comparisons": {
+    "chrome": {
+      "ticks": 2635725,
+      "ticks_equal": true,
+      "native_status": "Running",
+      "scene": "title.scn",
+      "scene_equal": true,
+      "has_restarted": true,
+      "restart_equal": true,
+      "accepted_inputs": 4209,
+      "native_inputs": 4209,
+      "native_inputs_accepted": true,
+      "engine_bytes_equal": true,
+      "rgba_equal": true,
+      "combined_save_equal": false,
+      "core_sha256": "d6775d01b8e52b36e306a009525b8e5c454b5f14bd23c11089d4f266d2d4dc98",
+      "audio_scope": "WASM checked for finite samples; cross-platform audio equality not established"
+    },
+    "webkit": {
+      "ticks": 2635725,
+      "ticks_equal": true,
+      "native_status": "Running",
+      "scene": "title.scn",
+      "scene_equal": true,
+      "has_restarted": true,
+      "restart_equal": true,
+      "accepted_inputs": 4209,
+      "native_inputs": 4209,
+      "native_inputs_accepted": true,
+      "engine_bytes_equal": true,
+      "rgba_equal": true,
+      "combined_save_equal": false,
+      "core_sha256": "d6775d01b8e52b36e306a009525b8e5c454b5f14bd23c11089d4f266d2d4dc98",
+      "audio_scope": "WASM checked for finite samples; cross-platform audio equality not established"
+    }
+  },
+  "ending_scene_samples": [
+    {
+      "tick": 2606797,
+      "scene": "custard.scn"
+    },
+    {
+      "tick": 2606965,
+      "scene": "finale.scn"
+    },
+    {
+      "tick": 2607157,
+      "scene": "sunset.scn"
+    },
+    {
+      "tick": 2608045,
+      "scene": "finale.scn"
+    },
+    {
+      "tick": 2608165,
+      "scene": "sunset.scn"
+    },
+    {
+      "tick": 2608525,
+      "scene": "endgame.scn"
+    },
+    {
+      "tick": 2609293,
+      "scene": "credits.scn"
+    },
+    {
+      "tick": 2610061,
+      "scene": "psygnosi.scn"
+    },
+    {
+      "tick": 2610109,
+      "scene": "twg.scn"
+    },
+    {
+      "tick": 2610229,
+      "scene": "perfect1.scn"
+    },
+    {
+      "tick": 2610397,
+      "scene": "credits.scn"
+    },
+    {
+      "tick": 2610445,
+      "scene": "title.scn"
+    }
+  ],
+  "scene_history_scope": "scene sampled after batches of up to 24 ticks; intermediate scenes may be omitted",
+  "limitations": "Resolved-input automated route, not full pointer/touch gameplay or physical iPad/visible native acceptance. Combined DSP saves differ; acoustic equality is not established. Original-reference fidelity outside the tested cases remains unverified.",
+  "watch_launcher_smoke": {
+    "exit_code": 0,
+    "frames": 30,
+    "from_tick": 8500,
+    "final_tick": 8513,
+    "scene": "rinceroo.scn",
+    "stopped": false,
+    "log": "assets/logs/idle-clock-watch-smoke.log",
+    "scope": "Native dummy-video/audio startup using the published trace and launcher arguments; not a visible-session check."
+  }
+}
