@@ -20,6 +20,7 @@ INVENTORY_FIXED_CORNER = os.environ.get("DISCWORLD_REFERENCE_INVENTORY_FIXED_COR
 INVENTORY_RESIZE = os.environ.get("DISCWORLD_REFERENCE_INVENTORY_RESIZE") == "1"
 RESIZE_CORNER = os.environ.get("DISCWORLD_REFERENCE_RESIZE_CORNER", "bottom-right")
 RESIZE_DELTA = int(os.environ.get("DISCWORLD_REFERENCE_RESIZE_DELTA", "26"))
+DOOR_ACTION = os.environ.get("DISCWORLD_REFERENCE_DOOR_ACTION") == "1"
 LOOK = os.environ.get("DISCWORLD_REFERENCE_LOOK") == "1"
 WALK = os.environ.get("DISCWORLD_REFERENCE_WALK") == "1"
 WALK_FROM_ACTOR = os.environ.get("DISCWORLD_REFERENCE_WALK_FROM_ACTOR") == "1"
@@ -123,6 +124,8 @@ def cycle(frame, location, dictionary):
                         PENDING.append('Tinsel::_vm->_dialogs->popUpInventory(1, 0)')
                     else:
                         PENDING.append('Tinsel::ActorEvent(7, (Tinsel::TINSEL_EVENT)9, (Tinsel::PLR_EVENT)16)')
+                if DOOR_ACTION and elapsed == 0:
+                    PENDING.append('Tinsel::RunPolyTinselCode(6, (Tinsel::TINSEL_EVENT)11, (Tinsel::PLR_EVENT)16, false)')
                 if LOOK and elapsed == 0:
                     PENDING.append('Tinsel::ActorEvent(7, (Tinsel::TINSEL_EVENT)10, (Tinsel::PLR_EVENT)16)')
                 if INVENTORY_DRAG and elapsed == 12:
@@ -273,7 +276,7 @@ def finish(debugger):
     path = frames.OUTPUT / 'capture.json'
     report = json.loads(path.read_text())
     report.update(scope='Controlled original debug scene entry, logical driver writes and original DoCursorMove; not normal host input or full gameplay equivalence.',
-                  injected_actions=ACTIONS, hover_start_cycle=START, inventory_diagnostic=INVENTORY, inventory_drag=INVENTORY_DRAG, resize_delta=RESIZE_DELTA, resize_corner=RESIZE_CORNER, inventory_resize=INVENTORY_RESIZE, inventory_fixed_corner=INVENTORY_FIXED_CORNER, look_diagnostic=LOOK, walk_diagnostic=WALK, walk_delay=WALK_DELAY, walk_from_actor=WALK_FROM_ACTOR)
+                  injected_actions=ACTIONS, hover_start_cycle=START, inventory_diagnostic=INVENTORY, inventory_drag=INVENTORY_DRAG, door_action=DOOR_ACTION, resize_delta=RESIZE_DELTA, resize_corner=RESIZE_CORNER, inventory_resize=INVENTORY_RESIZE, inventory_fixed_corner=INVENTORY_FIXED_CORNER, look_diagnostic=LOOK, walk_diagnostic=WALK, walk_delay=WALK_DELAY, walk_from_actor=WALK_FROM_ACTOR)
     path.write_text(json.dumps(report, indent=2) + '\n')
 
 

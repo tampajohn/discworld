@@ -96,13 +96,20 @@ fn capture_original_debug_room_hover() {
         points = [[50, 120], corner, moved, moved, [10, 10], [10, 10]];
     }
     let inventory_mode = inventory_drag || std::env::var_os("DISCWORLD_HOVER_INVENTORY").is_some();
+    let door_action = std::env::var_os("DISCWORLD_HOVER_DOOR_ACTION").is_some();
     let look_mode = std::env::var_os("DISCWORLD_HOVER_LOOK").is_some();
     let walk_delay =
         std::env::var("DISCWORLD_HOVER_WALK_DELAY").map_or(1, |s| s.parse::<u64>().unwrap());
     assert!(walk_delay <= 1);
     let walk_from_actor = std::env::var_os("DISCWORLD_HOVER_WALK_FROM_ACTOR").is_some();
     let walk_mode = std::env::var_os("DISCWORLD_HOVER_WALK").is_some();
-    assert!(usize::from(inventory_mode) + usize::from(look_mode) + usize::from(walk_mode) <= 1);
+    assert!(
+        usize::from(inventory_mode)
+            + usize::from(look_mode)
+            + usize::from(walk_mode)
+            + usize::from(door_action)
+            <= 1
+    );
     if walk_mode {
         points[0] = if walk_from_actor {
             [200, 140]
@@ -118,6 +125,8 @@ fn capture_original_debug_room_hover() {
     let mut look_completion = None;
     let mut start = None;
     let mut rows = Vec::new();
+    let mut door_calls = Vec::new();
+    let mut door_control_off = false;
     let mut clocks = Vec::new();
     let mut mover_states = Vec::new();
     engine.scene_calls = Some(Default::default());
@@ -227,6 +236,13 @@ fn capture_original_debug_room_hover() {
                             .interact_actor(&resources, 7, PolygonInteraction::WalkTo)
                             .unwrap();
                     }
+                }
+                if door_action && elapsed == 0 {
+                    assert!(
+                        engine
+                            .interact_polygon(&resources, 6, PolygonInteraction::Action)
+                            .unwrap()
+                    );
                 }
                 if look_mode && elapsed == 0 {
                     assert!(
@@ -384,6 +400,19 @@ fn capture_original_debug_room_hover() {
             .tick_content(&resources, Some(&bank), Some(&tracks), Some(&strings))
             .unwrap();
         crate::animation::trace_tick(None);
+        if door_action && start.is_some() {
+            door_control_off |= !engine.control.enabled;
+            let script = engine.polygons.active[6].definition.script;
+            door_calls.extend(
+                engine
+                    .scene_calls
+                    .as_ref()
+                    .unwrap()
+                    .iter()
+                    .filter(|call| call.tick == engine.ticks && call.script == script)
+                    .map(|call| call.call.id),
+            );
+        }
         if walk_from_actor && start.is_some_and(|start| tick == start + 14) {
             // Original cycle1271 still steps all three trails after the window
             // appeared under a stationary cursor; opening is not movement.
@@ -446,7 +475,7 @@ fn capture_original_debug_room_hover() {
                 .unwrap();
             let legacy = crate::save::Snapshot::from_bytes(&legacy_bytes, [7; 32]).unwrap();
             assert_eq!(legacy.to_bytes().unwrap(), legacy_bytes);
-            if rows.is_empty() && !inventory_mode && !look_mode && !walk_mode {
+            if rows.is_empty() && !inventory_mode && !look_mode && !walk_mode && !door_action {
                 let mut migrated = legacy.state().clone();
                 let peers: Vec<_> = migrated
                     .processes
@@ -536,7 +565,7 @@ fn capture_original_debug_room_hover() {
                     .to_bytes()
                     .unwrap()
             );
-            if rows.is_empty() && !inventory_mode && !look_mode && !walk_mode {
+            if rows.is_empty() && !inventory_mode && !look_mode && !walk_mode && !door_action {
                 std::fs::write(directory.join("mover-state-v26.dws"), &save_bytes).unwrap();
                 let mut input = engine.clone();
                 input
@@ -686,6 +715,18 @@ fn capture_original_debug_room_hover() {
         }
     }
     assert_eq!(rows.len(), frame_limit, "room did not reach active tags");
+    if door_action {
+        assert!(!door_calls.is_empty(), "original door script must execute");
+        assert!(
+            door_control_off && engine.control.enabled,
+            "door action must take and restore control"
+        );
+        std::fs::write(
+            directory.join("door-library-calls.json"),
+            format!("{door_calls:?}\n"),
+        )
+        .unwrap();
+    }
     if walk_from_actor {
         assert_eq!(engine.active_inventory(), Some(2));
     }

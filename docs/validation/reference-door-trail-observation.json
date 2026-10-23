@@ -1,0 +1,188 @@
+{
+  "runtime_revision": "30c2f69",
+  "reference_revision": "96b42d42bc8533953bdd701db059cc33c839a9ff",
+  "reference_binary_sha256": "1e8b098f0e9f6da44062aa19c195a5771a4a5dbc806cb3d3a9c3eb0e8fb6f524",
+  "reference_probe_sha256": "16c8c0b776ebf510c7d1a6c5b8392fcdc7c280c9fe474659fed96dc69052bf4b",
+  "capture_accepted": true,
+  "fidelity_pass": false,
+  "scope": "Controlled starting-room entry and cursor injection; original V1 RunPolyTinselCode door ACTION on polygon6 versus resolved Rust polygon action. Not ordinary raw host-input acceptance.",
+  "frames": 72,
+  "same_cycle_matches": 62,
+  "rgb_content_matches": 62,
+  "full_save_restore_next_tick_checks": 72,
+  "door_library_calls": [
+    "EVENT",
+    "WALKTAG",
+    "EVENT",
+    "PRINTTAG",
+    "CONTROL",
+    "PLAYSAMPLE",
+    "PLAY",
+    "STOPSAMPLE",
+    "PLAY",
+    "CONTROL"
+  ],
+  "rust_control_taken_and_restored": true,
+  "mismatches": [
+    {
+      "frame": 38,
+      "scene": 150994944,
+      "matching_rust_ticks": [],
+      "cycle": 1294,
+      "scene_aligned_rust_tick": 1294,
+      "scene_aligned_equal": false,
+      "scene_aligned_different_pixels": 5,
+      "scene_aligned_difference_bounds": [
+        148,
+        108,
+        150,
+        110
+      ]
+    },
+    {
+      "frame": 39,
+      "scene": 150994944,
+      "matching_rust_ticks": [],
+      "cycle": 1295,
+      "scene_aligned_rust_tick": 1295,
+      "scene_aligned_equal": false,
+      "scene_aligned_different_pixels": 5,
+      "scene_aligned_difference_bounds": [
+        148,
+        108,
+        150,
+        110
+      ]
+    },
+    {
+      "frame": 40,
+      "scene": 150994944,
+      "matching_rust_ticks": [],
+      "cycle": 1296,
+      "scene_aligned_rust_tick": 1296,
+      "scene_aligned_equal": false,
+      "scene_aligned_different_pixels": 5,
+      "scene_aligned_difference_bounds": [
+        148,
+        108,
+        150,
+        110
+      ]
+    },
+    {
+      "frame": 41,
+      "scene": 150994944,
+      "matching_rust_ticks": [],
+      "cycle": 1297,
+      "scene_aligned_rust_tick": 1297,
+      "scene_aligned_equal": false,
+      "scene_aligned_different_pixels": 5,
+      "scene_aligned_difference_bounds": [
+        148,
+        108,
+        150,
+        110
+      ]
+    },
+    {
+      "frame": 42,
+      "scene": 150994944,
+      "matching_rust_ticks": [],
+      "cycle": 1298,
+      "scene_aligned_rust_tick": 1298,
+      "scene_aligned_equal": false,
+      "scene_aligned_different_pixels": 5,
+      "scene_aligned_difference_bounds": [
+        147,
+        109,
+        149,
+        111
+      ]
+    },
+    {
+      "frame": 43,
+      "scene": 150994944,
+      "matching_rust_ticks": [],
+      "cycle": 1299,
+      "scene_aligned_rust_tick": 1299,
+      "scene_aligned_equal": false,
+      "scene_aligned_different_pixels": 5,
+      "scene_aligned_difference_bounds": [
+        147,
+        109,
+        149,
+        111
+      ]
+    },
+    {
+      "frame": 44,
+      "scene": 150994944,
+      "matching_rust_ticks": [],
+      "cycle": 1300,
+      "scene_aligned_rust_tick": 1300,
+      "scene_aligned_equal": false,
+      "scene_aligned_different_pixels": 5,
+      "scene_aligned_difference_bounds": [
+        147,
+        109,
+        149,
+        111
+      ]
+    },
+    {
+      "frame": 45,
+      "scene": 150994944,
+      "matching_rust_ticks": [],
+      "cycle": 1301,
+      "scene_aligned_rust_tick": 1301,
+      "scene_aligned_equal": false,
+      "scene_aligned_different_pixels": 5,
+      "scene_aligned_difference_bounds": [
+        147,
+        109,
+        149,
+        111
+      ]
+    },
+    {
+      "frame": 46,
+      "scene": 150994944,
+      "matching_rust_ticks": [],
+      "cycle": 1302,
+      "scene_aligned_rust_tick": 1302,
+      "scene_aligned_equal": false,
+      "scene_aligned_different_pixels": 1,
+      "scene_aligned_difference_bounds": [
+        148,
+        110,
+        148,
+        110
+      ]
+    },
+    {
+      "frame": 47,
+      "scene": 150994944,
+      "matching_rust_ticks": [],
+      "cycle": 1303,
+      "scene_aligned_rust_tick": 1303,
+      "scene_aligned_equal": false,
+      "scene_aligned_different_pixels": 1,
+      "scene_aligned_difference_bounds": [
+        148,
+        110,
+        148,
+        110
+      ]
+    }
+  ],
+  "observation": "Rust has an extra cursor trail near147,110 during cycles1294..1303. Only1..5 pixels differ per frame; earlier and later frames match. Rust trail script374528 survives hidden with frame0 and resumes into visible frames; the reference no longer steps that trail.",
+  "source_cause": "Pinned cursor.cpp DwHideCursor deletes all trail objects. CONTROL_OFF and CONTROL_STARTOFF call it in tinlib.cpp. Rust script CONTROL changes hidden state; update_cursor_trails uses hide_images, preserving clocks. HideCursorProcess is a different reference operation that hides images without deleting them.",
+  "next_action": "Match DwHideCursor trail deletion at control-hide operations without conflating it with HideCursorProcess or resetting trail ring/previous-position state. Verify all previous reference captures and host/save tests after the fix.",
+  "engine_changed": false,
+  "clippy": "core all-target passed",
+  "final_rust_frame_inspected": true,
+  "rejected_probe": "reference-door-action1 invoked PolygonEvent, the later-version entry point; original asserted in GetPolyScript after11 frames. Capture rejected, not a fidelity result. Corrected to V1 RunPolyTinselCode for reference-door-action2.",
+  "reference_capture_sha256": "8ac93b96e138d7b1a7120d8c27e80f11cd114bdfe2825f3e3701232cf2622507",
+  "rust_capture_sha256": "4d4a8716d17a24f761793069ba17f162fece08a1da58c4efc42fbd97e72bf31c",
+  "comparison_sha256": "f11495f4fea043ab41d8d461504583ffe56ae77229e9f58ad05e79c7bf728ba1"
+}

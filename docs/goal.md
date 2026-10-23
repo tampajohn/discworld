@@ -16,6 +16,8 @@ Touch gestures and presentation technology remain implementation decisions to va
 
 ## Latest validation follow-up
 
+A starting-room door ACTION capture exposes a hidden-cursor trail discrepancy: 62/72 full frames match; ten frames after control restoration contain 1–5 extra trail pixels in Rust. The reference deletes trails in `DwHideCursor`, while Rust retains hidden animation clocks. Door script execution, control take/restore and all 72 save continuations pass; this is a failing fidelity observation, not acceptance. No engine change yet. See [door trail evidence](validation/reference-door-trail-observation.json).
+
 Shrinking the Luggage from either bottom-right or top-left now matches all 72 reference frames per case, with full save continuation at every frame. Both shrink from 3×2 to 2×1 slots; top-left also moves the origin to (126,126). Both enlargement regressions retain 72/72 matches. No engine change was required; see [shrink evidence](validation/reference-luggage-shrink.json).
 
 Top-left Luggage resizing also matches all 72 reference frames at the same cycles, including moving the origin from (100,100) to (74,74) while growing from 3×2 to 4×3 slots. All 72 save continuations pass; the bottom-right regression remains 72/72. No further engine change was needed. See [top-left resize evidence](validation/reference-luggage-top-left.json). The full-route audit of runtime 30c2f69 is complete; see [route evidence](validation/resize-cursor-route.json).
