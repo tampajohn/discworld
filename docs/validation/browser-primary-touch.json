@@ -1,0 +1,16 @@
+{
+  "scope": "Browser host primary touch ownership; no engine or save-format changes. Real Chromium CDP multi-contact injection, not physical iPad acceptance.",
+  "before": "Verified secondary pointer-up event forwarded a second left-down and left-up while primary contact remained held.",
+  "after": "Secondary contact and release send no game button commands; primary drag stays active and its own release sends exactly one left-up.",
+  "passed": {
+    "chromium_multitouch": 1,
+    "chrome_webkit_existing_drag_and_interruption_cases": 12
+  },
+  "skipped": "WebKit simultaneous touch injection unavailable in Playwright.",
+  "harness_correction": "Initial sequence ended the primary contact. A later omitted-contact touchMove emitted no release. Final test explicitly sends secondary touchEnd and asserts one non-primary pointer-up before testing game commands. Only final secondary-release logs establish the multi-touch regression result.",
+  "logs": {
+    "browser-multitouch-secondary-release-before.log": "b5956fecc514943a6bf65bf5c52dff25a865b1b6c4b83e5ca39652433b7e2c46",
+    "browser-multitouch-secondary-release.log": "7ce9b933c16675af9c1d94a0e41dc75143e5ff3d5a7a0b1ca0ab85b4262f5715",
+    "browser-multitouch-final.log": "c7e254057bff22ca5f957efbea8544e7bbe113bcb35989f7ec8ff7917153bae7"
+  }
+}

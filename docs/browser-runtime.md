@@ -502,3 +502,23 @@ or touch delivery behavior.
 
 Validation: all 12 targeted interruption/viewport cases, two manual-pause active-save
 cases and four audio/clock Node tests pass. See [evidence](validation/browser-focus-audio-interruption.json).
+
+## Multiple simultaneous touches
+
+The canvas accepts only the primary touch pointer for the game's single cursor.
+Secondary fingers cannot press, move or release the game pointer, including the
+release fallback used for a restored drag. Mouse and pen handling is unchanged.
+When the primary finger lifts, a remaining secondary finger is not promoted by
+the host; lift all fingers before starting another touch gesture.
+
+A Chromium CDP test uses real browser-dispatched simultaneous touches on the
+original inventory slider. Before the fix, a second finger added a second
+`left-down` and a `left-up`. The regression checks that the second contact and
+release produce no extra button commands, the primary drag stays active, and
+lifting the primary finger releases it exactly once. Playwright WebKit has no
+multi-contact touch injection API, so that case is explicitly skipped there;
+physical Safari/iPad multi-touch validation remains open.
+
+The final multi-touch regression and all 12 existing targeted drag/interruption
+cases pass. The test verifies the actual secondary pointer-up event before
+checking game commands; see [evidence](validation/browser-primary-touch.json).

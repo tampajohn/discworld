@@ -578,3 +578,45 @@ test('tablet rotation preserves the paused frame and keeps landscape controls vi
     }
   }
 });
+
+test('second touch cannot steal or release the primary inventory drag', async ({ page, browserName }) => {
+  test.skip(browserName !== 'chromium', 'Playwright WebKit does not expose multiple simultaneous touches');
+  await page.addInitScript(() => {
+    window.touchCommands = [];
+    window.touchEvents = [];
+    for (const type of ['pointerdown', 'pointerup', 'pointercancel', 'lostpointercapture']) {
+      document.addEventListener(type, event => window.touchEvents.push({ type, id: event.pointerId, primary: event.isPrimary, pointerType: event.pointerType }), true);
+    }
+    const post = Worker.prototype.postMessage;
+    Worker.prototype.postMessage = function(message, ...args) {
+      if (message.type === 'input') window.touchCommands.push(message.command);
+      return post.call(this, message, ...args);
+    };
+  });
+  await page.goto('/');
+  await open(page, true, process.env.DISCWORLD_TEST_SLIDER_SAVE || path.join(root, 'assets/saves/slider-checkpoint.dws'));
+  const canvas = page.locator('#game');
+  const bounds = await canvas.boundingBox();
+  const touch = (id, x, y) => ({ id, x: bounds.x + bounds.width * x / 320, y: bounds.y + bounds.height * y / 200 });
+  const primary = touch(1, 189, 126), secondary = touch(2, 50, 50);
+  const cdp = await page.context().newCDPSession(page);
+  await page.locator('#pause').click();
+  await expect(page.locator('#pause')).toHaveText('Pause');
+  await cdp.send('Input.dispatchTouchEvent', { type: 'touchStart', touchPoints: [primary] });
+  await expect(canvas).toHaveAttribute('data-dragging', 'true');
+  const commands = await page.evaluate(() => [...window.touchCommands]);
+  await cdp.send('Input.dispatchTouchEvent', { type: 'touchStart', touchPoints: [primary, secondary] });
+  await cdp.send('Input.dispatchTouchEvent', { type: 'touchMove', touchPoints: [primary, touch(2, 90, 70)] });
+  // End only the secondary contact; assert the resulting browser event below
+  // so protocol differences cannot silently weaken the test.
+  await cdp.send('Input.dispatchTouchEvent', { type: 'touchEnd', touchPoints: [touch(2, 90, 70)] });
+  const releases = await page.evaluate(() => window.touchEvents.filter(e => e.pointerType === 'touch' && e.type === 'pointerup'));
+  expect(releases).toHaveLength(1);
+  expect(releases[0].primary).toBe(false);
+  expect(await page.evaluate(() => window.touchCommands), JSON.stringify(await page.evaluate(() => window.touchEvents))).toEqual(commands);
+  await expect(canvas).toHaveAttribute('data-dragging', 'true');
+  await cdp.send('Input.dispatchTouchEvent', { type: 'touchEnd', touchPoints: [] });
+  await expect(canvas).toHaveAttribute('data-dragging', 'false');
+  expect(await page.evaluate(() => window.touchCommands)).toEqual([...commands, 'left-up']);
+  await expect(page.locator('#status')).not.toHaveAttribute('data-error', 'true');
+});

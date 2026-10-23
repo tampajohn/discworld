@@ -164,8 +164,13 @@ function point(event) {
 }
 const pressedPointers = new Map();
 canvas.oncontextmenu = event => event.preventDefault();
+// The original game has one cursor. Additional fingers must not become a
+// second owner of its button or release an imported/active drag.
+const secondaryTouch = event => event.pointerType === 'touch' && !event.isPrimary;
 canvas.onpointerdown = event => {
-  event.preventDefault(); canvas.focus();
+  event.preventDefault();
+  if (secondaryTouch(event)) return;
+  canvas.focus();
   if (!ready || paused || ![0, 2].includes(event.button)) return;
   const action = $('action').value;
   if (action !== 'click' && event.button === 0) { input(action, point(event)); return; }
@@ -175,6 +180,7 @@ canvas.onpointerdown = event => {
   input(`${button}-down`, point(event));
 };
 function releasePointer(event) {
+  if (secondaryTouch(event)) return;
   // Only a physical release may finish an unowned restored drag. A subsequent
   // lostpointercapture event must not repeat an already-delivered release.
   const restored = event.type === 'pointerup' && dragging
@@ -189,7 +195,7 @@ canvas.onpointercancel = releasePointer;
 canvas.onlostpointercapture = releasePointer;
 let pointerPending = false;
 canvas.onpointermove = async event => {
-  if (!ready || paused || pointerPending || (event.pointerType === 'touch' && !pressedPointers.has(event.pointerId))) return;
+  if (!ready || paused || pointerPending || secondaryTouch(event) || (event.pointerType === 'touch' && !pressedPointers.has(event.pointerId))) return;
   pointerPending = true;
   try { draw(await rpc('pointer', { point: point(event) })); }
   catch (error) { status(error.message, true); }
