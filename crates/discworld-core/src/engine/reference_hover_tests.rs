@@ -1,0 +1,99 @@
+//! Opt-in original-asset diagnostics for the controlled reference hover probe.
+use super::*;
+use sha2::{Digest, Sha256};
+
+#[test]
+#[ignore = "requires DISCWORLD_TEST_ISO and new DISCWORLD_HOVER_CAPTURE directory"]
+fn capture_original_debug_room_hover() {
+    let directory = std::path::PathBuf::from(std::env::var_os("DISCWORLD_HOVER_CAPTURE").unwrap());
+    std::fs::create_dir(&directory).unwrap();
+    let data = std::fs::read(std::env::var_os("DISCWORLD_TEST_ISO").unwrap()).unwrap();
+    let iso = crate::iso::Iso::parse(&data).unwrap();
+    let index = crate::resource::parse_index(iso.file("/DISCWLD/INDEX").unwrap()).unwrap();
+    assert_eq!(index[18].name, "rinceroo.scn");
+    let resources = Resources(
+        index
+            .iter()
+            .map(|entry| iso.file(&format!("/DISCWLD/{}", entry.name)).unwrap())
+            .collect(),
+    );
+    let bank = SampleBank::new(
+        iso.file("/DISCWLD/ENGLISH.IDX").unwrap(),
+        iso.file("/DISCWLD/ENGLISH.SMP").unwrap(),
+    )
+    .unwrap();
+    let tracks = crate::music::archive(iso.file("/DISCWLD/MIDI.DAT").unwrap()).unwrap();
+    let strings = crate::text::Strings::new(iso.file("/DISCWLD/ENGLISH.TXT").unwrap()).unwrap();
+    let mut engine =
+        Engine::bootstrap_with_title(&resources, crate::intro::title_scene(&index).unwrap())
+            .unwrap();
+    let room = Handle(18 << 23);
+    let points = [
+        [50, 120],
+        [147, 110],
+        [294, 56],
+        [250, 160],
+        [149, 60],
+        [10, 10],
+    ];
+    let mut start = None;
+    let mut rows = Vec::new();
+    engine.scene_calls = Some(Default::default());
+    for _ in 0..4000 {
+        // The reference requests its debugger scene change before cycle 450.
+        // Here the same original scene/entrance is dispatched before tick 450.
+        if engine.ticks == 449 {
+            engine.end_intro();
+            engine.enter_scene(&resources, room, Some(1), 1).unwrap();
+        }
+        if engine.ticks > 449
+            && engine.scene == room
+            && engine.control.tags_enabled
+            && start.is_none()
+        {
+            start = Some(engine.ticks);
+        }
+        if let Some(start) = start {
+            let elapsed = engine.ticks - start;
+            if elapsed % 12 == 0 && elapsed / 12 < points.len() as u64 {
+                engine.move_cursor(points[(elapsed / 12) as usize]);
+            }
+        }
+        let status = engine
+            .tick_content(&resources, Some(&bank), Some(&tracks), Some(&strings))
+            .unwrap();
+        assert!(!matches!(status, Status::Unsupported(_) | Status::Quit));
+        if start.is_some() {
+            let rgb: Vec<_> = engine
+                .render(&resources)
+                .unwrap()
+                .rgba
+                .chunks_exact(4)
+                .flat_map(|p| p[..3].iter().copied())
+                .collect();
+            std::fs::write(
+                directory.join(format!("tick-{:06}.rgb", engine.ticks)),
+                &rgb,
+            )
+            .unwrap();
+            let polygon = engine
+                .world_hover
+                .as_ref()
+                .unwrap()
+                .tags
+                .candidate(&engine.polygons)
+                .unwrap()
+                .map_or("null".to_owned(), |c| c.polygon.to_string());
+            rows.push(format!("{{\"tick\":{},\"scene\":{},\"rgb_sha256\":\"{:x}\",\"polygon_candidate\":{},\"cursor\":{:?}}}", engine.ticks, engine.scene.0, Sha256::digest(&rgb), polygon, engine.control.cursor));
+            if rows.len() == 72 {
+                break;
+            }
+        }
+    }
+    assert_eq!(rows.len(), 72, "room did not reach active tags");
+    std::fs::write(directory.join("capture.json"), format!("{{\"scope\":\"Controlled original scene entry and cursor movement; not ordinary input replay\",\"hover_start_tick\":{},\"frames\":[{}]}}\n", start.unwrap(), rows.join(","))).unwrap();
+    println!(
+        "Captured 72 hover frames beginning at tick {}",
+        start.unwrap()
+    );
+}

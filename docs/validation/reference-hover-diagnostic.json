@@ -1,0 +1,119 @@
+{
+  "runtime_source": "f82598d (runtime unchanged; new diagnostic test)",
+  "reference_revision": "96b42d42bc8533953bdd701db059cc33c839a9ff",
+  "reference_binary_sha256": "1e8b098f0e9f6da44062aa19c195a5771a4a5dbc806cb3d3a9c3eb0e8fb6f524",
+  "scope": "Controlled debugger scene entry, original entrance 1, six cursor API calls. Not ordinary player input, and not proof of interactive frame equivalence.",
+  "captures": {
+    "assets/validation/reference-hover-attempt6/frames/capture.json": "d6a6d95a929a620182efa8418bfdfd19171cd8f9aa0999a0c657fade75780afe",
+    "assets/validation/rust-reference-hover-attempt1/capture.json": "db9865abdf37dae96e7a006546ca74807d9e8b3a639ece3822ced3fc4c11d649",
+    "assets/validation/hover-compare-attempt6.json": "52e1dcdec7ad1fcef85d4fdaf521ddd9873e9225281fd99039e9611aacac80cb"
+  },
+  "reference_complete": true,
+  "reference_errors": [],
+  "frame_count": 72,
+  "exact_full_frame_matches": 0,
+  "action_boundary_samples": [
+    {
+      "frame": 1,
+      "reference_cycle": 1257,
+      "rust_tick": 1257,
+      "reference_polygon": 6,
+      "rust_polygon_candidate": 6,
+      "different_pixels": 5,
+      "difference_bounds": [
+        148,
+        103,
+        150,
+        105
+      ]
+    },
+    {
+      "frame": 13,
+      "reference_cycle": 1269,
+      "rust_tick": 1269,
+      "reference_polygon": 8,
+      "rust_polygon_candidate": 8,
+      "different_pixels": 15,
+      "difference_bounds": [
+        1,
+        56,
+        147,
+        121
+      ]
+    },
+    {
+      "frame": 25,
+      "reference_cycle": 1281,
+      "rust_tick": 1281,
+      "reference_polygon": 10,
+      "rust_polygon_candidate": 10,
+      "different_pixels": 15,
+      "difference_bounds": [
+        0,
+        51,
+        149,
+        112
+      ]
+    },
+    {
+      "frame": 37,
+      "reference_cycle": 1293,
+      "rust_tick": 1293,
+      "reference_polygon": 11,
+      "rust_polygon_candidate": 11,
+      "different_pixels": 15,
+      "difference_bounds": [
+        50,
+        1,
+        295,
+        57
+      ]
+    },
+    {
+      "frame": 49,
+      "reference_cycle": 1305,
+      "rust_tick": 1305,
+      "reference_polygon": 12,
+      "rust_polygon_candidate": 12,
+      "different_pixels": 13,
+      "difference_bounds": [
+        156,
+        0,
+        252,
+        161
+      ]
+    },
+    {
+      "frame": 61,
+      "reference_cycle": 1317,
+      "rust_tick": 1317,
+      "reference_polygon": -1,
+      "rust_polygon_candidate": null,
+      "different_pixels": 10,
+      "difference_bounds": [
+        148,
+        60,
+        156,
+        102
+      ]
+    }
+  ],
+  "findings": [
+    "At action boundaries the selected polygon agrees for all five hotspots; both runs leave the last hotspot. Rust polygon candidate and reference selected polygon are distinct diagnostics, not generally interchangeable.",
+    "Reference driver cursor changes one cycle after injected moves: (50,120) to (0,60), (147,110) to (51,50), (294,56) to (198,0), (250,160) to (154,100), (149,60) to (53,0), (10,10) to (0,0). The backend warp hypothesis is unproven; the observed changes invalidate sustained identical-input claims.",
+    "First frame differs by five pixels at x148..150,y103..105: original blue/yellow sparkle absent in Rust. Reference Cursor::DoCursorMove creates trails at the previous pointer position; current Rust stores only one cursor animation. Cursor trails are a fidelity gap to investigate and implement."
+  ],
+  "next_steps": [
+    "Control or replay actual reference driver input with matching scheduler phase before asserting sustained hover-frame equivalence.",
+    "Implement original cursor trail reel selection, animation lifetime, ordering, visibility and save continuation; validate against untouched reference."
+  ],
+  "checks": [
+    "Opt-in original ISO Rust capture: 72 frames, passed.",
+    "cargo fmt --all -- --check passed.",
+    "cargo clippy -p discworld-core --all-targets -- -D warnings passed."
+  ],
+  "limitations": [
+    "No production engine change in this diagnostic pass.",
+    "No visible session update or device audio listening performed."
+  ]
+}

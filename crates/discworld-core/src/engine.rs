@@ -16756,3 +16756,6 @@ mod tests {
         }
     }
 }
+
+#[cfg(test)]
+mod reference_hover_tests;

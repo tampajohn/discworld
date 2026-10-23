@@ -51,6 +51,15 @@ def main():
             tick = starts[frame['scene']] + frame['cycle'] - reference_starts[frame['scene']]
             row.update(cycle=frame['cycle'], scene_aligned_rust_tick=tick,
                        scene_aligned_equal=rust_by_tick.get(tick) == key)
+            if tick in rust_by_tick and rust_by_tick[tick][0] == frame['scene']:
+                other = (args.rust / f'tick-{tick:06d}.rgb').read_bytes()
+                differences = [i // 3 for i in range(0, len(rgb), 3)
+                               if rgb[i:i+3] != other[i:i+3]]
+                row['scene_aligned_different_pixels'] = len(differences)
+                row['scene_aligned_difference_bounds'] = (
+                    [min(i % 320 for i in differences), min(i // 320 for i in differences),
+                     max(i % 320 for i in differences), max(i // 320 for i in differences)]
+                    if differences else None)
         rows.append(row)
     result = {'reference_capture_sha256': digest(ref_bytes),
               'rust_capture_sha256': digest(rust_bytes),
