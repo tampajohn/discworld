@@ -565,3 +565,11 @@ Full-route audits pass in native, Chrome and WebKit with identical final engine
 state/pixels, all 1,652 inputs accepted and 5,048 engine plus 5,048 DSP save/load
 checks. See [route evidence](validation/resize-cursor-route.json). Physical iPad
 acceptance remains open. See [package evidence](validation/packages-cc0e3db.json).
+
+
+Package `ea6d560` contains runtime `f5b9a91` with corrected hidden-cursor trail
+lifetime. An isolated checkout kept the ongoing UI suite's files unchanged.
+All 14 extracted manifest files and exact source verify. Chrome and WebKit pass
+startup, legacy loading, save export and audio-headroom checks with no page
+errors. Full-route audits and the broader UI suite are still running; physical
+iPad acceptance remains open. See [package evidence](validation/packages-ea6d560.json).

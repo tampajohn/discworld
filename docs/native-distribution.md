@@ -106,3 +106,11 @@ deep/strict signature verification passes. Dummy-video startup and legacy save
 load advance to ticks 13 and 33213 with no stopped runtime. These are executable
 checks, not visible Finder/file-picker acceptance. See
 [package evidence](validation/packages-cc0e3db.json).
+
+
+Package `ea6d560` contains runtime `f5b9a91`, including deletion of cursor trails
+when scripts hide the cursor. Extracted outside the checkout, five manifest
+files, exact source and deep/strict signature verification pass. Dummy-video
+startup and legacy-load checks advance to ticks 13 and 33213 without stopping.
+Visible Finder interaction remains unverified. See
+[package evidence](validation/packages-ea6d560.json).
