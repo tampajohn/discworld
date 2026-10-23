@@ -1,0 +1,52 @@
+{
+  "runtime_revision": "6061cc3",
+  "binary_sha256": "3a496c09dbaf63d225d70030785a33c915eb257d7d027a2f5c0fab4022772b5c",
+  "trace_sha256": "30c227553695638a78495f4cf56731f841e89188c8faa75821e50c164ddf4ddb",
+  "scope": "Full unchanged original-input route, with deferred scene cursor initialization and version26 saves, engine and DSP save/load audits.",
+  "ticks": 2630000,
+  "scene": "title.scn",
+  "status": "Running",
+  "has_restarted": true,
+  "accepted_inputs": 1652,
+  "engine_snapshot_checks": 5048,
+  "audio_snapshot_checks": 5048,
+  "frozen_web_files_verified": 17,
+  "final_png_inspected": true,
+  "comparisons": {
+    "chrome": {
+      "ticks": 2630000,
+      "ticks_equal": true,
+      "native_status": "Running",
+      "scene": "title.scn",
+      "scene_equal": true,
+      "has_restarted": true,
+      "restart_equal": true,
+      "accepted_inputs": 1652,
+      "native_inputs": 1652,
+      "native_inputs_accepted": true,
+      "engine_bytes_equal": true,
+      "rgba_equal": true,
+      "combined_save_equal": false,
+      "core_sha256": "828ce67dc12956e2729bba8f76de25dfa8739e731ba891170bd23abd274d1427",
+      "audio_scope": "WASM checked for finite samples; cross-platform audio equality not established"
+    },
+    "webkit": {
+      "ticks": 2630000,
+      "ticks_equal": true,
+      "native_status": "Running",
+      "scene": "title.scn",
+      "scene_equal": true,
+      "has_restarted": true,
+      "restart_equal": true,
+      "accepted_inputs": 1652,
+      "native_inputs": 1652,
+      "native_inputs_accepted": true,
+      "engine_bytes_equal": true,
+      "rgba_equal": true,
+      "combined_save_equal": false,
+      "core_sha256": "828ce67dc12956e2729bba8f76de25dfa8739e731ba891170bd23abd274d1427",
+      "audio_scope": "WASM checked for finite samples; cross-platform audio equality not established"
+    }
+  },
+  "limitations": "Resolved-input route, not full original-reference equivalence or physical-device acceptance. Combined DSP saves differ; acoustic equality is not established. Predates movement retry correction."
+}

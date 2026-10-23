@@ -1,0 +1,102 @@
+{
+  "previous_runtime": "6061cc3",
+  "reference_revision": "96b42d42bc8533953bdd701db059cc33c839a9ff",
+  "reference_source": "engines/tinsel/move.cpp::DoMoveActor",
+  "cause": "DoMoveActor makes one extra MoveActor call if the first call leaves the actor stationary with an active destination. Rust omitted that retry, adding pauses when rerouting exhausted legs.",
+  "correction": "Retry once within the scheduled mover dispatch only while the position remains unchanged and an active target remains. No unbounded loop and no save-format change.",
+  "reference_capture": "assets/validation/reference-university-walk-trace1",
+  "rust_capture": "assets/validation/rust-university-walk-retry1",
+  "comparison": "assets/validation/university-walk-retry-compare1.json",
+  "before_same_cycle_frames": 182,
+  "after_same_cycle_frames": 240,
+  "save_continuations": 240,
+  "matching_position_and_phase_ticks": 73,
+  "regressions": [
+    {
+      "name": "luggage",
+      "reference": "reference-luggage-resize1",
+      "rust": "rust-mover-retry-luggage-check1",
+      "comparison": "mover-retry-luggage-check-compare1.json",
+      "frames": 72
+    },
+    {
+      "name": "fixed",
+      "reference": "reference-inventory-fixed-corner1",
+      "rust": "rust-mover-retry-fixed-check1",
+      "comparison": "mover-retry-fixed-check-compare1.json",
+      "frames": 72
+    },
+    {
+      "name": "header",
+      "reference": "reference-inventory-drag2",
+      "rust": "rust-mover-retry-header-check1",
+      "comparison": "mover-retry-header-check-compare1.json",
+      "frames": 72
+    },
+    {
+      "name": "inventory",
+      "reference": "reference-inventory3",
+      "rust": "rust-mover-retry-inventory-check1",
+      "comparison": "mover-retry-inventory-check-compare1.json",
+      "frames": 72
+    },
+    {
+      "name": "look",
+      "reference": "reference-look2",
+      "rust": "rust-mover-retry-look-check1",
+      "comparison": "mover-retry-look-check-compare1.json",
+      "frames": 72
+    },
+    {
+      "name": "walk",
+      "reference": "reference-player-walk2",
+      "rust": "rust-mover-retry-walk-check1",
+      "comparison": "mover-retry-walk-check-compare1.json",
+      "frames": 72
+    },
+    {
+      "name": "cached",
+      "reference": "reference-cached-actor1",
+      "rust": "rust-mover-retry-cached-check1",
+      "comparison": "mover-retry-cached-check-compare1.json",
+      "frames": 72
+    },
+    {
+      "name": "door",
+      "reference": "reference-door-action2",
+      "rust": "rust-mover-retry-door-check1",
+      "comparison": "mover-retry-door-check-compare1.json",
+      "frames": 72
+    },
+    {
+      "name": "top-left",
+      "reference": "reference-luggage-top-left1",
+      "rust": "rust-mover-retry-top-left-check1",
+      "comparison": "mover-retry-top-left-check-compare1.json",
+      "frames": 72
+    },
+    {
+      "name": "shrink",
+      "reference": "reference-luggage-shrink1",
+      "rust": "rust-mover-retry-shrink-check1",
+      "comparison": "mover-retry-shrink-check-compare1.json",
+      "frames": 72
+    },
+    {
+      "name": "top-left-shrink",
+      "reference": "reference-luggage-top-left-shrink1",
+      "rust": "rust-mover-retry-top-left-shrink-check1",
+      "comparison": "mover-retry-top-left-shrink-check-compare1.json",
+      "frames": 72
+    }
+  ],
+  "validation": {
+    "workspace": "passed",
+    "original_assets": "25 passed",
+    "clippy": "passed",
+    "host_builds": "pending",
+    "browser_ui": "pending for new runtime",
+    "full_routes": "pending for new runtime; 6061cc3 completed separately"
+  },
+  "scope": "Controlled original-game capture, not full original-engine or physical-device acceptance."
+}

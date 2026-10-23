@@ -96,7 +96,7 @@
     "original_assets": "25 passed",
     "native_build": "passed",
     "web_build": "passed",
-    "full_routes": "Native, Chrome and WebKit running against frozen 6061cc3 artifacts in assets/validation/cursor-entry-6061cc3",
+    "full_routes": "Native, Chrome and WebKit completed; see cursor-entry-route.json",
     "web_replay_build": "passed",
     "browser_ui": "49 Playwright passed, one known WebKit multi-touch injection skip; four Node tests passed"
   },

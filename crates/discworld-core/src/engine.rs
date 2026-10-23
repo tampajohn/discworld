@@ -4350,12 +4350,32 @@ impl Engine {
                     .collect::<Result<Vec<_>, _>>()?
             };
             let mover = self.movers.get_mut(&actor).ok_or(Error("missing mover"))?;
+            let before = mover.placement.position;
             mover.advance_direct_walk(
                 resources,
                 &self.declarations,
                 &self.polygons,
                 &footprints,
             )?;
+            // V1 DoMoveActor retries once when MoveActor only reroutes an
+            // exhausted leg. Keep the retry in this dispatch, not next tick.
+            let active_target = mover
+                .node_walk
+                .as_ref()
+                .map(|walk| walk.leg.target)
+                .or_else(|| mover.direct_leg.map(|leg| leg.target))
+                .or(mover.walk_target);
+            if mover.placement.position == before
+                && mover.walk_target.is_some()
+                && active_target.is_some_and(|target| target != [-1; 2])
+            {
+                mover.advance_direct_walk(
+                    resources,
+                    &self.declarations,
+                    &self.polygons,
+                    &footprints,
+                )?;
+            }
             // SetMoverWalkReel clears PLAY ownership when a new walking
             // reel reveals the mover. Otherwise keep the film's stored
             // actor position distinct from the underlying moving object.
