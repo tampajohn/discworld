@@ -16,7 +16,7 @@
     "iphone_ui": "3/3 pass: Action-mode single-tap pouch pickup, held drag into inventory, confirmed save/load and retrieval; outside-tap walking with inventory drag protection; Save/Load cancel preserves tick/frame/paused state",
     "menu_ui": "Prior focused named save/load test passed with Action selected",
     "clippy": "PASS web/ipad/tools all targets native-inspection -D warnings",
-    "device": "Signed build succeeded; strict codesign passed; original-font Cancel and both prompt assets verified. Two wireless installs failed establishing the device tunnel (network timeout); awaiting phone connectivity. Not yet deployed."
+    "device": "Signed build and strict signature passed; original-font prompt assets verified. Wireless install succeeded after user unlocked phone; devicectl launch succeeded and process verified running. Initial two tunnel failures retained in private logs."
   },
   "artifacts": [
     "assets/validation/native-topic-tap1",
