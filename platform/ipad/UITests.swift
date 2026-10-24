@@ -12,6 +12,49 @@ final class DiscworldLayoutTests: XCTestCase {
         let predicate = NSPredicate { _, _ in condition(self.state(app)) }
         wait(for: [expectation(for: predicate, evaluatedWith: app)], timeout: 15)
     }
+    func testBackgroundResumePreservesPauseAndRestartsAudio() throws {
+        let app = XCUIApplication(bundleIdentifier: "org.tampajohn.discworld.dev")
+        app.launchArguments = ["--smoke-room"]
+        app.launch()
+        XCTAssertTrue(app.buttons["Resume"].waitForExistence(timeout: 40))
+        XCUIDevice.shared.orientation = .landscapeLeft
+        let paused = state(app)
+        func backgroundAndReturn() {
+            XCUIDevice.shared.press(.home)
+            XCTAssertTrue(app.wait(for: .runningBackground, timeout: 5))
+            Thread.sleep(forTimeInterval: 3)
+            app.activate()
+            XCTAssertTrue(app.wait(for: .runningForeground, timeout: 5))
+        }
+        backgroundAndReturn()
+        let restoredPause = state(app)
+        XCTAssertEqual(restoredPause["tick"] as? Int, paused["tick"] as? Int)
+        XCTAssertEqual(restoredPause["frame_sha256"] as? String, paused["frame_sha256"] as? String)
+        XCTAssertEqual(restoredPause["paused"] as? Bool, true)
+        XCTAssertEqual(restoredPause["muted"] as? Bool, true)
+        XCTAssertEqual(restoredPause["audio_ready"] as? Bool, false)
+        app.buttons["Sound off"].tap()
+        app.buttons["Resume"].tap()
+        waitFor(app) { ($0["completed_audio_buffers"] as? Int ?? 0) >= 4 }
+        let playing = state(app)
+        backgroundAndReturn()
+        let completions = try XCTUnwrap(playing["completed_audio_buffers"] as? Int)
+        waitFor(app) { $0["audio_ready"] as? Bool == true && ($0["completed_audio_buffers"] as? Int ?? 0) > completions + 4 }
+        let resumed = state(app)
+        XCTAssertEqual(resumed["paused"] as? Bool, false)
+        XCTAssertEqual(resumed["muted"] as? Bool, false)
+        XCTAssertEqual(resumed["suspension_tick"] as? Int, resumed["resumption_tick"] as? Int)
+        XCTAssertGreaterThan(try XCTUnwrap(resumed["suspension_count"] as? Int), try XCTUnwrap(playing["suspension_count"] as? Int))
+        XCTAssertGreaterThan(try XCTUnwrap(resumed["resumption_count"] as? Int), try XCTUnwrap(playing["resumption_count"] as? Int))
+        XCTAssertGreaterThan(try XCTUnwrap(resumed["tick"] as? Int), try XCTUnwrap(resumed["resumption_tick"] as? Int))
+        let results = try JSONSerialization.data(withJSONObject: ["paused": paused, "restored_pause": restoredPause,
+            "playing": playing, "resumed": resumed], options: [.prettyPrinted, .sortedKeys])
+        let evidence = XCTAttachment(string: String(decoding: results, as: UTF8.self))
+        evidence.name = "background-resume-evidence"
+        evidence.lifetime = .keepAlways
+        add(evidence)
+    }
+
     func testCanvasWalkingAndPockets() throws {
         let app = XCUIApplication(bundleIdentifier: "org.tampajohn.discworld.dev")
         app.launchArguments = ["--smoke-room"]

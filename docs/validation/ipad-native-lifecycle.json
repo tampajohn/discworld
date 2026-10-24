@@ -1,0 +1,199 @@
+{
+  "simulator": "iPad Pro 11-inch (M5), iOS 26.5",
+  "result_bundle": "assets/validation/ipad-lifecycle1/results.xcresult",
+  "tests_passed": 6,
+  "tests_failed": 0,
+  "states": {
+    "paused": {
+      "audio_interrupted": false,
+      "audio_ready": false,
+      "completed_audio_buffers": 0,
+      "frame_sha256": "4096e080ead45d66ed53d91f5c8591a83f5bb736b403e45e683f5f173e61e2f6",
+      "inspection": {
+        "control": false,
+        "cursor": [
+          0,
+          0
+        ],
+        "enabled_tags": [
+          1,
+          2,
+          406,
+          4,
+          555
+        ],
+        "held_object": -1,
+        "inventory": null,
+        "inventory_dragging": false,
+        "inventory_first_cell": null,
+        "inventory_position": null,
+        "lead_position": [
+          200,
+          178
+        ],
+        "pockets": [],
+        "walk_target": null,
+        "world_origin": [
+          0,
+          0
+        ]
+      },
+      "last_operation": "load",
+      "menu_requests": [],
+      "muted": true,
+      "paused": true,
+      "resumption_count": 1,
+      "resumption_tick": 8500,
+      "scene": "rinceroo.scn",
+      "suspension_count": 0,
+      "tick": 8500
+    },
+    "playing": {
+      "audio_interrupted": false,
+      "audio_ready": true,
+      "completed_audio_buffers": 35,
+      "frame_sha256": "8ec83f0569b9437b117b91ccadae6937d4a328b33f20131d4c37d1eb40b35684",
+      "inspection": {
+        "control": false,
+        "cursor": [
+          0,
+          0
+        ],
+        "enabled_tags": [
+          1,
+          2,
+          406,
+          4,
+          555
+        ],
+        "held_object": -1,
+        "inventory": null,
+        "inventory_dragging": false,
+        "inventory_first_cell": null,
+        "inventory_position": null,
+        "lead_position": [
+          200,
+          178
+        ],
+        "pockets": [],
+        "walk_target": null,
+        "world_origin": [
+          0,
+          0
+        ]
+      },
+      "last_operation": "advance",
+      "menu_requests": [],
+      "muted": false,
+      "paused": false,
+      "resumption_count": 2,
+      "resumption_tick": 8500,
+      "scene": "rinceroo.scn",
+      "suspension_count": 1,
+      "suspension_tick": 8500,
+      "tick": 8537
+    },
+    "restored_pause": {
+      "audio_interrupted": false,
+      "audio_ready": false,
+      "completed_audio_buffers": 0,
+      "frame_sha256": "4096e080ead45d66ed53d91f5c8591a83f5bb736b403e45e683f5f173e61e2f6",
+      "inspection": {
+        "control": false,
+        "cursor": [
+          0,
+          0
+        ],
+        "enabled_tags": [
+          1,
+          2,
+          406,
+          4,
+          555
+        ],
+        "held_object": -1,
+        "inventory": null,
+        "inventory_dragging": false,
+        "inventory_first_cell": null,
+        "inventory_position": null,
+        "lead_position": [
+          200,
+          178
+        ],
+        "pockets": [],
+        "walk_target": null,
+        "world_origin": [
+          0,
+          0
+        ]
+      },
+      "last_operation": "load",
+      "menu_requests": [],
+      "muted": true,
+      "paused": true,
+      "resumption_count": 1,
+      "resumption_tick": 8500,
+      "scene": "rinceroo.scn",
+      "suspension_count": 1,
+      "suspension_tick": 8500,
+      "tick": 8500
+    },
+    "resumed": {
+      "audio_interrupted": false,
+      "audio_ready": true,
+      "completed_audio_buffers": 58,
+      "frame_sha256": "252e76b23aa3068462bb01f307e9becc9e82526ae02c0ac0d5e3f70925abe173",
+      "inspection": {
+        "control": false,
+        "cursor": [
+          0,
+          0
+        ],
+        "enabled_tags": [
+          1,
+          2,
+          406,
+          4,
+          555
+        ],
+        "held_object": -1,
+        "inventory": null,
+        "inventory_dragging": false,
+        "inventory_first_cell": null,
+        "inventory_position": null,
+        "lead_position": [
+          200,
+          178
+        ],
+        "pockets": [],
+        "walk_target": null,
+        "world_origin": [
+          0,
+          0
+        ]
+      },
+      "last_operation": "advance",
+      "menu_requests": [],
+      "muted": false,
+      "paused": false,
+      "resumption_count": 3,
+      "resumption_tick": 8543,
+      "scene": "rinceroo.scn",
+      "suspension_count": 2,
+      "suspension_tick": 8543,
+      "tick": 8562
+    }
+  },
+  "assertions": [
+    "Paused muted app preserves exact tick and pixels across Home and foreground activation",
+    "Unmuted running app resumes audio completion callbacks",
+    "Suspension tick equals resumption tick: no game advance while inactive",
+    "Suspension/resumption counts increase and gameplay advances after foreground return",
+    "Existing inventory, pouch, stairs, rotation and save/relaunch tests pass"
+  ],
+  "host_change": "Distinguish AVAudioSession interruption begin/end; freeze while interrupted; honor shouldResume, otherwise require Resume. Clear audio readiness before resetting player on suspension.",
+  "reference": "https://developer.apple.com/documentation/avfaudio/handling-audio-interruptions",
+  "standalone_app": "assets/apps/Discworld-iPad-13.app",
+  "standalone_binary_sha256": "4517d53a6e52ec2cf4b30e7a8a17860653c95c276c69af3b5d134540077fce1e",
+  "limits": "Background/foreground tested through simulator Home and activate. Real system audio interruption begin/end, lock/unlock, route changes, cancellation during held drag, subjective audio quality and physical iPad remain unverified. No engine or original script changes."
+}

@@ -50,6 +50,11 @@ final class GameController: UIViewController {
     var paused = false
     var muted = true
     var audioReady = false
+    var interrupted = false
+    var suspensionTick: Int?
+    var resumptionTick: Int?
+    var suspensionCount = 0
+    var resumptionCount = 0
     var dragging = false
     var action = "walk"
     var snapshot: [String: Any] = [:]
@@ -131,6 +136,7 @@ final class GameController: UIViewController {
             guard let self else { return }
             self.releaseDrag()
             self.paused.toggle(); self.resetAudio()
+            if !self.paused && !self.muted && !self.audioReady { self.startAudio() }
             pause.setTitle(self.paused ? "Resume" : "Pause", for: .normal)
             self.render()
         }, for: .touchUpInside)
@@ -152,7 +158,7 @@ final class GameController: UIViewController {
         audioEngine.connect(player, to: audioEngine.mainMixerNode, format: format)
         NotificationCenter.default.addObserver(self, selector: #selector(suspended), name: UIApplication.willResignActiveNotification, object: nil)
         NotificationCenter.default.addObserver(self, selector: #selector(resumed), name: UIApplication.didBecomeActiveNotification, object: nil)
-        NotificationCenter.default.addObserver(self, selector: #selector(suspended), name: AVAudioSession.interruptionNotification, object: nil)
+        NotificationCenter.default.addObserver(self, selector: #selector(audioInterrupted(_:)), name: AVAudioSession.interruptionNotification, object: nil)
         DispatchQueue.main.async { self.openGame() }
     }
 
@@ -237,6 +243,11 @@ final class GameController: UIViewController {
             state["paused"] = paused
             state["muted"] = muted
             state["audio_ready"] = audioReady
+            state["audio_interrupted"] = interrupted
+            state["suspension_tick"] = suspensionTick
+            state["resumption_tick"] = resumptionTick
+            state["suspension_count"] = suspensionCount
+            state["resumption_count"] = resumptionCount
             state["completed_audio_buffers"] = completedAudioBuffers
             if let bytes = try? JSONSerialization.data(withJSONObject: state) {
                 picture.accessibilityValue = String(decoding: bytes, as: UTF8.self)
@@ -282,6 +293,7 @@ final class GameController: UIViewController {
         }
     }
     func startAudio() {
+        guard !interrupted, UIApplication.shared.applicationState == .active else { return }
         do {
             try AVAudioSession.sharedInstance().setCategory(.playback)
             try AVAudioSession.sharedInstance().setActive(true)
@@ -308,7 +320,7 @@ final class GameController: UIViewController {
         }
     }
     @objc func step(_ link: CADisplayLink) {
-        guard ready, !paused, UIApplication.shared.applicationState == .active else { previous = 0; return }
+        guard ready, !paused, !interrupted, UIApplication.shared.applicationState == .active else { previous = 0; return }
         if previous == 0 { previous = link.timestamp; return }
         accumulator = min(0.125, accumulator + link.timestamp - previous)
         previous = link.timestamp
@@ -320,6 +332,46 @@ final class GameController: UIViewController {
             render()
         } catch { paused = true; resetAudio(); status.text = error.localizedDescription }
     }
-    @objc func suspended() { releaseDrag(); resetAudio(); audioEngine.pause(); audioReady = false }
-    @objc func resumed() { previous = 0; accumulator = 0; if !muted { startAudio() } }
+    @objc func suspended() {
+        releaseDrag()
+        audioReady = false
+        resetAudio()
+        audioEngine.pause()
+        suspensionTick = snapshot["tick"] as? Int
+        suspensionCount += 1
+        render()
+    }
+    @objc func resumed() {
+        previous = 0; accumulator = 0
+        resumptionTick = snapshot["tick"] as? Int
+        resumptionCount += 1
+        if !muted { startAudio() }
+        render()
+    }
+    @objc func audioInterrupted(_ notification: Notification) {
+        if !Thread.isMainThread {
+            DispatchQueue.main.async { [weak self] in self?.audioInterrupted(notification) }
+            return
+        }
+        guard let value = notification.userInfo?[AVAudioSessionInterruptionTypeKey] as? UInt,
+              let type = AVAudioSession.InterruptionType(rawValue: value) else { return }
+        switch type {
+        case .began:
+            interrupted = true
+            suspended()
+        case .ended:
+            interrupted = false
+            previous = 0; accumulator = 0
+            let options = AVAudioSession.InterruptionOptions(rawValue:
+                notification.userInfo?[AVAudioSessionInterruptionOptionKey] as? UInt ?? 0)
+            if options.contains(.shouldResume) {
+                if !muted { startAudio() }
+            } else {
+                paused = true
+                pauseButton.setTitle("Resume", for: .normal)
+            }
+            render()
+        @unknown default: break
+        }
+    }
 }

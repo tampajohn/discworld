@@ -19,7 +19,7 @@ xcrun simctl launch booted org.tampajohn.discworld.dev
 
 The script currently builds **only for the Apple Silicon simulator**. It
 includes the staged ISO and SoundFont in one ad-hoc-signed app. The observed
-prototype is `assets/apps/Discworld-iPad-12.app`. Startup reaches the bedroom;
+prototype is `assets/apps/Discworld-iPad-13.app`. Startup reaches the bedroom;
 quick-save/load preserves pixels, and a separate app launch loads the same
 save from the application container. See [application evidence](validation/ipad-app-prototype.json).
 
@@ -52,7 +52,17 @@ Pause, load and application suspension also release an owned drag. Canvas taps
 and new drags are ignored while paused.
 The simulator test verifies an exact `[30,20]` window displacement, release,
 subsequent input and paused-drag rejection. See [drag evidence](validation/ipad-native-drag.json).
-Cancellation and suspension release paths still need direct acceptance tests.
+Cancellation and suspension during an active drag still need direct acceptance tests.
+A separate simulator test presses Home and reactivates the app, first while
+paused/muted and then during unmuted playback. Paused ticks and pixels are
+preserved; the last inactive tick equals the first resumed tick, and audio
+completion callbacks resume. See [lifecycle evidence](validation/ipad-native-lifecycle.json).
+The native audio-interruption handler now distinguishes begin/end notifications,
+freezes simulation while interrupted, and honors Apple's `shouldResume` option.
+Without that option, the player must tap Resume. Real system interruptions,
+lock/unlock and audio route changes still require device acceptance; the Home
+button test does not establish those results.
+See [Apple's interruption guidance](https://developer.apple.com/documentation/avfaudio/handling-audio-interruptions).
 The host adapts to
 both landscape orientations and portrait, with the full game scene and controls
 visible in inspected full-screen simulator captures. XCTest verifies that all
