@@ -459,6 +459,7 @@ fn capture_original_debug_room_hover() {
             ));
         }
         let tick = engine.ticks + 1;
+        let mut pointer_restore = None;
         if let Some(&(event_tick, point)) = pointer_events.get(pointer_events_applied) {
             assert!(event_tick >= tick, "missed pointer event");
             if event_tick == tick {
@@ -468,6 +469,22 @@ fn capture_original_debug_room_hover() {
                 // CursorProcess later calls DoCursorMove; unlike the initial
                 // debugger injections, do not force that resource-aware step now.
                 engine.move_cursor(point);
+                // Save between backend input and the next scheduled cursor
+                // update, when input and displayed positions may differ.
+                let bytes = crate::save::Snapshot::capture(&engine, [7; 32])
+                    .to_bytes()
+                    .unwrap();
+                let restored = crate::save::Snapshot::from_bytes(&bytes, [7; 32]).unwrap();
+                assert_eq!(restored.to_bytes().unwrap(), bytes);
+                let restored = restored
+                    .restore_with_strings(&resources, &bank, &tracks, &strings)
+                    .unwrap();
+                assert_eq!(restored, engine);
+                assert_eq!(restored.render(&resources).unwrap(),
+                    engine.render(&resources).unwrap());
+                std::fs::write(directory.join(format!("pointer-before-{tick:06}.core")), bytes)
+                    .unwrap();
+                pointer_restore = Some(restored);
                 pointer_events_applied += 1;
             }
         }
@@ -533,6 +550,14 @@ fn capture_original_debug_room_hover() {
             .tick_content(&resources, Some(&bank), Some(&tracks), Some(&strings))
             .unwrap();
         crate::animation::trace_tick(None);
+        if let Some(mut restored) = pointer_restore {
+            let restored_status = restored
+                .tick_content(&resources, Some(&bank), Some(&tracks), Some(&strings))
+                .unwrap();
+            assert_eq!(status, restored_status);
+            assert_eq!(engine, restored, "pending pointer input must survive exact save/load");
+            assert_eq!(engine.render(&resources).unwrap(), restored.render(&resources).unwrap());
+        }
         if mute_speech && start.is_some_and(|start| engine.ticks == start + 81) {
             // Pinned reference: normal cursor initialized at cycle 1337;
             // its next StepAnimScript entry is (script 374236, index 1, 2, 2).

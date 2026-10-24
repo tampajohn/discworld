@@ -1665,3 +1665,34 @@ object. Rust reads the latest input position immediately and removes the old
 label one frame early. The next correction must distinguish backend and
 displayed cursor state, retain explicit immediate cursor moves, and preserve
 these semantics across snapshots. See [process-order evidence](validation/cursor-hotspot-order.json).
+
+
+### Cursor process phase required by the scheduling correction
+
+The extended read-only trace preserves all 144 reference frame hashes. At
+cycle 1337, script completion restores the normal cursor and clears its hidden
+flag, but the cursor coroutine resumes its inner hidden-wait loop and reaches
+the outer sleep without animating. Animation and driver movement resume at
+1338, after PointProcess and TagProcess. Therefore moving animation to the end
+of the tick and checking only `control.hidden` would advance it too early.
+
+The replacement must preserve the coroutine phase across snapshots:
+
+| Phase | Condition | Scheduled action | Next phase |
+| --- | --- | --- | --- |
+| Awaiting initialization | Cursor film and background palette available | Initialize object and position, then yield | Animate |
+| Animate | Scene processes running | Advance animation; move only if unfrozen; hide images when requested | Hidden-wait if explicitly hidden, otherwise Animate |
+| Hidden-wait | Still explicitly hidden | Yield without animation | Hidden-wait |
+| Hidden-wait | Explicit hiding cleared | Finish inner loop and yield without animation | Animate |
+
+`CursorStoppedCheck` runs in both active and hidden waits: scene shutdown
+pauses the process, and scene restart reinitializes objects before resuming
+the suspended phase. Temporary inventory hiding does not enter the explicit
+hidden-wait loop. `RestoreMainCursor` resets the animation independently of
+this process phase. These cases must accompany the input/displayed-position
+separation, rather than be inferred from visibility alone.
+
+The Rust diagnostic now saves immediately after backend pointer input, before
+the next tick, and verifies exact bytes, restored state/pixels and next-tick
+continuation. This boundary check is needed when those two positions differ.
+See [wake-phase evidence](validation/cursor-wake-phase.json).

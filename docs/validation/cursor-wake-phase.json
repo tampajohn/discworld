@@ -1,0 +1,577 @@
+{
+  "base_revision": "614ac7f",
+  "scope": "Reference wake-phase evidence plus regression for exact save/load between backend pointer input and the next engine tick. No production runtime change.",
+  "capture": "assets/validation/reference-look-muted-wake1/frames/capture.json",
+  "capture_sha256": "34b568b798dbbb6b0de7dd2b8a19675d80dae304dfdfab61f46edd83e69183fc",
+  "all_144_reference_cycle_and_rgb_pairs_unchanged": true,
+  "events": [
+    {
+      "cycle": 1336,
+      "kind": "cursor_process_order",
+      "flags": {
+        "_hiddenCursor": true,
+        "_tempHiddenCursor": false,
+        "_frozenCursor": false,
+        "_cursorProcessesStopped": false,
+        "_cursorProcessesRestarted": true
+      },
+      "function": "Tinsel::PointProcess(Common::CoroBaseContext*&, void const*)",
+      "driver_cursor": [
+        10,
+        10
+      ],
+      "callers": [
+        "Tinsel::PointProcess(Common::CoroBaseContext*&, void const*)",
+        "Common::CoroutineScheduler::schedule()",
+        "Tinsel::TinselEngine::NextGameCycle()",
+        "Tinsel::TinselEngine::run()",
+        "runGame(Plugin const*, OSystem&, DetectedGame const&, void const*)",
+        "::scummvm_main(int, const char *const *)",
+        "main",
+        "start"
+      ],
+      "object_origin_fixed": [
+        655360,
+        655360
+      ],
+      "image": 0
+    },
+    {
+      "cycle": 1336,
+      "kind": "cursor_process_order",
+      "flags": {
+        "_hiddenCursor": true,
+        "_tempHiddenCursor": false,
+        "_frozenCursor": false,
+        "_cursorProcessesStopped": false,
+        "_cursorProcessesRestarted": true
+      },
+      "function": "Tinsel::TagProcess(Common::CoroBaseContext*&, void const*)",
+      "driver_cursor": [
+        10,
+        10
+      ],
+      "callers": [
+        "Tinsel::TagProcess(Common::CoroBaseContext*&, void const*)",
+        "Common::CoroutineScheduler::schedule()",
+        "Tinsel::TinselEngine::NextGameCycle()",
+        "Tinsel::TinselEngine::run()",
+        "runGame(Plugin const*, OSystem&, DetectedGame const&, void const*)",
+        "::scummvm_main(int, const char *const *)",
+        "main",
+        "start"
+      ],
+      "object_origin_fixed": [
+        655360,
+        655360
+      ],
+      "image": 0
+    },
+    {
+      "cycle": 1336,
+      "kind": "cursor_process_order",
+      "flags": {
+        "_hiddenCursor": true,
+        "_tempHiddenCursor": false,
+        "_frozenCursor": false,
+        "_cursorProcessesStopped": false,
+        "_cursorProcessesRestarted": true
+      },
+      "function": "Tinsel::CursorProcess(Common::CoroBaseContext*&, void const*)",
+      "driver_cursor": [
+        10,
+        10
+      ],
+      "callers": [
+        "Tinsel::CursorProcess(Common::CoroBaseContext*&, void const*)",
+        "Common::CoroutineScheduler::schedule()",
+        "Tinsel::TinselEngine::NextGameCycle()",
+        "Tinsel::TinselEngine::run()",
+        "runGame(Plugin const*, OSystem&, DetectedGame const&, void const*)",
+        "::scummvm_main(int, const char *const *)",
+        "main",
+        "start"
+      ],
+      "object_origin_fixed": [
+        655360,
+        655360
+      ],
+      "image": 0
+    },
+    {
+      "cycle": 1337,
+      "kind": "cursor_process_order",
+      "flags": {
+        "_hiddenCursor": true,
+        "_tempHiddenCursor": false,
+        "_frozenCursor": false,
+        "_cursorProcessesStopped": false,
+        "_cursorProcessesRestarted": true
+      },
+      "function": "Tinsel::Cursor::DoCursorMove()",
+      "driver_cursor": [
+        50,
+        120
+      ],
+      "callers": [
+        "Tinsel::Cursor::DoCursorMove()",
+        "Tinsel::Cursor::SetCursorXY(int, int)",
+        "Tinsel::Control(int)",
+        "Tinsel::TalkOrSay(Common::CoroBaseContext*&, Tinsel::SPEECH_TYPE, unsigned int, int, int, unsigned int, int, bool, bool, int)",
+        "Tinsel::CallLibraryRoutine(Common::CoroBaseContext*&, int, int*, Tinsel::INT_CONTEXT const*, Tinsel::RESUME_STATE*)",
+        "Tinsel::Interpret(Common::CoroBaseContext*&, Tinsel::INT_CONTEXT*)",
+        "Tinsel::ActorTinselProcess(Common::CoroBaseContext*&, void const*)",
+        "Common::CoroutineScheduler::schedule()",
+        "Tinsel::TinselEngine::NextGameCycle()",
+        "Tinsel::TinselEngine::run()"
+      ],
+      "object_origin_fixed": [
+        655360,
+        655360
+      ],
+      "image": 0
+    },
+    {
+      "cycle": 1337,
+      "kind": "cursor_process_order",
+      "flags": {
+        "_hiddenCursor": false,
+        "_tempHiddenCursor": false,
+        "_frozenCursor": false,
+        "_cursorProcessesStopped": false,
+        "_cursorProcessesRestarted": true
+      },
+      "function": "Tinsel::PointProcess(Common::CoroBaseContext*&, void const*)",
+      "driver_cursor": [
+        50,
+        120
+      ],
+      "callers": [
+        "Tinsel::PointProcess(Common::CoroBaseContext*&, void const*)",
+        "Common::CoroutineScheduler::schedule()",
+        "Tinsel::TinselEngine::NextGameCycle()",
+        "Tinsel::TinselEngine::run()",
+        "runGame(Plugin const*, OSystem&, DetectedGame const&, void const*)",
+        "::scummvm_main(int, const char *const *)",
+        "main",
+        "start"
+      ],
+      "object_origin_fixed": [
+        3080192,
+        7536640
+      ],
+      "image": 174960
+    },
+    {
+      "cycle": 1337,
+      "kind": "cursor_process_order",
+      "flags": {
+        "_hiddenCursor": false,
+        "_tempHiddenCursor": false,
+        "_frozenCursor": false,
+        "_cursorProcessesStopped": false,
+        "_cursorProcessesRestarted": true
+      },
+      "function": "Tinsel::TagProcess(Common::CoroBaseContext*&, void const*)",
+      "driver_cursor": [
+        50,
+        120
+      ],
+      "callers": [
+        "Tinsel::TagProcess(Common::CoroBaseContext*&, void const*)",
+        "Common::CoroutineScheduler::schedule()",
+        "Tinsel::TinselEngine::NextGameCycle()",
+        "Tinsel::TinselEngine::run()",
+        "runGame(Plugin const*, OSystem&, DetectedGame const&, void const*)",
+        "::scummvm_main(int, const char *const *)",
+        "main",
+        "start"
+      ],
+      "object_origin_fixed": [
+        3080192,
+        7536640
+      ],
+      "image": 174960
+    },
+    {
+      "cycle": 1337,
+      "kind": "cursor_process_order",
+      "flags": {
+        "_hiddenCursor": false,
+        "_tempHiddenCursor": false,
+        "_frozenCursor": false,
+        "_cursorProcessesStopped": false,
+        "_cursorProcessesRestarted": true
+      },
+      "function": "Tinsel::CursorProcess(Common::CoroBaseContext*&, void const*)",
+      "driver_cursor": [
+        50,
+        120
+      ],
+      "callers": [
+        "Tinsel::CursorProcess(Common::CoroBaseContext*&, void const*)",
+        "Common::CoroutineScheduler::schedule()",
+        "Tinsel::TinselEngine::NextGameCycle()",
+        "Tinsel::TinselEngine::run()",
+        "runGame(Plugin const*, OSystem&, DetectedGame const&, void const*)",
+        "::scummvm_main(int, const char *const *)",
+        "main",
+        "start"
+      ],
+      "object_origin_fixed": [
+        3080192,
+        7536640
+      ],
+      "image": 174960
+    },
+    {
+      "cycle": 1338,
+      "kind": "cursor_process_order",
+      "flags": {
+        "_hiddenCursor": false,
+        "_tempHiddenCursor": false,
+        "_frozenCursor": false,
+        "_cursorProcessesStopped": false,
+        "_cursorProcessesRestarted": true
+      },
+      "function": "Tinsel::PointProcess(Common::CoroBaseContext*&, void const*)",
+      "driver_cursor": [
+        0,
+        0
+      ],
+      "callers": [
+        "Tinsel::PointProcess(Common::CoroBaseContext*&, void const*)",
+        "Common::CoroutineScheduler::schedule()",
+        "Tinsel::TinselEngine::NextGameCycle()",
+        "Tinsel::TinselEngine::run()",
+        "runGame(Plugin const*, OSystem&, DetectedGame const&, void const*)",
+        "::scummvm_main(int, const char *const *)",
+        "main",
+        "start"
+      ],
+      "object_origin_fixed": [
+        3080192,
+        7536640
+      ],
+      "image": 174960
+    },
+    {
+      "cycle": 1338,
+      "kind": "cursor_process_order",
+      "flags": {
+        "_hiddenCursor": false,
+        "_tempHiddenCursor": false,
+        "_frozenCursor": false,
+        "_cursorProcessesStopped": false,
+        "_cursorProcessesRestarted": true
+      },
+      "function": "Tinsel::TagProcess(Common::CoroBaseContext*&, void const*)",
+      "driver_cursor": [
+        0,
+        0
+      ],
+      "callers": [
+        "Tinsel::TagProcess(Common::CoroBaseContext*&, void const*)",
+        "Common::CoroutineScheduler::schedule()",
+        "Tinsel::TinselEngine::NextGameCycle()",
+        "Tinsel::TinselEngine::run()",
+        "runGame(Plugin const*, OSystem&, DetectedGame const&, void const*)",
+        "::scummvm_main(int, const char *const *)",
+        "main",
+        "start"
+      ],
+      "object_origin_fixed": [
+        3080192,
+        7536640
+      ],
+      "image": 174960
+    },
+    {
+      "cycle": 1338,
+      "kind": "cursor_process_order",
+      "flags": {
+        "_hiddenCursor": false,
+        "_tempHiddenCursor": false,
+        "_frozenCursor": false,
+        "_cursorProcessesStopped": false,
+        "_cursorProcessesRestarted": true
+      },
+      "function": "Tinsel::CursorProcess(Common::CoroBaseContext*&, void const*)",
+      "driver_cursor": [
+        0,
+        0
+      ],
+      "callers": [
+        "Tinsel::CursorProcess(Common::CoroBaseContext*&, void const*)",
+        "Common::CoroutineScheduler::schedule()",
+        "Tinsel::TinselEngine::NextGameCycle()",
+        "Tinsel::TinselEngine::run()",
+        "runGame(Plugin const*, OSystem&, DetectedGame const&, void const*)",
+        "::scummvm_main(int, const char *const *)",
+        "main",
+        "start"
+      ],
+      "object_origin_fixed": [
+        3080192,
+        7536640
+      ],
+      "image": 174960
+    },
+    {
+      "cycle": 1338,
+      "kind": "cursor_process_order",
+      "flags": {
+        "_hiddenCursor": false,
+        "_tempHiddenCursor": false,
+        "_frozenCursor": false,
+        "_cursorProcessesStopped": false,
+        "_cursorProcessesRestarted": true
+      },
+      "function": "Tinsel::Cursor::AnimateProcess()",
+      "driver_cursor": [
+        0,
+        0
+      ],
+      "callers": [
+        "Tinsel::Cursor::AnimateProcess()",
+        "Tinsel::CursorProcess(Common::CoroBaseContext*&, void const*)",
+        "Common::CoroutineScheduler::schedule()",
+        "Tinsel::TinselEngine::NextGameCycle()",
+        "Tinsel::TinselEngine::run()",
+        "runGame(Plugin const*, OSystem&, DetectedGame const&, void const*)",
+        "::scummvm_main(int, const char *const *)",
+        "main",
+        "start"
+      ],
+      "object_origin_fixed": [
+        3080192,
+        7536640
+      ],
+      "image": 174960
+    },
+    {
+      "cycle": 1338,
+      "kind": "cursor_process_order",
+      "flags": {
+        "_hiddenCursor": false,
+        "_tempHiddenCursor": false,
+        "_frozenCursor": false,
+        "_cursorProcessesStopped": false,
+        "_cursorProcessesRestarted": true
+      },
+      "function": "Tinsel::Cursor::DoCursorMove()",
+      "driver_cursor": [
+        0,
+        0
+      ],
+      "callers": [
+        "Tinsel::Cursor::DoCursorMove()",
+        "Tinsel::Cursor::AnimateProcess()",
+        "Tinsel::CursorProcess(Common::CoroBaseContext*&, void const*)",
+        "Common::CoroutineScheduler::schedule()",
+        "Tinsel::TinselEngine::NextGameCycle()",
+        "Tinsel::TinselEngine::run()",
+        "runGame(Plugin const*, OSystem&, DetectedGame const&, void const*)",
+        "::scummvm_main(int, const char *const *)",
+        "main",
+        "start"
+      ],
+      "object_origin_fixed": [
+        3080192,
+        7536640
+      ],
+      "image": 174960
+    },
+    {
+      "cycle": 1339,
+      "kind": "cursor_process_order",
+      "flags": {
+        "_hiddenCursor": false,
+        "_tempHiddenCursor": false,
+        "_frozenCursor": false,
+        "_cursorProcessesStopped": false,
+        "_cursorProcessesRestarted": true
+      },
+      "function": "Tinsel::PointProcess(Common::CoroBaseContext*&, void const*)",
+      "driver_cursor": [
+        0,
+        0
+      ],
+      "callers": [
+        "Tinsel::PointProcess(Common::CoroBaseContext*&, void const*)",
+        "Common::CoroutineScheduler::schedule()",
+        "Tinsel::TinselEngine::NextGameCycle()",
+        "Tinsel::TinselEngine::run()",
+        "runGame(Plugin const*, OSystem&, DetectedGame const&, void const*)",
+        "::scummvm_main(int, const char *const *)",
+        "main",
+        "start"
+      ],
+      "object_origin_fixed": [
+        -196608,
+        -327680
+      ],
+      "image": 174960
+    },
+    {
+      "cycle": 1339,
+      "kind": "cursor_process_order",
+      "flags": {
+        "_hiddenCursor": false,
+        "_tempHiddenCursor": false,
+        "_frozenCursor": false,
+        "_cursorProcessesStopped": false,
+        "_cursorProcessesRestarted": true
+      },
+      "function": "Tinsel::TagProcess(Common::CoroBaseContext*&, void const*)",
+      "driver_cursor": [
+        0,
+        0
+      ],
+      "callers": [
+        "Tinsel::TagProcess(Common::CoroBaseContext*&, void const*)",
+        "Common::CoroutineScheduler::schedule()",
+        "Tinsel::TinselEngine::NextGameCycle()",
+        "Tinsel::TinselEngine::run()",
+        "runGame(Plugin const*, OSystem&, DetectedGame const&, void const*)",
+        "::scummvm_main(int, const char *const *)",
+        "main",
+        "start"
+      ],
+      "object_origin_fixed": [
+        -196608,
+        -327680
+      ],
+      "image": 174960
+    },
+    {
+      "cycle": 1339,
+      "kind": "cursor_process_order",
+      "flags": {
+        "_hiddenCursor": false,
+        "_tempHiddenCursor": false,
+        "_frozenCursor": false,
+        "_cursorProcessesStopped": false,
+        "_cursorProcessesRestarted": true
+      },
+      "function": "Tinsel::CursorProcess(Common::CoroBaseContext*&, void const*)",
+      "driver_cursor": [
+        0,
+        0
+      ],
+      "callers": [
+        "Tinsel::CursorProcess(Common::CoroBaseContext*&, void const*)",
+        "Common::CoroutineScheduler::schedule()",
+        "Tinsel::TinselEngine::NextGameCycle()",
+        "Tinsel::TinselEngine::run()",
+        "runGame(Plugin const*, OSystem&, DetectedGame const&, void const*)",
+        "::scummvm_main(int, const char *const *)",
+        "main",
+        "start"
+      ],
+      "object_origin_fixed": [
+        -196608,
+        -327680
+      ],
+      "image": 174960
+    },
+    {
+      "cycle": 1339,
+      "kind": "cursor_process_order",
+      "flags": {
+        "_hiddenCursor": false,
+        "_tempHiddenCursor": false,
+        "_frozenCursor": false,
+        "_cursorProcessesStopped": false,
+        "_cursorProcessesRestarted": true
+      },
+      "function": "Tinsel::Cursor::AnimateProcess()",
+      "driver_cursor": [
+        0,
+        0
+      ],
+      "callers": [
+        "Tinsel::Cursor::AnimateProcess()",
+        "Tinsel::CursorProcess(Common::CoroBaseContext*&, void const*)",
+        "Common::CoroutineScheduler::schedule()",
+        "Tinsel::TinselEngine::NextGameCycle()",
+        "Tinsel::TinselEngine::run()",
+        "runGame(Plugin const*, OSystem&, DetectedGame const&, void const*)",
+        "::scummvm_main(int, const char *const *)",
+        "main",
+        "start"
+      ],
+      "object_origin_fixed": [
+        -196608,
+        -327680
+      ],
+      "image": 174960
+    },
+    {
+      "cycle": 1339,
+      "kind": "cursor_process_order",
+      "flags": {
+        "_hiddenCursor": false,
+        "_tempHiddenCursor": false,
+        "_frozenCursor": false,
+        "_cursorProcessesStopped": false,
+        "_cursorProcessesRestarted": true
+      },
+      "function": "Tinsel::Cursor::DoCursorMove()",
+      "driver_cursor": [
+        0,
+        0
+      ],
+      "callers": [
+        "Tinsel::Cursor::DoCursorMove()",
+        "Tinsel::Cursor::AnimateProcess()",
+        "Tinsel::CursorProcess(Common::CoroBaseContext*&, void const*)",
+        "Common::CoroutineScheduler::schedule()",
+        "Tinsel::TinselEngine::NextGameCycle()",
+        "Tinsel::TinselEngine::run()",
+        "runGame(Plugin const*, OSystem&, DetectedGame const&, void const*)",
+        "::scummvm_main(int, const char *const *)",
+        "main",
+        "start"
+      ],
+      "object_origin_fixed": [
+        -196608,
+        -131072
+      ],
+      "image": 175024
+    }
+  ],
+  "reference_behavior": [
+    "Cycle1336: hidden cursor process resumes but does not animate.",
+    "Cycle1337: script restores position and normal cursor, clears hidden flag; cursor coroutine resumes but still does not animate.",
+    "Cycle1338: PointProcess and TagProcess run before CursorProcess; then AnimateProcess and DoCursorMove execute once.",
+    "CursorProcess has a persistent hidden-wait phase; visible state alone cannot determine whether to animate on this tick."
+  ],
+  "source": [
+    "engines/tinsel/cursor.cpp:605 outer sleep",
+    "engines/tinsel/cursor.cpp:613 AnimateProcess",
+    "engines/tinsel/cursor.cpp:619 hidden inner sleep loop",
+    "engines/tinsel/cursor.cpp:553 CursorStoppedCheck",
+    "engines/tinsel/cursor.cpp:202 RestoreMainCursor"
+  ],
+  "rust_regression": {
+    "capture": "assets/validation/rust-look-muted-pointer-save2",
+    "log": "assets/logs/rust-look-muted-pointer-save2.log",
+    "before_tick": 1338,
+    "save": "assets/validation/rust-look-muted-pointer-save2/pointer-before-001338.core",
+    "sha256": "2735948cbcd9fe7fd29abfc6a0df6c966495733c28832f8f640e368d92a643d9",
+    "checks": [
+      "Exact serialized byte roundtrip before tick",
+      "Full restore_with_strings reconstructs runtime and original menu settings",
+      "Restored pixels and state equal before tick",
+      "Next tick status, complete engine state and rendered surface equal"
+    ],
+    "initial_attempt": "pointer-save1 failed because diagnostic compared the detached Snapshot state before rebuilding menu settings; corrected to use production restore_with_strings. No engine defect inferred from that harness failure."
+  },
+  "comparison": "assets/validation/muted-look-wake-compare.json",
+  "limitations": [
+    "143/144 full RGB same-cycle matches remain; frame82 is not fixed.",
+    "Cursor process phase and displayed position integration remain pending.",
+    "No physical-input, alternate-path or voiced-completion fidelity claim."
+  ]
+}

@@ -279,8 +279,15 @@ def cursor_order(frame, location, dictionary):
         cursor = vm.GetChildMemberWithName('_cursor').Dereference()
         if not all(value.IsValid() for value in [vm, mouse, cursor]):
             raise RuntimeError('cursor-order state unavailable')
+        flags = {}
+        for name in ['_hiddenCursor', '_tempHiddenCursor', '_frozenCursor',
+                     '_cursorProcessesStopped', '_cursorProcessesRestarted']:
+            value = cursor.GetChildMemberWithName(name)
+            if not value.IsValid():
+                raise RuntimeError('cursor-order flag unavailable: ' + name)
+            flags[name] = bool(frames.unsigned(value))
         main = cursor.GetChildMemberWithName('_mainCursor')
-        event = {'cycle': frames.CYCLES, 'kind': 'cursor_process_order',
+        event = {'cycle': frames.CYCLES, 'kind': 'cursor_process_order', 'flags': flags,
                  'function': frame.GetFunctionName(),
                  'driver_cursor': [mouse.GetChildMemberWithName(axis).GetValueAsSigned()
                                    for axis in ['x', 'y']],
@@ -452,7 +459,9 @@ def __lldb_init_module(debugger, dictionary):
     if TRACE_CURSOR_ORDER:
         points.extend((target.BreakpointCreateByName(name), __name__ + '.cursor_order')
                       for name in ['Tinsel::PointProcess', 'Tinsel::TagProcess',
-                                   'Tinsel::Cursor::DoCursorMove'])
+                                   'Tinsel::Cursor::DoCursorMove', 'Tinsel::CursorProcess',
+                                   'Tinsel::Cursor::AnimateProcess',
+                                   'Tinsel::Cursor::HideCursorProcess'])
     if TRACE_BACKDROP:
         points.extend([(target.BreakpointCreateByName('Tinsel::WrtTrans'), __name__ + '.backdrop_before'),
                        (target.BreakpointCreateByLocation('graphics.cpp', 1262), __name__ + '.backdrop_after')])
