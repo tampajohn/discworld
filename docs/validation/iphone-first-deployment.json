@@ -1,0 +1,16 @@
+{
+  "date": "2026-10-23",
+  "runtime_source": "23ebe72 (runtime 8ac0135, last complete cross-host route)",
+  "host": "App.swift phone landscape side columns; original-font controls; mode selection retained across layouts",
+  "build": "Xcode device build 23; Apple Development signed",
+  "device": "physical iPhone 16, iOS 26.6.2",
+  "install": "devicectl wireless install succeeded",
+  "launch": "devicectl launch succeeded; process 60016 verified running afterward",
+  "resources": "bundled ISO, SoundFont and notice SHA256 verified against private manifest",
+  "limitations": [
+    "Physical visual layout and touch gameplay not yet verified",
+    "Latest 7c1921e cursor runtime deliberately excluded after full-route rejection",
+    "User iPad simulator not changed"
+  ],
+  "artifacts": "assets/validation/iphone-deploy1 (private device identifiers remain ignored)"
+}

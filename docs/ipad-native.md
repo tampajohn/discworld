@@ -331,3 +331,7 @@ library-build success does not establish these results.
 
 No device-signed IPA, TestFlight upload, or physical-device result is claimed.
 The simulator prototype does not close the remaining acceptance items above.
+
+## iPhone prototype
+
+The host now supports iPhone in landscape, with original-font controls in two side columns. iPad retains its existing layout. The first physical iPhone deployment includes the private ISO and SoundFont and uses runtime `8ac0135` from source `23ebe72`, the last complete cross-host playthrough pass. The newer cursor runtime is withheld pending a full-route regression fix. Wireless installation, launch and process liveness passed; physical touch/layout acceptance remains open. See [deployment evidence](validation/iphone-first-deployment.json).

@@ -50,9 +50,10 @@ def main():
         "CFBundleExecutable": "Discworld", "CFBundleIdentifier": "org.tampajohn.discworld.dev",
         "CFBundleName": "Discworld", "CFBundleDisplayName": "Discworld Dev",
         "CFBundlePackageType": "APPL", "CFBundleVersion": "1", "CFBundleShortVersionString": "0.1",
-        "MinimumOSVersion": "17.0", "UIDeviceFamily": [2], "LSRequiresIPhoneOS": True,
+        "MinimumOSVersion": "17.0", "UIDeviceFamily": [1, 2], "LSRequiresIPhoneOS": True,
         "CFBundleSupportedPlatforms": ["iPhoneOS" if device else "iPhoneSimulator"],
-        "UISupportedInterfaceOrientations": ["UIInterfaceOrientationLandscapeLeft", "UIInterfaceOrientationLandscapeRight", "UIInterfaceOrientationPortrait", "UIInterfaceOrientationPortraitUpsideDown"],
+        "UISupportedInterfaceOrientations": ["UIInterfaceOrientationLandscapeLeft", "UIInterfaceOrientationLandscapeRight"],
+        "UISupportedInterfaceOrientations~ipad": ["UIInterfaceOrientationLandscapeLeft", "UIInterfaceOrientationLandscapeRight", "UIInterfaceOrientationPortrait", "UIInterfaceOrientationPortraitUpsideDown"],
         "UILaunchScreen": {},
         "UIApplicationSceneManifest": {"UIApplicationSupportsMultipleScenes": False, "UISceneConfigurations": {}},
     }

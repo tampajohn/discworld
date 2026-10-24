@@ -60,6 +60,10 @@ final class InventoryPan: UIPanGestureRecognizer {
 }
 
 final class GameController: UIViewController, UIKeyInput, UIDocumentPickerDelegate {
+    override var supportedInterfaceOrientations: UIInterfaceOrientationMask {
+        UIDevice.current.userInterfaceIdiom == .phone ? .landscape : .all
+    }
+
     let picture = UIImageView()
     let status = UILabel()
     let audioEngine = AVAudioEngine()
@@ -80,6 +84,7 @@ final class GameController: UIViewController, UIKeyInput, UIDocumentPickerDelega
     var suspensionCount = 0
     var resumptionCount = 0
     var dragging = false
+    var modeButtons: [UIButton] = []
     var action = "walk"
     var snapshot: [String: Any] = [:]
     var keyboardFrame: [Double] = []
@@ -104,7 +109,6 @@ final class GameController: UIViewController, UIKeyInput, UIDocumentPickerDelega
     }
     func deleteBackward() { send(["op": "edit-menu", "backspace": true]) }
 
-    override var supportedInterfaceOrientations: UIInterfaceOrientationMask { .all }
     override func viewDidLayoutSubviews() {
         super.viewDidLayoutSubviews()
         DispatchQueue.main.async { [weak self] in self?.recordGeometry() }
@@ -157,10 +161,11 @@ final class GameController: UIViewController, UIKeyInput, UIDocumentPickerDelega
             let mode = GameButton(type: .custom)
             mode.setTitle(label, for: .normal)
             mode.isSelected = index == 0
-            mode.addAction(UIAction { [weak self, weak modes, weak mode] _ in
+            mode.addAction(UIAction { [weak self, weak mode] _ in
                 self?.action = ["walk", "action", "look"][index]
-                for case let button as UIButton in modes?.arrangedSubviews ?? [] { button.isSelected = button === mode }
+                for button in self?.modeButtons ?? [] { button.isSelected = button === mode }
             }, for: .touchUpInside)
+            modeButtons.append(mode)
             modes.addArrangedSubview(mode)
         }
         let row = UIStackView()
@@ -208,7 +213,40 @@ final class GameController: UIViewController, UIKeyInput, UIDocumentPickerDelega
             self.render()
         }, for: .touchUpInside)
         tools.addArrangedSubview(pause)
-        let stack = UIStackView(arrangedSubviews: [picture, row, tools, status])
+        let stack: UIStackView
+        if UIDevice.current.userInterfaceIdiom == .phone {
+            // Landscape phones keep the original scene tall, with controls in
+            // two side columns rather than consuming its vertical space.
+            row.axis = .vertical
+            row.spacing = 4
+            tools.axis = .vertical
+            tools.spacing = 4
+            tools.distribution = .fillEqually
+            tools.removeArrangedSubview(modes)
+            modes.removeFromSuperview()
+            for (index, mode) in modes.arrangedSubviews.enumerated() {
+                modes.removeArrangedSubview(mode)
+                mode.removeFromSuperview()
+                tools.insertArrangedSubview(mode, at: index)
+            }
+            let gameRow = UIStackView(arrangedSubviews: [row, picture, tools])
+            gameRow.axis = .horizontal
+            gameRow.spacing = 6
+            stack = UIStackView(arrangedSubviews: [gameRow, status])
+            status.numberOfLines = 1
+            NSLayoutConstraint.activate([
+                row.widthAnchor.constraint(equalToConstant: 90),
+                tools.widthAnchor.constraint(equalToConstant: 90),
+                status.heightAnchor.constraint(equalToConstant: 18)
+            ])
+        } else {
+            stack = UIStackView(arrangedSubviews: [picture, row, tools, status])
+            NSLayoutConstraint.activate([
+                row.heightAnchor.constraint(equalToConstant: 44),
+                tools.heightAnchor.constraint(equalToConstant: 44),
+                status.heightAnchor.constraint(equalToConstant: 40)
+            ])
+        }
         stack.axis = .vertical
         stack.spacing = 6
         stack.translatesAutoresizingMaskIntoConstraints = false
@@ -217,9 +255,7 @@ final class GameController: UIViewController, UIKeyInput, UIDocumentPickerDelega
             stack.leadingAnchor.constraint(equalTo: view.safeAreaLayoutGuide.leadingAnchor, constant: 8),
             stack.trailingAnchor.constraint(equalTo: view.safeAreaLayoutGuide.trailingAnchor, constant: -8),
             stack.topAnchor.constraint(equalTo: view.safeAreaLayoutGuide.topAnchor),
-            stack.bottomAnchor.constraint(equalTo: view.keyboardLayoutGuide.topAnchor, constant: -8),
-            row.heightAnchor.constraint(equalToConstant: 44), tools.heightAnchor.constraint(equalToConstant: 44),
-            status.heightAnchor.constraint(equalToConstant: 40)
+            stack.bottomAnchor.constraint(equalTo: view.keyboardLayoutGuide.topAnchor, constant: -8)
         ])
         audioEngine.attach(player)
         audioEngine.connect(player, to: audioEngine.mainMixerNode, format: format)
