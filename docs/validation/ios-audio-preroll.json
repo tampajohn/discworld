@@ -1,0 +1,124 @@
+{
+  "date": "2026-10-23",
+  "change": "Prebuffer three 24 Hz PCM blocks before starting AVAudioPlayerNode; allow up to six scheduled blocks; pause and rebuffer if all played-back callbacks drain the queue; generation guard retained across resets. Original PCM unchanged.",
+  "reason": "Previous host started an empty player and fed it from display callbacks without an initial queue cushion. Plausible iOS crackle cause; physical listening confirmation still needed.",
+  "device_runtime_source": "23ebe72 (runtime8ac0135)",
+  "device_build": "signed Xcode build succeeded, strict codesign verified, installed and launched on physical iPhone after explicit replace authorization; process60053 verified",
+  "simulator_tests": {
+    "testAudioPrerollAndSteadyPlayback": "PASS",
+    "testBackgroundResumePreservesPauseAndRestartsAudio": "FAIL: mute toggle remained true after tap; playback never started. Background state/tick preservation did hold. Keyboard appeared while paused outside save editing; investigate input/layout before assuming scheduler failure."
+  },
+  "steady_evidence": {
+    "resumed": {
+      "audio_playing": true,
+      "audio_queued_buffers": 5,
+      "audio_ready": true,
+      "audio_underruns": 0,
+      "completed_audio_buffers": 158,
+      "paused": false,
+      "muted": false,
+      "tick": 8667,
+      "keyboard_first_responder": false,
+      "keyboard_frame": [
+        0,
+        1210,
+        834,
+        302
+      ]
+    },
+    "steady": {
+      "audio_playing": true,
+      "audio_queued_buffers": 4,
+      "audio_ready": true,
+      "audio_underruns": 0,
+      "completed_audio_buffers": 129,
+      "paused": false,
+      "muted": false,
+      "tick": 8633,
+      "keyboard_first_responder": false,
+      "keyboard_frame": [
+        0,
+        1210,
+        834,
+        302
+      ]
+    }
+  },
+  "background_evidence": {
+    "paused": {
+      "audio_playing": false,
+      "audio_queued_buffers": 0,
+      "audio_ready": false,
+      "audio_underruns": 0,
+      "completed_audio_buffers": 0,
+      "paused": true,
+      "muted": true,
+      "tick": 8500,
+      "keyboard_first_responder": true,
+      "keyboard_frame": [
+        0,
+        908,
+        834,
+        302
+      ]
+    },
+    "playing": {
+      "audio_playing": false,
+      "audio_queued_buffers": 0,
+      "audio_ready": false,
+      "audio_underruns": 0,
+      "completed_audio_buffers": 0,
+      "paused": false,
+      "muted": true,
+      "tick": 8876,
+      "keyboard_first_responder": false,
+      "keyboard_frame": [
+        0,
+        834,
+        1210,
+        390
+      ]
+    },
+    "restored_pause": {
+      "audio_playing": false,
+      "audio_queued_buffers": 0,
+      "audio_ready": false,
+      "audio_underruns": 0,
+      "completed_audio_buffers": 0,
+      "paused": true,
+      "muted": true,
+      "tick": 8500,
+      "keyboard_first_responder": true,
+      "keyboard_frame": [
+        0,
+        461,
+        1210,
+        373
+      ]
+    },
+    "resumed": {
+      "audio_playing": false,
+      "audio_queued_buffers": 0,
+      "audio_ready": false,
+      "audio_underruns": 0,
+      "completed_audio_buffers": 0,
+      "paused": false,
+      "muted": true,
+      "tick": 9237,
+      "keyboard_first_responder": false,
+      "keyboard_frame": [
+        0,
+        834,
+        1210,
+        390
+      ]
+    }
+  },
+  "artifacts": "assets/validation/ios-audio-preroll-tests1/results.xcresult; assets/validation/iphone-audio-preroll1",
+  "api_reference": "https://developer.apple.com/documentation/avfaudio/avaudioplayernode",
+  "limitations": [
+    "Not yet confirmed by listening on physical device",
+    "No stress/jitter injection or Bluetooth acceptance yet",
+    "Background/return suite is not green"
+  ]
+}

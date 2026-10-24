@@ -73,6 +73,10 @@ final class GameController: UIViewController, UIKeyInput, UIDocumentPickerDelega
     var previous = 0.0
     var accumulator = 0.0
     var queued = 0
+    var audioPlaying = false
+    var audioUnderruns = 0
+    let audioPrerollBuffers = 3
+    let audioQueueLimit = 6
     var generation = 0
     var ready = false
     var paused = false
@@ -430,6 +434,9 @@ final class GameController: UIViewController, UIKeyInput, UIDocumentPickerDelega
             state["paused"] = paused
             state["muted"] = muted
             state["audio_ready"] = audioReady
+            state["audio_playing"] = audioPlaying
+            state["audio_queued_buffers"] = queued
+            state["audio_underruns"] = audioUnderruns
             state["audio_interrupted"] = interrupted
             state["suspension_tick"] = suspensionTick
             state["resumption_tick"] = resumptionTick
@@ -489,13 +496,14 @@ final class GameController: UIViewController, UIKeyInput, UIDocumentPickerDelega
             try AVAudioSession.sharedInstance().setCategory(.playback)
             try AVAudioSession.sharedInstance().setActive(true)
             try audioEngine.start()
-            player.play(); audioReady = true
+            audioReady = true
+            // Queue three 24 Hz frames before starting the hardware clock.
+            // Starting an empty node makes display-link jitter audible.
         } catch { audioReady = false; status.text = "Audio: \(error.localizedDescription)" }
     }
     func resetAudio() {
-        generation += 1; queued = 0; player.stop()
+        generation += 1; queued = 0; audioPlaying = false; player.stop()
         previous = 0; accumulator = 0
-        if audioReady { player.play() }
     }
     func queueAudio() {
         guard audioReady else { return }
@@ -507,7 +515,20 @@ final class GameController: UIViewController, UIKeyInput, UIDocumentPickerDelega
         let current = generation
         queued += 1
         player.scheduleBuffer(buffer, completionCallbackType: .dataPlayedBack) { [weak self] _ in
-            DispatchQueue.main.async { if let self, self.generation == current { self.queued = max(0, self.queued - 1); self.completedAudioBuffers += 1 } }
+            DispatchQueue.main.async {
+                guard let self, self.generation == current else { return }
+                self.queued = max(0, self.queued - 1)
+                self.completedAudioBuffers += 1
+                if self.queued == 0 && self.audioPlaying {
+                    self.audioUnderruns += 1
+                    self.player.pause()
+                    self.audioPlaying = false
+                }
+            }
+        }
+        if !audioPlaying && queued >= audioPrerollBuffers {
+            player.play()
+            audioPlaying = true
         }
     }
     @objc func step(_ link: CADisplayLink) {
@@ -516,7 +537,7 @@ final class GameController: UIViewController, UIKeyInput, UIDocumentPickerDelega
         accumulator = min(0.125, accumulator + link.timestamp - previous)
         previous = link.timestamp
         do {
-            while accumulator >= 1.0/24 && (!audioReady || queued < 3) {
+            while accumulator >= 1.0/24 && (!audioReady || queued < audioQueueLimit) {
                 try handle(call(["op": "advance"]))
                 queueAudio(); accumulator -= 1.0/24
             }

@@ -12,6 +12,32 @@ final class DiscworldLayoutTests: XCTestCase {
         let predicate = NSPredicate { _, _ in condition(self.state(app)) }
         wait(for: [expectation(for: predicate, evaluatedWith: app)], timeout: 15)
     }
+    func testAudioPrerollAndSteadyPlayback() throws {
+        let app = XCUIApplication(bundleIdentifier: "org.tampajohn.discworld.dev")
+        app.launchArguments = ["--smoke-room"]
+        app.launch()
+        XCTAssertTrue(app.buttons["Resume"].waitForExistence(timeout: 40))
+        app.buttons["Sound off"].tap()
+        XCTAssertEqual(state(app)["audio_playing"] as? Bool, false)
+        XCTAssertEqual(state(app)["audio_queued_buffers"] as? Int, 0)
+        app.buttons["Resume"].tap()
+        waitFor(app) { ($0["completed_audio_buffers"] as? Int ?? 0) >= 120 }
+        let steady = state(app)
+        XCTAssertEqual(steady["audio_playing"] as? Bool, true)
+        XCTAssertEqual(steady["audio_underruns"] as? Int, 0)
+        app.buttons["Pause"].tap()
+        XCTAssertEqual(state(app)["audio_playing"] as? Bool, false)
+        XCTAssertEqual(state(app)["audio_queued_buffers"] as? Int, 0)
+        let completed = try XCTUnwrap(steady["completed_audio_buffers"] as? Int)
+        app.buttons["Resume"].tap()
+        waitFor(app) { ($0["completed_audio_buffers"] as? Int ?? 0) > completed + 24 }
+        XCTAssertEqual(state(app)["audio_underruns"] as? Int, 0)
+        let evidence = XCTAttachment(string: String(decoding: try JSONSerialization.data(withJSONObject: ["steady": steady, "resumed": state(app)], options: [.prettyPrinted, .sortedKeys]), as: UTF8.self))
+        evidence.name = "audio-preroll-evidence"
+        evidence.lifetime = .keepAlways
+        add(evidence)
+    }
+
     func testBackgroundResumePreservesPauseAndRestartsAudio() throws {
         let app = XCUIApplication(bundleIdentifier: "org.tampajohn.discworld.dev")
         app.launchArguments = ["--smoke-room"]
