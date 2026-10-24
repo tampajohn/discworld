@@ -107,6 +107,21 @@ fn capture_original_debug_room_hover() {
     let door_exit = university_walk || std::env::var_os("DISCWORLD_HOVER_DOOR_EXIT").is_some();
     let door_action = door_exit || std::env::var_os("DISCWORLD_HOVER_DOOR_ACTION").is_some();
     let look_mode = std::env::var_os("DISCWORLD_HOVER_LOOK").is_some();
+    let mute_speech = std::env::var_os("DISCWORLD_HOVER_MUTE_SPEECH").is_some();
+    assert!(!mute_speech || look_mode);
+    if mute_speech {
+        engine.configuration = Some(
+            crate::menu_controller::Controller::new(crate::menu_controller::Settings {
+                volumes: [255, 255, 0],
+                double_click: 10,
+                swap_buttons: false,
+                text_speed: 0,
+                subtitles: true,
+                flipped: false,
+            })
+            .unwrap(),
+        );
+    }
     let walk_delay =
         std::env::var("DISCWORLD_HOVER_WALK_DELAY").map_or(1, |s| s.parse::<u64>().unwrap());
     assert!(walk_delay <= 1);
@@ -963,7 +978,11 @@ fn capture_original_debug_room_hover() {
     if walk_from_actor {
         assert_eq!(engine.active_inventory(), Some(2));
     }
-    if look_mode && frame_limit >= 144 {
+    if mute_speech {
+        assert!(look_pcm.is_empty(), "muted LOOK must emit no speech samples");
+        assert!(engine.control.enabled, "muted LOOK must restore control");
+    }
+    if look_mode && !mute_speech && frame_limit >= 144 {
         let source = bank.sample(3636).unwrap().unwrap();
         let expected: Vec<i16> = source.iter().map(|&s| (i16::from(s) - 128) * 256).collect();
         assert_eq!(

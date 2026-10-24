@@ -1,0 +1,45 @@
+{
+  "reference_revision": "96b42d42bc8533953bdd701db059cc33c839a9ff",
+  "reference_binary_sha256": "1e8b098f0e9f6da44062aa19c195a5771a4a5dbc806cb3d3a9c3eb0e8fb6f524",
+  "runtime_revision": "a65b97d4e6c7fb1b51169dc3e82056ffa4a496c9",
+  "reference_capture_accepted": true,
+  "full_capture_fidelity_pass": false,
+  "scope": "Original LOOK with subtitles and speech volume zero, controlled scene/cursor injection, headless pinned reference. Not ordinary touch input or voiced completion timing.",
+  "comparison_path": "assets/validation/muted-look-compare.json",
+  "comparison_sha256": "23d520721d11aea1455da62f0dbda3144cacd068cad508a3e1b34bc5b5425e2a",
+  "reference_capture_sha256": "0f777e708f6c7cac89063a603c2319348eb4a27691dbbd519ee2b711fd8d49fd",
+  "rust_capture_sha256": "030a772620c0e91c86e1f2a7078aaa6c046ce90f6174e98849574e3fd2e731c0",
+  "frames_captured": 144,
+  "same_cycle_full_rgb_matches": 81,
+  "matching_frame_range": [
+    1,
+    81
+  ],
+  "matching_completion_cycle": 1337,
+  "matching_restored_cursor": [
+    50,
+    120
+  ],
+  "post_completion_divergence": {
+    "first_frame": 82,
+    "cycle": 1338,
+    "reference_driver_cursor": [
+      0,
+      0
+    ],
+    "rust_cursor": [
+      50,
+      120
+    ],
+    "interpretation": "Input positions diverge after completion. Later frames are not claimed equivalent, and this is not a demonstrated engine regression."
+  },
+  "speech_pcm_events_after_look": 0,
+  "rust_muted_assertions": "No emitted LOOK speech samples; control restored at capture end. Existing per-frame save continuation assertions passed.",
+  "configuration_correction": "First attempt mistakenly selected sound effects in Rust and generic speech_mute in reference. Discarded; corrected run uses volumes[2]=0 and speech_volume=0.",
+  "production_changes": false,
+  "limitations": [
+    "Voiced reference completion under an unperturbed mixer remains open.",
+    "Later 63 frames differ; no full capture fidelity claim."
+  ],
+  "visual_check": "Reference frame 80 shows the original subtitle; frame 81 removes it and restores the cursor/tag. Both are exact full-RGB matches to Rust."
+}

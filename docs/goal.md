@@ -24,6 +24,14 @@ and touch-only playthrough evidence. Its current status is not executed.
 
 ## Latest validation follow-up
 
+A new headless speech-muted LOOK comparison matches the pinned reference in all
+81 full RGB frames through subtitle completion and cursor restoration at cycle
+1337. No speech PCM is emitted. From frame 82 the reference backend pointer is
+`[0,0]`, while the Rust diagnostic retains `[50,120]`; the later 63 frames are
+not counted as equivalent. This verifies one text-only completion path without
+changing production runtime behavior. Voiced completion timing remains open.
+See [muted LOOK evidence](validation/reference-muted-look.json).
+
 The corrected 4,209-input route passes on native, Chrome and WebKit through the ending credits and scripted restart. Final engine bytes and pixels match, with 7,615 engine and 7,615 audio-state save/load checks in native. The watch launcher now selects this trace. See [complete-route evidence](validation/idle-clock-complete-route.json). Physical iPad and visible-session acceptance remain outstanding.
 
 The direct inventory-background comparison passes: Rust matches all24 original WrtTrans before/after framebuffer pairs, including clipping and pixels outside the rectangle; its integrated lookup matches all256 original entries. This verifies the translucent background operation independently of asynchronous character/cursor animation phases. No production change was needed. See [backdrop evidence](validation/reference-inventory-backdrop.json).

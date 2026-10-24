@@ -37,12 +37,15 @@ def main():
     mode.add_argument('--look', action='store_true', help='dispatch original lead LOOK with speech and subtitles')
     mode.add_argument('--walk', action='store_true', help='send a player WALKTO on the room floor')
     mode.add_argument('--walk-from-actor', action='store_true', help='move off a cached actor and send WALKTO immediately')
+    parser.add_argument('--mute-speech', action='store_true', help='LOOK with subtitles and speech muted')
     parser.add_argument('--walk-delay', type=int, choices=[0, 1], default=1, help='cycles between cursor injection and WALKTO')
     parser.add_argument('--resize-corner', choices=['bottom-right', 'top-left'], default='bottom-right', help='corner used by --inventory-resize')
     parser.add_argument('--resize-delta', type=int, choices=[-26, 26], default=26, help='signed size change for --inventory-resize')
     parser.add_argument('--frames', type=int, default=None, help='capture 72..504 frames (default72; door exit240; arch entry480; arch inventory504)')
     parser.add_argument('--trace-backdrop', action='store_true', help='capture original translucent rectangle input/output during late inventory frames')
     args = parser.parse_args()
+    if args.mute_speech and not args.look:
+        parser.error('mute-speech requires look')
     if args.trace_backdrop and not args.arch_inventory:
         parser.error('trace-backdrop requires arch-inventory')
     if args.arch_inventory:
@@ -83,6 +86,8 @@ def main():
     if args.look or args.arch_entry:
         with config.open('a') as file:
             file.write('subtitles=true\nspeech_mute=false\n')
+            if args.mute_speech:
+                file.write('speech_volume=0\n')
     probe = ROOT / 'tools/reference_hover_lldb.py'
     commands = [
         'settings set target.disable-aslr false',
@@ -117,7 +122,7 @@ def main():
     environment['DISCWORLD_REFERENCE_UNIVERSITY_RETARGET'] = '1' if args.university_retarget else '0'
     environment['DISCWORLD_REFERENCE_ARCH_ENTRY'] = '1' if args.arch_entry else '0'
     environment['DISCWORLD_REFERENCE_ARCH_SKIP'] = '1' if args.arch_skip else '0'
-    metadata = dict(arch_skip=args.arch_skip, arch_entry=args.arch_entry, university_retarget=args.university_retarget, university_walk=args.university_walk, door_exit=args.door_exit, door_action=args.door_action, resize_delta=args.resize_delta, resize_corner=args.resize_corner, inventory_resize=args.inventory_resize, inventory_fixed_corner=args.inventory_fixed_corner, inventory_drag=args.inventory_drag, walk_from_actor=args.walk_from_actor, walk_delay=args.walk_delay, walk_diagnostic=args.walk, frame_limit=args.frames, look_diagnostic=args.look, inventory_diagnostic=args.inventory, reference_revision=REVISION, binary_sha256=BINARY_SHA256,
+    metadata = dict(mute_speech=args.mute_speech, arch_skip=args.arch_skip, arch_entry=args.arch_entry, university_retarget=args.university_retarget, university_walk=args.university_walk, door_exit=args.door_exit, door_action=args.door_action, resize_delta=args.resize_delta, resize_corner=args.resize_corner, inventory_resize=args.inventory_resize, inventory_fixed_corner=args.inventory_fixed_corner, inventory_drag=args.inventory_drag, walk_from_actor=args.walk_from_actor, walk_delay=args.walk_delay, walk_diagnostic=args.walk, frame_limit=args.frames, look_diagnostic=args.look, inventory_diagnostic=args.inventory, reference_revision=REVISION, binary_sha256=BINARY_SHA256,
                     probe_sha256=digest(probe), config_sha256=digest(config), command=command,
                     scope='Controlled scene and logical cursor injection; not ordinary input acceptance.')
     environment['DISCWORLD_REFERENCE_ARCH_INVENTORY'] = '1' if args.arch_inventory else '0'
@@ -186,9 +191,10 @@ def main():
                     and frames[24].get('inventory_dragging') == expected_drag
                     and frames[36].get('inventory_dragging') == 0)
     if accepted and args.look:
-        accepted = any(e.get('kind') == 'sample_pcm' and e.get('type') == 3
-                       and e['cycle'] >= report['hover_start_cycle']
-                       for e in report.get('events', []))
+        speech_observed = any(e.get('kind') == 'sample_pcm' and e.get('type') == 3
+                              and e['cycle'] >= report['hover_start_cycle']
+                              for e in report.get('events', []))
+        accepted = not speech_observed if args.mute_speech else speech_observed
     metadata['accepted'] = accepted
     metadata['university_walk'] = args.university_walk
     metadata_path.write_text(json.dumps(metadata, indent=2) + '\n')
