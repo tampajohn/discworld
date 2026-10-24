@@ -1,0 +1,257 @@
+{
+  "runtime_revision": "8ac0135",
+  "scope": "Read-only process-order trace against untouched pinned reference; no production engine change.",
+  "reference_revision": "96b42d42bc8533953bdd701db059cc33c839a9ff",
+  "capture": "assets/validation/reference-look-muted-order1/frames/capture.json",
+  "capture_sha256": "08ce08cdb38c9fcecba833d517de7502c06de4c6291082ac84e62fa5d87bc188",
+  "accepted": true,
+  "all_144_cycle_and_rgb_pairs_equal_prior_reference_capture": true,
+  "comparison": "assets/validation/muted-look-order1-compare.json",
+  "same_cycle_full_rgb_matches": 143,
+  "mismatches": [
+    82
+  ],
+  "observed_order": [
+    {
+      "cycle": 1337,
+      "kind": "cursor_process_order",
+      "function": "Tinsel::Cursor::DoCursorMove()",
+      "driver_cursor": [
+        50,
+        120
+      ],
+      "callers": [
+        "Tinsel::Cursor::DoCursorMove()",
+        "Tinsel::Cursor::SetCursorXY(int, int)",
+        "Tinsel::Control(int)",
+        "Tinsel::TalkOrSay(Common::CoroBaseContext*&, Tinsel::SPEECH_TYPE, unsigned int, int, int, unsigned int, int, bool, bool, int)",
+        "Tinsel::CallLibraryRoutine(Common::CoroBaseContext*&, int, int*, Tinsel::INT_CONTEXT const*, Tinsel::RESUME_STATE*)",
+        "Tinsel::Interpret(Common::CoroBaseContext*&, Tinsel::INT_CONTEXT*)",
+        "Tinsel::ActorTinselProcess(Common::CoroBaseContext*&, void const*)",
+        "Common::CoroutineScheduler::schedule()",
+        "Tinsel::TinselEngine::NextGameCycle()",
+        "Tinsel::TinselEngine::run()"
+      ],
+      "object_origin_fixed": [
+        655360,
+        655360
+      ],
+      "image": 0
+    },
+    {
+      "cycle": 1337,
+      "kind": "cursor_process_order",
+      "function": "Tinsel::PointProcess(Common::CoroBaseContext*&, void const*)",
+      "driver_cursor": [
+        50,
+        120
+      ],
+      "callers": [
+        "Tinsel::PointProcess(Common::CoroBaseContext*&, void const*)",
+        "Common::CoroutineScheduler::schedule()",
+        "Tinsel::TinselEngine::NextGameCycle()",
+        "Tinsel::TinselEngine::run()",
+        "runGame(Plugin const*, OSystem&, DetectedGame const&, void const*)",
+        "::scummvm_main(int, const char *const *)",
+        "main",
+        "start"
+      ],
+      "object_origin_fixed": [
+        3080192,
+        7536640
+      ],
+      "image": 174960
+    },
+    {
+      "cycle": 1337,
+      "kind": "cursor_process_order",
+      "function": "Tinsel::TagProcess(Common::CoroBaseContext*&, void const*)",
+      "driver_cursor": [
+        50,
+        120
+      ],
+      "callers": [
+        "Tinsel::TagProcess(Common::CoroBaseContext*&, void const*)",
+        "Common::CoroutineScheduler::schedule()",
+        "Tinsel::TinselEngine::NextGameCycle()",
+        "Tinsel::TinselEngine::run()",
+        "runGame(Plugin const*, OSystem&, DetectedGame const&, void const*)",
+        "::scummvm_main(int, const char *const *)",
+        "main",
+        "start"
+      ],
+      "object_origin_fixed": [
+        3080192,
+        7536640
+      ],
+      "image": 174960
+    },
+    {
+      "cycle": 1338,
+      "kind": "cursor_process_order",
+      "function": "Tinsel::PointProcess(Common::CoroBaseContext*&, void const*)",
+      "driver_cursor": [
+        0,
+        0
+      ],
+      "callers": [
+        "Tinsel::PointProcess(Common::CoroBaseContext*&, void const*)",
+        "Common::CoroutineScheduler::schedule()",
+        "Tinsel::TinselEngine::NextGameCycle()",
+        "Tinsel::TinselEngine::run()",
+        "runGame(Plugin const*, OSystem&, DetectedGame const&, void const*)",
+        "::scummvm_main(int, const char *const *)",
+        "main",
+        "start"
+      ],
+      "object_origin_fixed": [
+        3080192,
+        7536640
+      ],
+      "image": 174960
+    },
+    {
+      "cycle": 1338,
+      "kind": "cursor_process_order",
+      "function": "Tinsel::TagProcess(Common::CoroBaseContext*&, void const*)",
+      "driver_cursor": [
+        0,
+        0
+      ],
+      "callers": [
+        "Tinsel::TagProcess(Common::CoroBaseContext*&, void const*)",
+        "Common::CoroutineScheduler::schedule()",
+        "Tinsel::TinselEngine::NextGameCycle()",
+        "Tinsel::TinselEngine::run()",
+        "runGame(Plugin const*, OSystem&, DetectedGame const&, void const*)",
+        "::scummvm_main(int, const char *const *)",
+        "main",
+        "start"
+      ],
+      "object_origin_fixed": [
+        3080192,
+        7536640
+      ],
+      "image": 174960
+    },
+    {
+      "cycle": 1338,
+      "kind": "cursor_process_order",
+      "function": "Tinsel::Cursor::DoCursorMove()",
+      "driver_cursor": [
+        0,
+        0
+      ],
+      "callers": [
+        "Tinsel::Cursor::DoCursorMove()",
+        "Tinsel::Cursor::AnimateProcess()",
+        "Tinsel::CursorProcess(Common::CoroBaseContext*&, void const*)",
+        "Common::CoroutineScheduler::schedule()",
+        "Tinsel::TinselEngine::NextGameCycle()",
+        "Tinsel::TinselEngine::run()",
+        "runGame(Plugin const*, OSystem&, DetectedGame const&, void const*)",
+        "::scummvm_main(int, const char *const *)",
+        "main",
+        "start"
+      ],
+      "object_origin_fixed": [
+        3080192,
+        7536640
+      ],
+      "image": 174960
+    },
+    {
+      "cycle": 1339,
+      "kind": "cursor_process_order",
+      "function": "Tinsel::PointProcess(Common::CoroBaseContext*&, void const*)",
+      "driver_cursor": [
+        0,
+        0
+      ],
+      "callers": [
+        "Tinsel::PointProcess(Common::CoroBaseContext*&, void const*)",
+        "Common::CoroutineScheduler::schedule()",
+        "Tinsel::TinselEngine::NextGameCycle()",
+        "Tinsel::TinselEngine::run()",
+        "runGame(Plugin const*, OSystem&, DetectedGame const&, void const*)",
+        "::scummvm_main(int, const char *const *)",
+        "main",
+        "start"
+      ],
+      "object_origin_fixed": [
+        -196608,
+        -327680
+      ],
+      "image": 174960
+    },
+    {
+      "cycle": 1339,
+      "kind": "cursor_process_order",
+      "function": "Tinsel::TagProcess(Common::CoroBaseContext*&, void const*)",
+      "driver_cursor": [
+        0,
+        0
+      ],
+      "callers": [
+        "Tinsel::TagProcess(Common::CoroBaseContext*&, void const*)",
+        "Common::CoroutineScheduler::schedule()",
+        "Tinsel::TinselEngine::NextGameCycle()",
+        "Tinsel::TinselEngine::run()",
+        "runGame(Plugin const*, OSystem&, DetectedGame const&, void const*)",
+        "::scummvm_main(int, const char *const *)",
+        "main",
+        "start"
+      ],
+      "object_origin_fixed": [
+        -196608,
+        -327680
+      ],
+      "image": 174960
+    },
+    {
+      "cycle": 1339,
+      "kind": "cursor_process_order",
+      "function": "Tinsel::Cursor::DoCursorMove()",
+      "driver_cursor": [
+        0,
+        0
+      ],
+      "callers": [
+        "Tinsel::Cursor::DoCursorMove()",
+        "Tinsel::Cursor::AnimateProcess()",
+        "Tinsel::CursorProcess(Common::CoroBaseContext*&, void const*)",
+        "Common::CoroutineScheduler::schedule()",
+        "Tinsel::TinselEngine::NextGameCycle()",
+        "Tinsel::TinselEngine::run()",
+        "runGame(Plugin const*, OSystem&, DetectedGame const&, void const*)",
+        "::scummvm_main(int, const char *const *)",
+        "main",
+        "start"
+      ],
+      "object_origin_fixed": [
+        -196608,
+        -131072
+      ],
+      "image": 175024
+    }
+  ],
+  "source_locations": [
+    "engines/tinsel/cursor.cpp:166 GetCursorXYNoWait reads the animation object position",
+    "engines/tinsel/cursor.cpp:347 DoCursorMove copies backend position into the object",
+    "engines/tinsel/pdisplay.cpp:658 TagProcess reads cursor object",
+    "engines/tinsel/pdisplay.cpp:752 PointProcess reads cursor object",
+    "crates/discworld-core/src/engine.rs:2756 point_world reads control.cursor",
+    "crates/discworld-core/src/engine.rs:2164 move_cursor immediately changes control.cursor"
+  ],
+  "conclusion": "At cycle1338 PointProcess and TagProcess precede DoCursorMove. Both see the previous cursor image174960 with unchanged raw origin[3080192,7536640], despite backend[0,0]. At1339 they see origin[-196608,-327680]. Rust uses current logical input for hotspot detection, removing the old tag one frame early.",
+  "next_required_work": [
+    "Represent backend and displayed cursor positions distinctly and preserve them across exact snapshots.",
+    "Respect reference cursor/scene process order; explicit DoCursorMove-style host actions must remain immediate.",
+    "Validate ordinary movement, clicks, frozen/hidden cursor, restored control, scrolling, inventories and full route before accepting a scheduling change."
+  ],
+  "limitations": [
+    "Object coordinates are raw16.16 origins, not decoded animation anchors.",
+    "Controlled debug-scene capture is not proof of physical-input parity.",
+    "The shared engine scheduling defect remains unfixed."
+  ]
+}

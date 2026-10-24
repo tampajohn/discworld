@@ -33,6 +33,7 @@ LOOK = os.environ.get("DISCWORLD_REFERENCE_LOOK") == "1"
 WALK = os.environ.get("DISCWORLD_REFERENCE_WALK") == "1"
 WALK_FROM_ACTOR = os.environ.get("DISCWORLD_REFERENCE_WALK_FROM_ACTOR") == "1"
 WALK_DELAY = int(os.environ.get("DISCWORLD_REFERENCE_WALK_DELAY", "1"))
+TRACE_CURSOR_ORDER = os.environ.get("DISCWORLD_REFERENCE_TRACE_CURSOR_ORDER") == "1"
 TRACE_BACKDROP = os.environ.get("DISCWORLD_REFERENCE_TRACE_BACKDROP") == "1"
 BACKDROP_PENDING = None
 BACKDROPS = []
@@ -267,6 +268,41 @@ def samples_stop(frame, location, dictionary):
     return frames.samples_stop(frame, location, dictionary)
 
 
+def cursor_order(frame, location, dictionary):
+    """Read process order and raw object state; never execute target code."""
+    if START is None or not START + 72 <= frames.CYCLES <= START + 90:
+        return False
+    try:
+        target = frame.GetThread().GetProcess().GetTarget()
+        vm = target.FindFirstGlobalVariable('Tinsel::_vm').Dereference()
+        mouse = vm.GetChildMemberWithName('_mousePos')
+        cursor = vm.GetChildMemberWithName('_cursor').Dereference()
+        if not all(value.IsValid() for value in [vm, mouse, cursor]):
+            raise RuntimeError('cursor-order state unavailable')
+        main = cursor.GetChildMemberWithName('_mainCursor')
+        event = {'cycle': frames.CYCLES, 'kind': 'cursor_process_order',
+                 'function': frame.GetFunctionName(),
+                 'driver_cursor': [mouse.GetChildMemberWithName(axis).GetValueAsSigned()
+                                   for axis in ['x', 'y']],
+                 'callers': callers(frame)}
+        if not main.IsValid():
+            raise RuntimeError('cursor-order main object unavailable')
+        if frames.unsigned(main):
+            obj = main.Dereference()
+            if not all(obj.GetChildMemberWithName(name).IsValid()
+                       for name in ['xPos', 'yPos', 'hImg']):
+                raise RuntimeError('cursor-order object fields unavailable')
+            # These are raw fixed-point object origins, not animation anchors.
+            event['object_origin_fixed'] = [obj.GetChildMemberWithName(axis).GetValueAsSigned()
+                                            for axis in ['xPos', 'yPos']]
+            event['image'] = frames.unsigned(obj.GetChildMemberWithName('hImg'))
+        frames.EVENTS.append(event)
+        return False
+    except Exception as error:
+        frames.FAILURES.append(str(error))
+        return True
+
+
 def print_tag(frame, location, dictionary):
     try:
         frames.EVENTS.append({'cycle': frames.CYCLES, 'kind': 'print_tag',
@@ -392,6 +428,7 @@ def finish(debugger):
     if BACKDROP_PENDING is not None:
         report['errors'].append('unfinished backdrop capture')
         report['complete'] = False
+    report['cursor_order_diagnostic'] = TRACE_CURSOR_ORDER
     report.update(scope='Controlled original debug scene entry, logical driver writes and original DoCursorMove; not normal host input or full gameplay equivalence.',
                   arch_inventory=ARCH_INVENTORY, injected_actions=ACTIONS, hover_start_cycle=START, inventory_diagnostic=INVENTORY, arch_skip=ARCH_SKIP, arch_entry=ARCH_ENTRY, university_retarget=UNIVERSITY_RETARGET, university_walk=UNIVERSITY_WALK, inventory_drag=INVENTORY_DRAG, door_exit=DOOR_EXIT, door_action=DOOR_ACTION, resize_delta=RESIZE_DELTA, resize_corner=RESIZE_CORNER, inventory_resize=INVENTORY_RESIZE, inventory_fixed_corner=INVENTORY_FIXED_CORNER, look_diagnostic=LOOK, walk_diagnostic=WALK, walk_delay=WALK_DELAY, walk_from_actor=WALK_FROM_ACTOR)
     path.write_text(json.dumps(report, indent=2) + '\n')
@@ -412,6 +449,10 @@ def __lldb_init_module(debugger, dictionary):
         (target.BreakpointCreateByLocation('sound.cpp', 165), __name__ + '.sample_pcm'),
         (target.BreakpointCreateByName('Tinsel::SoundManager::stopAllSamples'), __name__ + '.samples_stop'),
     ]
+    if TRACE_CURSOR_ORDER:
+        points.extend((target.BreakpointCreateByName(name), __name__ + '.cursor_order')
+                      for name in ['Tinsel::PointProcess', 'Tinsel::TagProcess',
+                                   'Tinsel::Cursor::DoCursorMove'])
     if TRACE_BACKDROP:
         points.extend([(target.BreakpointCreateByName('Tinsel::WrtTrans'), __name__ + '.backdrop_before'),
                        (target.BreakpointCreateByLocation('graphics.cpp', 1262), __name__ + '.backdrop_after')])

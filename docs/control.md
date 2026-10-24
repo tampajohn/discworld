@@ -1655,3 +1655,13 @@ asserts the reference-derived cursor clock at dialogue completion and checks
 save continuation on every captured frame. All 25 original-asset regressions
 pass with their required fixtures. See [evidence](validation/control-cursor-restoration.json);
 this does not yet establish full-route or voiced-completion fidelity.
+
+
+The remaining frame-82 mismatch is a cursor/hotspot scheduling defect. A
+read-only repeat preserved all 144 reference frame hashes and recorded
+PointProcess and TagProcess before DoCursorMove at cycle 1338. The backend
+position was already [0,0], but both processes still read the previous cursor
+object. Rust reads the latest input position immediately and removes the old
+label one frame early. The next correction must distinguish backend and
+displayed cursor state, retain explicit immediate cursor moves, and preserve
+these semantics across snapshots. See [process-order evidence](validation/cursor-hotspot-order.json).

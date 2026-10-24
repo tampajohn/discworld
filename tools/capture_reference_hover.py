@@ -42,8 +42,11 @@ def main():
     parser.add_argument('--resize-corner', choices=['bottom-right', 'top-left'], default='bottom-right', help='corner used by --inventory-resize')
     parser.add_argument('--resize-delta', type=int, choices=[-26, 26], default=26, help='signed size change for --inventory-resize')
     parser.add_argument('--frames', type=int, default=None, help='capture 72..504 frames (default72; door exit240; arch entry480; arch inventory504)')
+    parser.add_argument('--trace-cursor-order', action='store_true', help='read-only cursor and hotspot process ordering during LOOK completion')
     parser.add_argument('--trace-backdrop', action='store_true', help='capture original translucent rectangle input/output during late inventory frames')
     args = parser.parse_args()
+    if args.trace_cursor_order and not args.look:
+        parser.error('trace-cursor-order requires look')
     if args.mute_speech and not args.look:
         parser.error('mute-speech requires look')
     if args.trace_backdrop and not args.arch_inventory:
@@ -128,6 +131,8 @@ def main():
     environment['DISCWORLD_REFERENCE_ARCH_INVENTORY'] = '1' if args.arch_inventory else '0'
     metadata['arch_inventory'] = args.arch_inventory
     metadata['trace_backdrop'] = args.trace_backdrop
+    metadata['trace_cursor_order'] = args.trace_cursor_order
+    environment['DISCWORLD_REFERENCE_TRACE_CURSOR_ORDER'] = '1' if args.trace_cursor_order else '0'
     environment['DISCWORLD_REFERENCE_TRACE_BACKDROP'] = '1' if args.trace_backdrop else '0'
     metadata_path = output / 'launch.json'
     with (output / 'console.log').open('w') as log:
@@ -179,6 +184,12 @@ def main():
     if accepted and args.arch_inventory:
         accepted = (frames[-1].get('inventory') == [2, 2] and frames[-1]['cycle'] == 4023
                     and all(f['driver_cursor'] == [200, 190] for f in frames[480:]))
+    if accepted and args.trace_cursor_order:
+        traced = [e for e in report.get('events', [])
+                  if e.get('kind') == 'cursor_process_order']
+        accepted = bool(traced) and all(
+            any(name in e['function'] for e in traced)
+            for name in ['PointProcess', 'TagProcess', 'DoCursorMove'])
     if accepted and args.trace_backdrop:
         accepted = bool(report.get('backdrops')) and all(b['lookup_exact'] for b in report['backdrops'])
     if accepted and args.inventory:
