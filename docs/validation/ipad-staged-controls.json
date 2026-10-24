@@ -1,7 +1,5 @@
 {
-  "installed_app_unchanged": "assets/apps/Discworld-iPad-17.app",
   "staged_app": "assets/apps/Discworld-iPad-18.app",
-  "reason_not_installed": "Player is actively driving the current session.",
   "ui_build_log": "assets/logs/ipad-gestures-build1.log",
   "ui_test_execution": "pending; build-for-testing only",
   "headless_persistence_log": "assets/logs/ipad-quick-persistence2.log",
@@ -20,7 +18,11 @@
   ],
   "limitations": [
     "New gesture UI test compiled, not executed.",
-    "Full styled native layout not visually inspected in a running app yet.",
     "Physical iPad deployment remains pending."
-  ]
+  ],
+  "installed_app": "assets/apps/Discworld-iPad-18.app",
+  "installation": "Installed and launched at user request; existing application container preserved.",
+  "launch_pid": 33851,
+  "installed_screenshot": "assets/validation/ipad-gestures-build1/installed-app18.png",
+  "visual_check": "Startup screenshot inspected: original-font host buttons visible in landscape; touch regression execution still pending."
 }

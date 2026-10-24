@@ -100,7 +100,9 @@ boundary does not provide a general thread-safe foreign API.
 ## Staged touch controls and original artwork
 
 Build `assets/apps/Discworld-iPad-18.app` is compiled and signed for the simulator
-but **not installed**: the player is using build 17. In default Walk mode, single
+and installed at the player’s explicit restart request. Existing saves were
+preserved, and a startup screenshot shows the styled controls in landscape.
+In default Walk mode, single
 taps walk/select and double taps act. A single tap waits for the double-tap
 recognizer to fail, preventing an unintended walk before an action. Explicit
 Action and Look modes remain available; pans still take priority for dragging.
