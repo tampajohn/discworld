@@ -26,13 +26,25 @@ final class GameScene: UIResponder, UIWindowSceneDelegate {
 
 // Labels are rasterized from the ISO's tag font during the private build.
 final class GameButton: UIButton {
+    private let artwork = UIImageView()
+    private let iconObjects = ["Walk": 231, "Action": 330, "Look": 294,
+        "Pockets": 284, "Menu": 223, "Save": 188, "Load": 189, "Files": 273]
     override func setTitle(_ title: String?, for state: UIControl.State) {
         guard state == .normal, let title else { super.setTitle(title, for: state); return }
         accessibilityLabel = title
         let root = Bundle.main.bundleURL.appendingPathComponent("Controls")
+        if artwork.superview == nil {
+            artwork.contentMode = .scaleAspectFit
+            artwork.layer.magnificationFilter = .nearest
+            artwork.layer.minificationFilter = .nearest
+            artwork.isUserInteractionEnabled = false
+            addSubview(artwork)
+        }
+        artwork.image = iconObjects[title].flatMap { UIImage(contentsOfFile: root.appendingPathComponent("object-\($0).png").path) }
+        artwork.isHidden = artwork.image == nil
         let normal = UIImage(contentsOfFile: root.appendingPathComponent("\(title)-normal.png").path)
         let selected = UIImage(contentsOfFile: root.appendingPathComponent("\(title)-selected.png").path)
-        super.setTitle(normal == nil ? title : nil, for: .normal)
+        super.setTitle(nil, for: .normal)
         setImage(normal, for: .normal)
         setImage(selected, for: .selected)
         setImage(selected, for: .highlighted)
@@ -42,7 +54,17 @@ final class GameButton: UIButton {
     }
     override func layoutSubviews() {
         super.layoutSubviews()
-        imageView?.frame = bounds.insetBy(dx: 2, dy: 4)
+        if artwork.image != nil {
+            let labelHeight = min(18, bounds.height * 0.36)
+            imageView?.frame = CGRect(x: 2, y: bounds.height - labelHeight - 2, width: bounds.width - 4, height: labelHeight)
+            artwork.frame = CGRect(x: 2, y: 2, width: bounds.width - 4, height: max(0, bounds.height - labelHeight - 5))
+            bringSubviewToFront(artwork)
+        } else {
+            imageView?.frame = bounds.insetBy(dx: 2, dy: 4)
+        }
+        backgroundColor = isSelected || isHighlighted ? UIColor(red: 0.24, green: 0.20, blue: 0.12, alpha: 1) : UIColor(red: 0.10, green: 0.09, blue: 0.07, alpha: 1)
+        layer.borderWidth = 1
+        layer.borderColor = UIColor(red: 0.38, green: 0.31, blue: 0.19, alpha: 1).cgColor
     }
 }
 
@@ -88,6 +110,7 @@ final class GameController: UIViewController, UIKeyInput, UIDocumentPickerDelega
     var suspensionCount = 0
     var resumptionCount = 0
     var dragging = false
+    var draggingHeldObject = false
     var modeButtons: [UIButton] = []
     var action = "walk"
     var snapshot: [String: Any] = [:]
@@ -97,8 +120,9 @@ final class GameController: UIViewController, UIKeyInput, UIDocumentPickerDelega
     var exportedSaveDirectory: URL?
     var completedAudioBuffers = 0
     let pauseButton = GameButton(type: .custom)
+    let loadButton = GameButton(type: .custom)
 
-    override var canBecomeFirstResponder: Bool { true }
+    override var canBecomeFirstResponder: Bool { snapshot["editing"] as? Bool == true }
     var hasText: Bool { true }
     var keyboardType: UIKeyboardType = .asciiCapable
     var autocorrectionType: UITextAutocorrectionType = .no
@@ -194,7 +218,12 @@ final class GameController: UIViewController, UIKeyInput, UIDocumentPickerDelega
         tools.distribution = .fillProportionally
         tools.addArrangedSubview(modes)
         tools.addArrangedSubview(button("Save") { [weak self] in self?.send(["op": "save"]) })
-        tools.addArrangedSubview(button("Load") { [weak self] in self?.releaseDrag(); self?.resetAudio(); self?.send(["op": "load"]) })
+        loadButton.setTitle("Load", for: .normal)
+        loadButton.isEnabled = false
+        loadButton.addAction(UIAction { [weak self] _ in
+            self?.releaseDrag(); self?.resetAudio(); self?.send(["op": "load"])
+        }, for: .touchUpInside)
+        tools.addArrangedSubview(loadButton)
         let mute = GameButton(type: .custom)
         mute.setTitle("Sound off", for: .normal)
         mute.addAction(UIAction { [weak self] _ in
@@ -295,6 +324,8 @@ final class GameController: UIViewController, UIKeyInput, UIDocumentPickerDelega
         if statusCode != 0 { throw failure(String(decoding: response, as: UTF8.self)) }
         let result = try JSONSerialization.jsonObject(with: response) as! [String: Any]
         snapshot = result
+        loadButton.isEnabled = result["can_load"] as? Bool == true
+        loadButton.alpha = loadButton.isEnabled ? 1 : 0.35
         snapshot["last_operation"] = request["op"]
         return result
     }
@@ -458,7 +489,7 @@ final class GameController: UIViewController, UIKeyInput, UIDocumentPickerDelega
     }
     @objc func tap(_ gesture: UITapGestureRecognizer) {
         guard (!paused || snapshot["menu"] as? Bool == true), let point = gamePoint(gesture.location(in: picture)) else { return }
-        send(["op": "input", "command": action, "x": point[0], "y": point[1]])
+        send(["op": "touch-input", "command": action, "x": point[0], "y": point[1]])
     }
     @objc func doubleTap(_ gesture: UITapGestureRecognizer) {
         guard (!paused || snapshot["menu"] as? Bool == true), let point = gamePoint(gesture.location(in: picture)) else { return }
@@ -467,13 +498,18 @@ final class GameController: UIViewController, UIKeyInput, UIDocumentPickerDelega
     func releaseDrag() {
         guard dragging else { return }
         dragging = false
+        draggingHeldObject = false
         send(["op": "input", "command": "left-up"])
     }
     @objc func drag(_ gesture: InventoryPan) {
         if gesture.state == .ended || gesture.state == .cancelled || gesture.state == .failed {
             if gesture.state == .ended, dragging, !paused,
                let point = gamePoint(gesture.location(in: picture), clamp: true) {
-                send(["op": "pointer", "x": point[0], "y": point[1]])
+                if draggingHeldObject {
+                    send(["op": "touch-input", "command": "walk", "x": point[0], "y": point[1]])
+                } else {
+                    send(["op": "pointer", "x": point[0], "y": point[1]])
+                }
             }
             releaseDrag()
             return
@@ -483,7 +519,11 @@ final class GameController: UIViewController, UIKeyInput, UIDocumentPickerDelega
         if gesture.state == .began {
             guard let origin = gesture.start, let start = gamePoint(origin) else { return }
             // The engine owns inventory and configuration hit regions and drag rules.
-            send(["op": "overlay-press", "x": start[0], "y": start[1]])
+            let inspection = snapshot["inspection"] as? [String: Any]
+            draggingHeldObject = (inspection?["held_object"] as? Int ?? -1) >= 0
+            if !draggingHeldObject {
+                send(["op": "overlay-press", "x": start[0], "y": start[1]])
+            }
             dragging = true
         }
         if dragging, let point = gamePoint(location, clamp: true) {
@@ -545,6 +585,9 @@ final class GameController: UIViewController, UIKeyInput, UIDocumentPickerDelega
         } catch { paused = true; resetAudio(); status.text = error.localizedDescription }
     }
     @objc func suspended() {
+        if ProcessInfo.processInfo.arguments.contains("--smoke-interruption-on-background") {
+            interrupted = true
+        }
         releaseDrag()
         audioReady = false
         resetAudio()
@@ -554,6 +597,9 @@ final class GameController: UIViewController, UIKeyInput, UIDocumentPickerDelega
         render()
     }
     @objc func resumed() {
+        // iOS need not send an interruption-ended notification after suspension.
+        // Returning to the foreground is a fresh opportunity to activate audio.
+        interrupted = false
         previous = 0; accumulator = 0
         resumptionTick = snapshot["tick"] as? Int
         resumptionCount += 1
@@ -572,16 +618,16 @@ final class GameController: UIViewController, UIKeyInput, UIDocumentPickerDelega
             interrupted = true
             suspended()
         case .ended:
+            guard interrupted else { return }
             interrupted = false
             previous = 0; accumulator = 0
             let options = AVAudioSession.InterruptionOptions(rawValue:
                 notification.userInfo?[AVAudioSessionInterruptionOptionKey] as? UInt ?? 0)
             if options.contains(.shouldResume) {
                 if !muted { startAudio() }
-            } else {
-                paused = true
-                pauseButton.setTitle("Resume", for: .normal)
             }
+            // Audio resumption advice must not change the user's pause state.
+            // A later foreground activation can retry the audio session.
             render()
         @unknown default: break
         }

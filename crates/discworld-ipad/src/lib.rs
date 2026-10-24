@@ -83,6 +83,11 @@ impl Host {
                         game.input("left-down")?;
                     }
                 }
+                "touch-input" => {
+                    let x = i32::try_from(request["x"].as_i64().ok_or("missing x")?).map_err(|e| e.to_string())?;
+                    let y = i32::try_from(request["y"].as_i64().ok_or("missing y")?).map_err(|e| e.to_string())?;
+                    game.native_touch_input(text("command")?, x, y)?;
+                }
                 "input" => {
                     if let (Some(x), Some(y)) = (request["x"].as_i64(), request["y"].as_i64()) {
                         game.move_pointer_checked(
@@ -195,7 +200,8 @@ impl Host {
         self.response = serde_json::to_vec(&serde_json::json!({
             "tick": game.tick(), "scene": game.scene(), "notice": notice, "reset_audio": reset_audio, "quit": quit,
             "menu": game.menu_active(), "menu_page": game.menu_page(), "editing": game.menu_editing(),
-            "inspection": game.native_inspection()
+            "inspection": game.native_inspection(),
+            "can_load": self.save_directory.join("quick.dws").is_file()
         }))
         .map_err(|e| e.to_string())?;
         Ok(())
@@ -293,6 +299,7 @@ mod tests {
             serde_json::json!({"op":"open", "bundle":bundle, "saves":root}),
         )
         .unwrap();
+        assert_eq!(serde_json::from_slice::<serde_json::Value>(&host.response).unwrap()["can_load"], false);
         for tick in 0..8500 {
             if tick == 500 {
                 host.game.as_mut().unwrap().input("start").unwrap();
@@ -300,6 +307,7 @@ mod tests {
             host.game.as_mut().unwrap().advance(1).unwrap();
         }
         call(&mut host, serde_json::json!({"op":"save"})).unwrap();
+        assert_eq!(serde_json::from_slice::<serde_json::Value>(&host.response).unwrap()["can_load"], true);
         let saved = host.game.as_ref().unwrap().save().unwrap();
         let frame = host.frame.clone();
         host.game.as_mut().unwrap().advance(10).unwrap();

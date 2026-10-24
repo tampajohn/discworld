@@ -40,10 +40,11 @@ final class DiscworldLayoutTests: XCTestCase {
 
     func testBackgroundResumePreservesPauseAndRestartsAudio() throws {
         let app = XCUIApplication(bundleIdentifier: "org.tampajohn.discworld.dev")
-        app.launchArguments = ["--smoke-room"]
+        app.launchArguments = ["--smoke-room", "--smoke-interruption-on-background"]
         app.launch()
         XCTAssertTrue(app.buttons["Resume"].waitForExistence(timeout: 40))
-        XCUIDevice.shared.orientation = .landscapeLeft
+        XCUIDevice.shared.orientation = .landscapeRight
+        Thread.sleep(forTimeInterval: 1)
         let paused = state(app)
         func backgroundAndReturn() {
             XCUIDevice.shared.press(.home)
@@ -51,6 +52,10 @@ final class DiscworldLayoutTests: XCTestCase {
             Thread.sleep(forTimeInterval: 3)
             app.activate()
             XCTAssertTrue(app.wait(for: .runningForeground, timeout: 5))
+            // Foreground state precedes SpringBoard's landscape transition.
+            // A tap during that animation can land at the old portrait location.
+            Thread.sleep(forTimeInterval: 1)
+            XCTAssertTrue(app.buttons["Sound off"].exists || app.buttons["Sound on"].exists)
         }
         backgroundAndReturn()
         let restoredPause = state(app)
@@ -67,6 +72,7 @@ final class DiscworldLayoutTests: XCTestCase {
         let completions = try XCTUnwrap(playing["completed_audio_buffers"] as? Int)
         waitFor(app) { $0["audio_ready"] as? Bool == true && ($0["completed_audio_buffers"] as? Int ?? 0) > completions + 4 }
         let resumed = state(app)
+        XCTAssertEqual(resumed["audio_interrupted"] as? Bool, false)
         XCTAssertEqual(resumed["paused"] as? Bool, false)
         XCTAssertEqual(resumed["muted"] as? Bool, false)
         XCTAssertEqual(resumed["suspension_tick"] as? Int, resumed["resumption_tick"] as? Int)
@@ -86,7 +92,7 @@ final class DiscworldLayoutTests: XCTestCase {
         app.launchArguments = ["--smoke-room"]
         app.launch()
         XCTAssertTrue(app.buttons["Resume"].waitForExistence(timeout: 40))
-        XCUIDevice.shared.orientation = .landscapeLeft
+        XCUIDevice.shared.orientation = .landscapeRight
         app.buttons["Resume"].tap()
         waitFor(app) { ($0["inspection"] as? [String: Any])?["control"] as? Bool == true && ($0["tick"] as? Int ?? 0) > 8520 }
         let before = state(app)
@@ -179,7 +185,8 @@ final class DiscworldLayoutTests: XCTestCase {
         app.launchArguments = ["--smoke-room"]
         app.launch()
         XCTAssertTrue(app.buttons["Resume"].waitForExistence(timeout: 40))
-        XCUIDevice.shared.orientation = .landscapeLeft
+        XCUIDevice.shared.orientation = .landscapeRight
+        Thread.sleep(forTimeInterval: 1)
         app.buttons["Resume"].tap()
         waitFor(app) { ($0["inspection"] as? [String: Any])?["control"] as? Bool == true }
         app.buttons["Pause"].tap()

@@ -335,3 +335,26 @@ The simulator prototype does not close the remaining acceptance items above.
 ## iPhone prototype
 
 The host now supports iPhone in landscape, with original-font controls in two side columns. iPad retains its existing layout. The first physical iPhone deployment includes the private ISO and SoundFont and uses runtime `8ac0135` from source `23ebe72`, the last complete cross-host playthrough pass. The newer cursor runtime is withheld pending a full-route regression fix. Wireless installation, launch and process liveness passed; physical touch/layout acceptance remains open. See [deployment evidence](validation/iphone-first-deployment.json).
+
+## Native touch and lifecycle follow-up
+
+Held-item drags now dispatch the drop/use action at release, rather than only
+moving the cursor. A cancelled drag does not drop. Native touch Walk gestures
+with a held item may snap up to six original-game pixels to a nearby inventory
+cell inside the open inventory; empty-hand gestures and Action/Look retain exact
+hit testing. Core mouse behavior and original scripts are unchanged.
+
+The Load control follows the host's `can_load` response and stays disabled when
+`quick.dws` is absent. Save-name keyboard focus is allowed only while the game
+reports an active name editor, preventing an unsolicited keyboard after return
+from Home. Foreground activation clears a stale audio-interruption latch and
+retries audio. Audio resumption advice no longer changes the user's pause state.
+Apple documents that interruption begin/end notifications need not be paired:
+[Responding to interruptions](https://developer.apple.com/library/archive/documentation/Audio/Conceptual/AudioSessionProgrammingGuide/HandlingAudioInterruptions/HandlingAudioInterruptions.html).
+
+The private control extractor now exports original inventory-film sprites with
+transparent bounds and records object/film/frame handles in `icon-sources.json`.
+Walk uses object231, Action330, Look294, Pockets284, Menu223, Save188, Load189 and
+Files273. Labels retain the original tag font; missing raster labels no longer
+fall back to system-font button text. These are new host controls assembled from
+game assets, not claims that the original game had these toolbar buttons.

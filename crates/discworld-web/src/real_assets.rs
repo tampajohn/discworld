@@ -2687,3 +2687,32 @@ fn original_world_hotspot_scripts_create_game_font_labels_and_restore() {
         game.scene()
     );
 }
+
+#[cfg(feature = "native-inspection")]
+#[test]
+#[ignore = "requires DISCWORLD_TEST_ISO, DISCWORLD_TEST_SOUNDFONT and DISCWORLD_TEST_SAVE"]
+fn native_touch_drop_accepts_gaps_without_magnetizing_empty_hand() {
+    let read = |name| std::fs::read(std::env::var_os(name).expect(name)).unwrap();
+    let mut game = BrowserGame::new(read("DISCWORLD_TEST_ISO"), read("DISCWORLD_TEST_SOUNDFONT")).unwrap();
+    game.load(&read("DISCWORLD_TEST_SAVE")).unwrap();
+    let [x, y] = game.engine.inventory_cell_position(0).unwrap();
+    let item = game.engine.declarations.windows[1].as_ref().unwrap().contents[0];
+    let original = game.engine.declarations.windows[1].as_ref().unwrap().contents.clone();
+    for point in [[x + 13, y], [x, y + 13], [x + 13, y + 13]] {
+        assert!(game.engine.inventory_slot_at(point).is_none());
+        game.native_touch_input("walk", point[0], point[1]).unwrap();
+        game.advance(24).unwrap();
+        assert_eq!(game.engine.held_object, -1);
+        game.native_touch_input("walk", x, y).unwrap();
+        game.advance(24).unwrap();
+        assert_eq!(game.engine.held_object, item);
+        game.native_touch_input("walk", point[0], point[1]).unwrap();
+        game.advance(24).unwrap();
+        assert_eq!(game.engine.held_object, -1);
+        let mut actual = game.engine.declarations.windows[1].as_ref().unwrap().contents.clone();
+        let mut expected = original.clone();
+        actual.sort(); expected.sort();
+        assert_eq!(actual, expected, "touch drop must preserve inventory membership");
+        game.load(&read("DISCWORLD_TEST_SAVE")).unwrap();
+    }
+}

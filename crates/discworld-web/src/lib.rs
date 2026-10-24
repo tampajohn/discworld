@@ -626,9 +626,38 @@ impl BrowserGame {
     }
 }
 
-// Read-only native hit testing and UI-test observations, not exported through wasm-bindgen.
+// Native touch adaptation, hit testing and UI-test observations, not exported through wasm-bindgen.
 #[cfg(feature = "native-inspection")]
 impl BrowserGame {
+    /// Touch-only tolerance for putting down a held item. Keep mouse hit tests
+    /// and script behavior exact; never magnetize empty-hand or action/look clicks.
+    pub fn native_touch_input(&mut self, command: &str, x: i32, y: i32) -> Result<()> {
+        let mut point = [x, y];
+        if command == "walk" && !self.menu_active() && self.engine.held_object != -1
+            && matches!(self.engine.active_inventory(), Some(1 | 2))
+            && self.engine.inventory_contains_point(point)
+            && self.engine.inventory_slot_at(point).is_none()
+        {
+            let slot = self.engine.active_inventory().unwrap() as usize;
+            if let Some(window) = &self.engine.declarations.windows[slot] {
+                let mut nearest = None;
+                for cell in 0..(window.size[0] * window.size[1]) as usize {
+                    if let Some([cx, cy]) = self.engine.inventory_cell_position(cell) {
+                        let candidate = [x.clamp(cx - 12, cx + 12), y.clamp(cy - 12, cy + 12)];
+                        let distance = (i64::from(x) - i64::from(candidate[0])).pow(2)
+                            + (i64::from(y) - i64::from(candidate[1])).pow(2);
+                        if distance <= 36 && nearest.as_ref().is_none_or(|(best, _)| distance < *best) {
+                            nearest = Some((distance, candidate));
+                        }
+                    }
+                }
+                if let Some((_, candidate)) = nearest { point = candidate; }
+            }
+        }
+        self.move_pointer_checked(point[0], point[1])?;
+        self.input(command)
+    }
+
     pub fn native_inventory_contains(&self, x: i32, y: i32) -> bool {
         self.engine.inventory_contains_point([x, y])
     }

@@ -1,0 +1,46 @@
+{
+  "date": "2026-10-23",
+  "device_build": 25,
+  "runtime_source": "23ebe72 / runtime8ac0135 with current native host adapter changes; new cursor runtime still withheld",
+  "changes": [
+    "Held-item drag releases dispatch touch walk/drop; cancel does not drop",
+    "Held-item native touch drops tolerate six game pixels around inventory cells; no empty-hand/action/look magnetism",
+    "Load disabled until quick.dws exists",
+    "Only active save-name editor accepts keyboard focus",
+    "Foreground clears stale interruption latch; interruption advice does not alter user pause",
+    "Eight original inventory-film icons and original-font labels; no system-font button fallback"
+  ],
+  "icons": {
+    "Walk": 231,
+    "Action": 330,
+    "Look": 294,
+    "Pockets": 284,
+    "Menu": 223,
+    "Save": 188,
+    "Load": 189,
+    "Files": 273
+  },
+  "validation": {
+    "host_quick_save_test": "PASS including can_load false before saving and true afterward; fresh host load and invalid-file preservation",
+    "touch_drop_main_runtime": "PASS real ISO three cell gaps, empty-hand no-op and inventory membership preserved",
+    "touch_drop_phone_runtime": "PASS same assertions on runtime8ac0135",
+    "clippy": "PASS ipad/web/tools all targets with native-inspection -D warnings",
+    "ipad_ui": "4 cases passed; initial build resource folder incorrectly named, later corrected and verified on phone",
+    "iphone_ui": "Audio preroll and canvas walking/inventory passed in tests1; named save/load passed in tests2; missing-ended interruption/background recovery passed in tests3 after waiting for SpringBoard return animation before tapping. Earlier failures retained in logs. Not one clean combined suite.",
+    "physical": "Signed app built, installed over Wi-Fi, launched and process verified running. Exact ISO/SoundFont/notice hashes, 32 font-label images and 8 selected sprites verified.",
+    "limits": [
+      "Physical sleep/unlock still requires hands-on confirmation",
+      "Physical crackle improvement not yet confirmed by listening",
+      "Touch adaptation verified at host and script level; full touch-only game still unproven"
+    ]
+  },
+  "binary_sha256": "e0d8ccf86e0077e2919b10f21ad9f9c761bab3e2af94cc3373718720ac45aefe",
+  "artifacts": [
+    "assets/validation/iphone-touch-recovery3",
+    "assets/validation/ios-touch-recovery-tests2",
+    "assets/validation/iphone-touch-recovery-tests1",
+    "assets/validation/iphone-touch-recovery-tests2",
+    "assets/validation/iphone-touch-recovery-tests3"
+  ],
+  "background_source": "https://developer.apple.com/library/archive/documentation/Audio/Conceptual/AudioSessionProgrammingGuide/HandlingAudioInterruptions/HandlingAudioInterruptions.html"
+}

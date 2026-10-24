@@ -4,6 +4,8 @@ A work-in-progress replacement for the **Tinsel 1** engine that runs the origina
 
 **Currently:** runnable macOS and browser development hosts and a reproducible original-input route through Acts I–IV, the ending, scrolling credits, and restart to the title screen. **Not yet:** a complete compatibility implementation, iPad release, or fully validated native/browser save/load. This is an independent compatibility project, informed by a pinned ScummVM reference, not an official release or a clean-room implementation.
 
+An internal native iOS host now also runs on iPad and landscape iPhone, with bundled private game/audio assets, game-font controls and original sprite icons. See [native build and device-testing notes](docs/ipad-native.md). Physical-device acceptance remains in progress.
+
 The corrected idle-clock runtime passes the complete 4,209-input route on native,
 Chrome and WebKit, including the ending and scripted restart. Final engine bytes
 and pixels match; native passes 7,615 engine and 7,615 audio-state save/load checks.
