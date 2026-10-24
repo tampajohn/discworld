@@ -533,6 +533,14 @@ fn capture_original_debug_room_hover() {
             .tick_content(&resources, Some(&bank), Some(&tracks), Some(&strings))
             .unwrap();
         crate::animation::trace_tick(None);
+        if mute_speech && start.is_some_and(|start| engine.ticks == start + 81) {
+            // Pinned reference: normal cursor initialized at cycle 1337;
+            // its next StepAnimScript entry is (script 374236, index 1, 2, 2).
+            assert!(engine.control.enabled);
+            assert_eq!(engine.control.cursor, [50, 120]);
+            assert_eq!(engine.cursor_animation.as_ref().unwrap().diagnostic_clock(),
+                (374236, 1, 2, 2), "implicit dialogue return must restart the normal cursor");
+        }
         if door_action && start.is_some() && engine.scene == room {
             door_control_off |= !engine.control.enabled;
             if engine.control.hidden {

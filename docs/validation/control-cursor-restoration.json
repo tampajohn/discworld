@@ -1,0 +1,33 @@
+{
+  "base_revision": "36777ba",
+  "scope": "Shared engine CONTROL_ON cursor restoration after implicit TALK, PRINT and scripted-walk completion. Original scripts and assets unchanged.",
+  "reference_revision": "96b42d42bc8533953bdd701db059cc33c839a9ff",
+  "source": "engines/tinsel/tinlib.cpp:808 CONTROL_ON unconditionally calls RestoreMainCursor",
+  "reference_capture": "assets/validation/reference-look-muted2",
+  "rust_capture": "assets/validation/rust-look-muted-control2",
+  "comparison": "assets/validation/muted-look-control2-compare.json",
+  "comparison_sha256": "550e095d5e9b4705df0b686878c25c5e8b6f134ddae742514d04bb79193522de",
+  "reference_capture_sha256": "0f777e708f6c7cac89063a603c2319348eb4a27691dbbd519ee2b711fd8d49fd",
+  "rust_capture_sha256": "7de36e7995521f7c2a5859ec73b568e38d4c862dfc4bd49164d161fec1b95571",
+  "frames": 144,
+  "same_cycle_full_rgb_matches": 143,
+  "mismatches": [
+    82
+  ],
+  "fidelity_pass": false,
+  "regression": "At muted LOOK completion cycle1337, assert enabled control, pointer[50,120], cursor script374236/index1/period2/remaining2; each captured frame also checks save/next-tick continuation.",
+  "tests": {
+    "original_asset_web_suite": "25 passed with ISO, SoundFont, startup save, slider save and node-exit save supplied; assets/logs/control-cursor-assets-fixtures.log",
+    "workspace": "All regular tests passed with RUST_MIN_STACK=16777216; assets/logs/control-cursor-workspace-stack16.log",
+    "clippy": "Workspace all targets with warnings denied passed; assets/logs/control-cursor-final-clippy.log",
+    "builds": "Release macOS native/tools and browser WASM builds passed; assets/logs/control-cursor-native-build.log and control-cursor-web-build.log"
+  },
+  "limitations": [
+    "Frame82 cycle1338 remains different at backend pointer movement; no full-capture fidelity claim.",
+    "Default debug test stack overflow reproduced at unchanged36777ba in deferred_reel_arbitration_waitframe_and_snapshot_order; baseline log assets/logs/control-cursor-baseline-stack.log.",
+    "Full start-to-credits route still requires rerun for this engine revision.",
+    "No change deployed to the user simulator.",
+    "Voiced completion and physical input parity are not established by the muted capture."
+  ],
+  "supersedes": "reference-muted-look-pointer.json hidden/wake hypothesis: observed clock discrepancy is explained by missing RestoreMainCursor on implicit control return."
+}

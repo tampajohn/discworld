@@ -1637,3 +1637,21 @@ resetting ring order, driver position or inventory suppression. Cursor-process
 image hiding remains a separate operation. Eleven controlled reference scenarios
 match all 72 frames each, including the previously failing door sequence; see
 [trail deletion evidence](validation/hidden-cursor-trail-deletion.json).
+
+
+## Cursor restoration when scripts return control
+
+Pinned Tinsel 1 `Control(CONTROL_ON)` calls `RestoreMainCursor` on every
+control return. The shared engine now resets the normal cursor animation in
+its resource-aware control helper, including implicit TALK, PRINT and scripted
+walk completion. Previously only the explicit CONTROL library call reset it,
+leaving the paused animation clock after dialogue. The startup menu retains
+its ability to create the cursor before the first animation tick.
+
+The speech-muted LOOK capture now matches 143 of 144 full RGB frames at the
+same reference cycles, up from 114 with identical backend pointer replay.
+Frame 82, where the backend pointer jumps, remains unresolved. The diagnostic
+asserts the reference-derived cursor clock at dialogue completion and checks
+save continuation on every captured frame. All 25 original-asset regressions
+pass with their required fixtures. See [evidence](validation/control-cursor-restoration.json);
+this does not yet establish full-route or voiced-completion fidelity.
