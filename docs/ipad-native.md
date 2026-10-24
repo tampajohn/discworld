@@ -359,4 +359,4 @@ Files273. Labels retain the original tag font; missing raster labels no longer
 fall back to system-font button text. These are new host controls assembled from
 game assets, not claims that the original game had these toolbar buttons.
 
-The native toolbar omits Start and Close. Escape is the dismissal control. The iPhone canvas walking/inventory test passes using Escape to close the inventory (`assets/validation/iphone-controls-trim1-tests/results.xcresult`).
+The native toolbar omits Start, Continue and Close. Escape is the dismissal control. The iPhone canvas walking/inventory test passes using Escape to close the inventory (`assets/validation/iphone-controls-trim1-tests/results.xcresult`).
