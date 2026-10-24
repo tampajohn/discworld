@@ -51,6 +51,8 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
     std::fs::create_dir_all(&output)?;
     let labels = [
         "Cancel",
+        "Import",
+        "Export",
         "Files",
         "Start",
         "Continue",

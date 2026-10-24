@@ -34,6 +34,43 @@ final class DiscworldLayoutTests: XCTestCase {
         }
     }
 
+    func testWalkingCancelsConfirmationAndFilesCancelResumesPlay() throws {
+        let app = XCUIApplication(bundleIdentifier: "org.tampajohn.discworld.dev")
+        app.launchArguments = ["--smoke-room"]
+        app.launch()
+        XCTAssertTrue(app.buttons["Resume"].waitForExistence(timeout: 40))
+        XCUIDevice.shared.orientation = .landscapeRight
+        Thread.sleep(forTimeInterval: 1)
+        app.buttons["Resume"].tap()
+        waitFor(app) { ($0["inspection"] as? [String: Any])?["control"] as? Bool == true }
+        let canvas = app.descendants(matching: .any).matching(identifier: "game-frame").firstMatch
+        let size = canvas.frame.size
+        let scale = min(size.width / 320, size.height / 200)
+        let outside = app.coordinate(withNormalizedOffset: .zero).withOffset(CGVector(
+            dx: canvas.frame.minX + (size.width - 320 * scale) / 2 + 180.5 * scale,
+            dy: canvas.frame.minY + (size.height - 200 * scale) / 2 + 185.5 * scale))
+        app.buttons["Save"].tap()
+        XCTAssertTrue(app.buttons["cancel-save-load"].waitForExistence(timeout: 5))
+        outside.tap()
+        waitFor(app) { $0["paused"] as? Bool == false && ($0["inspection"] as? [String: Any])?["lead_position"] as? [Int] == [180,185] }
+        XCTAssertFalse(app.buttons["confirm-save"].exists)
+        let tick = try XCTUnwrap(state(app)["tick"] as? Int)
+        app.buttons["Files"].tap()
+        XCTAssertTrue(app.buttons["Cancel"].waitForExistence(timeout: 5))
+        app.buttons["Cancel"].tap()
+        waitFor(app) { $0["paused"] as? Bool == false && ($0["tick"] as? Int ?? 0) > tick + 3 }
+        app.buttons["Files"].tap()
+        XCTAssertTrue(app.buttons["Cancel"].waitForExistence(timeout: 5))
+        let shot = XCTAttachment(screenshot: XCUIScreen.main.screenshot())
+        shot.name = "game-font-files-panel"
+        shot.lifetime = .keepAlways
+        add(shot)
+        outside.tap()
+        waitFor(app) { $0["paused"] as? Bool == false }
+        XCTAssertFalse(app.buttons["Import saved game"].exists)
+
+    }
+
     func testAudioPrerollAndSteadyPlayback() throws {
         let app = XCUIApplication(bundleIdentifier: "org.tampajohn.discworld.dev")
         app.launchArguments = ["--smoke-room"]
@@ -558,7 +595,9 @@ final class DiscworldLayoutTests: XCTestCase {
         app.launchArguments = ["--smoke-room"]
         app.launch()
         XCTAssertTrue(app.buttons["Resume"].waitForExistence(timeout: 40))
-        for orientation in [UIDeviceOrientation.landscapeLeft, .portrait, .landscapeRight] {
+        let orientations: [UIDeviceOrientation] = UIDevice.current.userInterfaceIdiom == .phone
+            ? [.landscapeLeft, .landscapeRight] : [.landscapeLeft, .portrait, .landscapeRight]
+        for orientation in orientations {
             XCUIDevice.shared.orientation = orientation
             let landscape = orientation != .portrait
             let predicate = NSPredicate { _, _ in
@@ -567,7 +606,9 @@ final class DiscworldLayoutTests: XCTestCase {
             }
             let changed = expectation(for: predicate, evaluatedWith: app)
             wait(for: [changed], timeout: 15)
-            for title in ["Start", "Continue", "Pockets", "Close", "Escape", "Menu", "Files", "Walk", "Action", "Look", "Save", "Load", "Sound off", "Resume"] {
+            for title in ["Pockets", "Escape", "Menu", "Files", "Walk", "Action", "Look", "Save", "Load", "Sound off", "Resume"] {
+                XCTAssertGreaterThanOrEqual(app.buttons[title].frame.width, 44)
+                XCTAssertGreaterThanOrEqual(app.buttons[title].frame.height, 44)
                 XCTAssertTrue(app.buttons[title].isHittable, "\(title), orientation \(orientation.rawValue)")
                 XCTAssertTrue(app.windows.firstMatch.frame.contains(app.buttons[title].frame), "Clipped \(title)")
             }

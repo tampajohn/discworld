@@ -81,6 +81,17 @@ final class InventoryPan: UIPanGestureRecognizer {
     }
 }
 
+final class BackgroundTap: UITapGestureRecognizer {
+    var handler: ((CGPoint) -> Void)?
+    init(handler: @escaping (CGPoint) -> Void) {
+        self.handler = handler
+        super.init(target: nil, action: nil)
+        addTarget(self, action: #selector(fired))
+        cancelsTouchesInView = false
+    }
+    @objc private func fired() { handler?(location(in: view)) }
+}
+
 final class GameController: UIViewController, UIKeyInput, UIDocumentPickerDelegate {
     override var supportedInterfaceOrientations: UIInterfaceOrientationMask {
         UIDevice.current.userInterfaceIdiom == .phone ? .landscape : .all
@@ -116,6 +127,7 @@ final class GameController: UIViewController, UIKeyInput, UIDocumentPickerDelega
     var snapshot: [String: Any] = [:]
     var keyboardFrame: [Double] = []
     var keyboardChanges = 0
+    var filePauseState: Bool?
     var importingSave = false
     var exportedSaveDirectory: URL?
     var completedAudioBuffers = 0
@@ -191,6 +203,7 @@ final class GameController: UIViewController, UIKeyInput, UIDocumentPickerDelega
             mode.isSelected = index == 0
             mode.addAction(UIAction { [weak self, weak mode] _ in
                 self?.action = ["walk", "action", "look"][index]
+                self?.send(["op": index == 0 ? "walk-mode" : "cancel-touch"])
                 for button in self?.modeButtons ?? [] { button.isSelected = button === mode }
             }, for: .touchUpInside)
             modeButtons.append(mode)
@@ -241,52 +254,52 @@ final class GameController: UIViewController, UIKeyInput, UIDocumentPickerDelega
         pause.addAction(UIAction { [weak self] _ in
             guard let self else { return }
             self.releaseDrag()
+            self.send(["op": "cancel-touch"])
             self.paused.toggle(); self.resetAudio()
             if !self.paused && !self.muted && !self.audioReady { self.startAudio() }
             pause.setTitle(self.paused ? "Resume" : "Pause", for: .normal)
             self.render()
         }, for: .touchUpInside)
         tools.addArrangedSubview(pause)
-        let stack: UIStackView
-        if UIDevice.current.userInterfaceIdiom == .phone {
-            // Landscape phones keep the original scene tall, with controls in
-            // two side columns rather than consuming its vertical space.
-            row.axis = .vertical
-            row.spacing = 4
-            tools.axis = .vertical
-            tools.spacing = 4
-            tools.distribution = .fillEqually
-            tools.removeArrangedSubview(modes)
-            modes.removeFromSuperview()
-            for (index, mode) in modes.arrangedSubviews.enumerated() {
-                modes.removeArrangedSubview(mode)
-                mode.removeFromSuperview()
-                tools.insertArrangedSubview(mode, at: index)
-            }
-            for control in [saveButton, loadButton] {
-                tools.removeArrangedSubview(control)
-                control.removeFromSuperview()
-                row.addArrangedSubview(control)
-            }
-            // Match the six navigation rows; separate scene verbs from sound/pause.
-            tools.insertArrangedSubview(UIView(), at: 3)
-            let gameRow = UIStackView(arrangedSubviews: [row, picture, tools])
-            gameRow.axis = .horizontal
-            gameRow.spacing = 6
-            stack = UIStackView(arrangedSubviews: [gameRow, status])
-            status.numberOfLines = 1
-            NSLayoutConstraint.activate([
-                row.widthAnchor.constraint(equalToConstant: 90),
-                tools.widthAnchor.constraint(equalToConstant: 90),
-                status.heightAnchor.constraint(equalToConstant: 18)
-            ])
+        let phone = UIDevice.current.userInterfaceIdiom == .phone
+        row.axis = .vertical
+        row.spacing = phone ? 4 : 8
+        tools.axis = .vertical
+        tools.spacing = row.spacing
+        tools.distribution = .fillEqually
+        tools.removeArrangedSubview(modes)
+        modes.removeFromSuperview()
+        for (index, mode) in modes.arrangedSubviews.enumerated() {
+            modes.removeArrangedSubview(mode)
+            mode.removeFromSuperview()
+            tools.insertArrangedSubview(mode, at: index)
+        }
+        for control in [saveButton, loadButton] {
+            tools.removeArrangedSubview(control)
+            control.removeFromSuperview()
+            row.addArrangedSubview(control)
+        }
+        tools.insertArrangedSubview(UIView(), at: 3)
+        let gameRow = UIStackView(arrangedSubviews: [row, picture, tools])
+        gameRow.axis = .horizontal
+        gameRow.alignment = .center
+        gameRow.spacing = phone ? 6 : 12
+        let stack = UIStackView(arrangedSubviews: [gameRow, status])
+        status.numberOfLines = phone ? 1 : 2
+        NSLayoutConstraint.activate([
+            row.widthAnchor.constraint(equalToConstant: phone ? 90 : 112),
+            tools.widthAnchor.constraint(equalTo: row.widthAnchor),
+            tools.heightAnchor.constraint(equalTo: row.heightAnchor),
+            picture.heightAnchor.constraint(equalTo: gameRow.heightAnchor),
+            row.heightAnchor.constraint(lessThanOrEqualTo: gameRow.heightAnchor),
+            status.heightAnchor.constraint(equalToConstant: phone ? 18 : 36)
+        ])
+        if phone {
+            row.heightAnchor.constraint(equalTo: gameRow.heightAnchor).isActive = true
         } else {
-            stack = UIStackView(arrangedSubviews: [picture, row, tools, status])
-            NSLayoutConstraint.activate([
-                row.heightAnchor.constraint(equalToConstant: 44),
-                tools.heightAnchor.constraint(equalToConstant: 44),
-                status.heightAnchor.constraint(equalToConstant: 40)
-            ])
+            let comfortableHeight = row.heightAnchor.constraint(equalToConstant: 424)
+            comfortableHeight.priority = .defaultHigh
+            comfortableHeight.isActive = true
         }
         stack.axis = .vertical
         stack.spacing = 6
@@ -341,6 +354,7 @@ final class GameController: UIViewController, UIKeyInput, UIDocumentPickerDelega
         guard ready, presentedViewController == nil,
               operation != "load" || loadButton.isEnabled else { return }
         releaseDrag()
+        send(["op": "cancel-touch"])
         let wasPaused = paused
         paused = true
         resetAudio()
@@ -359,6 +373,8 @@ final class GameController: UIViewController, UIKeyInput, UIDocumentPickerDelega
         choices.axis = .horizontal
         choices.spacing = 12
         choices.distribution = .fillEqually
+        var walkAfterDismiss: [Int]?
+        var chooseWalkAfterDismiss = false
         let finish: (Bool) -> Void = { [weak self, weak sheet] confirmed in
             guard let sheet else { return }
             sheet.dismiss(animated: true) { [weak self] in
@@ -369,6 +385,15 @@ final class GameController: UIViewController, UIKeyInput, UIDocumentPickerDelega
                     self.previous = 0
                     self.accumulator = 0
                     self.pauseButton.setTitle(wasPaused ? "Resume" : "Pause", for: .normal)
+                    if chooseWalkAfterDismiss {
+                        self.action = "walk"
+                        for (index, mode) in self.modeButtons.enumerated() { mode.isSelected = index == 0 }
+                        if let point = walkAfterDismiss, !wasPaused {
+                            self.send(["op": "touch-input", "command": "walk", "x": point[0], "y": point[1]])
+                        } else {
+                            self.send(["op": "walk-mode"])
+                        }
+                    }
                     self.render()
                 } catch {
                     self.paused = true
@@ -395,29 +420,104 @@ final class GameController: UIViewController, UIKeyInput, UIDocumentPickerDelega
             prompt.heightAnchor.constraint(equalToConstant: 72),
             choices.heightAnchor.constraint(equalToConstant: 52)
         ])
+        let backgroundTap = BackgroundTap { [weak self, weak sheet, weak panel] location in
+            guard let self, let sheet, let panel, !panel.frame.contains(location) else { return }
+            let inspection = self.snapshot["inspection"] as? [String: Any]
+            if (inspection?["held_object"] as? Int ?? -1) == -1 {
+                let modePoint = self.modeButtons[0].convert(location, from: sheet.view)
+                let hitWalk = self.modeButtons[0].bounds.contains(modePoint)
+                if hitWalk || self.action == "walk" {
+                    walkAfterDismiss = self.gamePoint(self.picture.convert(location, from: sheet.view))
+                    chooseWalkAfterDismiss = hitWalk || walkAfterDismiss != nil
+                }
+            }
+            finish(false)
+        }
+        sheet.view.addGestureRecognizer(backgroundTap)
         present(sheet, animated: true)
+    }
+
+    func finishFileTransfer() {
+        guard let previousPause = filePauseState else { return }
+        filePauseState = nil
+        paused = previousPause
+        previous = 0
+        accumulator = 0
+        pauseButton.setTitle(paused ? "Resume" : "Pause", for: .normal)
+        render()
     }
 
     func showSaveFiles() {
         guard ready, presentedViewController == nil else { return }
-        guard snapshot["menu"] as? Bool != true else {
-            status.text = "Close the game menu before transferring saves."
-            return
-        }
         releaseDrag()
+        filePauseState = paused
+        send(["op": "cancel-touch"])
         paused = true
         resetAudio()
         pauseButton.setTitle("Resume", for: .normal)
         resignFirstResponder()
         render()
-        let sheet = UIAlertController(title: "Save files", message: nil, preferredStyle: .actionSheet)
-        sheet.addAction(UIAlertAction(title: "Export current game", style: .default) { [weak self] _ in self?.exportSave() })
-        sheet.addAction(UIAlertAction(title: "Import saved game", style: .default) { [weak self] _ in self?.importSave() })
-        sheet.addAction(UIAlertAction(title: "Cancel", style: .cancel))
-        sheet.popoverPresentationController?.sourceView = view
-        sheet.popoverPresentationController?.sourceRect = CGRect(x: view.bounds.midX, y: view.bounds.maxY - 60, width: 1, height: 1)
+        let sheet = UIViewController()
+        sheet.modalPresentationStyle = .overFullScreen
+        sheet.view.backgroundColor = UIColor.black.withAlphaComponent(0.72)
+        let finish: (@escaping () -> Void) -> Void = { [weak self, weak sheet] action in
+            sheet?.dismiss(animated: true) {
+                self?.finishFileTransfer()
+                action()
+            }
+        }
+        let export = button("Export") { [weak self] in
+            finish {
+                guard let self else { return }
+                self.filePauseState = self.paused
+                self.paused = true
+                self.resetAudio()
+                self.exportSave()
+            }
+        }
+        export.accessibilityLabel = "Export current game"
+        let importButton = button("Import") { [weak self] in
+            finish {
+                guard let self else { return }
+                self.filePauseState = self.paused
+                self.paused = true
+                self.resetAudio()
+                self.importSave()
+            }
+        }
+        importButton.accessibilityLabel = "Import saved game"
+        let cancel = button("Cancel") { finish {} }
+        let panel = UIStackView(arrangedSubviews: [export, importButton, cancel])
+        panel.axis = .vertical
+        panel.spacing = 12
+        panel.distribution = .fillEqually
+        panel.translatesAutoresizingMaskIntoConstraints = false
+        sheet.view.addSubview(panel)
+        NSLayoutConstraint.activate([
+            panel.centerXAnchor.constraint(equalTo: sheet.view.centerXAnchor),
+            panel.centerYAnchor.constraint(equalTo: sheet.view.centerYAnchor),
+            panel.widthAnchor.constraint(equalToConstant: 240),
+            panel.heightAnchor.constraint(equalToConstant: 180)
+        ])
+        sheet.view.addGestureRecognizer(BackgroundTap { [weak self, weak sheet, weak panel] location in
+            guard let self, let sheet, let panel, !panel.frame.contains(location) else { return }
+            let emptyHand = ((self.snapshot["inspection"] as? [String: Any])?["held_object"] as? Int ?? -1) == -1
+            let hitWalk = self.modeButtons[0].bounds.contains(self.modeButtons[0].convert(location, from: sheet.view))
+            let point = self.gamePoint(self.picture.convert(location, from: sheet.view))
+            finish { [weak self] in
+                guard let self, emptyHand, hitWalk || (self.action == "walk" && point != nil) else { return }
+                self.action = "walk"
+                for (index, mode) in self.modeButtons.enumerated() { mode.isSelected = index == 0 }
+                if let point, !self.paused {
+                    self.send(["op": "touch-input", "command": "walk", "x": point[0], "y": point[1]])
+                } else {
+                    self.send(["op": "walk-mode"])
+                }
+            }
+        })
         present(sheet, animated: true)
     }
+
     func exportSave() {
         do {
             let directory = FileManager.default.temporaryDirectory.appendingPathComponent("discworld-export-" + UUID().uuidString)
@@ -429,7 +529,7 @@ final class GameController: UIViewController, UIKeyInput, UIDocumentPickerDelega
             let picker = UIDocumentPickerViewController(forExporting: [file], asCopy: true)
             picker.delegate = self
             present(picker, animated: true)
-        } catch { cleanupExport(); status.text = "Export failed: \(error.localizedDescription)" }
+        } catch { cleanupExport(); finishFileTransfer(); status.text = "Export failed: \(error.localizedDescription)" }
     }
     func importSave() {
         importingSave = true
@@ -443,7 +543,7 @@ final class GameController: UIViewController, UIKeyInput, UIDocumentPickerDelega
         exportedSaveDirectory = nil
     }
     func documentPicker(_ controller: UIDocumentPickerViewController, didPickDocumentsAt urls: [URL]) {
-        defer { cleanupExport() }
+        defer { cleanupExport(); finishFileTransfer() }
         if importingSave {
             guard let file = urls.first else { return }
             let scoped = file.startAccessingSecurityScopedResource()
@@ -452,13 +552,14 @@ final class GameController: UIViewController, UIKeyInput, UIDocumentPickerDelega
                 resetAudio()
                 _ = try call(["op": "import", "path": file.path])
                 render()
-                status.text = "Imported game loaded. Save to keep it on this device; Resume to play."
+                status.text = "Imported game loaded. Save to keep it on this device."
             } catch { status.text = "Import failed: \(error.localizedDescription)" }
-        } else { status.text = "Save exported. Tap Resume to play." }
+        } else { status.text = "Save exported." }
     }
     func documentPickerWasCancelled(_ controller: UIDocumentPickerViewController) {
         cleanupExport()
-        status.text = "Transfer cancelled. Tap Resume to play."
+        finishFileTransfer()
+        status.text = "Transfer cancelled."
     }
     func failure(_ message: String) -> NSError { NSError(domain: "Discworld", code: 1, userInfo: [NSLocalizedDescriptionKey: message]) }
     func openGame() {
@@ -658,6 +759,7 @@ final class GameController: UIViewController, UIKeyInput, UIDocumentPickerDelega
             interrupted = true
         }
         releaseDrag()
+        if ready { send(["op": "cancel-touch"]) }
         audioReady = false
         resetAudio()
         audioEngine.pause()

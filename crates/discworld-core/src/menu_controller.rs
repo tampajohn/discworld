@@ -517,7 +517,7 @@ impl Controller {
         }
         self.navigation.click_button(point)
     }
-    pub(crate) fn area_at(&self, point: [i32; 2]) -> Option<crate::conversation_window::Area> {
+    pub fn area_at(&self, point: [i32; 2]) -> Option<crate::conversation_window::Area> {
         let frame = match self.display.as_ref() {
             Some(Display::Main(view)) => &view.frame,
             Some(Display::Confirmation(view)) => &view.frame,

@@ -158,6 +158,15 @@ impl GameUpload {
     }
 }
 
+#[cfg(feature = "native-inspection")]
+#[derive(Clone, Copy)]
+struct TouchWalk {
+    scene: discworld_core::graphics::Handle,
+    origin: [i32; 2],
+    point: Option<[i32; 2]>,
+    deadline: u64,
+}
+
 #[wasm_bindgen]
 pub struct BrowserGame {
     assets: Assets,
@@ -165,6 +174,8 @@ pub struct BrowserGame {
     engine: Engine,
     audio: MusicOutput,
     audio_headroom: bool,
+    #[cfg(feature = "native-inspection")]
+    pending_touch_walk: Option<TouchWalk>,
     fault: Option<String>,
     // Host-only request retained behind a same-cycle menu operation.
     quit_pending: bool,
@@ -189,6 +200,8 @@ impl BrowserGame {
             engine,
             audio,
             audio_headroom: false,
+            #[cfg(feature = "native-inspection")]
+            pending_touch_walk: None,
             fault: None,
             quit_pending: false,
             menu_entries: Vec::new(),
@@ -231,6 +244,29 @@ impl BrowserGame {
                         &self.menu_entries,
                     )
                     .map_err(error)?;
+                #[cfg(feature = "native-inspection")]
+                if let Some(TouchWalk { scene, origin, point, deadline }) = self.pending_touch_walk {
+                    if self.engine.scene != scene || self.engine.world_origin != origin || self.engine.ticks > deadline
+                        || self.engine.held_object != -1
+                    {
+                        self.pending_touch_walk = None;
+                    } else if self.engine.control.enabled {
+                        let overlay = self.engine.active_inventory().is_some() || self.engine.top_window.is_some()
+                            || self.engine.configuration.as_ref().is_some_and(|menu| menu.page().is_some());
+                        if overlay {
+                            let outcome = self.engine.escape_input(&resources, &strings, &self.menu_entries).map_err(error)?;
+                            if outcome.request.is_some() || outcome.write_settings {
+                                self.menu_requests.push_back(discworld_core::menu_controller::Dispatch { outcome, selection: None });
+                            }
+                        } else if let Some(point) = point {
+                            if self.engine.interact_world(&resources, point, PolygonInteraction::WalkTo).map_err(error)? {
+                                self.pending_touch_walk = None;
+                            }
+                        } else {
+                            self.pending_touch_walk = None;
+                        }
+                    }
+                }
                 self.quit_pending |= status == Status::Quit
                     && dispatch.outcome.request
                         != Some(discworld_core::menu_navigation::Request::Quit);
@@ -282,9 +318,13 @@ impl BrowserGame {
         self.assets.names[self.engine.scene.resource()].clone()
     }
     pub fn move_pointer(&mut self, x: i32, y: i32) {
+        #[cfg(feature = "native-inspection")]
+        { self.pending_touch_walk = None; }
         self.engine.move_cursor([x.clamp(0, 319), y.clamp(0, 199)]);
     }
     pub fn move_pointer_checked(&mut self, x: i32, y: i32) -> Result<()> {
+        #[cfg(feature = "native-inspection")]
+        { self.pending_touch_walk = None; }
         self.engine
             .move_cursor_with_configuration(
                 &self.assets.resources(),
@@ -381,6 +421,8 @@ impl BrowserGame {
         Ok(())
     }
     pub fn open_menu(&mut self, page: &str) -> Result<()> {
+        #[cfg(feature = "native-inspection")]
+        { self.pending_touch_walk = None; }
         use discworld_core::{
             menu_controller::{Controller, Settings},
             menu_navigation::Key,
@@ -465,6 +507,8 @@ impl BrowserGame {
     /// Physical edges use the shared click timing and original menu dispatch.
     /// Touch controls also expose explicit walk/action/look gestures.
     pub fn input(&mut self, command: &str) -> Result<()> {
+        #[cfg(feature = "native-inspection")]
+        { self.pending_touch_walk = None; }
         if let Some(fault) = &self.fault {
             return Err(fault.clone());
         }
@@ -618,6 +662,8 @@ impl BrowserGame {
         if user_load {
             restored.engine.prepare_user_load().map_err(error)?;
         }
+        #[cfg(feature = "native-inspection")]
+        { self.pending_touch_walk = None; }
         self.engine = restored.engine;
         self.audio = restored.audio;
         self.fault = None;
@@ -629,9 +675,55 @@ impl BrowserGame {
 // Native touch adaptation, hit testing and UI-test observations, not exported through wasm-bindgen.
 #[cfg(feature = "native-inspection")]
 impl BrowserGame {
-    /// Touch-only tolerance for putting down a held item. Keep mouse hit tests
-    /// and script behavior exact; never magnetize empty-hand or action/look clicks.
+    pub fn native_cancel_pending_walk(&mut self) { self.pending_touch_walk = None; }
+
+    pub fn native_dismiss_overlays(&mut self) -> Result<()> {
+        self.pending_touch_walk = None;
+        if self.engine.held_object != -1 || self.inventory_dragging() { return Ok(()); }
+        let resources = self.assets.resources();
+        let strings = Strings::new(&self.assets.iso[self.assets.text.clone()]).map_err(error)?;
+        for _ in 0..8 {
+            let before = (self.menu_page(), self.engine.active_inventory(), self.engine.top_window.is_some());
+            if !self.menu_active() && before.1.is_none() && !before.2 { break; }
+            let outcome = self.engine.escape_input(&resources, &strings, &self.menu_entries).map_err(error)?;
+            if outcome.request.is_some() || outcome.write_settings {
+                self.menu_requests.push_back(discworld_core::menu_controller::Dispatch { outcome, selection: None });
+            }
+            if before == (self.menu_page(), self.engine.active_inventory(), self.engine.top_window.is_some()) { break; }
+        }
+        if self.menu_active() || self.engine.active_inventory().is_some() || self.engine.top_window.is_some() {
+            self.pending_touch_walk = Some(TouchWalk { scene: self.engine.scene, origin: self.engine.world_origin, point: None, deadline: self.engine.ticks.saturating_add(240) });
+        }
+        Ok(())
+    }
+
+    /// Adapt native gestures to game windows, waits and world verbs. Held-item
+    /// drop tolerance applies only inside inventory; raw mouse paths stay exact.
     pub fn native_touch_input(&mut self, command: &str, x: i32, y: i32) -> Result<()> {
+        self.pending_touch_walk = None;
+        if command == "walk" && self.engine.held_object == -1 && !self.inventory_dragging() {
+            use discworld_core::conversation_window::Area;
+            let outside = if self.menu_active() {
+                self.engine.configuration.as_ref().is_some_and(|menu| menu.area_at([x, y]) == Some(Area::Outside))
+            } else if let Some(frame) = &self.engine.top_window {
+                frame.layout.inventory_area_at([x, y]) == Area::Outside
+            } else {
+                self.engine.active_inventory().is_some() && !self.engine.inventory_contains_point([x, y])
+            };
+            if outside {
+                self.move_pointer_checked(x, y)?;
+                self.native_dismiss_overlays()?;
+                self.pending_touch_walk = Some(TouchWalk { scene: self.engine.scene, origin: self.engine.world_origin, point: Some([x, y]), deadline: self.engine.ticks.saturating_add(240) });
+                return Ok(());
+            }
+        }
+        // During speech/startup, a tap advances the current wait instead of
+        // trying a world verb that the control gate would reject. Tutorial
+        // text consumes inside taps; outside Walk taps were handled above.
+        if !self.menu_active() && (!self.engine.control.enabled || self.engine.top_window.is_some()) {
+            self.move_pointer_checked(x, y)?;
+            return self.engine.left_event().map_err(error);
+        }
         // Conversation/action-window icons are selections, not world verbs.
         // Raw mouse edges already route here; direct touch gestures must too.
         if !self.menu_active() && self.engine.control.enabled
@@ -645,16 +737,6 @@ impl BrowserGame {
         let command = if self.menu_active() { "walk" } else { command };
         let mut point = [x, y];
         if self.engine.inventory_dragging() { return Ok(()); }
-        // An empty-handed tap outside ordinary inventory dismisses it and then
-        // walks. Held-item transfers and window drags must retain the overlay.
-        if command == "walk" && !self.menu_active() && self.engine.held_object == -1
-            && self.engine.control.enabled
-            && matches!(self.engine.active_inventory(), Some(1 | 2))
-            && !self.engine.inventory_dragging()
-            && !self.engine.inventory_contains_point(point)
-        {
-            self.engine.close_inventory_input(&self.assets.resources()).map_err(error)?;
-        }
         if command == "walk" && !self.menu_active() && self.engine.held_object != -1
             && matches!(self.engine.active_inventory(), Some(1 | 2))
             && self.engine.inventory_contains_point(point)
@@ -692,6 +774,7 @@ impl BrowserGame {
             .as_ref()
             .and_then(|lead| self.engine.movers.get(&lead.id));
         serde_json::json!({
+            "pending_walk": self.pending_touch_walk.map(|walk| walk.point),
             "settings": self.engine.configuration.as_ref().map(|menu| menu.settings()),
             "control": self.engine.control.enabled,
             "world_origin": self.engine.world_origin,

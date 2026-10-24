@@ -334,7 +334,7 @@ The simulator prototype does not close the remaining acceptance items above.
 
 ## iPhone prototype
 
-The host now supports iPhone in landscape, with original-font controls in two side columns. iPad retains its existing layout. The first physical iPhone deployment includes the private ISO and SoundFont and uses runtime `8ac0135` from source `23ebe72`, the last complete cross-host playthrough pass. The newer cursor runtime is withheld pending a full-route regression fix. Wireless installation, launch and process liveness passed; physical touch/layout acceptance remains open. See [deployment evidence](validation/iphone-first-deployment.json).
+The host now supports iPhone in landscape, with original-font controls in two side columns. iPad now uses the same paired side columns, with larger controls. The first physical iPhone deployment includes the private ISO and SoundFont and uses runtime `8ac0135` from source `23ebe72`, the last complete cross-host playthrough pass. The newer cursor runtime is withheld pending a full-route regression fix. Wireless installation, launch and process liveness passed; physical touch/layout acceptance remains open. See [deployment evidence](validation/iphone-first-deployment.json).
 
 ## Native touch and lifecycle follow-up
 
@@ -362,8 +362,8 @@ game assets, not claims that the original game had these toolbar buttons.
 The native toolbar omits Start, Continue and Close. Escape is the dismissal control. The iPhone canvas walking/inventory test passes using Escape to close the inventory (`assets/validation/iphone-controls-trim1-tests/results.xcresult`).
 
 Empty-handed Walk taps outside an ordinary inventory now close it and dispatch
-movement to that point. Held objects, active drags, disabled control and game
-menus are excluded. Conversation/action-window topic taps (including the mouth
+movement to that point. Held objects and active drags are protected. The broader modal behavior below
+supersedes the initial ordinary-inventory-only adaptation. Conversation/action-window topic taps (including the mouth
 icon) now route to conversation selection in every touch mode. Before this fix,
 direct touch gestures fell through to world interaction and were rejected while
 the raw mouse-edge path used by pans could select a topic. Menu single taps also
@@ -374,3 +374,35 @@ world verbs above sound/pause on the right. Save and Load open original-font
 confirmation panels. Cancel preserves the current game and previous pause state;
 only confirmation performs quick-save overwrite or quick-load. See
 [validation evidence](validation/ios-topic-confirm.json).
+
+
+## Native UX interaction rules
+
+Keep these rules when extending the iPhone/iPad host:
+
+- Empty-handed Walk taps outside game windows dismiss them and continue to the
+  tapped floor position once the original scripts return control. This covers
+  inventory, conversation, tutorial windows and configuration menus. Selecting
+  Walk also dismisses these overlays without choosing a destination.
+- Never interpret an inventory transfer or held-item gesture as close-and-walk.
+  New input, changing modes, pausing, suspension, loading, or a scene/origin change
+  cancels pending movement; queued movement expires after 240 game ticks.
+- Menu/topic selections use a single tap in every world action mode. During
+  startup and speech waits, a canvas tap advances the existing wait.
+- Quick Save/Load require explicit confirmation. Outside taps cancel rather than
+  confirm, and an empty-handed floor tap in Walk mode continues walking. Cancel
+  restores the previous pause state. Load remains disabled without a quick save.
+- The Files panel has explicit Import, Export and Cancel buttons with the same
+  outside dismissal/walking behavior. Cancelling a transfer restores the previous
+  pause state. Apple's file picker is an OS modal: use its Cancel to return.
+- Keep matching six-row side columns: Pockets/Escape/Menu/Files/Save/Load on the
+  left; Walk/Action/Look above Sound/Pause on the right. Preserve safe areas and
+  at least 44-point targets. iPhone is landscape; iPad also supports portrait.
+- Use the original game's font for host game controls and prompts, with original
+  asset icons where appropriate. The OS file picker retains its native controls.
+
+The touch host uses normal game Escape/postamble behavior instead of rewriting
+scripts. The only core API change in this pass exposes existing read-only menu
+hit testing. The physical build retains the validated 8ac0135 engine. This is a
+focused UX regression pass, not a new full-game acceptance run. See
+[UX validation](validation/ios-ux-pass.json).

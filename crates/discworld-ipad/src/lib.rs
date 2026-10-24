@@ -83,6 +83,8 @@ impl Host {
                         game.input("left-down")?;
                     }
                 }
+                "cancel-touch" => game.native_cancel_pending_walk(),
+                "walk-mode" => game.native_dismiss_overlays()?,
                 "touch-input" => {
                     let x = i32::try_from(request["x"].as_i64().ok_or("missing x")?).map_err(|e| e.to_string())?;
                     let y = i32::try_from(request["y"].as_i64().ok_or("missing y")?).map_err(|e| e.to_string())?;

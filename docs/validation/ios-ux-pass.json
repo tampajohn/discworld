@@ -1,0 +1,43 @@
+{
+  "date": "2026-10-24",
+  "scope": "Native iPhone/iPad UX; broader engine goal remains paused.",
+  "runtime": "Device keeps validated 8ac0135 core from23ebe72 plus current native host; sole core API change exposes existing read-only menu area_at.",
+  "changes": [
+    "Outside empty-handed Walk dismisses inventory/conversation/tutorial/configuration windows and waits for control before moving",
+    "Selecting Walk dismisses game overlays; held objects and active drags protected",
+    "New input/mode, pause/suspend, load, scene/origin changes cancel queued movement; 240-tick timeout",
+    "Startup/speech taps advance original waits",
+    "Quick confirmations and original-font Files panel cancel on outside tap and continue Walk when appropriate",
+    "Files Cancel and document-picker Cancel preserve previous pause state",
+    "Matching six-row side rails on phone/tablet, original fonts/icons"
+  ],
+  "validation": {
+    "native_main": "5/5 PASS: inventory protections, startup tap, conversation verbs, tolerant held-item drop, modal walk and stale input cancellation",
+    "native_stable": "5/5 PASS on deployed stable engine source with identical host: inventory protections, startup tap, conversation verbs, tolerant held-item drop, modal walk and stale input cancellation",
+    "iphone_ui": "Layout landscape left/right, pouch drag/save/load, named menu save/load, confirmation cancel passed. Files cancellation and outside Walk passed after replacing UIKit actionSheet. Final Files outside-dismiss and background/resume tests passed.",
+    "ipad_ui": "Layout landscape left/right and portrait, pouch drag/save/load, named menu save/load, confirmation cancel passed. Files cancellation and outside Walk passed after replacing UIKit actionSheet. Final Files outside-dismiss test passed.",
+    "visual": "Inspected iPhone landscape and iPad landscape/portrait layout screenshots and original-font Files panel.",
+    "clippy": "PASS web/ipad/tools all targets native-inspection -D warnings",
+    "device": "PASS signed build, strict codesign verification, wireless installation and launch on paired iPhone; process60602 verified running. Existing app container/saves retained.",
+    "default_web_check": "PASS cargo check -p discworld-web without native-inspection"
+  },
+  "binary_sha256": "2474abcc06669a2b3e47fd4a8ccf29b0ecc5376195c7eeb3712f857f2e40e54f",
+  "artifacts": [
+    "assets/validation/ios-ux-phone1/results.xcresult",
+    "assets/validation/ios-ux-ipad1/results.xcresult",
+    "assets/validation/ios-ux-phone2/results.xcresult",
+    "assets/validation/ios-ux-ipad2/results.xcresult",
+    "assets/validation/ios-ux-phone3/results.xcresult",
+    "assets/validation/ios-ux-ipad3/results.xcresult",
+    "assets/logs/ios-ux-native2.log",
+    "assets/logs/ios-ux-stable-final.log",
+    "assets/logs/ios-ux-clippy.log",
+    "assets/validation/iphone-ux-pass1"
+  ],
+  "limitations": [
+    "Focused host tests, not full touch-only playthrough",
+    "Tutorial test constructs real overlay geometry/artwork; not complete tutorial script acceptance",
+    "OS document picker requires its native Cancel",
+    "Physical interaction feedback remains necessary"
+  ]
+}

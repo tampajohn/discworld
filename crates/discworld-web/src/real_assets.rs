@@ -2774,3 +2774,81 @@ fn native_topic_taps_select_conversation_icons_in_every_action_mode() {
         assert!(game.fault.is_none());
     }
 }
+
+#[cfg(feature = "native-inspection")]
+#[test]
+#[ignore = "requires private ISO, SoundFont, inventory and conversation saves"]
+fn native_walk_dismisses_modals_and_cancels_stale_destinations() {
+    let read = |name| std::fs::read(std::env::var_os(name).expect(name)).unwrap();
+    let mut game = BrowserGame::new(read("DISCWORLD_TEST_ISO"), read("DISCWORLD_TEST_SOUNDFONT")).unwrap();
+    let room = read("DISCWORLD_TEST_SAVE");
+    game.load(&room).unwrap();
+    game.native_dismiss_overlays().unwrap();
+    assert_eq!(game.engine.active_inventory(), None);
+    game.native_touch_input("walk",300,185).unwrap();
+    for _ in 0..10 { game.advance(24).unwrap(); }
+    let lead = game.engine.declarations.lead.as_ref().unwrap().id;
+    let unobstructed_destination = game.engine.movers[&lead].placement.position;
+    for page in ["main", "save", "load", "quit"] {
+        game.load(&room).unwrap();
+        game.native_dismiss_overlays().unwrap();
+        game.open_menu(page).unwrap();
+        game.native_touch_input("walk", 300, 185).unwrap();
+        assert!(!game.menu_active(), "{page}");
+        while game.take_menu_request().unwrap().is_some() {}
+        for _ in 0..10 { game.advance(24).unwrap(); }
+        let lead = game.engine.declarations.lead.as_ref().unwrap().id;
+        assert_eq!(game.engine.movers[&lead].placement.position, unobstructed_destination, "{page}");
+    }
+    // Real window artwork/geometry used by the tutorial's BOGUS_WINDOW overlay.
+    game.load(&room).unwrap();
+    game.native_dismiss_overlays().unwrap();
+    game.engine.top_window = Some(discworld_core::conversation_window::Frame::top_window(
+        &game.assets.resources(), game.engine.declarations.window_parts.unwrap()).unwrap());
+    game.native_touch_input("walk",300,185).unwrap();
+    assert!(game.engine.top_window.is_none());
+    for _ in 0..10 { game.advance(24).unwrap(); }
+    assert_eq!(game.engine.movers[&lead].placement.position, unobstructed_destination);
+    game.load(&read("DISCWORLD_TEST_CONVERSATION_SAVE")).unwrap();
+    assert!(game.engine.conversation.polygon.is_some());
+    let point = [10,190];
+    assert!(!game.engine.inventory_contains_point(point));
+    game.native_touch_input("walk", point[0], point[1]).unwrap();
+    assert!(game.engine.conversation.polygon.is_none());
+    assert!(game.pending_touch_walk.is_some());
+    game.input("escape").unwrap();
+    assert!(game.pending_touch_walk.is_none(), "new input cancels waiting movement");
+    game.load(&room).unwrap();
+    game.native_touch_input("walk",160,185).unwrap();
+    assert!(game.pending_touch_walk.is_some());
+    game.load(&room).unwrap();
+    assert!(game.pending_touch_walk.is_none(), "loading must not replay a prior walk gesture");
+    for kind in ["pointer", "menu", "pause"] {
+        game.load(&room).unwrap();
+        game.native_touch_input("walk",160,185).unwrap();
+        assert!(game.pending_touch_walk.is_some());
+        match kind {
+            "pointer" => game.move_pointer_checked(100,100).unwrap(),
+            "menu" => game.open_menu("main").unwrap(),
+            _ => game.native_cancel_pending_walk(),
+        }
+        assert!(game.pending_touch_walk.is_none(), "{kind} cancels pending movement");
+    }
+
+}
+
+#[cfg(feature = "native-inspection")]
+#[test]
+#[ignore = "requires DISCWORLD_TEST_ISO and DISCWORLD_TEST_SOUNDFONT"]
+fn native_tap_advances_startup_without_start_or_continue_buttons() {
+    let read = |name| std::fs::read(std::env::var_os(name).expect(name)).unwrap();
+    let mut game = BrowserGame::new(read("DISCWORLD_TEST_ISO"), read("DISCWORLD_TEST_SOUNDFONT")).unwrap();
+    for _ in 0..20 { game.advance(24).unwrap(); }
+    game.advance(20).unwrap();
+    assert!(!game.engine.control.enabled);
+    game.native_touch_input("walk",160,100).unwrap();
+    for _ in 0..333 { game.advance(24).unwrap(); }
+    game.advance(8).unwrap();
+    assert_eq!(game.scene(), "rinceroo.scn");
+    assert!(game.fault.is_none());
+}
