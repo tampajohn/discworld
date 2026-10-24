@@ -1,0 +1,19 @@
+{
+  "date": "2026-10-24",
+  "source_url": "https://github.com/scummvm/scummvm-icons/blob/9343606fa428e90755dda28cb9b37e18c7232e20/icons/tinsel-dw.png",
+  "source_sha256": "5e245712cd5177ba6a0f2c0287fd516ac41bbb72226d814a63aaf828bf4786d3",
+  "scope": "Original game artwork launcher icon, not claimed to be historical DOS executable icon. No game runtime changes.",
+  "checks": {
+    "raster": "All catalog entries exist at specified sizes; PNG color type2 (opaque RGB).",
+    "build": "Simulator and signed physical iPhone/iPad builds passed; strict signatures passed; primary app-icon metadata present for both device families.",
+    "visual": "iPad simulator Home Screen screenshot confirms artwork replaces placeholder after icon cache refresh.",
+    "iphone": "Installed. Relaunch blocked by phone lock screen; app can be opened after unlocking.",
+    "ipad": "PASS: paired, Developer Mode enabled, automatically provisioned, signed, installed and launched on iPad Air13-inch (M2); process verified running."
+  },
+  "artifacts": [
+    "assets/validation/ios-app-icon1",
+    "assets/validation/iphone-icon1",
+    "assets/validation/ipad-icon1",
+    "assets/validation/ios-icon1"
+  ]
+}

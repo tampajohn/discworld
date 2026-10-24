@@ -7,6 +7,7 @@ from pathlib import Path
 import plistlib
 import shutil
 import subprocess
+import sys
 
 ROOT = Path(__file__).resolve().parent.parent
 
@@ -62,6 +63,17 @@ def main():
     shutil.copytree(resources, output / "GameData.bundle")
     run("cargo", "run", "--locked", "--release", "-p", "discworld-tools", "--example", "ipad_controls", "--",
         str(resources / "discworld.iso"), str(output / "Controls"))
+    catalog = output.with_suffix(".xcassets")
+    run(sys.executable, str(ROOT / "scripts/stage-ios-app-icon.py"), str(catalog))
+    partial = output.with_suffix(".icon-info.plist")
+    run("xcrun", "actool", str(catalog), "--compile", str(output),
+        "--platform", sdk_name, "--minimum-deployment-target", "17.0",
+        "--target-device", "iphone", "--target-device", "ipad", "--app-icon", "AppIcon",
+        "--output-partial-info-plist", str(partial))
+    with partial.open("rb") as file:
+        info.update(plistlib.load(file))
+    with (output / "Info.plist").open("wb") as file:
+        plistlib.dump(info, file)
     for name in ["LICENSE", "NOTICE"]:
         shutil.copy2(ROOT / name, output / name)
     if device:

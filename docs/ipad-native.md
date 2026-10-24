@@ -406,3 +406,21 @@ scripts. The only core API change in this pass exposes existing read-only menu
 hit testing. The physical build retains the validated 8ac0135 engine. This is a
 focused UX regression pass, not a new full-game acceptance run. See
 [UX validation](validation/ios-ux-pass.json).
+
+## Home Screen icon
+
+Native builds now include an `AppIcon` asset catalog for iPhone and iPad, including
+Home Screen, Spotlight, Settings and the 1024-pixel marketing image. The default
+uses [ScummVM's Discworld artwork icon](https://github.com/scummvm/scummvm-icons/blob/9343606fa428e90755dda28cb9b37e18c7232e20/icons/tinsel-dw.png):
+Rincewind, Death, the Luggage and the original gold logo. This is original game
+artwork assembled for a launcher, not a claim that the supplied DOS disc had a
+Windows/Mac launcher icon. No standalone icon was present on the supplied disc.
+
+`scripts/stage-ios-app-icon.py OUTPUT.xcassets` stages a pinned, SHA-256-verified
+source under ignored `assets/private` and generates opaque sRGB PNGs. It fits the
+complete artwork over black; iOS applies its own rounded corners. `--source PATH`
+can use another historical icon. Original artwork remains with its rights holders
+and is not committed to this repository. Source provenance is written alongside
+the generated catalog. Both `build-ipad.py` and `test-ipad-ui.py` include the icon;
+custom Xcode projects must add that catalog to Resources and set
+`ASSETCATALOG_COMPILER_APPICON_NAME=AppIcon`.
