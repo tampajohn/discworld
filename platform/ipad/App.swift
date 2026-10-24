@@ -200,7 +200,7 @@ final class GameController: UIViewController, UIKeyInput, UIDocumentPickerDelega
         row.axis = .horizontal
         row.spacing = 8
         row.distribution = .fillEqually
-        for (label, command) in [("Start", "start"), ("Continue", "continue"), ("Pockets", "pockets"), ("Close", "close"), ("Escape", "escape")] {
+        for (label, command) in [("Continue", "continue"), ("Pockets", "pockets"), ("Escape", "escape")] {
             row.addArrangedSubview(button(label) { [weak self] in self?.send(["op": "input", "command": command]) })
         }
         row.addArrangedSubview(button("Menu") { [weak self] in

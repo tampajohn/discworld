@@ -144,7 +144,7 @@ final class DiscworldLayoutTests: XCTestCase {
         XCTAssertEqual((state(app)["inspection"] as? [String: Any])?["inventory_position"] as? [Int],
                        [position[0] + 30, position[1] + 20])
         XCTAssertEqual((state(app)["inspection"] as? [String: Any])?["inventory_dragging"] as? Bool, false)
-        app.buttons["Close"].tap()
+        app.buttons["Escape"].tap()
         XCTAssertTrue((state(app)["inspection"] as? [String: Any])?["inventory"] is NSNull)
         let results = try JSONSerialization.data(withJSONObject: ["before": before, "walked": walked, "pockets": pockets, "dragged": dragged, "closed": state(app)], options: [.prettyPrinted, .sortedKeys])
         let evidence = XCTAttachment(string: String(decoding: results, as: UTF8.self))
