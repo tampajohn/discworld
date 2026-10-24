@@ -97,6 +97,40 @@ All calls occur on the main thread; Swift immediately copies borrowed frame,
 audio and response buffers before the next call can replace them. This narrow
 boundary does not provide a general thread-safe foreign API.
 
+## Staged touch controls and original artwork
+
+Build `assets/apps/Discworld-iPad-18.app` is compiled and signed for the simulator
+but **not installed**: the player is using build 17. In default Walk mode, single
+taps walk/select and double taps act. A single tap waits for the double-tap
+recognizer to fail, preventing an unintended walk before an action. Explicit
+Action and Look modes remain available; pans still take priority for dragging.
+The pouch UI test now exercises double-tap wardrobe opening and pickup followed
+by single-tap storage. It has compiled but has not yet run against this change.
+The earlier eight-test pass covers build 17, not this staged revision.
+
+The private build extracts host labels with `ipad_controls`, using the ISO's
+original tag-font glyphs and MainMenu palette indices 228/231. New host labels
+are composed from those glyphs; they are not claimed to be original button
+objects. Normal, selected and highlighted states use these raster assets, with
+nearest-neighbor display and accessibility names retained. Both standalone and
+XCTest builds generate and bundle `Controls`; generated artwork stays under
+ignored `assets`. Prefer original game assets/fonts for project game controls.
+No generated substitute artwork is needed for this implementation.
+
+To compile UI tests without altering or driving a player's Simulator session:
+
+```sh
+python3 scripts/test-ipad-ui.py SIMULATOR-UDID assets/validation/ipad-ui-build --build-only
+```
+
+Quick saves now use the same bounded atomic-file helper as the desktop host,
+including file synchronization, unique temporary names and cleanup on failure.
+An isolated macOS headless bridge test passed with the private bundled assets:
+exact session/frame restoration, truncated and oversized file rejection without
+changing the session, and failed-write cleanup. This is host persistence work;
+the shared engine and original game scripts are unchanged. See
+[staged control evidence](validation/ipad-staged-controls.json).
+
 ## Original sound controls
 
 Native pans now reach configuration menus as well as inventory windows, while

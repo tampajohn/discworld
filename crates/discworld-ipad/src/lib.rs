@@ -91,14 +91,16 @@ impl Host {
                 }
                 "save" => {
                     let bytes = game.save()?;
-                    let temporary = self.save_directory.join("quick.dws.tmp");
-                    std::fs::write(&temporary, bytes).map_err(|e| e.to_string())?;
-                    std::fs::rename(temporary, self.save_directory.join("quick.dws"))
-                        .map_err(|e| e.to_string())?;
+                    discworld_tools::save_file::write_atomic(
+                        &self.save_directory.join("quick.dws"),
+                        &bytes,
+                    )
+                    .map_err(|e| e.to_string())?;
                 }
                 "load" => {
-                    let bytes = std::fs::read(self.save_directory.join("quick.dws"))
-                        .map_err(|e| e.to_string())?;
+                    let bytes =
+                        discworld_tools::save_file::read(&self.save_directory.join("quick.dws"))
+                            .map_err(|e| e.to_string())?;
                     game.load_game(&bytes)?;
                 }
                 _ => return Err("Unknown native operation".into()),
@@ -243,5 +245,84 @@ mod exports {
     #[unsafe(no_mangle)]
     pub extern "C" fn dw_ipad_audio_len() -> usize {
         HOST.with(|h| h.borrow().audio.len())
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    // Uses a private temporary directory, never an installed application's saves.
+    #[test]
+    #[ignore = "requires DISCWORLD_IPAD_BUNDLE with private ISO and SoundFont"]
+    fn quick_save_reload_and_invalid_files_preserve_session() {
+        let bundle = std::env::var("DISCWORLD_IPAD_BUNDLE").expect("private bundle path");
+        let root = std::env::temp_dir().join(format!(
+            "discworld-ipad-quick-{}-{}",
+            std::process::id(),
+            std::time::SystemTime::now()
+                .duration_since(std::time::UNIX_EPOCH)
+                .unwrap()
+                .as_nanos()
+        ));
+        std::fs::create_dir(&root).unwrap();
+        let mut host = Host::default();
+        fn call(host: &mut Host, value: serde_json::Value) -> Result<(), String> {
+            host.request = serde_json::to_vec(&value).unwrap();
+            host.dispatch()
+        }
+        call(
+            &mut host,
+            serde_json::json!({"op":"open", "bundle":bundle, "saves":root}),
+        )
+        .unwrap();
+        for tick in 0..8500 {
+            if tick == 500 {
+                host.game.as_mut().unwrap().input("start").unwrap();
+            }
+            host.game.as_mut().unwrap().advance(1).unwrap();
+        }
+        call(&mut host, serde_json::json!({"op":"save"})).unwrap();
+        let saved = host.game.as_ref().unwrap().save().unwrap();
+        let frame = host.frame.clone();
+        host.game.as_mut().unwrap().advance(10).unwrap();
+        call(&mut host, serde_json::json!({"op":"load"})).unwrap();
+        assert!(
+            host.game.as_ref().unwrap().save().unwrap() == saved,
+            "session bytes changed"
+        );
+        assert_eq!(host.frame, frame);
+
+        let path = root.join("quick.dws");
+        std::fs::write(&path, b"truncated").unwrap();
+        assert!(call(&mut host, serde_json::json!({"op":"load"})).is_err());
+        assert!(
+            host.game.as_ref().unwrap().save().unwrap() == saved,
+            "session bytes changed"
+        );
+        let file = std::fs::File::create(&path).unwrap();
+        file.set_len(discworld_audio::session::MAX_SESSION_BYTES as u64 + 1)
+            .unwrap();
+        drop(file);
+        assert!(
+            call(&mut host, serde_json::json!({"op":"load"}))
+                .unwrap_err()
+                .contains("size limit")
+        );
+        assert!(
+            host.game.as_ref().unwrap().save().unwrap() == saved,
+            "session bytes changed"
+        );
+
+        // A failed publication leaves no temporary file and keeps gameplay intact.
+        std::fs::remove_file(&path).unwrap();
+        std::fs::create_dir(&path).unwrap();
+        assert!(call(&mut host, serde_json::json!({"op":"save"})).is_err());
+        assert!(
+            host.game.as_ref().unwrap().save().unwrap() == saved,
+            "session bytes changed"
+        );
+        assert_eq!(std::fs::read_dir(&root).unwrap().count(), 1);
+        std::fs::remove_dir_all(root).unwrap();
     }
 }

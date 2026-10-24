@@ -52,6 +52,8 @@ def main():
     with (output / "Info.plist").open("wb") as target:
         plistlib.dump(info, target)
     shutil.copytree(resources, output / "GameData.bundle")
+    run("cargo", "run", "--locked", "--release", "-p", "discworld-tools", "--example", "ipad_controls", "--",
+        str(resources / "discworld.iso"), str(output / "Controls"))
     for name in ["LICENSE", "NOTICE"]:
         shutil.copy2(ROOT / name, output / name)
     run("codesign", "--force", "--sign", "-", str(output))

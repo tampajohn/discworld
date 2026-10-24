@@ -208,12 +208,13 @@ final class DiscworldLayoutTests: XCTestCase {
         app.buttons["Resume"].tap()
         waitFor(app) { ($0["inspection"] as? [String: Any])?["control"] as? Bool == true }
         let canvas = app.descendants(matching: .any).matching(identifier: "game-frame").firstMatch
-        func tapGame(_ x: Int, _ y: Int) {
+        func tapGame(_ x: Int, _ y: Int, twice: Bool = false) {
             let size = canvas.frame.size
             let scale = min(size.width / 320, size.height / 200)
-            canvas.coordinate(withNormalizedOffset: .zero).withOffset(CGVector(
+            let point = canvas.coordinate(withNormalizedOffset: .zero).withOffset(CGVector(
                 dx: (size.width - 320 * scale) / 2 + (CGFloat(x) + 0.5) * scale,
-                dy: (size.height - 200 * scale) / 2 + (CGFloat(y) + 0.5) * scale)).tap()
+                dy: (size.height - 200 * scale) / 2 + (CGFloat(y) + 0.5) * scale))
+            if twice { point.doubleTap() } else { point.tap() }
         }
         func waitItem(_ condition: @escaping ([String: Any]) -> Bool) {
             let predicate = NSPredicate { _, _ in
@@ -222,17 +223,17 @@ final class DiscworldLayoutTests: XCTestCase {
             }
             wait(for: [expectation(for: predicate, evaluatedWith: app)], timeout: 70)
         }
-        app.segmentedControls.buttons["Action"].tap()
-        tapGame(150, 110) // Closed wardrobe, original polygon 8.
+        // Default Walk mode: double taps act, single taps select/store items.
+        tapGame(150, 110, twice: true) // Closed wardrobe, original polygon 8.
         waitItem { ($0["enabled_tags"] as? [Int] ?? []).contains(551) && $0["control"] as? Bool == true }
         let opened = state(app)
-        tapGame(133, 136) // Revealed pouch, original polygon 7.
+        tapGame(133, 136, twice: true) // Revealed pouch, original polygon 7.
         waitItem { $0["held_object"] as? Int == 284 && $0["control"] as? Bool == true }
         let held = state(app)
         app.buttons["Pockets"].tap()
         waitItem { $0["inventory"] as? Int == 2 }
         let cell = try XCTUnwrap((state(app)["inspection"] as? [String: Any])?["inventory_first_cell"] as? [Int])
-        app.segmentedControls.buttons["Walk"].tap()
+        app.buttons["Walk"].tap()
         tapGame(cell[0], cell[1])
         waitItem { $0["held_object"] as? Int == -1 && ($0["pockets"] as? [Int] ?? []).contains(284) }
         app.buttons["Pause"].tap()
@@ -340,11 +341,11 @@ final class DiscworldLayoutTests: XCTestCase {
             }
             wait(for: [expectation(for: predicate, evaluatedWith: app)], timeout: 70)
         }
-        app.segmentedControls.buttons["Action"].tap()
+        app.buttons["Action"].tap()
         let started = try XCTUnwrap(state(app)["tick"] as? Int)
         tapGame(55, 125)
         waitFor(app) { ($0["tick"] as? Int ?? 0) > started + 80 && ($0["inspection"] as? [String: Any])?["control"] as? Bool == true }
-        app.segmentedControls.buttons["Walk"].tap()
+        app.buttons["Walk"].tap()
         tapGame(55, 125)
         waitScene("unseen.scn")
         let landing = state(app)

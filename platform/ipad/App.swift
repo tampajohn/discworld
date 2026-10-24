@@ -23,6 +23,28 @@ final class GameScene: UIResponder, UIWindowSceneDelegate {
     }
 }
 
+// Labels are rasterized from the ISO's tag font during the private build.
+final class GameButton: UIButton {
+    override func setTitle(_ title: String?, for state: UIControl.State) {
+        guard state == .normal, let title else { super.setTitle(title, for: state); return }
+        accessibilityLabel = title
+        let root = Bundle.main.bundleURL.appendingPathComponent("Controls")
+        let normal = UIImage(contentsOfFile: root.appendingPathComponent("\(title)-normal.png").path)
+        let selected = UIImage(contentsOfFile: root.appendingPathComponent("\(title)-selected.png").path)
+        super.setTitle(normal == nil ? title : nil, for: .normal)
+        setImage(normal, for: .normal)
+        setImage(selected, for: .selected)
+        setImage(selected, for: .highlighted)
+        imageView?.contentMode = .scaleAspectFit
+        imageView?.layer.magnificationFilter = .nearest
+        imageView?.layer.minificationFilter = .nearest
+    }
+    override func layoutSubviews() {
+        super.layoutSubviews()
+        imageView?.frame = bounds.insetBy(dx: 2, dy: 4)
+    }
+}
+
 // Preserve the down position before UIKit crosses its pan-recognition threshold.
 final class InventoryPan: UIPanGestureRecognizer {
     var start: CGPoint?
@@ -62,7 +84,7 @@ final class GameController: UIViewController, UIKeyInput {
     var keyboardFrame: [Double] = []
     var keyboardChanges = 0
     var completedAudioBuffers = 0
-    let pauseButton = UIButton(type: .system)
+    let pauseButton = GameButton(type: .custom)
 
     override var canBecomeFirstResponder: Bool { true }
     var hasText: Bool { true }
@@ -112,17 +134,32 @@ final class GameController: UIViewController, UIKeyInput {
         picture.accessibilityIdentifier = "game-frame"
         picture.accessibilityLabel = "Discworld game"
         let tap = UITapGestureRecognizer(target: self, action: #selector(tap(_:)))
+        let doubleTap = UITapGestureRecognizer(target: self, action: #selector(doubleTap(_:)))
+        doubleTap.numberOfTapsRequired = 2
+        tap.require(toFail: doubleTap)
         let pan = InventoryPan(target: self, action: #selector(drag(_:)))
         pan.maximumNumberOfTouches = 1
         tap.require(toFail: pan)
+        doubleTap.require(toFail: pan)
+        picture.addGestureRecognizer(doubleTap)
         picture.addGestureRecognizer(tap)
         picture.addGestureRecognizer(pan)
         status.textColor = .white
         status.numberOfLines = 2
         status.text = "Loading Discworld…"
-        let modes = UISegmentedControl(items: ["Walk", "Action", "Look"])
-        modes.selectedSegmentIndex = 0
-        modes.addAction(UIAction { [weak self] _ in self?.action = ["walk", "action", "look"][modes.selectedSegmentIndex] }, for: .valueChanged)
+        let modes = UIStackView()
+        modes.axis = .horizontal
+        modes.distribution = .fillEqually
+        for (index, label) in ["Walk", "Action", "Look"].enumerated() {
+            let mode = GameButton(type: .custom)
+            mode.setTitle(label, for: .normal)
+            mode.isSelected = index == 0
+            mode.addAction(UIAction { [weak self, weak modes, weak mode] _ in
+                self?.action = ["walk", "action", "look"][index]
+                for case let button as UIButton in modes?.arrangedSubviews ?? [] { button.isSelected = button === mode }
+            }, for: .touchUpInside)
+            modes.addArrangedSubview(mode)
+        }
         let row = UIStackView()
         row.axis = .horizontal
         row.spacing = 8
@@ -145,7 +182,7 @@ final class GameController: UIViewController, UIKeyInput {
         tools.addArrangedSubview(modes)
         tools.addArrangedSubview(button("Save") { [weak self] in self?.send(["op": "save"]) })
         tools.addArrangedSubview(button("Load") { [weak self] in self?.releaseDrag(); self?.resetAudio(); self?.send(["op": "load"]) })
-        let mute = UIButton(type: .system)
+        let mute = GameButton(type: .custom)
         mute.setTitle("Sound off", for: .normal)
         mute.addAction(UIAction { [weak self] _ in
             guard let self else { return }
@@ -197,7 +234,7 @@ final class GameController: UIViewController, UIKeyInput {
     }
 
     func button(_ title: String, _ body: @escaping () -> Void) -> UIButton {
-        let button = UIButton(type: .system)
+        let button = GameButton(type: .custom)
         button.setTitle(title, for: .normal)
         button.addAction(UIAction { _ in body() }, for: .touchUpInside)
         return button
@@ -312,6 +349,10 @@ final class GameController: UIViewController, UIKeyInput {
     @objc func tap(_ gesture: UITapGestureRecognizer) {
         guard (!paused || snapshot["menu"] as? Bool == true), let point = gamePoint(gesture.location(in: picture)) else { return }
         send(["op": "input", "command": action, "x": point[0], "y": point[1]])
+    }
+    @objc func doubleTap(_ gesture: UITapGestureRecognizer) {
+        guard (!paused || snapshot["menu"] as? Bool == true), let point = gamePoint(gesture.location(in: picture)) else { return }
+        send(["op": "input", "command": "action", "x": point[0], "y": point[1]])
     }
     func releaseDrag() {
         guard dragging else { return }

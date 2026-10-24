@@ -1,0 +1,26 @@
+{
+  "installed_app_unchanged": "assets/apps/Discworld-iPad-17.app",
+  "staged_app": "assets/apps/Discworld-iPad-18.app",
+  "reason_not_installed": "Player is actively driving the current session.",
+  "ui_build_log": "assets/logs/ipad-gestures-build1.log",
+  "ui_test_execution": "pending; build-for-testing only",
+  "headless_persistence_log": "assets/logs/ipad-quick-persistence2.log",
+  "headless_persistence_passed": true,
+  "clippy_log": "assets/logs/ipad-controls-clippy.log",
+  "clippy_passed": true,
+  "artwork_provenance": "assets/private/ipad/Controls/provenance.json",
+  "artwork_preview_inspected": [
+    "Continue-normal.png",
+    "Continue-selected.png"
+  ],
+  "changes": [
+    "Single tap retains selected mode; default Walk. Double tap dispatches Action.",
+    "Original tag-font host labels and original MainMenu colors, extracted at private build time.",
+    "Atomic bounded quick-save file I/O."
+  ],
+  "limitations": [
+    "New gesture UI test compiled, not executed.",
+    "Full styled native layout not visually inspected in a running app yet.",
+    "Physical iPad deployment remains pending."
+  ]
+}
