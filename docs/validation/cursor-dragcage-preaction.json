@@ -1,0 +1,140 @@
+{
+  "scope": "Full original trace prefix from startup to tick2569725, no snapshot audits; both captured pre-action states, unchanged trace",
+  "baseline_runtime": "8ac0135",
+  "current_runtime": "7c1921e",
+  "states": {
+    "baseline": {
+      "ticks": 2569725,
+      "scene_name": "dragcage.scn",
+      "active_inventory": null,
+      "held_object": 260,
+      "control_enabled": true,
+      "inventory_contents": [
+        [
+          327,
+          330,
+          328,
+          329,
+          341,
+          331
+        ],
+        [
+          252,
+          228,
+          193,
+          261,
+          321,
+          218,
+          247,
+          307,
+          264,
+          205,
+          192,
+          299,
+          262,
+          280,
+          216,
+          257,
+          253,
+          291,
+          302,
+          217,
+          211,
+          305,
+          229,
+          292,
+          288,
+          238,
+          255,
+          286,
+          225,
+          195,
+          293,
+          290,
+          301,
+          308,
+          254,
+          256
+        ],
+        [
+          274,
+          209,
+          241
+        ]
+      ],
+      "inventory_first_display": [
+        0,
+        30,
+        0
+      ]
+    },
+    "current": {
+      "ticks": 2569725,
+      "scene_name": "dragcage.scn",
+      "active_inventory": 1,
+      "held_object": -1,
+      "control_enabled": true,
+      "inventory_contents": [
+        [
+          327,
+          330,
+          328,
+          329,
+          341,
+          331
+        ],
+        [
+          252,
+          228,
+          193,
+          261,
+          321,
+          218,
+          247,
+          307,
+          264,
+          205,
+          192,
+          299,
+          262,
+          280,
+          216,
+          257,
+          253,
+          291,
+          302,
+          217,
+          211,
+          305,
+          229,
+          292,
+          288,
+          238,
+          255,
+          286,
+          225,
+          195,
+          293,
+          231,
+          290,
+          301,
+          308,
+          254,
+          256
+        ],
+        [
+          274,
+          209,
+          241
+        ]
+      ],
+      "inventory_first_display": [
+        0,
+        30,
+        0
+      ]
+    }
+  },
+  "finding": "Before the rejected exit action, current still has inventory1 open and no held item; baseline has inventory closed and item260 held. Current also retains inventory item231 that baseline lacks. Need locate earlier semantic divergence; do not change the recorded exit action to conceal it.",
+  "artifacts": "assets/validation/cursor-dragcage-diagnosis1"
+}
