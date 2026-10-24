@@ -1,0 +1,18 @@
+{
+  "test": "original_menu_overwrite_cancel_and_fresh_host_load",
+  "result": "passed",
+  "log": "assets/logs/ipad-menu-overwrite.log",
+  "scope": "macOS headless native Host, supplied private ISO and SoundFont; original menu navigation and coordinates through dispatch",
+  "checks": [
+    "Create first and second named slots through original Save page.",
+    "Select older existing row and edit description to replacement.",
+    "Overwrite retains stable slot ID 0 and leaves slot ID 1 bytes unchanged.",
+    "Cancel edited New row leaves both files unchanged and exactly two slots.",
+    "Fresh Host reconstructs catalog; original Load menu restores overwritten slot with exact combined engine/DSP session bytes."
+  ],
+  "limitations": [
+    "Original menu semantics and native persistence verified without UIKit touch input.",
+    "No physical-device or full-capacity UI result."
+  ],
+  "installed_app_changed": false
+}

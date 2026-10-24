@@ -369,4 +369,138 @@ mod tests {
         );
         std::fs::remove_dir_all(root).unwrap();
     }
+    #[test]
+    #[ignore = "requires DISCWORLD_IPAD_BUNDLE with private ISO and SoundFont"]
+    fn original_menu_overwrite_cancel_and_fresh_host_load() {
+        fn call(host: &mut Host, request: serde_json::Value) -> serde_json::Value {
+            host.request = serde_json::to_vec(&request).unwrap();
+            host.dispatch().unwrap();
+            serde_json::from_slice(&host.response).unwrap()
+        }
+        fn open(host: &mut Host, page: &str) {
+            for _ in 0..500 {
+                let result = call(host, serde_json::json!({"op":"menu", "page":page}));
+                if result["menu"] == true {
+                    return;
+                }
+                call(host, serde_json::json!({"op":"advance"}));
+            }
+            panic!("menu never opened: {page}");
+        }
+        fn click(host: &mut Host, x: i32, y: i32) {
+            call(
+                host,
+                serde_json::json!({"op":"input", "command":"walk", "x":x,"y":y}),
+            );
+        }
+        fn accept(host: &mut Host, notice: &str) {
+            click(host, 262, 69);
+            for _ in 0..20 {
+                let result = call(host, serde_json::json!({"op":"advance"}));
+                if result["notice"] == notice {
+                    assert_eq!(result["menu"], false);
+                    return;
+                }
+            }
+            panic!("missing menu result: {notice}");
+        }
+        let bundle = std::env::var("DISCWORLD_IPAD_BUNDLE").expect("private bundle path");
+        let root = std::env::temp_dir().join(format!(
+            "discworld-ipad-menu-{}-{}",
+            std::process::id(),
+            std::time::SystemTime::now()
+                .duration_since(std::time::UNIX_EPOCH)
+                .unwrap()
+                .as_nanos()
+        ));
+        std::fs::create_dir(&root).unwrap();
+        let mut host = Host::default();
+        call(
+            &mut host,
+            serde_json::json!({"op":"open","bundle":bundle,"saves":root}),
+        );
+        for tick in 0..8500 {
+            if tick == 500 {
+                host.game.as_mut().unwrap().input("start").unwrap();
+            }
+            host.game.as_mut().unwrap().advance(1).unwrap();
+        }
+        let slots = root.join("slots");
+        for name in ["first", "second"] {
+            open(&mut host, "save");
+            call(&mut host, serde_json::json!({"op":"edit-menu","text":name}));
+            accept(&mut host, "Game saved on this device.");
+        }
+        let catalog = discworld_tools::save_slots::catalog(&slots).unwrap();
+        assert_eq!(catalog.entries.len(), 2);
+        assert_eq!(catalog.entries[0].description, b"second");
+        let second = discworld_tools::save_slots::read(&slots, 1).unwrap();
+        let first = discworld_tools::save_slots::read(&slots, 0).unwrap();
+        // Save row zero is New; row two selects the older stable ID zero.
+        open(&mut host, "save");
+        click(&mut host, 90, 78);
+        for _ in 0..5 {
+            call(
+                &mut host,
+                serde_json::json!({"op":"edit-menu","backspace":true}),
+            );
+        }
+        call(
+            &mut host,
+            serde_json::json!({"op":"edit-menu","text":"replacement"}),
+        );
+        accept(&mut host, "Game saved on this device.");
+        let replaced = discworld_tools::save_slots::read(&slots, 0).unwrap();
+        assert_ne!(first, replaced);
+        let record = discworld_audio::slot::decode(&replaced).unwrap();
+        assert_eq!(record.id, 0);
+        assert_eq!(record.description, b"replacement");
+        assert_eq!(
+            discworld_tools::save_slots::read(&slots, 1).unwrap(),
+            second
+        );
+        assert_eq!(std::fs::read_dir(&slots).unwrap().count(), 2);
+        // Editing then cancelling must not publish a third slot or mutate an old one.
+        open(&mut host, "save");
+        call(
+            &mut host,
+            serde_json::json!({"op":"edit-menu","text":"cancel me"}),
+        );
+        call(
+            &mut host,
+            serde_json::json!({"op":"input","command":"escape"}),
+        );
+        assert_eq!(
+            discworld_tools::save_slots::read(&slots, 0).unwrap(),
+            replaced
+        );
+        assert_eq!(
+            discworld_tools::save_slots::read(&slots, 1).unwrap(),
+            second
+        );
+        assert_eq!(std::fs::read_dir(&slots).unwrap().count(), 2);
+
+        let mut fresh = Host::default();
+        call(
+            &mut fresh,
+            serde_json::json!({"op":"open","bundle":bundle,"saves":root}),
+        );
+        // Enter gameplay normally before requesting the original Load page.
+        for tick in 0..8500 {
+            if tick == 500 {
+                fresh.game.as_mut().unwrap().input("start").unwrap();
+            }
+            fresh.game.as_mut().unwrap().advance(1).unwrap();
+        }
+        open(&mut fresh, "load");
+        accept(&mut fresh, "Saved game loaded.");
+        assert!(
+            fresh.game.as_ref().unwrap().save().unwrap() == record.session,
+            "original-menu load did not restore the overwritten slot exactly"
+        );
+        println!(
+            "original menu: two slots, overwrite ID 0, preserve ID 1, cancel without writes, fresh-host exact load passed"
+        );
+        std::fs::remove_dir_all(root).unwrap();
+    }
 }

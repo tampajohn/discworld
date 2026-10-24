@@ -183,6 +183,13 @@ save, software-key correction and relaunch/load sequence passed in the simulator
 the stored name and file checksum were independently inspected. See
 [menu evidence](validation/ipad-native-menu.json). Save import/export and physical
 keyboard/device acceptance remain open.
+A headless native-bridge test additionally creates two named saves through the
+original menu, overwrites the older row while retaining its stable ID and the
+other slot's exact bytes, cancels an edited new row without writing, and loads
+the replacement through a newly constructed host's original Load page. The
+loaded engine/DSP session bytes match exactly. See
+[overwrite evidence](validation/ipad-menu-overwrite.json). This closes the bridge
+persistence check, not the outstanding UIKit touch overwrite acceptance.
 
 ## Verified foundation
 
