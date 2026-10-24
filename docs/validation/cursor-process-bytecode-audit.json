@@ -1,0 +1,14 @@
+{
+  "scope": "Linear decoding of complete bytecode chunk spans, including padding and unreachable code. Does not prove reachability, argument values, or library implementation coverage. Stops each span at its first decode error; never resynchronizes.",
+  "indexed_resources": 149,
+  "bytecode_bytes": 382876,
+  "instructions": 175839,
+  "iso_sha256": "5354f74582375b1f6350e33b4dfd5df6b2bcd79a30f471a9307e017235570e05",
+  "errors": [],
+  "engine_revision": "7c1921e",
+  "report": "assets/validation/cursor-process-bytecode-audit.json",
+  "report_sha256": "54f0086d4d41a73c3c0773e656b5e3f93d175e5bda99a033c58592219e5b7dac",
+  "resources_with_bytecode": 149,
+  "unique_library_ids": 102,
+  "library_call_sites": 32113
+}

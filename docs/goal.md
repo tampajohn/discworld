@@ -24,6 +24,44 @@ and touch-only playthrough evidence. Its current status is not executed.
 
 ## Latest validation follow-up
 
+The shared runtime at `7c1921e` now preserves the displayed cursor position and
+hidden-wait coroutine phase in version-27 snapshots. This fixes the one-frame
+hotspot mismatch after speech-muted LOOK while retaining the reference scene
+restart timing. Across dialogue, door/scene entry, inventory, walking and
+retargeting probes, 1,368 full RGB frames match the pinned reference at the same
+cycles. These are controlled captures, not complete gameplay equivalence. See
+[cursor runtime evidence](validation/cursor-process-runtime.json) and
+[broader checks](validation/cursor-process-followup.json).
+
+Workspace and all25 original-asset tests pass; native and WASM builds and Clippy
+pass. Browser validation has49 passing cases across the main run and two drag
+rechecks, plus4 Node tests and one existing WebKit multitouch skip. The rechecks
+update the expected outer save version while retaining the older mover and drag
+payload assertions. New27 saves cannot be loaded by older binaries; legacy saves
+remain readable under the documented [migration policy](save-state.md).
+
+Full native, Chrome and WebKit replays of `7c1921e` failed at tick2,569,725:
+the dragcage polygon10 walk interaction was rejected after4,153 accepted inputs.
+Artifacts are under `assets/validation/cursor-process-7c1921e`. This is an
+unresolved regression; do not deploy this runtime as fully validated.
+The last completed cross-host route is the cursor-restoration engine `8ac0135`:
+all4,209 inputs accepted through ending/restart, exact final engine bytes and
+pixels, and7,615 engine plus7,615 DSP continuation checks in native. See
+[completed route evidence](validation/control-cursor-full-route.json).
+
+Native iPad build22 is staged with the ISO, SoundFont, original-font controls,
+Files save transfer and settings recovery. Three headless iPad host tests pass,
+and the simulator app signature/resources verify. It has not been installed over
+the user's session. Physical iPad acceptance, complete touch-only play, current
+visible native acceptance, voiced-completion timing, broader alternate paths and
+cross-platform audio fidelity remain open. The complete objective is not achieved.
+
+## Earlier validation follow-ups
+
+The notes below preserve earlier observations and in-progress runs. Their revision
+numbers and linked evidence define their scope; later results above supersede
+statements about what is currently pending.
+
 A new headless speech-muted LOOK comparison matches the pinned reference in all
 81 full RGB frames through subtitle completion and cursor restoration at cycle
 1337. No speech PCM is emitted. From frame 82 the reference backend pointer is
@@ -124,7 +162,7 @@ Initial scope is this exact ISO and Apple Silicon. Other releases, Intel Macs, a
 
 Keep the user's visible native session current with newly verified engine builds and replay milestones. After validation, reconstruct the latest useful watch segment, verify its window is advancing, then close the superseded instance. Preserve the user's playback speed and mute settings, and honor deliberate manual pauses. An automatic recorded-route endpoint pause may be replaced with the newly verified segment. Report preparation time and the new checkpoint; do not present unverified routes as working. This is ongoing user authorization to update the visible session without asking each time.
 
-## Current progress (2026-10-23)
+## Detailed validation history (2026-10-23)
 
 Earlier engine milestone `10b3a2c` schedules movers at their original process insertion
 positions and preserves that order in version 26 saves. Together with hidden
