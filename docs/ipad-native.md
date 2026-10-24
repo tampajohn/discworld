@@ -129,7 +129,13 @@ Quick saves now use the same bounded atomic-file helper as the desktop host,
 including file synchronization, unique temporary names and cleanup on failure.
 An isolated macOS headless bridge test passed with the private bundled assets:
 exact session/frame restoration, truncated and oversized file rejection without
-changing the session, and failed-write cleanup. This is host persistence work;
+changing the session, and failed-write cleanup. A fresh host also restores the
+same checkpoint; after the failed I/O attempts, 240 continuation ticks match
+exactly in frames, combined engine/DSP bytes and all 441,000 PCM sample bit
+patterns (all nonzero). This is one checkpoint in a headless macOS process,
+not a UIKit relaunch or a physical-device audio check. See
+[fresh-host continuity evidence](validation/ipad-quick-continuity.json).
+This is host persistence work;
 the shared engine and original game scripts are unchanged. See
 [staged control evidence](validation/ipad-staged-controls.json).
 

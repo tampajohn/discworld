@@ -1,0 +1,22 @@
+{
+  "test": "quick_save_reload_and_invalid_files_preserve_session",
+  "host": "macOS headless discworld-ipad Host; no UIKit or simulator input",
+  "log": "assets/logs/ipad-fresh-host-continuity.log",
+  "result": "passed",
+  "checkpoint_tick": 8500,
+  "continuation_ticks": 240,
+  "pcm_scalar_samples": 441000,
+  "nonzero_pcm_scalar_samples": 441000,
+  "comparisons": [
+    "Fresh host restores exact saved session bytes and framebuffer.",
+    "Truncated and oversized quick-save loads leave live session bytes unchanged.",
+    "Failed atomic publication leaves no temporary file and keeps live session unchanged.",
+    "After failed I/O, 240 successive frames, float PCM bit patterns and combined engine/DSP session bytes equal the freshly loaded baseline."
+  ],
+  "limitations": [
+    "Fresh Host construction in the same process, not an OS process relaunch.",
+    "One bedroom checkpoint; not all acts or audio contexts.",
+    "Does not establish physical-device audio quality or UIKit gesture behavior."
+  ],
+  "installed_app_changed": false
+}

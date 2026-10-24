@@ -293,6 +293,18 @@ mod tests {
         );
         assert_eq!(host.frame, frame);
 
+        // A newly constructed host must restore both engine and synthesizer state.
+        // Keep it as an untouched baseline through the failed I/O attempts below.
+        let mut fresh = Host::default();
+        call(
+            &mut fresh,
+            serde_json::json!({"op":"open", "bundle":bundle, "saves":root}),
+        )
+        .unwrap();
+        call(&mut fresh, serde_json::json!({"op":"load"})).unwrap();
+        assert!(fresh.game.as_ref().unwrap().save().unwrap() == saved);
+        assert_eq!(fresh.frame, frame);
+
         let path = root.join("quick.dws");
         std::fs::write(&path, b"truncated").unwrap();
         assert!(call(&mut host, serde_json::json!({"op":"load"})).is_err());
@@ -323,6 +335,38 @@ mod tests {
             "session bytes changed"
         );
         assert_eq!(std::fs::read_dir(&root).unwrap().count(), 1);
+        let mut samples = 0;
+        let mut nonzero = 0;
+        for tick in 0..240 {
+            call(&mut host, serde_json::json!({"op":"advance"})).unwrap();
+            call(&mut fresh, serde_json::json!({"op":"advance"})).unwrap();
+            assert!(
+                host.frame == fresh.frame,
+                "frame diverged at continuation tick {tick}"
+            );
+            assert_eq!(host.audio.len(), fresh.audio.len());
+            assert!(
+                host.audio
+                    .iter()
+                    .zip(&fresh.audio)
+                    .all(|(a, b)| a.to_bits() == b.to_bits()),
+                "PCM diverged at continuation tick {tick}"
+            );
+            assert!(
+                host.game.as_ref().unwrap().save().unwrap()
+                    == fresh.game.as_ref().unwrap().save().unwrap(),
+                "session diverged at continuation tick {tick}"
+            );
+            samples += host.audio.len();
+            nonzero += host.audio.iter().filter(|value| **value != 0.0).count();
+        }
+        assert!(
+            samples > 0 && nonzero > 0,
+            "audio comparison must include non-silent output"
+        );
+        println!(
+            "fresh-host continuation: 240 ticks, {samples} PCM samples, {nonzero} nonzero samples; exact frames, PCM bits and session bytes"
+        );
         std::fs::remove_dir_all(root).unwrap();
     }
 }
