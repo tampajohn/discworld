@@ -451,7 +451,7 @@ final class DiscworldLayoutTests: XCTestCase {
             }
             let changed = expectation(for: predicate, evaluatedWith: app)
             wait(for: [changed], timeout: 15)
-            for title in ["Start", "Continue", "Pockets", "Close", "Escape", "Save", "Load", "Sound off", "Resume"] {
+            for title in ["Start", "Continue", "Pockets", "Close", "Escape", "Menu", "Files", "Walk", "Action", "Look", "Save", "Load", "Sound off", "Resume"] {
                 XCTAssertTrue(app.buttons[title].isHittable, "\(title), orientation \(orientation.rawValue)")
                 XCTAssertTrue(app.windows.firstMatch.frame.contains(app.buttons[title].frame), "Clipped \(title)")
             }

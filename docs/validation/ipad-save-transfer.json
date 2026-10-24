@@ -1,0 +1,18 @@
+{
+  "installed_app": "assets/apps/Discworld-iPad-18.app",
+  "staged_app": "assets/apps/Discworld-iPad-20.app",
+  "installed_app_changed": false,
+  "build_log": "assets/logs/ipad-build20.log",
+  "test_log": "assets/logs/ipad-transfer2.log",
+  "clippy_log": "assets/logs/ipad-transfer-clippy.log",
+  "scope": "Native save transfer bridge and compiled UIKit document picker; no interactive Files test yet",
+  "ui_acceptance": "pending",
+  "transfer_format": "raw combined engine/DSP .dws session, shared with desktop/browser",
+  "checks": [
+    "Export exact current session bytes.",
+    "Import restores session and frame.",
+    "Different existing quick save remains byte-identical.",
+    "Invalid external file leaves live session unchanged.",
+    "240 continuation ticks match exact frames, state and PCM."
+  ]
+}

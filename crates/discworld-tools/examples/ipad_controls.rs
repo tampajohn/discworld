@@ -50,6 +50,7 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
     let base = engine.render(&resources)?;
     std::fs::create_dir_all(&output)?;
     let labels = [
+        "Files",
         "Start",
         "Continue",
         "Pockets",

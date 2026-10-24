@@ -2,6 +2,7 @@ import UIKit
 import AVFoundation
 import CryptoKit
 import GameController
+import UniformTypeIdentifiers
 
 @main
 final class AppDelegate: UIResponder, UIApplicationDelegate {
@@ -58,7 +59,7 @@ final class InventoryPan: UIPanGestureRecognizer {
     }
 }
 
-final class GameController: UIViewController, UIKeyInput {
+final class GameController: UIViewController, UIKeyInput, UIDocumentPickerDelegate {
     let picture = UIImageView()
     let status = UILabel()
     let audioEngine = AVAudioEngine()
@@ -83,6 +84,8 @@ final class GameController: UIViewController, UIKeyInput {
     var snapshot: [String: Any] = [:]
     var keyboardFrame: [Double] = []
     var keyboardChanges = 0
+    var importingSave = false
+    var exportedSaveDirectory: URL?
     var completedAudioBuffers = 0
     let pauseButton = GameButton(type: .custom)
 
@@ -175,6 +178,7 @@ final class GameController: UIViewController, UIKeyInput {
             self.pauseButton.setTitle("Pause", for: .normal)
             self.send(["op": "menu", "page": "main"])
         })
+        row.addArrangedSubview(button("Files") { [weak self] in self?.showSaveFiles() })
         let tools = UIStackView()
         tools.axis = .horizontal
         tools.spacing = 8
@@ -253,6 +257,68 @@ final class GameController: UIViewController, UIKeyInput {
         snapshot = result
         snapshot["last_operation"] = request["op"]
         return result
+    }
+    func showSaveFiles() {
+        guard ready, presentedViewController == nil else { return }
+        guard snapshot["menu"] as? Bool != true else {
+            status.text = "Close the game menu before transferring saves."
+            return
+        }
+        releaseDrag()
+        paused = true
+        resetAudio()
+        pauseButton.setTitle("Resume", for: .normal)
+        resignFirstResponder()
+        render()
+        let sheet = UIAlertController(title: "Save files", message: nil, preferredStyle: .actionSheet)
+        sheet.addAction(UIAlertAction(title: "Export current game", style: .default) { [weak self] _ in self?.exportSave() })
+        sheet.addAction(UIAlertAction(title: "Import saved game", style: .default) { [weak self] _ in self?.importSave() })
+        sheet.addAction(UIAlertAction(title: "Cancel", style: .cancel))
+        sheet.popoverPresentationController?.sourceView = view
+        sheet.popoverPresentationController?.sourceRect = CGRect(x: view.bounds.midX, y: view.bounds.maxY - 60, width: 1, height: 1)
+        present(sheet, animated: true)
+    }
+    func exportSave() {
+        do {
+            let directory = FileManager.default.temporaryDirectory.appendingPathComponent("discworld-export-" + UUID().uuidString)
+            try FileManager.default.createDirectory(at: directory, withIntermediateDirectories: true)
+            exportedSaveDirectory = directory
+            let file = directory.appendingPathComponent("Discworld.dws")
+            _ = try call(["op": "export", "path": file.path])
+            importingSave = false
+            let picker = UIDocumentPickerViewController(forExporting: [file], asCopy: true)
+            picker.delegate = self
+            present(picker, animated: true)
+        } catch { cleanupExport(); status.text = "Export failed: \(error.localizedDescription)" }
+    }
+    func importSave() {
+        importingSave = true
+        let picker = UIDocumentPickerViewController(forOpeningContentTypes: [.data], asCopy: true)
+        picker.allowsMultipleSelection = false
+        picker.delegate = self
+        present(picker, animated: true)
+    }
+    func cleanupExport() {
+        if let directory = exportedSaveDirectory { try? FileManager.default.removeItem(at: directory) }
+        exportedSaveDirectory = nil
+    }
+    func documentPicker(_ controller: UIDocumentPickerViewController, didPickDocumentsAt urls: [URL]) {
+        defer { cleanupExport() }
+        if importingSave {
+            guard let file = urls.first else { return }
+            let scoped = file.startAccessingSecurityScopedResource()
+            defer { if scoped { file.stopAccessingSecurityScopedResource() } }
+            do {
+                resetAudio()
+                _ = try call(["op": "import", "path": file.path])
+                render()
+                status.text = "Imported game loaded. Save to keep it on this device; Resume to play."
+            } catch { status.text = "Import failed: \(error.localizedDescription)" }
+        } else { status.text = "Save exported. Tap Resume to play." }
+    }
+    func documentPickerWasCancelled(_ controller: UIDocumentPickerViewController) {
+        cleanupExport()
+        status.text = "Transfer cancelled. Tap Resume to play."
     }
     func failure(_ message: String) -> NSError { NSError(domain: "Discworld", code: 1, userInfo: [NSLocalizedDescriptionKey: message]) }
     func openGame() {

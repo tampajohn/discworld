@@ -139,6 +139,30 @@ This is host persistence work;
 the shared engine and original game scripts are unchanged. See
 [staged control evidence](validation/ipad-staged-controls.json).
 
+## Staged Files transfer
+
+`assets/apps/Discworld-iPad-20.app` builds and signs successfully but is not
+installed over the player's build 18. Its original-font **Files** control pauses
+play and offers export/import through Apple's native document picker. Export
+writes the current combined engine/DSP session to a temporary `Discworld.dws`
+and asks Files to copy it to the chosen location. Import copies a selected file,
+performs a bounded read and full session validation before replacing live state.
+It does not overwrite quick saves or named slots. After importing, use Save to
+keep that state on the device. Dialog completion/cancellation leaves gameplay
+paused until Resume. Close an original game menu before transferring files.
+
+The headless test verifies exact export bytes, restoration from an external
+file, preservation of a different existing quick save, and unchanged live state
+after an invalid import. The restored host then matches 240 frames, combined
+state snapshots and 441,000 PCM samples against its baseline. See
+[transfer evidence](validation/ipad-save-transfer.json). Native document-provider
+interaction, cancellation, layout and physical-device transfer still require UI
+acceptance; compilation is not evidence that those flows work end to end.
+
+The picker uses Apple's
+[copy-based export/import API](https://developer.apple.com/documentation/uikit/uidocumentpickerviewcontroller/init%28forexporting%3Aascopy%3A%29).
+Generated Files artwork remains private with the other extracted control assets.
+
 ## Original sound controls
 
 Native pans now reach configuration menus as well as inventory windows, while

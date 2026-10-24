@@ -97,6 +97,21 @@ impl Host {
                     )
                     .map_err(|e| e.to_string())?;
                 }
+                "export" => {
+                    discworld_tools::save_file::write_atomic(
+                        std::path::Path::new(text("path")?),
+                        &game.save()?,
+                    )
+                    .map_err(|e| e.to_string())?;
+                }
+                "import" => {
+                    let bytes =
+                        discworld_tools::save_file::read(std::path::Path::new(text("path")?))
+                            .map_err(|e| e.to_string())?;
+                    // Decoder validates the complete engine/DSP session before replacing it.
+                    // Import does not overwrite quick saves or named slots.
+                    game.load_game(&bytes)?;
+                }
                 "load" => {
                     let bytes =
                         discworld_tools::save_file::read(&self.save_directory.join("quick.dws"))
@@ -304,6 +319,45 @@ mod tests {
         call(&mut fresh, serde_json::json!({"op":"load"})).unwrap();
         assert!(fresh.game.as_ref().unwrap().save().unwrap() == saved);
         assert_eq!(fresh.frame, frame);
+        let transfer = root.with_extension("dws");
+        call(
+            &mut host,
+            serde_json::json!({"op":"export", "path":transfer}),
+        )
+        .unwrap();
+        assert!(
+            std::fs::read(&transfer).unwrap() == saved,
+            "export changed session bytes"
+        );
+        assert!(host.game.as_ref().unwrap().save().unwrap() == saved);
+        call(&mut fresh, serde_json::json!({"op":"advance"})).unwrap();
+        call(&mut fresh, serde_json::json!({"op":"save"})).unwrap();
+        let quick_before = std::fs::read(root.join("quick.dws")).unwrap();
+        assert!(
+            quick_before != saved,
+            "quick save must differ from imported snapshot"
+        );
+        call(
+            &mut fresh,
+            serde_json::json!({"op":"import", "path":transfer}),
+        )
+        .unwrap();
+        assert!(fresh.game.as_ref().unwrap().save().unwrap() == saved);
+        assert_eq!(fresh.frame, frame);
+        assert!(
+            std::fs::read(root.join("quick.dws")).unwrap() == quick_before,
+            "import must not overwrite the device quick save"
+        );
+        std::fs::write(&transfer, b"invalid external save").unwrap();
+        assert!(
+            call(
+                &mut fresh,
+                serde_json::json!({"op":"import", "path":transfer})
+            )
+            .is_err()
+        );
+        assert!(fresh.game.as_ref().unwrap().save().unwrap() == saved);
+        std::fs::remove_file(&transfer).unwrap();
 
         let path = root.join("quick.dws");
         std::fs::write(&path, b"truncated").unwrap();
