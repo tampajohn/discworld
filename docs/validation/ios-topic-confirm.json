@@ -1,0 +1,37 @@
+{
+  "date": "2026-10-23",
+  "runtime": "Physical build retains validated8ac0135 core from23ebe72 with native touch-host changes. Core game scripts and mouse semantics unchanged.",
+  "changes": [
+    "Single/double native touch gestures route visible conversation topics to selection, independent of world verb",
+    "Menu single touch uses normal selection",
+    "Empty-handed outside inventory Walk closes and walks; held items and active drags protected",
+    "Aligned phone side-control rows",
+    "Original-font quick Save/Load confirmations; cancel preserves game and pause state"
+  ],
+  "tests": {
+    "conversation_before": "FAIL reproduced: visible mouth327 remained unselected (SCANICON -2) after walk-mode tap",
+    "conversation_after_main": "PASS for walk/action/look, selected icon327 and advanced original script without fault",
+    "conversation_after_phone_runtime": "PASS same test on actual deployed runtime source",
+    "outside_walk_main_and_phone_runtime": "PASS reaches chosen floor position; held item and active drag keep inventory open",
+    "iphone_ui": "3/3 pass: Action-mode single-tap pouch pickup, held drag into inventory, confirmed save/load and retrieval; outside-tap walking with inventory drag protection; Save/Load cancel preserves tick/frame/paused state",
+    "menu_ui": "Prior focused named save/load test passed with Action selected",
+    "clippy": "PASS web/ipad/tools all targets native-inspection -D warnings",
+    "device": "Signed build succeeded; strict codesign passed; original-font Cancel and both prompt assets verified. Two wireless installs failed establishing the device tunnel (network timeout); awaiting phone connectivity. Not yet deployed."
+  },
+  "artifacts": [
+    "assets/validation/native-topic-tap1",
+    "assets/logs/native-topic-tap-before.log",
+    "assets/logs/native-topic-tap-after.log",
+    "assets/logs/iphone-stable-topic-tap-test.log",
+    "assets/logs/native-outside-walk-test.log",
+    "assets/logs/iphone-stable-outside-walk-test.log",
+    "assets/validation/iphone-outside-menu-tests/results.xcresult",
+    "assets/validation/iphone-topic-confirm1-tests/results.xcresult",
+    "assets/validation/iphone-topic-confirm1"
+  ],
+  "binary_sha256": "d0a0d7f28be54e0e6819deadda98ea6f9bfc336e8eac999b5f56860b70c6a5b7",
+  "limitations": [
+    "Physical device interaction feedback still required",
+    "These are focused native host checks, not a full touch-only playthrough"
+  ]
+}

@@ -217,11 +217,12 @@ final class GameController: UIViewController, UIKeyInput, UIDocumentPickerDelega
         tools.spacing = 8
         tools.distribution = .fillProportionally
         tools.addArrangedSubview(modes)
-        tools.addArrangedSubview(button("Save") { [weak self] in self?.send(["op": "save"]) })
+        let saveButton = button("Save") { [weak self] in self?.confirmSaveLoad("save") }
+        tools.addArrangedSubview(saveButton)
         loadButton.setTitle("Load", for: .normal)
         loadButton.isEnabled = false
         loadButton.addAction(UIAction { [weak self] _ in
-            self?.releaseDrag(); self?.resetAudio(); self?.send(["op": "load"])
+            self?.confirmSaveLoad("load")
         }, for: .touchUpInside)
         tools.addArrangedSubview(loadButton)
         let mute = GameButton(type: .custom)
@@ -262,6 +263,13 @@ final class GameController: UIViewController, UIKeyInput, UIDocumentPickerDelega
                 mode.removeFromSuperview()
                 tools.insertArrangedSubview(mode, at: index)
             }
+            for control in [saveButton, loadButton] {
+                tools.removeArrangedSubview(control)
+                control.removeFromSuperview()
+                row.addArrangedSubview(control)
+            }
+            // Match the six navigation rows; separate scene verbs from sound/pause.
+            tools.insertArrangedSubview(UIView(), at: 3)
             let gameRow = UIStackView(arrangedSubviews: [row, picture, tools])
             gameRow.axis = .horizontal
             gameRow.spacing = 6
@@ -329,6 +337,67 @@ final class GameController: UIViewController, UIKeyInput, UIDocumentPickerDelega
         snapshot["last_operation"] = request["op"]
         return result
     }
+    func confirmSaveLoad(_ operation: String) {
+        guard ready, presentedViewController == nil,
+              operation != "load" || loadButton.isEnabled else { return }
+        releaseDrag()
+        let wasPaused = paused
+        paused = true
+        resetAudio()
+        pauseButton.setTitle("Resume", for: .normal)
+        render()
+        let sheet = UIViewController()
+        sheet.modalPresentationStyle = .overFullScreen
+        sheet.view.backgroundColor = UIColor.black.withAlphaComponent(0.72)
+        let prompt = UIImageView(image: UIImage(contentsOfFile:
+            Bundle.main.bundleURL.appendingPathComponent("Controls/confirm-\(operation).png").path))
+        prompt.contentMode = .scaleAspectFit
+        prompt.layer.magnificationFilter = .nearest
+        prompt.isAccessibilityElement = true
+        prompt.accessibilityLabel = operation == "save" ? "Save current game? This replaces your quick save." : "Load saved game? Unsaved progress will be replaced."
+        let choices = UIStackView()
+        choices.axis = .horizontal
+        choices.spacing = 12
+        choices.distribution = .fillEqually
+        let finish: (Bool) -> Void = { [weak self, weak sheet] confirmed in
+            guard let sheet else { return }
+            sheet.dismiss(animated: true) { [weak self] in
+                guard let self else { return }
+                do {
+                    if confirmed { try self.handle(self.call(["op": operation])) }
+                    self.paused = wasPaused
+                    self.previous = 0
+                    self.accumulator = 0
+                    self.pauseButton.setTitle(wasPaused ? "Resume" : "Pause", for: .normal)
+                    self.render()
+                } catch {
+                    self.paused = true
+                    self.pauseButton.setTitle("Resume", for: .normal)
+                    self.status.text = error.localizedDescription
+                }
+            }
+        }
+        let cancel = button("Cancel") { finish(false) }
+        cancel.accessibilityIdentifier = "cancel-save-load"
+        let confirm = button(operation == "save" ? "Save" : "Load") { finish(true) }
+        confirm.accessibilityIdentifier = "confirm-\(operation)"
+        choices.addArrangedSubview(cancel)
+        choices.addArrangedSubview(confirm)
+        let panel = UIStackView(arrangedSubviews: [prompt, choices])
+        panel.axis = .vertical
+        panel.spacing = 12
+        panel.translatesAutoresizingMaskIntoConstraints = false
+        sheet.view.addSubview(panel)
+        NSLayoutConstraint.activate([
+            panel.centerXAnchor.constraint(equalTo: sheet.view.centerXAnchor),
+            panel.centerYAnchor.constraint(equalTo: sheet.view.centerYAnchor),
+            panel.widthAnchor.constraint(equalToConstant: 300),
+            prompt.heightAnchor.constraint(equalToConstant: 72),
+            choices.heightAnchor.constraint(equalToConstant: 52)
+        ])
+        present(sheet, animated: true)
+    }
+
     func showSaveFiles() {
         guard ready, presentedViewController == nil else { return }
         guard snapshot["menu"] as? Bool != true else {
@@ -493,7 +562,7 @@ final class GameController: UIViewController, UIKeyInput, UIDocumentPickerDelega
     }
     @objc func doubleTap(_ gesture: UITapGestureRecognizer) {
         guard (!paused || snapshot["menu"] as? Bool == true), let point = gamePoint(gesture.location(in: picture)) else { return }
-        send(["op": "input", "command": "action", "x": point[0], "y": point[1]])
+        send(["op": "touch-input", "command": "action", "x": point[0], "y": point[1]])
     }
     func releaseDrag() {
         guard dragging else { return }

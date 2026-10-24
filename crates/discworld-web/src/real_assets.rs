@@ -2716,3 +2716,61 @@ fn native_touch_drop_accepts_gaps_without_magnetizing_empty_hand() {
         game.load(&read("DISCWORLD_TEST_SAVE")).unwrap();
     }
 }
+
+#[cfg(feature = "native-inspection")]
+#[test]
+#[ignore = "requires DISCWORLD_TEST_ISO, DISCWORLD_TEST_SOUNDFONT and DISCWORLD_TEST_SAVE"]
+fn native_outside_walk_closes_inventory_but_protects_held_items_and_drags() {
+    let read = |name| std::fs::read(std::env::var_os(name).expect(name)).unwrap();
+    let mut game = BrowserGame::new(read("DISCWORLD_TEST_ISO"), read("DISCWORLD_TEST_SOUNDFONT")).unwrap();
+    let initial = read("DISCWORLD_TEST_SAVE");
+    game.load(&initial).unwrap();
+    let destination = [160, 185];
+    assert!(!game.engine.inventory_contains_point(destination));
+    game.native_touch_input("walk", destination[0], destination[1]).unwrap();
+    assert_eq!(game.engine.active_inventory(), None);
+    for _ in 0..10 { game.advance(24).unwrap(); }
+    let lead = game.engine.declarations.lead.as_ref().unwrap().id;
+    assert_eq!(game.engine.movers[&lead].placement.position, destination);
+
+    game.load(&initial).unwrap();
+    let cell = game.engine.inventory_cell_position(0).unwrap();
+    game.native_touch_input("walk", cell[0], cell[1]).unwrap();
+    game.advance(24).unwrap();
+    let held = game.engine.held_object;
+    assert_ne!(held, -1);
+    game.native_touch_input("walk", destination[0], destination[1]).unwrap();
+    assert_eq!(game.engine.active_inventory(), Some(1));
+    assert_eq!(game.engine.held_object, held);
+
+    game.load(&initial).unwrap();
+    let position = game.engine.declarations.windows[1].as_ref().unwrap().position;
+    game.move_pointer_checked(position[0] + 30, position[1] + 8).unwrap();
+    game.input("left-down").unwrap();
+    assert!(game.engine.inventory_dragging());
+    game.native_touch_input("walk", destination[0], destination[1]).unwrap();
+    assert_eq!(game.engine.active_inventory(), Some(1));
+    game.input("left-up").unwrap();
+}
+
+#[cfg(feature = "native-inspection")]
+#[test]
+#[ignore = "requires DISCWORLD_TEST_ISO, DISCWORLD_TEST_SOUNDFONT and DISCWORLD_TEST_CONVERSATION_SAVE"]
+fn native_topic_taps_select_conversation_icons_in_every_action_mode() {
+    let read = |name| std::fs::read(std::env::var_os(name).expect(name)).unwrap();
+    let mut game = BrowserGame::new(read("DISCWORLD_TEST_ISO"), read("DISCWORLD_TEST_SOUNDFONT")).unwrap();
+    let initial = read("DISCWORLD_TEST_CONVERSATION_SAVE");
+    for command in ["walk", "action", "look"] {
+        game.load(&initial).unwrap();
+        assert!(game.engine.conversation.polygon.is_some());
+        assert!(!game.engine.conversation.hidden);
+        let expected = game.engine.declarations.windows[0].as_ref().unwrap().contents[0];
+        let point = game.engine.inventory_cell_position(0).unwrap();
+        assert_eq!(game.engine.conversation_topic_at(point), Some(0));
+        assert_ne!(game.engine.conversation.icon, expected);
+        game.native_touch_input(command, point[0], point[1]).unwrap();
+        assert_eq!(game.engine.conversation.icon, expected, "single topic tap in {command} mode");
+        game.advance(24).unwrap();
+        assert!(game.fault.is_none());
+    }
+}

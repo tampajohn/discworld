@@ -360,3 +360,17 @@ fall back to system-font button text. These are new host controls assembled from
 game assets, not claims that the original game had these toolbar buttons.
 
 The native toolbar omits Start, Continue and Close. Escape is the dismissal control. The iPhone canvas walking/inventory test passes using Escape to close the inventory (`assets/validation/iphone-controls-trim1-tests/results.xcresult`).
+
+Empty-handed Walk taps outside an ordinary inventory now close it and dispatch
+movement to that point. Held objects, active drags, disabled control and game
+menus are excluded. Conversation/action-window topic taps (including the mouth
+icon) now route to conversation selection in every touch mode. Before this fix,
+direct touch gestures fell through to world interaction and were rejected while
+the raw mouse-edge path used by pans could select a topic. Menu single taps also
+select normally regardless of the selected world verb.
+
+Phone controls use matching six-row columns: navigation and saves on the left,
+world verbs above sound/pause on the right. Save and Load open original-font
+confirmation panels. Cancel preserves the current game and previous pause state;
+only confirmation performs quick-save overwrite or quick-load. See
+[validation evidence](validation/ios-topic-confirm.json).

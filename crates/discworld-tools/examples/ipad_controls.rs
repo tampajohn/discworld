@@ -50,6 +50,7 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
     let base = engine.render(&resources)?;
     std::fs::create_dir_all(&output)?;
     let labels = [
+        "Cancel",
         "Files",
         "Start",
         "Continue",
@@ -86,6 +87,22 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
             encoder.set_depth(png::BitDepth::Eight);
             encoder.write_header()?.write_image_data(&pixels)?;
         }
+    }
+    for (operation, lines) in [
+        ("save", ["Save current game?", "This replaces your quick save."]),
+        ("load", ["Load saved game?", "Unsaved progress will be replaced."]),
+    ] {
+        let mut surface = base.clone();
+        surface.draw_palette_rect([0, 0, 260, 44], 228)?;
+        for (row, text) in lines.iter().enumerate() {
+            font.centered(&resources, text.as_bytes(), [130, 8 + row as i32 * 16])?.draw(&resources, &mut surface)?;
+        }
+        let pixels: Vec<_> = surface.rgba.chunks_exact(320 * 4).take(44).flat_map(|row| row[..260 * 4].iter().copied()).collect();
+        let file = std::fs::File::create(output.join(format!("confirm-{operation}.png")))?;
+        let mut encoder = png::Encoder::new(file, 260, 44);
+        encoder.set_color(png::ColorType::Rgba);
+        encoder.set_depth(png::BitDepth::Eight);
+        encoder.write_header()?.write_image_data(&pixels)?;
     }
     // Inventory films are original, compact artwork suitable for touch controls.
     engine.user_event()?;

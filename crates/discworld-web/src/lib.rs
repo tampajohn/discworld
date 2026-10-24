@@ -632,7 +632,29 @@ impl BrowserGame {
     /// Touch-only tolerance for putting down a held item. Keep mouse hit tests
     /// and script behavior exact; never magnetize empty-hand or action/look clicks.
     pub fn native_touch_input(&mut self, command: &str, x: i32, y: i32) -> Result<()> {
+        // Conversation/action-window icons are selections, not world verbs.
+        // Raw mouse edges already route here; direct touch gestures must too.
+        if !self.menu_active() && self.engine.control.enabled
+            && self.engine.conversation.polygon.is_some() && !self.engine.conversation.hidden
+        {
+            self.move_pointer_checked(x, y)?;
+            self.engine.left_event().map_err(error)?;
+            return self.input("click");
+        }
+        // A single touch selects menu controls regardless of the world action mode.
+        let command = if self.menu_active() { "walk" } else { command };
         let mut point = [x, y];
+        if self.engine.inventory_dragging() { return Ok(()); }
+        // An empty-handed tap outside ordinary inventory dismisses it and then
+        // walks. Held-item transfers and window drags must retain the overlay.
+        if command == "walk" && !self.menu_active() && self.engine.held_object == -1
+            && self.engine.control.enabled
+            && matches!(self.engine.active_inventory(), Some(1 | 2))
+            && !self.engine.inventory_dragging()
+            && !self.engine.inventory_contains_point(point)
+        {
+            self.engine.close_inventory_input(&self.assets.resources()).map_err(error)?;
+        }
         if command == "walk" && !self.menu_active() && self.engine.held_object != -1
             && matches!(self.engine.active_inventory(), Some(1 | 2))
             && self.engine.inventory_contains_point(point)

@@ -12,6 +12,28 @@ final class DiscworldLayoutTests: XCTestCase {
         let predicate = NSPredicate { _, _ in condition(self.state(app)) }
         wait(for: [expectation(for: predicate, evaluatedWith: app)], timeout: 15)
     }
+    func testQuickSaveLoadConfirmationCancelPreservesPausedState() throws {
+        let app = XCUIApplication(bundleIdentifier: "org.tampajohn.discworld.dev")
+        app.launchArguments = ["--smoke-room"]
+        app.launch()
+        XCTAssertTrue(app.buttons["Resume"].waitForExistence(timeout: 40))
+        let before = state(app)
+        for label in ["Save", "Load"] {
+            app.buttons[label].tap()
+            XCTAssertTrue(app.buttons["cancel-save-load"].waitForExistence(timeout: 5))
+            let shot = XCTAttachment(screenshot: XCUIScreen.main.screenshot())
+            shot.name = "confirm-" + label.lowercased()
+            shot.lifetime = .keepAlways
+            add(shot)
+            app.buttons["cancel-save-load"].tap()
+            XCTAssertTrue(app.buttons["Resume"].waitForExistence(timeout: 5))
+            let after = state(app)
+            XCTAssertEqual(after["paused"] as? Bool, true)
+            XCTAssertEqual(after["tick"] as? Int, before["tick"] as? Int)
+            XCTAssertEqual(after["frame_sha256"] as? String, before["frame_sha256"] as? String)
+        }
+    }
+
     func testAudioPrerollAndSteadyPlayback() throws {
         let app = XCUIApplication(bundleIdentifier: "org.tampajohn.discworld.dev")
         app.launchArguments = ["--smoke-room"]
@@ -134,8 +156,14 @@ final class DiscworldLayoutTests: XCTestCase {
                 && inspection?["inventory_dragging"] as? Bool == false
         }
         let dragged = state(app)
-        // A later pointer action must not keep moving the released window.
-        coordinate(160, 185).tap()
+        // Empty-handed outside taps close the inventory and walk in one gesture.
+        coordinate(180, 185).tap()
+        waitFor(app) {
+            let inspection = $0["inspection"] as? [String: Any]
+            return inspection?["inventory"] is NSNull && inspection?["lead_position"] as? [Int] == [180, 185]
+        }
+        app.buttons["Pockets"].tap()
+        waitFor(app) { ($0["inspection"] as? [String: Any])?["inventory"] as? Int == 2 }
         XCTAssertEqual((state(app)["inspection"] as? [String: Any])?["inventory_position"] as? [Int],
                        [position[0] + 30, position[1] + 20])
         app.buttons["Pause"].tap()
@@ -199,6 +227,7 @@ final class DiscworldLayoutTests: XCTestCase {
                 dy: (size.height - 200 * scale) / 2 + (CGFloat(y) + 0.5) * scale)).tap()
         }
         let before = state(app)
+        app.buttons["Action"].tap()
         app.buttons["Menu"].tap()
         XCTAssertEqual(state(app)["menu_page"] as? String, "Main")
         tapGame(90, 59)
@@ -261,6 +290,12 @@ final class DiscworldLayoutTests: XCTestCase {
     }
 
     func testPouchPickupStorageAndRetrieval() throws {
+        try pouchPickupStorageAndRetrieval(actionMode: false)
+    }
+    func testActionModePouchPickupStorageAndRetrieval() throws {
+        try pouchPickupStorageAndRetrieval(actionMode: true)
+    }
+    func pouchPickupStorageAndRetrieval(actionMode: Bool) throws {
         let app = XCUIApplication(bundleIdentifier: "org.tampajohn.discworld.dev")
         app.launchArguments = ["--smoke-room"]
         app.launch()
@@ -269,12 +304,15 @@ final class DiscworldLayoutTests: XCTestCase {
         app.buttons["Resume"].tap()
         waitFor(app) { ($0["inspection"] as? [String: Any])?["control"] as? Bool == true }
         let canvas = app.descendants(matching: .any).matching(identifier: "game-frame").firstMatch
-        func tapGame(_ x: Int, _ y: Int, twice: Bool = false) {
+        func coordinate(_ x: Int, _ y: Int) -> XCUICoordinate {
             let size = canvas.frame.size
             let scale = min(size.width / 320, size.height / 200)
-            let point = canvas.coordinate(withNormalizedOffset: .zero).withOffset(CGVector(
+            return canvas.coordinate(withNormalizedOffset: .zero).withOffset(CGVector(
                 dx: (size.width - 320 * scale) / 2 + (CGFloat(x) + 0.5) * scale,
                 dy: (size.height - 200 * scale) / 2 + (CGFloat(y) + 0.5) * scale))
+        }
+        func tapGame(_ x: Int, _ y: Int, twice: Bool = false) {
+            let point = coordinate(x, y)
             if twice { point.doubleTap() } else { point.tap() }
         }
         func waitItem(_ condition: @escaping ([String: Any]) -> Bool) {
@@ -284,18 +322,23 @@ final class DiscworldLayoutTests: XCTestCase {
             }
             wait(for: [expectation(for: predicate, evaluatedWith: app)], timeout: 70)
         }
-        // Default Walk mode: double taps act, single taps select/store items.
-        tapGame(150, 110, twice: true) // Closed wardrobe, original polygon 8.
+        if actionMode { app.buttons["Action"].tap() }
+        // Action mode uses single taps; default Walk mode uses double taps.
+        tapGame(150, 110, twice: !actionMode) // Closed wardrobe, original polygon 8.
         waitItem { ($0["enabled_tags"] as? [Int] ?? []).contains(551) && $0["control"] as? Bool == true }
         let opened = state(app)
-        tapGame(133, 136, twice: true) // Revealed pouch, original polygon 7.
+        tapGame(133, 136, twice: !actionMode) // Revealed pouch, original polygon 7.
         waitItem { $0["held_object"] as? Int == 284 && $0["control"] as? Bool == true }
         let held = state(app)
         app.buttons["Pockets"].tap()
         waitItem { $0["inventory"] as? Int == 2 }
         let cell = try XCTUnwrap((state(app)["inspection"] as? [String: Any])?["inventory_first_cell"] as? [Int])
         app.buttons["Walk"].tap()
-        tapGame(cell[0], cell[1])
+        if actionMode {
+            coordinate(280, 180).press(forDuration: 0.1, thenDragTo: coordinate(cell[0], cell[1]))
+        } else {
+            tapGame(cell[0], cell[1])
+        }
         waitItem { $0["held_object"] as? Int == -1 && ($0["pockets"] as? [Int] ?? []).contains(284) }
         app.buttons["Pause"].tap()
         let stored = state(app)
@@ -304,12 +347,16 @@ final class DiscworldLayoutTests: XCTestCase {
         shot.lifetime = .keepAlways
         add(shot)
         app.buttons["Save"].tap()
+        XCTAssertTrue(app.buttons["confirm-save"].waitForExistence(timeout: 5))
+        app.buttons["confirm-save"].tap()
         app.buttons["Resume"].tap()
         tapGame(cell[0], cell[1])
         waitItem { $0["held_object"] as? Int == 284 }
         let retrieved = state(app)
         app.buttons["Pause"].tap()
         app.buttons["Load"].tap()
+        XCTAssertTrue(app.buttons["confirm-load"].waitForExistence(timeout: 5))
+        app.buttons["confirm-load"].tap()
         let restored = state(app)
         XCTAssertEqual((restored["inspection"] as? [String: Any])?["held_object"] as? Int, -1)
         XCTAssertEqual((restored["inspection"] as? [String: Any])?["pockets"] as? [Int], [284])
@@ -426,6 +473,8 @@ final class DiscworldLayoutTests: XCTestCase {
         app.buttons["Pause"].tap()
         let downstairs = state(app)
         app.buttons["Save"].tap()
+        XCTAssertTrue(app.buttons["confirm-save"].waitForExistence(timeout: 5))
+        app.buttons["confirm-save"].tap()
         let shot = XCTAttachment(screenshot: XCUIScreen.main.screenshot())
         shot.name = "touch-downstairs"
         shot.lifetime = .keepAlways
@@ -438,6 +487,8 @@ final class DiscworldLayoutTests: XCTestCase {
         app.buttons["Pause"].tap()
         let returned = state(app)
         app.buttons["Load"].tap()
+        XCTAssertTrue(app.buttons["confirm-load"].waitForExistence(timeout: 5))
+        app.buttons["confirm-load"].tap()
         let loaded = state(app)
         XCTAssertEqual(loaded["scene"] as? String, "unseen.scn")
         XCTAssertEqual(loaded["frame_sha256"] as? String, downstairs["frame_sha256"] as? String)
@@ -461,6 +512,8 @@ final class DiscworldLayoutTests: XCTestCase {
         XCTAssertTrue(app.buttons["Resume"].waitForExistence(timeout: 40))
         XCUIDevice.shared.orientation = .landscapeLeft
         app.buttons["Save"].tap()
+        XCTAssertTrue(app.buttons["confirm-save"].waitForExistence(timeout: 5))
+        app.buttons["confirm-save"].tap()
         let saved = state(app)
         XCTAssertEqual(saved["last_operation"] as? String, "save")
         let tick = try XCTUnwrap(saved["tick"] as? Int)
@@ -478,6 +531,8 @@ final class DiscworldLayoutTests: XCTestCase {
         app.buttons["Pause"].tap()
         XCTAssertEqual(state(app)["paused"] as? Bool, true)
         app.buttons["Load"].tap()
+        XCTAssertTrue(app.buttons["confirm-load"].waitForExistence(timeout: 5))
+        app.buttons["confirm-load"].tap()
         let loaded = state(app)
         XCTAssertEqual(loaded["last_operation"] as? String, "load")
         XCTAssertEqual(loaded["tick"] as? Int, tick)
