@@ -164,6 +164,20 @@ The picker uses Apple's
 [copy-based export/import API](https://developer.apple.com/documentation/uikit/uidocumentpickerviewcontroller/init%28forexporting%3Aascopy%3A%29).
 Generated Files artwork remains private with the other extracted control assets.
 
+## Optional settings recovery
+
+Build `assets/apps/Discworld-iPad-21.app` includes the staged Files transfer and
+recovers from unreadable optional settings. Previously a damaged settings file
+aborted startup. The host now uses defaults and reports that recovery, matching
+the desktop host's optional-preference behavior. It preserves the bad file;
+only a later explicit settings change writes new preferences. Missing settings
+remain a normal first launch, and valid preferences are applied unchanged.
+The headless test compares complete startup session bytes against the missing-file
+baseline for malformed, oversized and out-of-range cases. See
+[recovery evidence](validation/ipad-settings-recovery.json). Compilation/signing
+passed; the build has not replaced the user's build 18 session, and visual
+startup-notice acceptance remains pending.
+
 ## Original sound controls
 
 Native pans now reach configuration menus as well as inventory windows, while

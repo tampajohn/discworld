@@ -35,6 +35,7 @@ impl Host {
                 .ok_or_else(|| format!("missing {key}"))
         };
         self.audio.clear();
+        let mut notice = None;
         if text("op")? == "open" {
             if self.game.is_some() {
                 return Err("Game already open".into());
@@ -45,13 +46,15 @@ impl Host {
             let font = std::fs::read(bundle.join("music.sf2")).map_err(|e| e.to_string())?;
             let mut game = BrowserGame::new(iso, font)?;
             std::fs::create_dir_all(&save_directory).map_err(|e| e.to_string())?;
-            if let Some(settings) =
-                discworld_tools::settings_file::read(&save_directory.join("settings.json"))
-                    .map_err(|e| e.to_string())?
-            {
-                game.menu_preferences(
+            match discworld_tools::settings_file::read(&save_directory.join("settings.json")) {
+                Ok(Some(settings)) => game.menu_preferences(
                     &serde_json::to_string(&settings).map_err(|e| e.to_string())?,
-                )?;
+                )?,
+                Ok(None) => {}
+                Err(error) => {
+                    eprintln!("Ignoring unreadable iPad preferences: {error}");
+                    notice = Some("Settings could not be read; using defaults.");
+                }
             }
             refresh_catalog(&mut game, &save_directory.join("slots"))?;
             self.save_directory = save_directory;
@@ -122,7 +125,6 @@ impl Host {
             }
         }
         let game = self.game.as_mut().ok_or("Game is not open")?;
-        let mut notice = None;
         let mut reset_audio = false;
         let mut quit = false;
         while let Some(raw) = game.take_menu_request()? {
@@ -554,6 +556,66 @@ mod tests {
         );
         println!(
             "original menu: two slots, overwrite ID 0, preserve ID 1, cancel without writes, fresh-host exact load passed"
+        );
+        std::fs::remove_dir_all(root).unwrap();
+    }
+    #[test]
+    #[ignore = "requires DISCWORLD_IPAD_BUNDLE with private ISO and SoundFont"]
+    fn damaged_preferences_do_not_prevent_startup_or_modify_files() {
+        let bundle = std::env::var("DISCWORLD_IPAD_BUNDLE").expect("private bundle path");
+        let root = std::env::temp_dir().join(format!(
+            "discworld-ipad-preferences-{}-{}",
+            std::process::id(),
+            std::time::SystemTime::now()
+                .duration_since(std::time::UNIX_EPOCH)
+                .unwrap()
+                .as_nanos()
+        ));
+        std::fs::create_dir(&root).unwrap();
+        let open =
+            serde_json::to_vec(&serde_json::json!({"op":"open","bundle":bundle,"saves":root}))
+                .unwrap();
+        let mut baseline = Host {
+            request: open.clone(),
+            ..Host::default()
+        };
+        baseline.dispatch().unwrap();
+        let default_state = baseline.game.as_ref().unwrap().save().unwrap();
+        let path = root.join("settings.json");
+        for bytes in [b"{".to_vec(), vec![b' ';4097], br#"{"volumes":[999,255,255],"double_click":10,"swap_buttons":false,"text_speed":0,"subtitles":true,"flipped":false}"#.to_vec()] {
+            std::fs::write(&path, &bytes).unwrap();
+            let mut host = Host { request:open.clone(), ..Host::default() };
+            host.dispatch().unwrap();
+            let response: serde_json::Value = serde_json::from_slice(&host.response).unwrap();
+            assert_eq!(response["notice"], "Settings could not be read; using defaults.");
+            assert!(host.game.as_ref().unwrap().save().unwrap() == default_state);
+            assert_eq!(std::fs::read(&path).unwrap(), bytes);
+            assert_eq!(std::fs::read_dir(&root).unwrap().count(), 1);
+        }
+        let settings = discworld_core::menu_controller::Settings {
+            volumes: [125, 64, 0],
+            double_click: 10,
+            swap_buttons: false,
+            text_speed: 0,
+            subtitles: true,
+            flipped: false,
+        };
+        discworld_tools::settings_file::write(&path, &settings).unwrap();
+        let valid_bytes = std::fs::read(&path).unwrap();
+        let mut host = Host {
+            request: open,
+            ..Host::default()
+        };
+        host.dispatch().unwrap();
+        let response: serde_json::Value = serde_json::from_slice(&host.response).unwrap();
+        assert!(response["notice"].is_null());
+        assert_eq!(
+            response["inspection"]["settings"],
+            serde_json::to_value(settings).unwrap()
+        );
+        assert_eq!(std::fs::read(&path).unwrap(), valid_bytes);
+        println!(
+            "preference startup: missing, malformed, oversized, out-of-range, valid cases passed; existing files preserved"
         );
         std::fs::remove_dir_all(root).unwrap();
     }

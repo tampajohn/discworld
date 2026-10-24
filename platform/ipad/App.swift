@@ -326,6 +326,7 @@ final class GameController: UIViewController, UIKeyInput, UIDocumentPickerDelega
             let bundle = Bundle.main.bundleURL.appendingPathComponent("GameData.bundle")
             let saves = FileManager.default.urls(for: .documentDirectory, in: .userDomainMask)[0]
             var result = try call(["op": "open", "bundle": bundle.path, "saves": saves.path])
+            let startupNotice = result["notice"] as? String
             if ProcessInfo.processInfo.arguments.contains("--smoke-room") {
                 for tick in 0..<8500 {
                     if tick == 500 { _ = try call(["op": "input", "command": "start"]) }
@@ -349,7 +350,7 @@ final class GameController: UIViewController, UIKeyInput, UIDocumentPickerDelega
             }
             ready = true
             render()
-            status.text = ""
+            status.text = startupNotice ?? ""
             link = CADisplayLink(target: self, selector: #selector(step(_:)))
             link?.add(to: .main, forMode: .common)
         } catch { status.text = error.localizedDescription }

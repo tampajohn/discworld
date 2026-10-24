@@ -1,0 +1,19 @@
+{
+  "test": "damaged_preferences_do_not_prevent_startup_or_modify_files",
+  "result": "passed",
+  "test_log": "assets/logs/ipad-preferences-recovery.log",
+  "build_log": "assets/logs/ipad-build21.log",
+  "clippy_log": "assets/logs/ipad-preferences-clippy.log",
+  "staged_app": "assets/apps/Discworld-iPad-21.app",
+  "installed_app_changed": false,
+  "checks": [
+    "Missing optional settings permits startup.",
+    "Malformed, oversized and out-of-range settings recover to exactly the same session as missing settings.",
+    "Recovery reports a startup notice and preserves each original file.",
+    "Valid non-default settings are applied without a recovery notice or file mutation."
+  ],
+  "limitations": [
+    "Read/parse/validation handling exercised in headless host.",
+    "Startup-notice presentation compiled but not inspected in a running UIKit session."
+  ]
+}
