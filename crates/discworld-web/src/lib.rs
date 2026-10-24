@@ -642,6 +642,7 @@ impl BrowserGame {
             .and_then(|lead| self.engine.movers.get(&lead.id));
         serde_json::json!({
             "control": self.engine.control.enabled,
+            "world_origin": self.engine.world_origin,
             "cursor": self.engine.control.cursor,
             "lead_position": lead.map(|mover| mover.placement.position),
             "walk_target": lead.and_then(|mover| mover.walk_target),

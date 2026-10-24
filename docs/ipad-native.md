@@ -19,7 +19,7 @@ xcrun simctl launch booted org.tampajohn.discworld.dev
 
 The script currently builds **only for the Apple Silicon simulator**. It
 includes the staged ISO and SoundFont in one ad-hoc-signed app. The observed
-prototype is `assets/apps/Discworld-iPad-11.app`. Startup reaches the bedroom;
+prototype is `assets/apps/Discworld-iPad-12.app`. Startup reaches the bedroom;
 quick-save/load preserves pixels, and a separate app launch loads the same
 save from the application container. See [application evidence](validation/ipad-app-prototype.json).
 
@@ -38,8 +38,13 @@ A second touch sequence opens the wardrobe, picks up pouch 284, stores it in
 Pockets, retrieves it, and loads a save restoring the stored item and exact
 framebuffer. It uses screen taps and the original object scripts, with read-only
 observations for assertions. See [pouch evidence](validation/ipad-native-pouch.json).
-This covers one item; broader item use, resizing and scene transitions remain
-unverified through native touch.
+This covers one item; broader item use and resizing remain unverified through
+native touch. Another touch test opens the bedroom door, walks down the university
+stairs, saves, returns to the bedroom, reloads the stairs save and returns again.
+The loaded tick and framebuffer match the save exactly; both return walks finish
+with control restored. See [stairs evidence](validation/ipad-native-stairs.json).
+This is one stair segment, not full hallway traversal or continuous reference
+comparison of doorway animation.
 One-finger pans now use the engine's existing inventory hit regions and mouse
 press/move/release path. The native host preserves the initial touch before
 UIKit recognizes the pan and forwards its final position before releasing it.

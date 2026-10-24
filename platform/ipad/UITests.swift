@@ -138,6 +138,84 @@ final class DiscworldLayoutTests: XCTestCase {
         add(evidence)
     }
 
+    func testStairsRoundTripAndSave() throws {
+        let app = XCUIApplication(bundleIdentifier: "org.tampajohn.discworld.dev")
+        app.launchArguments = ["--smoke-room"]
+        app.launch()
+        XCTAssertTrue(app.buttons["Resume"].waitForExistence(timeout: 40))
+        XCUIDevice.shared.orientation = .landscapeLeft
+        app.buttons["Resume"].tap()
+        waitFor(app) { ($0["inspection"] as? [String: Any])?["control"] as? Bool == true }
+        let canvas = app.descendants(matching: .any).matching(identifier: "game-frame").firstMatch
+        func tapGame(_ x: Int, _ y: Int) {
+            XCTAssertTrue((0..<320).contains(x) && (0..<200).contains(y))
+            let size = canvas.frame.size
+            let scale = min(size.width / 320, size.height / 200)
+            canvas.coordinate(withNormalizedOffset: .zero).withOffset(CGVector(
+                dx: (size.width - 320 * scale) / 2 + (CGFloat(x) + 0.5) * scale,
+                dy: (size.height - 200 * scale) / 2 + (CGFloat(y) + 0.5) * scale)).tap()
+        }
+        func waitScene(_ name: String) {
+            let predicate = NSPredicate { _, _ in
+                let value = self.state(app)
+                let inspection = value["inspection"] as? [String: Any]
+                return value["scene"] as? String == name && inspection?["control"] as? Bool == true
+                    && inspection?["walk_target"] is NSNull
+            }
+            wait(for: [expectation(for: predicate, evaluatedWith: app)], timeout: 70)
+        }
+        app.segmentedControls.buttons["Action"].tap()
+        let started = try XCTUnwrap(state(app)["tick"] as? Int)
+        tapGame(55, 125)
+        waitFor(app) { ($0["tick"] as? Int ?? 0) > started + 80 && ($0["inspection"] as? [String: Any])?["control"] as? Bool == true }
+        app.segmentedControls.buttons["Walk"].tap()
+        tapGame(55, 125)
+        waitScene("unseen.scn")
+        let landing = state(app)
+        let landingPosition = try XCTUnwrap((landing["inspection"] as? [String: Any])?["lead_position"] as? [Int])
+        let landingTick = try XCTUnwrap(landing["tick"] as? Int)
+        tapGame(175, 180) // Walk along the stairs after the scripted room exit.
+        let walked = NSPredicate { _, _ in
+            let value = self.state(app)
+            let inspection = value["inspection"] as? [String: Any]
+            return value["scene"] as? String == "unseen.scn"
+                && (value["tick"] as? Int ?? 0) > landingTick + 10
+                && inspection?["lead_position"] as? [Int] != landingPosition
+                && inspection?["control"] as? Bool == true
+                && inspection?["walk_target"] is NSNull
+        }
+        wait(for: [expectation(for: walked, evaluatedWith: app)], timeout: 70)
+        app.buttons["Pause"].tap()
+        let downstairs = state(app)
+        app.buttons["Save"].tap()
+        let shot = XCTAttachment(screenshot: XCUIScreen.main.screenshot())
+        shot.name = "touch-downstairs"
+        shot.lifetime = .keepAlways
+        add(shot)
+        let origin = try XCTUnwrap((downstairs["inspection"] as? [String: Any])?["world_origin"] as? [Int])
+        app.buttons["Resume"].tap()
+        // Original university exit 48 returns to Rincewind's room.
+        tapGame(786 - origin[0], 65 - origin[1])
+        waitScene("rinceroo.scn")
+        app.buttons["Pause"].tap()
+        let returned = state(app)
+        app.buttons["Load"].tap()
+        let loaded = state(app)
+        XCTAssertEqual(loaded["scene"] as? String, "unseen.scn")
+        XCTAssertEqual(loaded["frame_sha256"] as? String, downstairs["frame_sha256"] as? String)
+        XCTAssertEqual(loaded["tick"] as? Int, downstairs["tick"] as? Int)
+        app.buttons["Resume"].tap()
+        tapGame(786 - origin[0], 65 - origin[1])
+        waitScene("rinceroo.scn")
+        app.buttons["Pause"].tap()
+        let results = try JSONSerialization.data(withJSONObject: ["landing": landing, "downstairs": downstairs,
+            "returned": returned, "loaded": loaded, "returned_after_load": state(app)], options: [.prettyPrinted, .sortedKeys])
+        let evidence = XCTAttachment(string: String(decoding: results, as: UTF8.self))
+        evidence.name = "stairs-touch-evidence"
+        evidence.lifetime = .keepAlways
+        add(evidence)
+    }
+
     func testTappedPlaybackAudioAndPersistentSave() throws {
         let app = XCUIApplication(bundleIdentifier: "org.tampajohn.discworld.dev")
         app.launchArguments = ["--smoke-room"]

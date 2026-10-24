@@ -1,0 +1,218 @@
+{
+  "simulator": "iPad Pro 11-inch (M5), iOS 26.5",
+  "result_bundle": "assets/validation/ipad-stairs2/results.xcresult",
+  "tests_passed": 5,
+  "tests_failed": 0,
+  "states": {
+    "downstairs": {
+      "audio_ready": false,
+      "completed_audio_buffers": 0,
+      "frame_sha256": "6c28fe1fa41812adbc84f1cdffe7ad28a93ee0f5553ac7ac54efde95495c1f1c",
+      "inspection": {
+        "control": true,
+        "cursor": [
+          175,
+          180
+        ],
+        "enabled_tags": [
+          8,
+          9
+        ],
+        "held_object": -1,
+        "inventory": null,
+        "inventory_dragging": false,
+        "inventory_first_cell": null,
+        "inventory_position": null,
+        "lead_position": [
+          814,
+          179
+        ],
+        "pockets": [],
+        "walk_target": null,
+        "world_origin": [
+          640,
+          0
+        ]
+      },
+      "last_operation": "advance",
+      "menu_requests": [],
+      "muted": true,
+      "paused": true,
+      "scene": "unseen.scn",
+      "tick": 8993
+    },
+    "landing": {
+      "audio_ready": false,
+      "completed_audio_buffers": 0,
+      "frame_sha256": "3451f2792a247530fa3f1587fdf879a9cb44ab1d348a5bab4132888569899d04",
+      "inspection": {
+        "control": true,
+        "cursor": [
+          55,
+          125
+        ],
+        "enabled_tags": [
+          8,
+          9
+        ],
+        "held_object": -1,
+        "inventory": null,
+        "inventory_dragging": false,
+        "inventory_first_cell": null,
+        "inventory_position": null,
+        "lead_position": [
+          800,
+          89
+        ],
+        "pockets": [],
+        "walk_target": null,
+        "world_origin": [
+          640,
+          0
+        ]
+      },
+      "last_operation": "advance",
+      "menu_requests": [],
+      "muted": true,
+      "paused": false,
+      "scene": "unseen.scn",
+      "tick": 8932
+    },
+    "loaded": {
+      "audio_ready": false,
+      "completed_audio_buffers": 0,
+      "frame_sha256": "6c28fe1fa41812adbc84f1cdffe7ad28a93ee0f5553ac7ac54efde95495c1f1c",
+      "inspection": {
+        "control": true,
+        "cursor": [
+          175,
+          180
+        ],
+        "enabled_tags": [
+          8,
+          9
+        ],
+        "held_object": -1,
+        "inventory": null,
+        "inventory_dragging": false,
+        "inventory_first_cell": null,
+        "inventory_position": null,
+        "lead_position": [
+          814,
+          179
+        ],
+        "pockets": [],
+        "walk_target": null,
+        "world_origin": [
+          640,
+          0
+        ]
+      },
+      "last_operation": "load",
+      "menu_requests": [],
+      "muted": true,
+      "paused": true,
+      "scene": "unseen.scn",
+      "tick": 8993
+    },
+    "returned": {
+      "audio_ready": false,
+      "completed_audio_buffers": 0,
+      "frame_sha256": "5cdc4e28a311556ea886ec72167351d4295db1f53ef1873ed37e551e7e28a661",
+      "inspection": {
+        "control": true,
+        "cursor": [
+          146,
+          65
+        ],
+        "enabled_tags": [
+          1,
+          2,
+          406,
+          4,
+          555
+        ],
+        "held_object": -1,
+        "inventory": null,
+        "inventory_dragging": false,
+        "inventory_first_cell": null,
+        "inventory_position": null,
+        "lead_position": [
+          98,
+          177
+        ],
+        "pockets": [],
+        "walk_target": null,
+        "world_origin": [
+          0,
+          0
+        ]
+      },
+      "last_operation": "advance",
+      "menu_requests": [],
+      "muted": true,
+      "paused": true,
+      "scene": "rinceroo.scn",
+      "tick": 9115
+    },
+    "returned_after_load": {
+      "audio_ready": false,
+      "completed_audio_buffers": 0,
+      "frame_sha256": "5cdc4e28a311556ea886ec72167351d4295db1f53ef1873ed37e551e7e28a661",
+      "inspection": {
+        "control": true,
+        "cursor": [
+          146,
+          65
+        ],
+        "enabled_tags": [
+          1,
+          2,
+          406,
+          4,
+          555
+        ],
+        "held_object": -1,
+        "inventory": null,
+        "inventory_dragging": false,
+        "inventory_first_cell": null,
+        "inventory_position": null,
+        "lead_position": [
+          98,
+          177
+        ],
+        "pockets": [],
+        "walk_target": null,
+        "world_origin": [
+          0,
+          0
+        ]
+      },
+      "last_operation": "advance",
+      "menu_requests": [],
+      "muted": true,
+      "paused": true,
+      "scene": "rinceroo.scn",
+      "tick": 9114
+    }
+  },
+  "inputs": "XCTest opens bedroom door with Action at [55,125], Walk taps the door, walks the stairs at screen [175,180], saves, returns through original exit 48 using screen coordinates, reloads, and returns again.",
+  "assertions": [
+    "Scene transition to unseen.scn finishes with control and no walk target",
+    "Lead moves from landing [800,89] to stairs [814,179] before save",
+    "Return reaches rinceroo.scn with lead [98,177] and control",
+    "Load restores exact saved tick and framebuffer on the stairs",
+    "Return after load reaches bedroom with control and no walk target",
+    "Existing inventory, rotation, audio and relaunch tests pass"
+  ],
+  "screenshot": "assets/validation/ipad-stairs2/attachments/2EFFB0E6-DB66-4955-B015-3E2477360DBF.png",
+  "visually_inspected": "Saved frame shows Rincewind down the stairs with lower body occluded by foreground railing.",
+  "test_correction": "First run tested only room exit to upper landing. Second run adds actual stair movement before save.",
+  "standalone_app": "assets/apps/Discworld-iPad-12.app",
+  "standalone_binary_sha256": "e805b36dc30df6df5f8345c13b732a97a22b655b7426dcf2adab8e753bd48195",
+  "checks": {
+    "clippy_exit_code": 0,
+    "standalone_build_exit_code": 0
+  },
+  "limits": "One native simulator stair segment and return, using synthesized touch. Not exact original user input, full hallway traversal, continuous reference animation comparison, or physical-iPad acceptance. Return tick differs by one between live and loaded UI routes due to independent touch timing; no deterministic input replay claim. No engine or script changes."
+}
