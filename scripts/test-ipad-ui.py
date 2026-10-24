@@ -4,6 +4,7 @@ import argparse
 from pathlib import Path
 import plistlib
 import subprocess
+import sys
 
 ROOT = Path(__file__).resolve().parent.parent
 
@@ -16,6 +17,7 @@ def main():
     out = args.output.resolve()
     if not out.is_relative_to(ROOT / "assets") or out.exists():
         parser.error("choose a new output directory inside assets")
+    subprocess.run([sys.executable, str(ROOT / "scripts/configure-ipad-keyboard.py"), args.device], check=True)
     subprocess.run(["cargo", "build", "--locked", "--release", "--target", "aarch64-apple-ios-sim", "-p", "discworld-ipad"], cwd=ROOT, check=True)
     subprocess.run(["open", "-a", "Simulator", "--args", "-CurrentDeviceUDID", args.device], check=True)
     out.mkdir(parents=True)

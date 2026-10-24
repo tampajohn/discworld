@@ -1,0 +1,94 @@
+{
+  "simulator": "iPad Pro 11-inch (M5), iOS 26.5",
+  "result_bundle": "assets/validation/ipad-keyboard-full1/results.xcresult",
+  "passed_tests": 8,
+  "failed_tests": 0,
+  "result": "Passed",
+  "keyboard_state": {
+    "audio_interrupted": false,
+    "audio_ready": false,
+    "completed_audio_buffers": 0,
+    "editing": true,
+    "frame_sha256": "d19c7396fc0aa9eeb94a1c56323a7b2c9439e0981cc72794fc65f3a17892a5f2",
+    "hardware_keyboard_connected": true,
+    "inspection": {
+      "control": true,
+      "cursor": [
+        262,
+        91
+      ],
+      "enabled_tags": [
+        1,
+        2,
+        406,
+        4,
+        555
+      ],
+      "held_object": -1,
+      "inventory": null,
+      "inventory_dragging": false,
+      "inventory_first_cell": null,
+      "inventory_position": null,
+      "lead_position": [
+        200,
+        178
+      ],
+      "pockets": [],
+      "settings": {
+        "double_click": 10,
+        "flipped": false,
+        "subtitles": true,
+        "swap_buttons": false,
+        "text_speed": 0,
+        "volumes": [
+          125,
+          255,
+          255
+        ]
+      },
+      "walk_target": null,
+      "world_origin": [
+        0,
+        0
+      ]
+    },
+    "keyboard_changes": 5,
+    "keyboard_first_responder": true,
+    "keyboard_frame": [
+      0,
+      444,
+      1210,
+      390
+    ],
+    "last_operation": "advance",
+    "menu": true,
+    "menu_page": "Save",
+    "muted": true,
+    "notice": null,
+    "paused": false,
+    "quit": false,
+    "reset_audio": false,
+    "resumption_count": 1,
+    "resumption_tick": 8500,
+    "scene": "rinceroo.scn",
+    "status_text": "",
+    "suspension_count": 0,
+    "tick": 8815
+  },
+  "test_names": [
+    "DiscworldLayoutTests/testBackgroundResumePreservesPauseAndRestartsAudio()",
+    "DiscworldLayoutTests/testCanvasWalkingAndPockets()",
+    "DiscworldLayoutTests/testLandscapeAndPortraitKeepControlsReachable()",
+    "DiscworldLayoutTests/testOriginalMenuNamedSaveAndRelaunchLoad()",
+    "DiscworldLayoutTests/testPouchPickupStorageAndRetrieval()",
+    "DiscworldLayoutTests/testSoundSliderPersistsAcrossRelaunch()",
+    "DiscworldLayoutTests/testStairsRoundTripAndSave()",
+    "DiscworldLayoutTests/testTappedPlaybackAudioAndPersistentSave()"
+  ],
+  "fix": "Disable ConnectHardwareKeyboard at shared and per-device Simulator preference levels, then restart GUI. No engine or app keyboard behavior change.",
+  "limitations": [
+    "GCKeyboard.coalesced remains non-null in passing run; it is not a software-keyboard visibility test.",
+    "Physical iPad signing, deployment and acceptance remain pending."
+  ],
+  "standalone_app": "assets/apps/Discworld-iPad-17.app"
+}

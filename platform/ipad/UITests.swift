@@ -154,6 +154,11 @@ final class DiscworldLayoutTests: XCTestCase {
             return key.exists && key.isHittable && app.windows.firstMatch.frame.contains(key.frame)
         }
         wait(for: [expectation(for: keyboardReady, evaluatedWith: app)], timeout: 15)
+        let keyboardState = try JSONSerialization.data(withJSONObject: state(app), options: [.prettyPrinted, .sortedKeys])
+        let keyboardEvidence = XCTAttachment(string: String(decoding: keyboardState, as: UTF8.self))
+        keyboardEvidence.name = "keyboard-state-before-typing"
+        keyboardEvidence.lifetime = .keepAlways
+        add(keyboardEvidence)
         for character in "ipad tesx" { app.keyboards.keys[String(character)].tap() }
         app.keyboards.keys["delete"].tap()
         app.keyboards.keys["t"].tap()

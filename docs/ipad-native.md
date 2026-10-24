@@ -19,7 +19,7 @@ xcrun simctl launch booted org.tampajohn.discworld.dev
 
 The script currently builds **only for the Apple Silicon simulator**. It
 includes the staged ISO and SoundFont in one ad-hoc-signed app. The observed
-prototype is `assets/apps/Discworld-iPad-16.app`. Startup reaches the bedroom;
+prototype is `assets/apps/Discworld-iPad-17.app`. Startup reaches the bedroom;
 quick-save/load preserves pixels, and a separate app launch loads the same
 save from the application container. See [application evidence](validation/ipad-app-prototype.json).
 
@@ -107,12 +107,18 @@ Other channels remain at 255. The test leaves music at 125/255. See
 [sound evidence](validation/ipad-native-sound.json). This checks controls and
 persistence, not subjective sound quality or physical-device audio behavior.
 
-The latest combined UI run is **not fully passing**: after rotation, the software
-keyboard is absent from a captured screen while accessibility reports its keys
-below the viewport. The simulator reports a hardware keyboard connection; its
-role is not established. Waiting for visibility and moving input to a dedicated
-view did not resolve it; the view experiment was reverted. The earlier standalone
-named-save/load test passed, but post-rotation keyboard availability remains open.
+The post-rotation software-keyboard failure was resolved by disabling Simulator's
+`ConnectHardwareKeyboard` preference at both shared and per-device levels and
+restarting its GUI. Changing only the per-device setting was insufficient.
+The test runner now performs this setup, backs up changed preferences under
+ignored `assets/validation`, and refuses to restart the GUI if another simulator
+is booted. App and save data are preserved. No game keyboard behavior change was
+needed. A targeted rotation/save/relaunch/load run passed with a visible keyboard
+frame `[0,444,1210,390]`; the earlier failing frame was `[0,834,1210,0]`.
+`GCKeyboard.coalesced` still reports a connection in the passing run, so that
+flag alone does not establish software-keyboard visibility.
+The subsequent full suite passed all eight tests, including rotation followed by
+named save/relaunch/load. See [keyboard and suite evidence](validation/ipad-native-keyboard.json).
 
 ## Original menus and named saves
 

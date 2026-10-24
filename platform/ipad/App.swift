@@ -1,6 +1,7 @@
 import UIKit
 import AVFoundation
 import CryptoKit
+import GameController
 
 @main
 final class AppDelegate: UIResponder, UIApplicationDelegate {
@@ -58,6 +59,8 @@ final class GameController: UIViewController, UIKeyInput {
     var dragging = false
     var action = "walk"
     var snapshot: [String: Any] = [:]
+    var keyboardFrame: [Double] = []
+    var keyboardChanges = 0
     var completedAudioBuffers = 0
     let pauseButton = UIButton(type: .system)
 
@@ -179,10 +182,18 @@ final class GameController: UIViewController, UIKeyInput {
         ])
         audioEngine.attach(player)
         audioEngine.connect(player, to: audioEngine.mainMixerNode, format: format)
+        NotificationCenter.default.addObserver(self, selector: #selector(keyboardChanged(_:)), name: UIResponder.keyboardWillChangeFrameNotification, object: nil)
         NotificationCenter.default.addObserver(self, selector: #selector(suspended), name: UIApplication.willResignActiveNotification, object: nil)
         NotificationCenter.default.addObserver(self, selector: #selector(resumed), name: UIApplication.didBecomeActiveNotification, object: nil)
         NotificationCenter.default.addObserver(self, selector: #selector(audioInterrupted(_:)), name: AVAudioSession.interruptionNotification, object: nil)
         DispatchQueue.main.async { self.openGame() }
+    }
+
+    @objc func keyboardChanged(_ notification: Notification) {
+        if let rect = notification.userInfo?[UIResponder.keyboardFrameEndUserInfoKey] as? CGRect {
+            keyboardFrame = [rect.origin.x, rect.origin.y, rect.width, rect.height].map(Double.init)
+            keyboardChanges += 1
+        }
     }
 
     func button(_ title: String, _ body: @escaping () -> Void) -> UIButton {
@@ -271,6 +282,10 @@ final class GameController: UIViewController, UIKeyInput {
         if ProcessInfo.processInfo.arguments.contains(where: { $0.hasPrefix("--smoke-") }) {
             var state = snapshot
             state["frame_sha256"] = SHA256.hash(data: data).map { String(format: "%02x", $0) }.joined()
+            state["keyboard_first_responder"] = isFirstResponder
+            state["hardware_keyboard_connected"] = GCKeyboard.coalesced != nil
+            state["keyboard_frame"] = keyboardFrame
+            state["keyboard_changes"] = keyboardChanges
             state["status_text"] = status.text
             state["paused"] = paused
             state["muted"] = muted
