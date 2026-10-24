@@ -147,7 +147,8 @@ test('inventory header drag renders immediately and roundtrips an active drag', 
   await page.locator('#pause').click();
   await expect(page.locator('#pause')).toHaveText('Pause');
   // Wait for simulation to resume before starting a drag. Player load has
-  // already migrated the legacy mover order into the v26 scheduler wrapper.
+  // already migrated mover order into v26; the first tick adds the v27
+  // displayed-cursor position and coroutine phase.
   await expect.poll(async () => Number(await canvas.getAttribute('data-tick'))).toBeGreaterThan(loadedTick);
   await move(140, 110);
   await page.mouse.down();
@@ -157,7 +158,8 @@ test('inventory header drag renders immediately and roundtrips an active drag', 
   await expect(page.locator('#pause')).toHaveText('Play');
   await page.waitForTimeout(150);
   const pending = await exportHeld();
-  expect(coreVersions(pending)[0]).toBe(26);
+  expect(coreVersions(pending)[0]).toBe(27);
+  expect(coreVersions(pending)).toContain(26);
   expect(coreVersions(pending)).toContain(5);
   const pixels = await canvas.evaluate(c => c.toDataURL());
   await page.screenshot({ path: path.join(root, `assets/previews/browser-${testInfo.project.name}-inventory-drag.png`) });

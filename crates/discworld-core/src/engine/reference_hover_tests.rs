@@ -126,7 +126,7 @@ fn capture_original_debug_room_hover() {
         std::env::var("DISCWORLD_HOVER_WALK_DELAY").map_or(1, |s| s.parse::<u64>().unwrap());
     assert!(walk_delay <= 1);
     let walk_from_actor = std::env::var_os("DISCWORLD_HOVER_WALK_FROM_ACTOR").is_some();
-    let walk_mode = std::env::var_os("DISCWORLD_HOVER_WALK").is_some();
+    let walk_mode = walk_from_actor || std::env::var_os("DISCWORLD_HOVER_WALK").is_some();
     assert!(
         usize::from(inventory_mode)
             + usize::from(look_mode)

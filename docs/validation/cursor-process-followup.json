@@ -1,0 +1,94 @@
+{
+  "engine_revision": "7c1921e",
+  "additional_reference_cases": [
+    {
+      "name": "university",
+      "comparison": "assets/validation/cursor-process-universityfinal-compare.json",
+      "sha256": "61ec1e63ca1713e61d6c08b3324d60999217ba4f219342e55e3933f711e60c4d",
+      "frames": 240,
+      "same_cycle_matches": 240
+    },
+    {
+      "name": "retarget",
+      "comparison": "assets/validation/cursor-process-retargetfinal-compare.json",
+      "sha256": "b6ff38482d70aeb38f8c3a4c269ddb48ffcabbcf8cedd73004faabea87019b42",
+      "frames": 240,
+      "same_cycle_matches": 240
+    },
+    {
+      "name": "inventory_open",
+      "comparison": "assets/validation/cursor-process-inventory_openfinal-compare.json",
+      "sha256": "0df1ba8dea0c5198d31c8ab06bca9e1c9bd2fcaf4985d6846af282dc7c20e976",
+      "frames": 72,
+      "same_cycle_matches": 72
+    },
+    {
+      "name": "look_short",
+      "comparison": "assets/validation/cursor-process-look_shortfinal-compare.json",
+      "sha256": "81d6e4787c738cdb23544b54e704a0df495d35b80a9a7d502881392f697dbd53",
+      "frames": 72,
+      "same_cycle_matches": 72
+    },
+    {
+      "name": "walk",
+      "comparison": "assets/validation/cursor-process-walkfinal-compare.json",
+      "sha256": "444908a4fb7fe4caf253a2111870f1fc4163b1bbb0c1d6c3d52101e662be1a14",
+      "frames": 72,
+      "same_cycle_matches": 72
+    },
+    {
+      "name": "cached_actor",
+      "comparison": "assets/validation/cursor-process-cached2-compare.json",
+      "sha256": "331e6896d0e0ed62b22de5708ab9636c46c4678c45d3a7355ccf204fb7baa604",
+      "frames": 72,
+      "same_cycle_matches": 72
+    }
+  ],
+  "additional_same_cycle_full_rgb_matches": 768,
+  "combined_with_cursor_process_runtime_evidence": 1368,
+  "browser_tests": {
+    "original_run": {
+      "passed": 47,
+      "failed": 2,
+      "skipped": 1,
+      "log": "assets/logs/cursor-process-browser-tests.log"
+    },
+    "drag_recheck": {
+      "passed": 2,
+      "failed": 0,
+      "log": "assets/logs/cursor-process-drag-recheck.log"
+    },
+    "interpretation": "49 passes across two runs, not a single clean suite. Both original failures expected26 after simulation had advanced; the corrected check requires outer27 and retains nested26 mover/5 drag payload assertions. Existing WebKit multitouch skip remains.",
+    "node_tests": "4 passed; assets/logs/cursor-process-host-node-tests.log"
+  },
+  "ipad": {
+    "headless_tests": "All3 passed; assets/logs/cursor-process-ipad-tests.log",
+    "staged_app": {
+      "source_revision": "7c1921e",
+      "app": "assets/apps/Discworld-iPad-22.app",
+      "executable_sha256": "b298ccaef59d2f356e9a184ac3f06d4be6e9ef69d520d65032c0f46845f11a8e",
+      "platforms": [
+        "iPhoneSimulator"
+      ],
+      "families": [
+        2
+      ],
+      "resources": {
+        "discworld.iso": "5354f74582375b1f6350e33b4dfd5df6b2bcd79a30f471a9307e017235570e05",
+        "music.sf2": "c5378b62028c920cb11e4803327983fee2f2cdff5dc89c708e39da417e51c854",
+        "SoundFont-COPYRIGHT.txt": "6ef01652619cf29b289a9403cd2ab59550fa3e2c30844c67292eea5421f993e9"
+      },
+      "signature_verified": true,
+      "installed": false
+    },
+    "build_log": "assets/logs/cursor-process-ipad-build.log",
+    "scope": "Bundled simulator app compiled, ad-hoc signature and bundled resource hashes verified. Not installed; no new UI automation or physical-device acceptance claimed."
+  },
+  "diagnostic_setup_correction": "WALK_FROM_ACTOR previously did not imply WALK in the Rust probe, unlike the reference launcher. An initial run did not dispatch the intended click and failed its inventory assertion. The flag now implies walk mode; corrected capture passes72/72 reference frames.",
+  "limitations": [
+    "Full native/Chrome/WebKit replays of7c1921e remain running in assets/validation/cursor-process-7c1921e.",
+    "No current-revision full-route completion claim yet.",
+    "Visible simulator session has not been replaced.",
+    "Controlled frame comparisons do not establish complete reference or audio/device fidelity."
+  ]
+}
