@@ -145,6 +145,15 @@ final class DiscworldLayoutTests: XCTestCase {
         XCTAssertTrue(app.keyboards.firstMatch.waitForExistence(timeout: 5))
         // Tap the real software keys: this canvas-backed UIKeyInput has no
         // UITextField for XCTest's typeText focus heuristic.
+        let keyboardShot = XCTAttachment(screenshot: XCUIScreen.main.screenshot())
+        keyboardShot.name = "keyboard-before-typing"
+        keyboardShot.lifetime = .keepAlways
+        add(keyboardShot)
+        let keyboardReady = NSPredicate { _, _ in
+            let key = app.keyboards.keys["i"]
+            return key.exists && key.isHittable && app.windows.firstMatch.frame.contains(key.frame)
+        }
+        wait(for: [expectation(for: keyboardReady, evaluatedWith: app)], timeout: 15)
         for character in "ipad tesx" { app.keyboards.keys[String(character)].tap() }
         app.keyboards.keys["delete"].tap()
         app.keyboards.keys["t"].tap()
@@ -242,6 +251,60 @@ final class DiscworldLayoutTests: XCTestCase {
             "stored": stored, "retrieved": retrieved, "restored": restored], options: [.prettyPrinted, .sortedKeys])
         let evidence = XCTAttachment(string: String(decoding: results, as: UTF8.self))
         evidence.name = "pouch-touch-evidence"
+        evidence.lifetime = .keepAlways
+        add(evidence)
+    }
+
+    func testSoundSliderPersistsAcrossRelaunch() throws {
+        let app = XCUIApplication(bundleIdentifier: "org.tampajohn.discworld.dev")
+        app.launchArguments = ["--smoke-room"]
+        app.launch()
+        XCTAssertTrue(app.buttons["Resume"].waitForExistence(timeout: 40))
+        XCUIDevice.shared.orientation = .landscapeLeft
+        app.buttons["Resume"].tap()
+        waitFor(app) { ($0["inspection"] as? [String: Any])?["control"] as? Bool == true }
+        func point(_ x: Int, _ y: Int) -> XCUICoordinate {
+            let canvas = app.descendants(matching: .any).matching(identifier: "game-frame").firstMatch
+            let size = canvas.frame.size
+            let scale = min(size.width / 320, size.height / 200)
+            return canvas.coordinate(withNormalizedOffset: .zero).withOffset(CGVector(
+                dx: (size.width - 320 * scale) / 2 + (CGFloat(x) + 0.5) * scale,
+                dy: (size.height - 200 * scale) / 2 + (CGFloat(y) + 0.5) * scale))
+        }
+        func volumes() -> [Int]? {
+            ((state(app)["inspection"] as? [String: Any])?["settings"] as? [String: Any])?["volumes"] as? [Int]
+        }
+        app.buttons["Menu"].tap()
+        point(90, 89).tap() // Main -> Sound.
+        waitFor(app) { $0["menu_page"] as? String == "Sound" }
+        let original = try XCTUnwrap(volumes())
+        let initialX = 170 + 81 * original[0] / 255 + 4
+        // Drag to the low end regardless of the previous stored preference.
+        point(initialX, 53).press(forDuration: 0.1, thenDragTo: point(174, 53))
+        XCTAssertEqual(volumes()?[0], 0)
+        // Then move to a known intermediate position, exercising nonzero audio gain.
+        point(174, 53).press(forDuration: 0.1, thenDragTo: point(214, 53))
+        let changed = try XCTUnwrap(volumes())
+        XCTAssertEqual(changed[0], 125) // floor(40 * 255 / 81), original slider quantization.
+        XCTAssertEqual(Array(changed.dropFirst()), Array(original.dropFirst()))
+        XCTAssertEqual((state(app)["inspection"] as? [String: Any])?["inventory_dragging"] as? Bool, false)
+        let adjusted = state(app)
+        let shot = XCTAttachment(screenshot: XCUIScreen.main.screenshot())
+        shot.name = "original-sound-slider"
+        shot.lifetime = .keepAlways
+        add(shot)
+        app.buttons["Escape"].tap() // Persists original configuration settings.
+        waitFor(app) { $0["menu_page"] as? String == "Main" }
+        app.terminate()
+        // Bootstrap without restoring the old quick-save configuration.
+        app.launchArguments = ["--smoke-room"]
+        app.launch()
+        XCTAssertTrue(app.buttons["Resume"].waitForExistence(timeout: 40))
+        XCTAssertEqual(volumes(), changed)
+        let restored = state(app)
+        let results = try JSONSerialization.data(withJSONObject: ["adjusted": adjusted, "restored": restored], options: [.prettyPrinted, .sortedKeys])
+        let evidence = XCTAttachment(string: String(decoding: results, as: UTF8.self))
+        evidence.name = "sound-slider-evidence"
         evidence.lifetime = .keepAlways
         add(evidence)
     }

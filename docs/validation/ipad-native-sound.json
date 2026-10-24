@@ -1,0 +1,157 @@
+{
+  "simulator": "iPad Pro 11-inch (M5), iOS 26.5",
+  "result_bundle": "assets/validation/ipad-sound2.xcresult",
+  "sound_test_passed": true,
+  "states": {
+    "adjusted": {
+      "audio_interrupted": false,
+      "audio_ready": false,
+      "completed_audio_buffers": 0,
+      "editing": false,
+      "frame_sha256": "9e75d4cb7cdb6820ed7c7a0323f708713ad72042d681e5f21c2d55827bacb842",
+      "inspection": {
+        "control": true,
+        "cursor": [
+          214,
+          53
+        ],
+        "enabled_tags": [
+          1,
+          2,
+          406,
+          4,
+          555
+        ],
+        "held_object": -1,
+        "inventory": null,
+        "inventory_dragging": false,
+        "inventory_first_cell": null,
+        "inventory_position": null,
+        "lead_position": [
+          200,
+          178
+        ],
+        "pockets": [],
+        "settings": {
+          "double_click": 10,
+          "flipped": false,
+          "subtitles": true,
+          "swap_buttons": false,
+          "text_speed": 0,
+          "volumes": [
+            125,
+            255,
+            255
+          ]
+        },
+        "walk_target": null,
+        "world_origin": [
+          0,
+          0
+        ]
+      },
+      "last_operation": "advance",
+      "menu": true,
+      "menu_page": "Sound",
+      "muted": true,
+      "notice": null,
+      "paused": false,
+      "quit": false,
+      "reset_audio": false,
+      "resumption_count": 1,
+      "resumption_tick": 8500,
+      "scene": "rinceroo.scn",
+      "status_text": "",
+      "suspension_count": 0,
+      "tick": 8798
+    },
+    "restored": {
+      "audio_interrupted": false,
+      "audio_ready": false,
+      "completed_audio_buffers": 0,
+      "editing": false,
+      "frame_sha256": "4096e080ead45d66ed53d91f5c8591a83f5bb736b403e45e683f5f173e61e2f6",
+      "inspection": {
+        "control": false,
+        "cursor": [
+          0,
+          0
+        ],
+        "enabled_tags": [
+          1,
+          2,
+          406,
+          4,
+          555
+        ],
+        "held_object": -1,
+        "inventory": null,
+        "inventory_dragging": false,
+        "inventory_first_cell": null,
+        "inventory_position": null,
+        "lead_position": [
+          200,
+          178
+        ],
+        "pockets": [],
+        "settings": {
+          "double_click": 10,
+          "flipped": false,
+          "subtitles": true,
+          "swap_buttons": false,
+          "text_speed": 0,
+          "volumes": [
+            125,
+            255,
+            255
+          ]
+        },
+        "walk_target": null,
+        "world_origin": [
+          0,
+          0
+        ]
+      },
+      "last_operation": "load",
+      "menu": false,
+      "menu_page": null,
+      "muted": true,
+      "notice": null,
+      "paused": true,
+      "quit": false,
+      "reset_audio": false,
+      "resumption_count": 1,
+      "resumption_tick": 8500,
+      "scene": "rinceroo.scn",
+      "status_text": "",
+      "suspension_count": 0,
+      "tick": 8500
+    }
+  },
+  "assertions": [
+    "Drag music to zero then 40 original slider pixels produces 125/255",
+    "Other volume channels remain unchanged",
+    "Finger-up clears drag state",
+    "Escape persists preferences; fresh boot restores [125,255,255]"
+  ],
+  "screenshot": "assets/validation/ipad-sound2-attachments/98CF492D-CA2E-473D-9794-63A7C746999E.png",
+  "visually_inspected": true,
+  "host_change": "Forward pan press/move/release while original configuration menu is active; engine still owns hit testing.",
+  "checks": {
+    "clippy_exit_code": 0,
+    "standalone_build_exit_code": 0
+  },
+  "standalone_app": "assets/apps/Discworld-iPad-16.app",
+  "standalone_binary_sha256": "f9d299b414de90d5dc20974245d017a7e3352afd1fff2214cc5465b6c67530b4",
+  "regression_results": {
+    "ipad-sound1": "Six existing UI tests pass; menu keyboard and initial sound coordinate tests fail.",
+    "ipad-sound2": "Rotation and corrected sound test pass; post-rotation keyboard remains unavailable.",
+    "ipad-sound3": "Input-view experiment does not fix keyboard availability; experiment reverted."
+  },
+  "keyboard_open_issue": {
+    "capture": "assets/validation/ipad-sound3-attachments/72F858F2-73F7-42DD-93E0-DE346F91D324.png",
+    "observations": "Software keyboard absent from full screen; accessibility keys below viewport; simulator keyboard preferences report HardwareKeyboardLastSeen=1. Hardware connection may be relevant but causality not established.",
+    "status": "Unresolved; full UI suite is not green. Previous standalone named save/load pass remains historical evidence."
+  },
+  "limits": "One music slider and preference persistence. No new subjective audio-quality claim. Physical iPad, all channels, other settings and keyboard visibility after rotation remain open. Test leaves music at 125/255."
+}

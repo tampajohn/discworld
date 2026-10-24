@@ -19,7 +19,7 @@ xcrun simctl launch booted org.tampajohn.discworld.dev
 
 The script currently builds **only for the Apple Silicon simulator**. It
 includes the staged ISO and SoundFont in one ad-hoc-signed app. The observed
-prototype is `assets/apps/Discworld-iPad-15.app`. Startup reaches the bedroom;
+prototype is `assets/apps/Discworld-iPad-16.app`. Startup reaches the bedroom;
 quick-save/load preserves pixels, and a separate app launch loads the same
 save from the application container. See [application evidence](validation/ipad-app-prototype.json).
 
@@ -96,6 +96,23 @@ pointer dereferences. Shared engine crates retain `forbid(unsafe_code)`.
 All calls occur on the main thread; Swift immediately copies borrowed frame,
 audio and response buffers before the next call can replace them. This narrow
 boundary does not provide a general thread-safe foreign API.
+
+## Original sound controls
+
+Native pans now reach configuration menus as well as inventory windows, while
+the engine retains original hit testing and slider arithmetic. The simulator
+test drags Music Volume to zero, then 40 pixels right to 125/255, releases it,
+closes the menu and verifies that the same setting survives a fresh launch.
+Other channels remain at 255. The test leaves music at 125/255. See
+[sound evidence](validation/ipad-native-sound.json). This checks controls and
+persistence, not subjective sound quality or physical-device audio behavior.
+
+The latest combined UI run is **not fully passing**: after rotation, the software
+keyboard is absent from a captured screen while accessibility reports its keys
+below the viewport. The simulator reports a hardware keyboard connection; its
+role is not established. Waiting for visibility and moving input to a dedicated
+view did not resolve it; the view experiment was reverted. The earlier standalone
+named-save/load test passed, but post-rotation keyboard availability remains open.
 
 ## Original menus and named saves
 

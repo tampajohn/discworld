@@ -68,14 +68,14 @@ impl Host {
                     request["text"].as_str().unwrap_or(""),
                     request["backspace"].as_bool().unwrap_or(false),
                 )?,
-                "pointer" | "inventory-press" => {
+                "pointer" | "overlay-press" => {
                     let x = request["x"].as_i64().ok_or("missing x")?;
                     let y = request["y"].as_i64().ok_or("missing y")?;
                     let x = i32::try_from(x).map_err(|e| e.to_string())?;
                     let y = i32::try_from(y).map_err(|e| e.to_string())?;
                     if text("op")? == "pointer" {
                         game.move_pointer_checked(x, y)?;
-                    } else if game.native_inventory_contains(x, y) {
+                    } else if game.menu_active() || game.native_inventory_contains(x, y) {
                         game.move_pointer_checked(x, y)?;
                         game.input("left-down")?;
                     }

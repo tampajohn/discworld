@@ -316,8 +316,8 @@ final class GameController: UIViewController, UIKeyInput {
         let location = gesture.location(in: picture)
         if gesture.state == .began {
             guard let origin = gesture.start, let start = gamePoint(origin) else { return }
-            // The engine owns the original inventory hit regions and drag rules.
-            send(["op": "inventory-press", "x": start[0], "y": start[1]])
+            // The engine owns inventory and configuration hit regions and drag rules.
+            send(["op": "overlay-press", "x": start[0], "y": start[1]])
             dragging = true
         }
         if dragging, let point = gamePoint(location, clamp: true) {

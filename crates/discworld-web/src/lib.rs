@@ -641,6 +641,7 @@ impl BrowserGame {
             .as_ref()
             .and_then(|lead| self.engine.movers.get(&lead.id));
         serde_json::json!({
+            "settings": self.engine.configuration.as_ref().map(|menu| menu.settings()),
             "control": self.engine.control.enabled,
             "world_origin": self.engine.world_origin,
             "cursor": self.engine.control.cursor,
