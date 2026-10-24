@@ -31,6 +31,12 @@ A new headless speech-muted LOOK comparison matches the pinned reference in all
 not counted as equivalent. This verifies one text-only completion path without
 changing production runtime behavior. Voiced completion timing remains open.
 See [muted LOOK evidence](validation/reference-muted-look.json).
+Replaying the observed backend pointer event improves the comparison to 114/144
+same-cycle full RGB matches, but leaves a cursor-restoration/animation discrepancy.
+Main cursor clock observations differ around control restoration; hidden/wake
+coroutine scheduling remains to be isolated before changing the runtime. This
+follow-up is not a fidelity pass. See
+[pointer replay evidence](validation/reference-muted-look-pointer.json).
 
 The corrected 4,209-input route passes on native, Chrome and WebKit through the ending credits and scripted restart. Final engine bytes and pixels match, with 7,615 engine and 7,615 audio-state save/load checks in native. The watch launcher now selects this trace. See [complete-route evidence](validation/idle-clock-complete-route.json). Physical iPad and visible-session acceptance remain outstanding.
 

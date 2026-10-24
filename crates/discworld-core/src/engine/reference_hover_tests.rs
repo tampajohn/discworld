@@ -152,6 +152,20 @@ fn capture_original_debug_room_hover() {
         |s| s.parse::<usize>().unwrap(),
     );
     assert!((72..=480).contains(&frame_limit));
+    // Replay observed host-pointer events after the fixed 72-frame probe sequence.
+    // Ticks identify the frame about to run; no engine state is patched.
+    let pointer_events: Vec<(u64, [i32; 2])> = std::env::var("DISCWORLD_HOVER_POINTER_EVENTS")
+        .map(|text| text.split(';').map(|event| {
+            let fields: Vec<_> = event.split(':').collect();
+            assert_eq!(fields.len(), 3);
+            let tick = fields[0].parse::<u64>().unwrap();
+            let point = [fields[1].parse::<i32>().unwrap(), fields[2].parse::<i32>().unwrap()];
+            assert!((0..320).contains(&point[0]) && (0..200).contains(&point[1]));
+            (tick, point)
+        }).collect())
+        .unwrap_or_default();
+    assert!(pointer_events.windows(2).all(|pair| pair[0].0 < pair[1].0));
+    let mut pointer_events_applied = 0;
     let mut audio_states = Vec::new();
     let mut look_pcm = Vec::new();
     let mut look_completion = None;
@@ -445,6 +459,18 @@ fn capture_original_debug_room_hover() {
             ));
         }
         let tick = engine.ticks + 1;
+        if let Some(&(event_tick, point)) = pointer_events.get(pointer_events_applied) {
+            assert!(event_tick >= tick, "missed pointer event");
+            if event_tick == tick {
+                assert!(look_mode && tick > start.unwrap() + 72,
+                    "pointer replay must follow the fixed LOOK probe sequence");
+                // TinselEngine::pollEvent updates _mousePos only. Its scheduled
+                // CursorProcess later calls DoCursorMove; unlike the initial
+                // debugger injections, do not force that resource-aware step now.
+                engine.move_cursor(point);
+                pointer_events_applied += 1;
+            }
+        }
         if !direct_entry {
             // Original read-only cycle snapshots and StepAnimScript trace:
             // SWALK advances in its caller's cycle and completes on re-entry.
@@ -996,6 +1022,10 @@ fn capture_original_debug_room_hover() {
             source.len(), look_pcm.len(), Sha256::digest(&bytes))).unwrap();
     }
 
+    assert_eq!(pointer_events_applied, pointer_events.len());
+    std::fs::write(directory.join("pointer-events.json"), format!("[{}]\n",
+        pointer_events.iter().map(|(tick, point)| format!("{{\"before_tick\":{tick},\"position\":{point:?}}}"))
+            .collect::<Vec<_>>().join(","))).unwrap();
     std::fs::write(
         directory.join("audio-states.json"),
         format!("[{}]\n", audio_states.join(",")),

@@ -1,0 +1,205 @@
+{
+  "runtime_revision": "4b5ef75496ce27bc4428d47e3fe83f941e730c66",
+  "scope": "Diagnostic-only replay of observed backend mouse event after speech-muted LOOK. No production runtime or original asset changes.",
+  "fidelity_pass": false,
+  "reference": "assets/validation/reference-look-muted2",
+  "rust": "assets/validation/rust-look-muted-pointer2",
+  "comparison": "assets/validation/muted-look-pointer2-compare.json",
+  "comparison_sha256": "25e043a0436ee72f59aab66e52752e660395e19daf4f4680f6385c33c840d9fc",
+  "frames": 144,
+  "same_cycle_full_rgb_matches": 114,
+  "mismatches": [
+    82,
+    84,
+    86,
+    88,
+    90,
+    92,
+    94,
+    96,
+    98,
+    100,
+    102,
+    106,
+    108,
+    110,
+    112,
+    114,
+    116,
+    118,
+    120,
+    122,
+    124,
+    126,
+    130,
+    132,
+    134,
+    136,
+    138,
+    140,
+    142,
+    144
+  ],
+  "pointer_events": [
+    {
+      "before_tick": 1338,
+      "position": [
+        0,
+        0
+      ],
+      "mode": "logical position only, as pinned TinselEngine::pollEvent"
+    }
+  ],
+  "reference_cursor_clocks": [
+    {
+      "kind": "animation_step",
+      "cycle": 1337,
+      "address": 39308542880,
+      "script": 374236,
+      "index": 0,
+      "period": 2,
+      "remaining": 1
+    },
+    {
+      "kind": "animation_step",
+      "cycle": 1338,
+      "address": 39308542880,
+      "script": 374236,
+      "index": 1,
+      "period": 2,
+      "remaining": 2
+    },
+    {
+      "kind": "animation_step",
+      "cycle": 1339,
+      "address": 39308542880,
+      "script": 374236,
+      "index": 1,
+      "period": 2,
+      "remaining": 1
+    },
+    {
+      "kind": "animation_step",
+      "cycle": 1340,
+      "address": 39308542880,
+      "script": 374236,
+      "index": 2,
+      "period": 2,
+      "remaining": 2
+    }
+  ],
+  "rust_cursor_clocks": [
+    {
+      "before_tick": 1337,
+      "animations": [
+        {
+          "script": 374236,
+          "index": 1,
+          "period": 2,
+          "remaining": 1,
+          "frame": 275328,
+          "position": [
+            0,
+            0
+          ]
+        }
+      ]
+    },
+    {
+      "before_tick": 1338,
+      "animations": [
+        {
+          "script": 374236,
+          "index": 1,
+          "period": 2,
+          "remaining": 1,
+          "frame": 275328,
+          "position": [
+            0,
+            0
+          ]
+        }
+      ]
+    },
+    {
+      "before_tick": 1339,
+      "animations": [
+        {
+          "script": 374236,
+          "index": 2,
+          "period": 2,
+          "remaining": 2,
+          "frame": 275336,
+          "position": [
+            0,
+            0
+          ]
+        }
+      ]
+    },
+    {
+      "before_tick": 1340,
+      "animations": [
+        {
+          "script": 374236,
+          "index": 2,
+          "period": 2,
+          "remaining": 1,
+          "frame": 275336,
+          "position": [
+            0,
+            0
+          ]
+        }
+      ]
+    }
+  ],
+  "first_mismatch": {
+    "frame": 82,
+    "scene": 150994944,
+    "matching_rust_ticks": [],
+    "cycle": 1338,
+    "same_cycle_available": true,
+    "same_cycle_equal": false,
+    "scene_aligned_rust_tick": 1338,
+    "scene_aligned_equal": false,
+    "scene_aligned_different_pixels": 140,
+    "scene_aligned_difference_bounds": [
+      0,
+      1,
+      67,
+      123
+    ]
+  },
+  "last_mismatch": {
+    "frame": 144,
+    "scene": 150994944,
+    "matching_rust_ticks": [
+      1358,
+      1399
+    ],
+    "cycle": 1400,
+    "same_cycle_available": true,
+    "same_cycle_equal": false,
+    "scene_aligned_rust_tick": 1400,
+    "scene_aligned_equal": false,
+    "scene_aligned_different_pixels": 6,
+    "scene_aligned_difference_bounds": [
+      0,
+      0,
+      3,
+      5
+    ]
+  },
+  "interpretation": "Main cursor script 374236 has different remaining-time state around control restoration. Replaying pointer location alone does not prove full equivalence. Cursor coroutine hide/wake scheduling needs a focused regression before any runtime change.",
+  "source_locations": [
+    "engines/tinsel/tinsel.cpp:1237 (backend position assignment)",
+    "engines/tinsel/cursor.cpp:605 (outer coroutine sleep and hidden inner loop)",
+    "crates/discworld-core/src/engine.rs:5089 (current visible-only cursor stepping)"
+  ],
+  "limitations": [
+    "Reference StepAnimScript entry and Rust before-tick state are different observation points; clocks are diagnostic evidence, not a blanket phase-shift justification.",
+    "First forced-move attempt matched 106 frames and is retained separately.",
+    "No physical-input or voiced-completion claim."
+  ]
+}
