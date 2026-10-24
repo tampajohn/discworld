@@ -1,0 +1,24 @@
+{
+  "app": "assets/apps/Discworld-iPad-device-2.app",
+  "log": "assets/logs/ipad-device-build2.log",
+  "architecture": "arm64",
+  "platform": "IOS",
+  "minimum_os": "17.0",
+  "sdk": "26.5",
+  "binary_sha256": "dabb3794f1e320a0cd89ec82257068691c85349b8fb9bc15664fe5bd70a371e7",
+  "resources_sha256": {
+    "discworld.iso": "5354f74582375b1f6350e33b4dfd5df6b2bcd79a30f471a9307e017235570e05",
+    "music.sf2": "c5378b62028c920cb11e4803327983fee2f2cdff5dc89c708e39da417e51c854",
+    "SoundFont-COPYRIGHT.txt": "6ef01652619cf29b289a9403cd2ab59550fa3e2c30844c67292eea5421f993e9"
+  },
+  "native_dependencies_only": true,
+  "ipad_device_family": [
+    2
+  ],
+  "files_control_bundled": true,
+  "provisioned": false,
+  "installed_on_physical_device": false,
+  "physical_ipad_discovered": false,
+  "apple_development_identities_available": true,
+  "scope": "Complete device executable link and resource validation; no signing/provisioning or hardware execution claim."
+}

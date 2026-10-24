@@ -17,8 +17,9 @@ xcrun simctl install booted assets/apps/Discworld-iPad.app
 xcrun simctl launch booted org.tampajohn.discworld.dev
 ```
 
-The script currently builds **only for the Apple Silicon simulator**. It
-includes the staged ISO and SoundFont in one ad-hoc-signed app. The observed
+By default the script builds for the Apple Silicon simulator. It includes the
+staged ISO and SoundFont in one ad-hoc-signed app. `--platform device` instead
+links for physical iPad hardware and leaves provisioning/signing outstanding. The observed
 prototype is `assets/apps/Discworld-iPad-17.app`. Startup reaches the bedroom;
 quick-save/load preserves pixels, and a separate app launch loads the same
 save from the application container. See [application evidence](validation/ipad-app-prototype.json).
@@ -214,6 +215,29 @@ the replacement through a newly constructed host's original Load page. The
 loaded engine/DSP session bytes match exactly. See
 [overwrite evidence](validation/ipad-menu-overwrite.json). This closes the bridge
 persistence check, not the outstanding UIKit touch overwrite acceptance.
+
+## Physical-device build
+
+The complete UIKit app and Rust bridge now link for `aarch64-apple-ios` using
+`--platform device`:
+
+```sh
+python3 scripts/build-ipad.py --platform device --output assets/apps/Discworld-iPad-device.app
+```
+
+The verified artifact is `assets/apps/Discworld-iPad-device-2.app`. Mach-O build
+metadata identifies IOS (not Simulator), arm64, minimum OS 17.0 and SDK 26.5.
+Linked dependencies are system iOS/Swift libraries, and the bundle declares
+only the iPad device family. All three private resource hashes match the staged
+manifest; the original-font Files artwork is included. See
+[device build evidence](validation/ipad-device-build.json).
+
+This app is **unprovisioned** and is not an installable device deployment yet.
+The build script intentionally does not apply the simulator's ad-hoc signing
+step to device output. Apple Development identities exist locally, but the
+latest device discovery found no iPad. Provisioning for the intended iPad,
+installation and hardware acceptance remain outstanding. The user's running
+simulator app was not replaced or driven during this check.
 
 ## Verified foundation
 
