@@ -566,6 +566,13 @@ fn capture_original_debug_room_hover() {
             assert_eq!(engine.cursor_animation.as_ref().unwrap().diagnostic_clock(),
                 (374236, 1, 2, 2), "implicit dialogue return must restart the normal cursor");
         }
+        if door_exit && engine.ticks == 1363 {
+            // Reference CursorStoppedCheck initialized at 1362 and resumed
+            // its hidden wait that cycle; AnimateProcess first runs at 1363.
+            assert_eq!(engine.cursor_animation.as_ref().unwrap().diagnostic_clock(),
+                (374236, 1, 2, 2));
+            assert!(!engine.cursor_process.as_ref().unwrap().hidden_wait);
+        }
         if door_action && start.is_some() && engine.scene == room {
             door_control_off |= !engine.control.enabled;
             if engine.control.hidden {
@@ -639,6 +646,7 @@ fn capture_original_debug_room_hover() {
             // trail component's serde representation.
             let mut legacy_engine = engine.clone();
             legacy_engine.cursor_trails = None;
+            legacy_engine.cursor_process = None;
             // A real pre-v26 engine had no mover process placeholders.
             for (id, _) in legacy_engine.mover_tasks() {
                 legacy_engine.processes.cancel(id).unwrap();
@@ -714,7 +722,7 @@ fn capture_original_debug_room_hover() {
                 .unwrap();
             assert_eq!(
                 u32::from_le_bytes(save_bytes[8..12].try_into().unwrap()),
-                26
+                27
             );
             let decoded = crate::save::Snapshot::from_bytes(&save_bytes, [7; 32]).unwrap();
             assert_eq!(decoded.to_bytes().unwrap(), save_bytes);
@@ -739,6 +747,22 @@ fn capture_original_debug_room_hover() {
                     .unwrap()
             );
             if rows.is_empty() && !inventory_mode && !look_mode && !walk_mode && !door_action {
+                for nested in [true, false] {
+                    let (mut inner, state): (Vec<u8>, crate::cursor_process::State) =
+                        postcard::from_bytes(&save_bytes[80..]).unwrap();
+                    if nested {
+                        inner[8..12].copy_from_slice(&27u32.to_le_bytes());
+                    }
+                    let mut payload = postcard::to_allocvec(&(inner, state)).unwrap();
+                    if !nested { payload.push(0); }
+                    let mut malformed = save_bytes[..80].to_vec();
+                    malformed[44..48].copy_from_slice(&(payload.len() as u32).to_le_bytes());
+                    malformed[48..80].copy_from_slice(&Sha256::digest(&payload));
+                    malformed.extend(payload);
+                    assert!(crate::save::Snapshot::from_bytes(&malformed, [7; 32]).is_err());
+                }
+                let (save_bytes, _): (Vec<u8>, crate::cursor_process::State) =
+                    postcard::from_bytes(&save_bytes[80..]).unwrap();
                 std::fs::write(directory.join("mover-state-v26.dws"), &save_bytes).unwrap();
                 let mut input = engine.clone();
                 input
@@ -815,6 +839,7 @@ fn capture_original_debug_room_hover() {
                 );
                 let mut trail_engine = saved_engine.clone();
                 trail_engine.clear_mover_tasks();
+                trail_engine.cursor_process = None;
                 let trail_bytes = crate::save::Snapshot::capture(&trail_engine, [7; 32])
                     .to_bytes()
                     .unwrap();

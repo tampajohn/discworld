@@ -661,3 +661,20 @@ continuation. Its 72 rendered frames match the pinned reference at the same
 cycles. Broader gameplay and host validation are tracked in
 [scheduled movers](validation/scheduled-movers.json) and
 [load migration](validation/mover-load-migration.json).
+
+
+## Cursor process extension (version 27)
+
+Version27 wraps the previous complete snapshot with the displayed cursor position
+and explicit hidden-wait phase. Input coordinates remain in the existing Control
+state. This preserves a save taken after backend input but before the scheduled
+cursor update, including the one-cycle wake delay after dialogue. The decoder
+rejects recursive27 wrappers, trailing payload and invalid checksums. Existing
+versions remain readable and retain their bytes when decoded and re-encoded
+without advancing. Old binaries cannot read27 saves.
+
+Pre-extension snapshots cannot reconstruct a coroutine phase they never recorded.
+On their first cursor advance, the runtime uses the saved trail position when
+available (otherwise the logical cursor) and infers hidden-wait from explicit
+hiding. This is an explicit migration policy, not a claim of exact historical
+phase recovery. New snapshots retain the phase independently of visibility.

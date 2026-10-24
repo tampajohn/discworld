@@ -1,0 +1,61 @@
+{
+  "base_revision": "23ebe72",
+  "change": "Separate displayed cursor position from input coordinates; run the explicit hidden-wait cursor phase after scene processes, with same-cycle phase resumption on scene reinitialization.",
+  "snapshot_version": 27,
+  "legacy_policy": "Previous snapshots retain their bytes on decode/re-encode. On first cursor advance, infer displayed position from saved trail position when available, otherwise logical cursor; infer hidden-wait from explicit hiding. Original pre-extension saves cannot recover an unrecorded coroutine phase exactly.",
+  "reference_revision": "96b42d42bc8533953bdd701db059cc33c839a9ff",
+  "cases": [
+    {
+      "name": "muted-look",
+      "comparison": "assets/validation/cursor-process-look-final1-compare.json",
+      "sha256": "9b486e1ff0f7330b0772c64df3c37b4de004ac10d8f7f338a3d7129b9df26815",
+      "frames": 144,
+      "same_cycle_matches": 144
+    },
+    {
+      "name": "luggage",
+      "comparison": "assets/validation/cursor-process-luggagefinal-compare.json",
+      "sha256": "2a7d5c5c313458fe10870089eef5a44dcb4ca447aa27bdfa4142214c228f5c61",
+      "frames": 72,
+      "same_cycle_matches": 72
+    },
+    {
+      "name": "fixed",
+      "comparison": "assets/validation/cursor-process-fixedfinal-compare.json",
+      "sha256": "dd77ee8fecbda0138c4b1fe9979e87e2267653614da033ad59248f50bbfede75",
+      "frames": 72,
+      "same_cycle_matches": 72
+    },
+    {
+      "name": "header",
+      "comparison": "assets/validation/cursor-process-headerfinal-compare.json",
+      "sha256": "60fe9f2dae0d11c51b9ff0cdee57e83b0e47c3f7d89015f19bf29fc7642fbee3",
+      "frames": 72,
+      "same_cycle_matches": 72
+    },
+    {
+      "name": "door",
+      "comparison": "assets/validation/cursor-process-doorfinal-compare.json",
+      "sha256": "a7abf3be9e8d8f18b7e1495b568936a16da14ab1c76303ba501bed7d013e8920",
+      "frames": 240,
+      "same_cycle_matches": 240
+    }
+  ],
+  "same_cycle_full_rgb_matches": 600,
+  "checks": {
+    "workspace": "All regular tests passed with RUST_MIN_STACK=16777216; assets/logs/cursor-process-workspace4.log",
+    "original_assets": "25 passed; assets/logs/cursor-process-assets-final.log",
+    "clippy": "Workspace all targets warnings denied; assets/logs/cursor-process-clippy-final.log",
+    "native_build": "Release native and tools; assets/logs/cursor-process-native-build.log",
+    "wasm_build": "Release production browser; assets/logs/cursor-process-web-build.log",
+    "save_boundary": "Exact state/pixels/next tick and byte roundtrip after backend input before cursor update; captured in rust-cursor-process-look-final1",
+    "malformed_saves": "New27 wrapper rejects recursive nesting and trailing payload; existing26 mover and25 trail wrapper corruption regressions retained in normal capture"
+  },
+  "corrected_during_validation": "First door prototype matched178/240 frames because scene reinitialization postponed completion of the hidden wait. Resuming that phase in the initialization cycle restores240/240; diagnostic asserts the reference clock at cycle1363.",
+  "limitations": [
+    "Full start-to-credits reruns and browser UI checks for this revision are pending.",
+    "No app update deployed over user simulator.",
+    "Controlled captures do not prove every cursor/input/temporary-inventory-hiding combination or voiced completion.",
+    "Old binaries cannot load new version27 snapshots."
+  ]
+}

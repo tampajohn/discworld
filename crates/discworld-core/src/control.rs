@@ -28,6 +28,10 @@ impl Default for Control {
     }
 }
 impl Control {
+    pub(crate) fn restores_cursor_on_enable(&self) -> bool {
+        !matches!(self.off_mode, 3 | 4)
+    }
+
     pub fn apply(&mut self, mode: i32, inventory_open: bool) -> Result<(), Error> {
         self.apply_at(mode, inventory_open, [0; 2])
     }

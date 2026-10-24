@@ -300,6 +300,8 @@ pub struct Engine {
     pub(crate) world_hover: Option<crate::world_hover::State>,
     #[serde(skip)]
     pub(crate) cursor_trails: Option<crate::cursor_trails::Trails>,
+    #[serde(skip)]
+    pub(crate) cursor_process: Option<crate::cursor_process::State>,
     pub world_origin: [i32; 2],
     pending_scene: Option<(Handle, i32, i32, Option<u8>)>,
     scene_hooks: crate::scene_hook::Hooks,
@@ -1561,7 +1563,22 @@ impl Engine {
         inventory_open: bool,
         origin: [i32; 2],
     ) -> Result<(), Error> {
+        let restore_position = mode == 1 && self.control.restores_cursor_on_enable();
+        let driver = self.control.cursor;
+        let was_hidden = self.control.hidden;
+        if matches!(mode, 0 | 2 | 3) {
+            // Control stores GetCursorXYNoWait, not the pending backend input.
+            self.control.cursor = self.displayed_cursor();
+        }
         self.control.apply_at(mode, inventory_open, origin)?;
+        if matches!(mode, 0 | 2 | 3) {
+            self.control.cursor = driver;
+        }
+        if restore_position {
+            // SetCursorXY precedes RestoreMainCursor and uses the old hiding
+            // state when deciding whether to emit a trail.
+            self.move_cursor_trails_at_visibility(resources, was_hidden)?;
+        }
         // V1 Control(CONTROL_ON) always calls RestoreMainCursor, including
         // implicit returns from TALK, PRINT and scripted movement.
         if mode == 1 && self.cursor_animation.is_some() {
@@ -2264,14 +2281,15 @@ impl Engine {
             }
         }
         if let Some(trails) = &mut self.cursor_trails {
-            if self.control.hidden {
-                trails.hide_images();
-            } else {
-                trails.tick(resources)?;
-            }
+            trails.tick(resources)?;
         }
-        if !self.control.hidden && !self.control.frozen {
+        if !self.control.frozen {
             self.move_cursor_trails(resources)?;
+        }
+        if self.control.hidden {
+            if let Some(trails) = &mut self.cursor_trails {
+                trails.hide_images();
+            }
         }
         Ok(())
     }
@@ -2279,6 +2297,17 @@ impl Engine {
     /// DoCursorMove notifies inventory only for a nonzero position delta.
     /// Opening a window under a stationary cursor must retain existing trails.
     fn move_cursor_trails(&mut self, resources: &Resources<'_>) -> Result<(), Error> {
+        self.move_cursor_trails_at_visibility(resources, self.control.hidden)
+    }
+
+    fn move_cursor_trails_at_visibility(
+        &mut self,
+        resources: &Resources<'_>,
+        cursor_hidden: bool,
+    ) -> Result<(), Error> {
+        if let Some(process) = &mut self.cursor_process {
+            process.position = self.control.cursor;
+        }
         use crate::conversation_window::Area;
         let active = self
             .configuration
@@ -2302,7 +2331,7 @@ impl Engine {
                 }));
         if let Some(trails) = &mut self.cursor_trails {
             let moved = trails.position() != self.control.cursor;
-            trails.move_to(resources, self.control.cursor, self.control.hidden)?;
+            trails.move_to(resources, self.control.cursor, cursor_hidden)?;
             // Entry deletes the just-emitted trail. The first move out is still
             // suppressed. invCursor does not change suppression during a drag.
             if !active {
@@ -2753,13 +2782,18 @@ impl Engine {
         Ok(None)
     }
 
+    fn displayed_cursor(&self) -> [i32; 2] {
+        self.cursor_process.as_ref().map_or(self.control.cursor, |p| p.position)
+    }
+
     fn point_world(&mut self, resources: &Resources<'_>) -> Result<(), Error> {
+        let position = self.displayed_cursor();
         let cursor = if self.cursor_animation.is_some() {
             Some([
-                self.control.cursor[0]
+                position[0]
                     .checked_add(self.world_origin[0])
                     .ok_or(Error("world cursor X overflow"))?,
-                self.control.cursor[1]
+                position[1]
                     .checked_add(self.world_origin[1])
                     .ok_or(Error("world cursor Y overflow"))?,
             ])
@@ -2801,7 +2835,7 @@ impl Engine {
         if self.cursor_animation.is_none() {
             return Ok(());
         }
-        let actor = self.actor_tag_at(resources, self.control.cursor)?;
+        let actor = self.actor_tag_at(resources, self.displayed_cursor())?;
         let target = if actor.is_some() {
             actor
         } else {
@@ -3574,6 +3608,7 @@ impl Engine {
             scheduled_scroll: false,
             world_hover: None,
             cursor_trails: None,
+            cursor_process: None,
             pending_scene: None,
             fade_multiplier: 0x10000,
             fade_in_step: None,
@@ -5043,6 +5078,33 @@ impl Engine {
         Ok(())
     }
 
+    fn advance_cursor_process(&mut self, resources: &Resources<'_>) -> Result<(), Error> {
+        if self.cursor_animation.is_some() {
+            if self.cursor_process.is_none() {
+                // Pre-extension snapshots did not retain the coroutine phase.
+                self.cursor_process = Some(crate::cursor_process::State {
+                    position: self.cursor_trails.as_ref().map_or(self.control.cursor, |t| t.position()),
+                    hidden_wait: self.control.hidden,
+                });
+            }
+            if self.cursor_process.as_mut().unwrap().begin_cycle(self.control.hidden) {
+                if self.cursor_animation.as_mut().unwrap().tick(resources)? == Tick::Finished {
+                    return Err(Error("cursor animation ended"));
+                }
+                self.update_cursor_trails(resources)?;
+                if let Some(cursor) = &mut self.held_cursor {
+                    cursor.animation.tick(resources)?;
+                }
+                self.update_inventory_cursor(resources)?;
+                if self.control.hidden {
+                    self.cursor_animation.as_mut().unwrap().frame = Handle(0);
+                    self.cursor_process.as_mut().unwrap().hidden_wait = true;
+                }
+            }
+        }
+        Ok(())
+    }
+
     fn advance(
         &mut self,
         resources: &Resources<'_>,
@@ -5099,18 +5161,6 @@ impl Engine {
         if let Some(call) = self.run_master_with_requests(resources, quit)? {
             return Ok(Status::Unsupported(call));
         }
-        if !self.control.hidden {
-            if let Some(cursor) = &mut self.cursor_animation {
-                if cursor.tick(resources)? == Tick::Finished {
-                    return Err(Error("cursor animation ended"));
-                }
-            }
-        }
-        self.update_cursor_trails(resources)?;
-        if let Some(cursor) = &mut self.held_cursor {
-            cursor.animation.tick(resources)?;
-        }
-        self.update_inventory_cursor(resources)?;
         self.update_configuration_hover();
         self.update_inventory_hover(resources)?;
         if let Some(bg) = &mut self.background {
@@ -5260,9 +5310,24 @@ impl Engine {
             self.processes.end_pass()?;
             return Ok(Status::Unsupported(call));
         }
+        self.advance_cursor_process(resources)?;
         if self.cursor_animation.is_none() && self.background.is_some() {
             if let Some((handle, _)) = &self.declarations.cursor {
+                let restarting = self.cursor_process.is_some();
                 self.cursor_animation = Self::start_film(resources, *handle, true)?.pop();
+                if let Some(process) = &mut self.cursor_process {
+                    process.position = self.control.cursor;
+                } else {
+                    self.cursor_process = Some(crate::cursor_process::State {
+                        position: self.control.cursor,
+                        hidden_wait: false,
+                    });
+                }
+                if restarting {
+                    // CursorStoppedCheck resumes the suspended phase in this
+                    // cycle. A hidden wait can finish here without animating.
+                    self.advance_cursor_process(resources)?;
+                }
             }
         }
         if self.active_inventory.is_some() {
@@ -6313,7 +6378,7 @@ impl Engine {
                     // DW1 CursorPos queries absolute world coordinates, even
                     // while CONTROL has hidden or frozen the cursor.
                     let axis = (call.id - 17) as usize;
-                    let position = self.control.cursor[axis].wrapping_add(self.world_origin[axis]);
+                    let position = self.displayed_cursor()[axis].wrapping_add(self.world_origin[axis]);
                     process.vm.complete_library(call, 1, Some(position))?;
                 }
                 42 | 80 => {
@@ -6326,6 +6391,9 @@ impl Engine {
                     let a = args(&process.vm, 2)?;
                     self.control
                         .script_cursor([a[0], a[1]], self.world_origin, self.ticks);
+                    if let Some(cursor) = &mut self.cursor_process {
+                        cursor.position = self.control.cursor;
+                    }
                     if let Some(trails) = &mut self.cursor_trails {
                         trails.move_to(resources, self.control.cursor, self.control.hidden)?;
                     }
@@ -7392,7 +7460,7 @@ impl Engine {
                     .as_ref()
                     .is_none_or(|menu| menu.page().is_none())
             }) {
-                cursor.draw(resources, &mut result, self.control.cursor)?;
+                cursor.draw(resources, &mut result, self.displayed_cursor())?;
             }
             if let Some(trails) = &self.cursor_trails {
                 for animation in trails.draw_order() {
@@ -7401,8 +7469,8 @@ impl Engine {
             }
             if let Some(cursor) = &self.cursor_animation {
                 let mut cursor = cursor.clone();
-                cursor.object.x = self.control.cursor[0];
-                cursor.object.y = self.control.cursor[1];
+                cursor.object.x = self.displayed_cursor()[0];
+                cursor.object.y = self.displayed_cursor()[1];
                 result.draw_animation(resources, &cursor)?;
             }
         }
@@ -8308,6 +8376,8 @@ mod tests {
             for tick in 1..=4 {
                 if leave && tick == 2 {
                     engine.control.cursor = [30, 30];
+                    // This fixture teleports the cursor object, as SetCursorXY does.
+                    engine.move_cursor_trails(&resources).unwrap();
                 }
                 let saved = crate::save::Snapshot::capture(&engine, [7; 32])
                     .to_bytes()
@@ -8365,7 +8435,7 @@ mod tests {
     }
 
     #[test]
-    fn world_hover_runs_overlapping_scripts_before_labels_and_roundtrips_v24() {
+    fn world_hover_runs_overlapping_scripts_before_labels_and_roundtrips() {
         let (master, scene, font) = world_hover_files();
         let base = 2 << 23;
         let resources = Resources(vec![&master, &scene, &font]);
@@ -8402,7 +8472,7 @@ mod tests {
         let bytes = crate::save::Snapshot::capture(&engine, [7; 32])
             .to_bytes()
             .unwrap();
-        assert_eq!(u32::from_le_bytes(bytes[8..12].try_into().unwrap()), 24);
+        assert_eq!(u32::from_le_bytes(bytes[8..12].try_into().unwrap()), 27);
         let snapshot = crate::save::Snapshot::from_bytes(&bytes, [7; 32]).unwrap();
         assert_eq!(snapshot.to_bytes().unwrap(), bytes);
         snapshot.verify_scripts(&resources).unwrap();
@@ -8411,6 +8481,7 @@ mod tests {
         for point in [[10, 10], [30, 30], [10, 10]] {
             for e in [&mut engine, &mut restored] {
                 e.control.cursor = point;
+                e.move_cursor_trails(&resources).unwrap();
                 e.tick_content(&resources, None, None, Some(&strings))
                     .unwrap();
             }

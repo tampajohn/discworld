@@ -1,19 +1,19 @@
 import assert from 'node:assert/strict';
 
 // Combined sessions carry the core snapshot after the fixed 52-byte header.
-// Versions 13–26 wrap an older snapshot as the first postcard Vec<u8> field;
+// Versions 13–27 wrap an older snapshot as the first postcard Vec<u8> field;
 // versions 1–12 directly encode the runtime. Keep the inventory schema checks
 // while allowing the current world-monitor wrapper around that state.
 export function coreVersions(session) {
   let core = session.subarray(52, 52 + session.readUInt32LE(12));
   const versions = [];
-  for (let depth = 0; depth < 26; depth++) {
+  for (let depth = 0; depth < 27; depth++) {
     assert.equal(core.subarray(0, 8).toString('binary'), 'DWRSAVE\0');
     assert.equal(core.readUInt32LE(44), core.length - 80);
     const version = core.readUInt32LE(8);
     versions.push(version);
     if (version <= 12) return versions;
-    assert.ok(version <= 26, `unknown snapshot wrapper ${version}`);
+    assert.ok(version <= 27, `unknown snapshot wrapper ${version}`);
     let length = 0, factor = 1, offset = 80;
     for (;;) {
       assert.ok(offset < core.length && factor <= 2 ** 28);

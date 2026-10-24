@@ -1,6 +1,34 @@
 //! Opt-in integration checks using locally supplied original assets.
 use super::BrowserGame;
 
+// Preserve assertions about the older inventory/menu payload while checking
+// the new independent cursor-process wrapper when it is present.
+fn without_cursor_process(core: &[u8]) -> &[u8] {
+    assert!(core.len() >= 80);
+    if u32::from_le_bytes(core[8..12].try_into().unwrap()) != 27 {
+        return core;
+    }
+    let mut length = 0usize;
+    let mut offset = 80;
+    for shift in (0..35).step_by(7) {
+        let byte = core[offset];
+        offset += 1;
+        length |= usize::from(byte & 127) << shift;
+        if byte & 128 == 0 {
+            let inner = &core[offset..offset + length];
+            assert!(inner.len() >= 80);
+            assert!(u32::from_le_bytes(inner[8..12].try_into().unwrap()) < 27);
+            return inner;
+        }
+    }
+    panic!("invalid nested snapshot length");
+}
+
+fn inventory_schema(session: &[u8]) -> u32 {
+    let length = u32::from_le_bytes(session[12..16].try_into().unwrap()) as usize;
+    u32::from_le_bytes(without_cursor_process(&session[52..52 + length])[8..12].try_into().unwrap())
+}
+
 #[test]
 #[ignore = "requires DISCWORLD_TEST_ISO and DISCWORLD_TEST_SOUNDFONT"]
 fn original_menu_controller_transitions_render_and_resolve_live_selection() {
@@ -56,7 +84,7 @@ fn original_menu_controller_transitions_render_and_resolve_live_selection() {
             .to_bytes()
             .unwrap();
         assert_eq!(
-            u32::from_le_bytes(snapshot_bytes[8..12].try_into().unwrap()),
+            u32::from_le_bytes(without_cursor_process(&snapshot_bytes)[8..12].try_into().unwrap()),
             25 // Cursor trails wrap the world-hover, intro and menu checkpoints.
         );
         let snapshot =
@@ -1311,7 +1339,7 @@ fn inventory_header_drag_moves_immediately_and_survives_save() {
     assert_eq!(game.frame().unwrap(), before);
     game.move_pointer(170, 130);
     let pending = game.save().unwrap();
-    assert_eq!(u32::from_le_bytes(pending[60..64].try_into().unwrap()), 5);
+    assert_eq!(inventory_schema(&pending), 5);
     game.load(&pending).unwrap();
     assert_eq!(game.save().unwrap(), pending);
     assert!(game.inventory_dragging());
@@ -1328,7 +1356,7 @@ fn inventory_header_drag_moves_immediately_and_survives_save() {
     let audio = game.advance(24).unwrap();
     let frame = game.frame().unwrap();
     let continued = game.save().unwrap();
-    assert_eq!(u32::from_le_bytes(continued[60..64].try_into().unwrap()), 4);
+    assert_eq!(inventory_schema(&continued), 4);
     game.load(&pending).unwrap();
     game.move_pointer(180, 120);
     game.input("left-up").unwrap();
@@ -1488,7 +1516,7 @@ fn inventory_slider_preserves_continuous_motion_and_active_save() {
         Some(discworld_core::inventory::Scroll::PageUp)
     );
     let pending = game.save().unwrap();
-    assert_eq!(u32::from_le_bytes(pending[60..64].try_into().unwrap()), 6);
+    assert_eq!(inventory_schema(&pending), 6);
     game.load(&pending).unwrap();
     assert_eq!(game.save().unwrap(), pending);
     assert!(game.inventory_dragging());
@@ -1538,7 +1566,7 @@ fn inventory_slider_preserves_continuous_motion_and_active_save() {
     assert!(!game.inventory_dragging());
     game.advance(1).unwrap();
     assert_eq!(
-        u32::from_le_bytes(game.save().unwrap()[60..64].try_into().unwrap()),
+        inventory_schema(&game.save().unwrap()),
         4
     );
     assert_eq!(
@@ -1578,7 +1606,7 @@ fn inventory_slider_preserves_continuous_motion_and_active_save() {
     game.move_pointer(x, middle + 2);
     assert!(game.inventory_dragging());
     assert_eq!(
-        u32::from_le_bytes(game.save().unwrap()[60..64].try_into().unwrap()),
+        inventory_schema(&game.save().unwrap()),
         7
     );
     roundtrip_pending(&mut game, 3);
@@ -1618,7 +1646,7 @@ fn inventory_header_double_click_preserves_both_geometries_and_saves() {
     assert_eq!((window.size, window.position), ([10, 6], [21, 15]));
     let pixels = game.frame().unwrap();
     let maximized = game.save().unwrap();
-    assert_eq!(u32::from_le_bytes(maximized[60..64].try_into().unwrap()), 7);
+    assert_eq!(inventory_schema(&maximized), 7);
     game.load(&maximized).unwrap();
     assert_eq!(game.save().unwrap(), maximized);
     assert_eq!(game.frame().unwrap(), pixels);
@@ -1630,7 +1658,7 @@ fn inventory_header_double_click_preserves_both_geometries_and_saves() {
     assert!(game.inventory_dragging());
     game.move_pointer(51, 35);
     let dragging = game.save().unwrap();
-    assert_eq!(u32::from_le_bytes(dragging[60..64].try_into().unwrap()), 7);
+    assert_eq!(inventory_schema(&dragging), 7);
     game.load(&dragging).unwrap();
     assert!(game.inventory_dragging());
     game.input("left-up").unwrap();
@@ -1663,7 +1691,7 @@ fn inventory_header_double_click_preserves_both_geometries_and_saves() {
     assert_eq!(game.engine.held_object, -1);
     // Geometry remains version 7 after unmaximizing to retain the other position.
     assert_eq!(
-        u32::from_le_bytes(game.save().unwrap()[60..64].try_into().unwrap()),
+        inventory_schema(&game.save().unwrap()),
         7
     );
     // FULL construction on reopen restores the original reachable-header limit.
@@ -1734,7 +1762,7 @@ fn inventory_resize_outline_rounding_and_active_save() {
                 }
             }
             let active = game.save().unwrap();
-            assert_eq!(u32::from_le_bytes(active[60..64].try_into().unwrap()), 8);
+            assert_eq!(inventory_schema(&active), 8);
             game.load(&active).unwrap();
             assert_eq!(game.frame().unwrap(), frame);
             assert_eq!(game.save().unwrap(), active);
@@ -1961,7 +1989,7 @@ fn inventory_pointed_label_uses_original_font_and_survives_save() {
     game.move_pointer(118, 132);
     game.advance(1).unwrap();
     let saved = game.save().unwrap();
-    assert_eq!(u32::from_le_bytes(saved[60..64].try_into().unwrap()), 9);
+    assert_eq!(inventory_schema(&saved), 9);
     let resources = game.assets.resources();
     let strings = Strings::new(&game.assets.iso[game.assets.text.clone()]).unwrap();
     let text = (0..strings.len())

@@ -31,6 +31,7 @@ const SCROLL_TASK_VERSION: u32 = 23;
 const WORLD_HOVER_VERSION: u32 = 24;
 const CURSOR_TRAILS_VERSION: u32 = 25;
 const MOVER_TASK_VERSION: u32 = 26;
+const CURSOR_PROCESS_VERSION: u32 = 27;
 const HEADER: usize = 80;
 pub const MAX_SAVE_BYTES: usize = 16 * 1024 * 1024;
 
@@ -149,6 +150,23 @@ impl Snapshot {
 
     pub fn to_bytes(&self) -> Result<Vec<u8>, Error> {
         self.state.validate_snapshot_structure()?;
+        if let Some(process) = &self.state.cursor_process {
+            let mut legacy = self.clone();
+            legacy.state.cursor_process = None;
+            let payload = postcard::to_allocvec(&(legacy.to_bytes()?, process))
+                .map_err(|_| Error("snapshot cursor process encode failed"))?;
+            if payload.len() > MAX_SAVE_BYTES - HEADER {
+                return Err(Error("save size limit"));
+            }
+            let mut bytes = Vec::with_capacity(HEADER + payload.len());
+            bytes.extend_from_slice(MAGIC);
+            bytes.extend_from_slice(&CURSOR_PROCESS_VERSION.to_le_bytes());
+            bytes.extend_from_slice(&self.asset_id);
+            bytes.extend_from_slice(&(payload.len() as u32).to_le_bytes());
+            bytes.extend_from_slice(&Sha256::digest(&payload));
+            bytes.extend_from_slice(&payload);
+            return Ok(bytes);
+        }
         let mover_tasks = self.state.mover_tasks();
         if !mover_tasks.is_empty() {
             let mut legacy = self.clone();
@@ -552,6 +570,7 @@ impl Snapshot {
             WORLD_HOVER_VERSION,
             CURSOR_TRAILS_VERSION,
             MOVER_TASK_VERSION,
+            CURSOR_PROCESS_VERSION,
         ]
         .contains(&word(8))
         {
@@ -566,6 +585,21 @@ impl Snapshot {
         }
         if Sha256::digest(payload)[..] != bytes[48..80] {
             return Err(Error("save checksum mismatch"));
+        }
+        if word(8) == CURSOR_PROCESS_VERSION {
+            let ((legacy, process), remaining) =
+                postcard::take_from_bytes::<(Vec<u8>, crate::cursor_process::State)>(payload)
+                    .map_err(|_| Error("invalid snapshot cursor process payload"))?;
+            if !remaining.is_empty()
+                || legacy.len() < HEADER
+                || u32::from_le_bytes(legacy[8..12].try_into().unwrap()) > MOVER_TASK_VERSION
+            {
+                return Err(Error("invalid snapshot cursor process extension"));
+            }
+            let mut snapshot = Self::from_bytes(&legacy, asset_id)?;
+            snapshot.state.cursor_process = Some(process);
+            snapshot.state.validate_snapshot_structure()?;
+            return Ok(snapshot);
         }
         if word(8) == MOVER_TASK_VERSION {
             type Tasks = Vec<(crate::scheduler::ProcessId, i32)>;

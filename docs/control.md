@@ -1696,3 +1696,19 @@ The Rust diagnostic now saves immediately after backend pointer input, before
 the next tick, and verifies exact bytes, restored state/pixels and next-tick
 continuation. This boundary check is needed when those two positions differ.
 See [wake-phase evidence](validation/cursor-wake-phase.json).
+
+
+The cursor phase and displayed-position separation are now implemented in the
+shared runtime. PointProcess, actor-tag selection, cursor-position script queries
+and rendering read the displayed position. Explicit resource-aware movement and
+script MOVECURSOR still update it immediately; pending raw movement becomes
+visible when the cursor process runs after the scene processes. Control captures
+the displayed position before hiding and restores it with the previous hiding
+state, preserving trail behavior.
+
+Scene cursor reinitialization resumes the suspended phase in that cycle. This
+avoids an extra wake delay, verified by the original cycle-1363 animation clock.
+The muted LOOK comparison is now144/144, the door comparison240/240, and the
+three inventory comparisons72/72 each, with complete save continuations.
+See [runtime evidence](validation/cursor-process-runtime.json). Full-route and
+browser UI validation of this revision remain pending.
