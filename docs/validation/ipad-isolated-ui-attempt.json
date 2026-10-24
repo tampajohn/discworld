@@ -1,0 +1,13 @@
+{
+  "result": "interrupted; no pass claimed",
+  "output": "assets/validation/ipad-isolated-ui1",
+  "scope": "Separate newly created automation simulator; current Swift host and nine UI tests compiled.",
+  "new_test": "Files action-sheet cancellation plus document-picker cancellation preserve paused tick/frame.",
+  "pretest_original_device_state": "Shutdown, recorded before creation of test device in assets/validation/ipad-test-device-list.json",
+  "reason_stopped": "Original simulator was observed shut down during the test; test was stopped before saved pretest state established that shutdown predated the attempt.",
+  "result_bundle": "Incomplete after interruption; not usable as completed UI evidence.",
+  "original_device_after": "Reopened with installed build 18; process 44272 verified.",
+  "automation_device_after": "Shutdown",
+  "guard_check": "assets/logs/ipad-isolated-guard-check.log; exit 2 before build/install/input when another simulator is booted.",
+  "pending": "Run full nine-test UI suite when no player session is active."
+}

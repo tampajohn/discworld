@@ -1,6 +1,7 @@
 #!/usr/bin/env python3
 """Build the native iPad host and run its XCTest UI suite on a simulator."""
 import argparse
+import json
 from pathlib import Path
 import plistlib
 import subprocess
@@ -14,14 +15,21 @@ def main():
     parser.add_argument("device", help="simulator UDID")
     parser.add_argument("output", type=Path, help="new evidence directory under assets")
     parser.add_argument("--build-only", action="store_true", help="compile UI tests without changing Simulator or launching the app")
+    parser.add_argument("--no-window", action="store_true", help="use a separately booted test device without opening Simulator or changing its shared preferences")
     args = parser.parse_args()
     out = args.output.resolve()
     if not out.is_relative_to(ROOT / "assets") or out.exists():
         parser.error("choose a new output directory inside assets")
     if not args.build_only:
+        devices = json.loads(subprocess.check_output(["xcrun", "simctl", "list", "devices", "-j"]))
+        others = [device for group in devices["devices"].values() for device in group
+                  if device["state"] == "Booted" and device["udid"] != args.device]
+        if others:
+            parser.error("another simulator is booted; preserve the player's session and use --build-only")
+    if not args.build_only and not args.no_window:
         subprocess.run([sys.executable, str(ROOT / "scripts/configure-ipad-keyboard.py"), args.device], check=True)
     subprocess.run(["cargo", "build", "--locked", "--release", "--target", "aarch64-apple-ios-sim", "-p", "discworld-ipad"], cwd=ROOT, check=True)
-    if not args.build_only:
+    if not args.build_only and not args.no_window:
         subprocess.run(["open", "-a", "Simulator", "--args", "-CurrentDeviceUDID", args.device], check=True)
     out.mkdir(parents=True)
     subprocess.run(["cargo", "run", "--locked", "--release", "-p", "discworld-tools", "--example", "ipad_controls", "--", str(ROOT / "assets/private/ipad/GameData.bundle/discworld.iso"), str(out / "Controls")], cwd=ROOT, check=True)

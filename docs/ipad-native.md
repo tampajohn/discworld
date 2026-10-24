@@ -81,6 +81,17 @@ To repeat the simulator rotation test (use a new output directory):
 python3 scripts/test-ipad-ui.py SIMULATOR-UDID assets/validation/ipad-ui-test
 ```
 
+The runner refuses UI execution if any other simulator is booted, before any
+configuration change, build or install. Use `--build-only` while a player session
+is active. `--no-window` skips opening Simulator and changing shared preferences;
+it does not override this guard. A separate-device attempt compiled the current
+nine-test suite, including Files-picker cancellation, but was interrupted and
+produced no usable completed result bundle. The saved pretest listing establishes
+that the player's device was already shut down before that attempt. The player
+simulator was reopened on build 18 and the automation device shut down. See
+[attempt evidence](validation/ipad-isolated-ui-attempt.json). New gesture and
+Files UI acceptance remains pending; the earlier eight-test pass is unchanged.
+
 The test builds a local Xcode project with the same Swift host, bundled test
 resources and Rust library. It launches the Simulator window, runs XCTest,
 and retains its result bundle. Full-screen captures are used because app-only

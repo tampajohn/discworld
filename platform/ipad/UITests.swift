@@ -120,6 +120,34 @@ final class DiscworldLayoutTests: XCTestCase {
         evidence.lifetime = .keepAlways
         add(evidence)
     }
+    func testFilesDialogCancelPreservesPausedGame() throws {
+        let app = XCUIApplication(bundleIdentifier: "org.tampajohn.discworld.dev")
+        app.launchArguments = ["--smoke-room"]
+        app.launch()
+        XCTAssertTrue(app.buttons["Resume"].waitForExistence(timeout: 40))
+        XCUIDevice.shared.orientation = .landscapeLeft
+        let before = state(app)
+        app.buttons["Files"].tap()
+        XCTAssertTrue(app.buttons["Export current game"].waitForExistence(timeout: 5))
+        XCTAssertTrue(app.buttons["Import saved game"].exists)
+        app.buttons["Cancel"].tap()
+        XCTAssertTrue(app.buttons["Resume"].exists)
+        let after = state(app)
+        XCTAssertEqual(after["tick"] as? Int, before["tick"] as? Int)
+        XCTAssertEqual(after["frame_sha256"] as? String, before["frame_sha256"] as? String)
+        app.buttons["Files"].tap()
+        app.buttons["Import saved game"].tap()
+        XCTAssertTrue(app.buttons["Cancel"].waitForExistence(timeout: 10))
+        let shot = XCTAttachment(screenshot: XCUIScreen.main.screenshot())
+        shot.name = "native-import-picker"
+        shot.lifetime = .keepAlways
+        add(shot)
+        app.buttons["Cancel"].tap()
+        XCTAssertTrue(app.buttons["Resume"].waitForExistence(timeout: 5))
+        XCTAssertEqual(state(app)["tick"] as? Int, before["tick"] as? Int)
+        XCTAssertEqual(state(app)["frame_sha256"] as? String, before["frame_sha256"] as? String)
+    }
+
     func testOriginalMenuNamedSaveAndRelaunchLoad() throws {
         let app = XCUIApplication(bundleIdentifier: "org.tampajohn.discworld.dev")
         app.launchArguments = ["--smoke-room"]
