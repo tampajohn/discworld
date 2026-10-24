@@ -1,0 +1,37 @@
+{
+  "source_revision": "8868ded14f87b8e5bd749dc87f94d00b2a2734ac",
+  "engine_revision": "8ac0135",
+  "packages": [
+    {
+      "path": "assets/packages/discworld-finder-8868ded.zip",
+      "source_revision": "8868ded14f87b8e5bd749dc87f94d00b2a2734ac",
+      "files_verified": 5,
+      "bytes": 4684232,
+      "sha256": "6eae20fd17e915985fc0319c6c591d8744842ec07154d7f77cd43d583d92c07e"
+    },
+    {
+      "path": "assets/packages/discworld-web-8868ded.zip",
+      "source_revision": "8868ded14f87b8e5bd749dc87f94d00b2a2734ac",
+      "files_verified": 14,
+      "bytes": 3237907,
+      "sha256": "42e39fe2287d859dd08cdbf2fb4611a41b0e8ee238b25c56f476803bd3b5205e"
+    }
+  ],
+  "checks": {
+    "finder": "Builder verified ad-hoc signature, architecture, native dependency manifest and exact source archive. Runtime manifest5files independently verified from final zip.",
+    "browser_package": "All14 manifest files verified from final zip. Production JS/WASM exactly equal frozen full-replay host files; all17 frozen web files verified.",
+    "node_tests": "4 passed; assets/logs/control-cursor-browser-tests.log",
+    "browser_tests": "47 passed,2 failed,1 existing WebKit multitouch skip in original run; both failures used historical pre-palette-fix image; corrected fixture recheck2 passed. This is49 passes across two runs, not one clean run.",
+    "browser_log": "assets/logs/control-cursor-browser-tests-isolated.log",
+    "menu_recheck_log": "assets/logs/control-cursor-menu-recheck.log",
+    "legacy_fixture": "Original save bytes preserved with SHA bcef101b9be816ecfc2f9a8b48205d459086aa20a58263f4a8ad2de47fba50e6. Current canvas exactly matches prior reference-verified native expectation SHA151f58485d7bf597bdd547244f0dd4c92e3f60ecb3e401c92c6a76648cb0df57."
+  },
+  "limitations": [
+    "Recorded native/Chrome/WebKit full route passed; GUI acceptance of packaged Finder app remains separate.",
+    "Finder GUI acceptance on this packaged build not yet performed.",
+    "No new package deployed over the user simulator session.",
+    "Cursor/hotspot one-frame scheduling mismatch remains; see cursor-hotspot-order.json.",
+    "Physical iPad and iPhone acceptance remain outstanding."
+  ],
+  "full_route_evidence": "control-cursor-full-route.json"
+}

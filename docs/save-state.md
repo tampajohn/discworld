@@ -361,28 +361,33 @@ overlapping a conversation or inventory window. The engine renders the menu
 before the cursor and suppresses the held-item cursor while a menu page is open.
 
 Original-asset tests compare restored engine state, rendered pixels and encoded
-session bytes across menu pages and effects. An opt-in browser test loads a native
-menu checkpoint in Chrome and WebKit, compares all canvas pixels, and exports
-identical session bytes. Generate its fixture from the repository root (the
-output and companion `.rgba` path must not already exist):
+session bytes across menu pages and effects. The browser legacy-menu test uses
+an unchanged version-10 checkpoint plus the native image corrected by the
+reference-verified background/font palette fix. From `web`, run:
 
 ```sh
-DISCWORLD_TEST_ISO="$PWD/Terry Pratchett's Discworld (1995)(Psygnosis).iso" \
-DISCWORLD_TEST_SOUNDFONT="$PWD/assets/soundfonts/TimGM6mb.sf2" \
-DISCWORLD_TEST_MENU_SAVE_OUTPUT="$PWD/assets/saves/menu-engine-v10.dws" \
-cargo test --release -p discworld-web original_menu_controller_transitions_render_and_resolve_live_selection -- --ignored
-```
-
-Then, from `web`, run:
-
-```sh
-DISCWORLD_TEST_MENU_SAVE="$PWD/../assets/saves/menu-engine-v10.dws" \
+DISCWORLD_TEST_MENU_SAVE="$PWD/../assets/validation/title-palette-menu/checkpoint.dws" \
 npx playwright test tests/menu-save.spec.js
 ```
 
-This verifies persistence and rendering, not live menu operation. F1 opening,
-input routing, menu scheduling, lifecycle transitions and settings application
-still require integration. Normal hosts do not yet create this controller.
+The save has SHA-256
+`bcef101b9be816ecfc2f9a8b48205d459086aa20a58263f4a8ad2de47fba50e6`;
+its companion `.rgba` has SHA-256
+`151f58485d7bf597bdd547244f0dd4c92e3f60ecb3e401c92c6a76648cb0df57`.
+The historical `assets/saves/menu-engine-v10.dws` contains identical save bytes,
+but its `.rgba` predates the font palette fix and differs by 164 pixels. Keep
+that historical evidence; do not use its image as the current expectation.
+See [palette correction evidence](validation/reference-software-frames.json).
+
+For a new current-version checkpoint, the ignored Rust test
+`original_menu_controller_transitions_render_and_resolve_live_selection` accepts
+`DISCWORLD_TEST_MENU_SAVE_OUTPUT` together with `DISCWORLD_TEST_ISO` and
+`DISCWORLD_TEST_SOUNDFONT`. It creates a new save and companion `.rgba`, refusing
+to overwrite either. Such a newly generated checkpoint is not the legacy fixture
+required by the version-specific browser migration test.
+
+The legacy browser check proves initial pixels, migration and exact reimport;
+separate live-menu tests cover input, typing, sliders and lifecycle behavior.
 
 ## Native menu session storage
 

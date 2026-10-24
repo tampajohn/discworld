@@ -1,0 +1,62 @@
+{
+  "engine_revision": "8ac0135",
+  "artifact_directory": "assets/validation/control-cursor-8ac0135",
+  "binary_sha256": "cbacb60522103917c18312cdadbf1299e7b9299f4900f9ffaa94cf99e9c5d934",
+  "trace_sha256": "f50b0ed2175806f9ef06463ac656692d9717aaa48b5a97d2bb82f53c5fe8ac8b",
+  "ticks": 2635725,
+  "scene": "title.scn",
+  "status": "Running",
+  "has_restarted": true,
+  "accepted_inputs": 4209,
+  "engine_snapshot_checks": 7615,
+  "audio_snapshot_checks": 7615,
+  "final_png_inspected": true,
+  "comparisons": {
+    "chrome": {
+      "ticks": 2635725,
+      "ticks_equal": true,
+      "native_status": "Running",
+      "scene": "title.scn",
+      "scene_equal": true,
+      "has_restarted": true,
+      "restart_equal": true,
+      "accepted_inputs": 4209,
+      "native_inputs": 4209,
+      "native_inputs_accepted": true,
+      "engine_bytes_equal": true,
+      "rgba_equal": true,
+      "combined_save_equal": false,
+      "core_sha256": "d6775d01b8e52b36e306a009525b8e5c454b5f14bd23c11089d4f266d2d4dc98",
+      "audio_scope": "WASM checked for finite samples; cross-platform audio equality not established"
+    },
+    "webkit": {
+      "ticks": 2635725,
+      "ticks_equal": true,
+      "native_status": "Running",
+      "scene": "title.scn",
+      "scene_equal": true,
+      "has_restarted": true,
+      "restart_equal": true,
+      "accepted_inputs": 4209,
+      "native_inputs": 4209,
+      "native_inputs_accepted": true,
+      "engine_bytes_equal": true,
+      "rgba_equal": true,
+      "combined_save_equal": false,
+      "core_sha256": "d6775d01b8e52b36e306a009525b8e5c454b5f14bd23c11089d4f266d2d4dc98",
+      "audio_scope": "WASM checked for finite samples; cross-platform audio equality not established"
+    }
+  },
+  "artifact_sha256": {
+    "report.json": "87597556d9f1884a3cf9bc2a1acd2a63ac66c4ce8a4059ccbc3b5b779268359e",
+    "final.dws": "785acd8a3ede9ce5201c4e12affa984c84b072bffb4ff7e7f8b77db8b9105668",
+    "final.png": "d447e78212245c97d78b24d8051494248773699e56288dc67479cdc23a2fb426",
+    "web-build.json": "1cd61b3ac6945e9b412e6506389341f5c537181b2f93fca4969a7d04ee9991ee"
+  },
+  "limitations": [
+    "One recorded start-to-credits route does not establish all alternate interaction paths or full reference equivalence.",
+    "Browser audio is generated but not sent through Web Audio during accelerated replay; combined DSP saves differ across native/WASM.",
+    "Cursor/hotspot scheduling mismatch remains open.",
+    "No user simulator restart or deployment performed."
+  ]
+}
