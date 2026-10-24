@@ -35,7 +35,7 @@ final class InventoryPan: UIPanGestureRecognizer {
     }
 }
 
-final class GameController: UIViewController {
+final class GameController: UIViewController, UIKeyInput {
     let picture = UIImageView()
     let status = UILabel()
     let audioEngine = AVAudioEngine()
@@ -60,6 +60,21 @@ final class GameController: UIViewController {
     var snapshot: [String: Any] = [:]
     var completedAudioBuffers = 0
     let pauseButton = UIButton(type: .system)
+
+    override var canBecomeFirstResponder: Bool { true }
+    var hasText: Bool { true }
+    var keyboardType: UIKeyboardType = .asciiCapable
+    var autocorrectionType: UITextAutocorrectionType = .no
+    var autocapitalizationType: UITextAutocapitalizationType = .none
+    func insertText(_ text: String) {
+        let printable = String(text.unicodeScalars.filter { $0.value >= 32 && $0.value < 127 })
+        guard !printable.isEmpty else { return }
+        for chunk in stride(from: 0, to: printable.utf8.count, by: 80) {
+            let bytes = Array(printable.utf8.dropFirst(chunk).prefix(80))
+            send(["op": "edit-menu", "text": String(decoding: bytes, as: UTF8.self)])
+        }
+    }
+    func deleteBackward() { send(["op": "edit-menu", "backspace": true]) }
 
     override var supportedInterfaceOrientations: UIInterfaceOrientationMask { .all }
     override func viewDidLayoutSubviews() {
@@ -112,6 +127,14 @@ final class GameController: UIViewController {
         for (label, command) in [("Start", "start"), ("Continue", "continue"), ("Pockets", "pockets"), ("Close", "close"), ("Escape", "escape")] {
             row.addArrangedSubview(button(label) { [weak self] in self?.send(["op": "input", "command": command]) })
         }
+        row.addArrangedSubview(button("Menu") { [weak self] in
+            guard let self else { return }
+            self.releaseDrag()
+            self.paused = false
+            self.resetAudio()
+            self.pauseButton.setTitle("Pause", for: .normal)
+            self.send(["op": "menu", "page": "main"])
+        })
         let tools = UIStackView()
         tools.axis = .horizontal
         tools.spacing = 8
@@ -150,7 +173,7 @@ final class GameController: UIViewController {
             stack.leadingAnchor.constraint(equalTo: view.safeAreaLayoutGuide.leadingAnchor, constant: 8),
             stack.trailingAnchor.constraint(equalTo: view.safeAreaLayoutGuide.trailingAnchor, constant: -8),
             stack.topAnchor.constraint(equalTo: view.safeAreaLayoutGuide.topAnchor),
-            stack.bottomAnchor.constraint(equalTo: view.safeAreaLayoutGuide.bottomAnchor, constant: -8),
+            stack.bottomAnchor.constraint(equalTo: view.keyboardLayoutGuide.topAnchor, constant: -8),
             row.heightAnchor.constraint(equalToConstant: 44), tools.heightAnchor.constraint(equalToConstant: 44),
             status.heightAnchor.constraint(equalToConstant: 40)
         ])
@@ -223,9 +246,17 @@ final class GameController: UIViewController {
         catch { status.text = error.localizedDescription; paused = true; resetAudio() }
     }
     func handle(_ result: [String: Any]) throws {
-        if let requests = result["menu_requests"] as? [String], !requests.isEmpty {
-            throw failure("Original menu requests are not yet connected in this development host.")
+        if result["reset_audio"] as? Bool == true { dragging = false; resetAudio() }
+        if let notice = result["notice"] as? String { status.text = notice }
+        if result["quit"] as? Bool == true {
+            paused = true
+            resetAudio()
+            pauseButton.setTitle("Resume", for: .normal)
+            status.text = "Game ended. Load a saved game to continue."
         }
+        if result["editing"] as? Bool == true {
+            if !isFirstResponder { becomeFirstResponder() }
+        } else if isFirstResponder { resignFirstResponder() }
     }
     func render() {
         guard dw_ipad_frame_len() == 320 * 200 * 4 else { return }
@@ -240,6 +271,7 @@ final class GameController: UIViewController {
         if ProcessInfo.processInfo.arguments.contains(where: { $0.hasPrefix("--smoke-") }) {
             var state = snapshot
             state["frame_sha256"] = SHA256.hash(data: data).map { String(format: "%02x", $0) }.joined()
+            state["status_text"] = status.text
             state["paused"] = paused
             state["muted"] = muted
             state["audio_ready"] = audioReady
@@ -263,7 +295,7 @@ final class GameController: UIViewController {
         return [Int(max(0, min(319, x))), Int(max(0, min(199, y)))]
     }
     @objc func tap(_ gesture: UITapGestureRecognizer) {
-        guard !paused, let point = gamePoint(gesture.location(in: picture)) else { return }
+        guard (!paused || snapshot["menu"] as? Bool == true), let point = gamePoint(gesture.location(in: picture)) else { return }
         send(["op": "input", "command": action, "x": point[0], "y": point[1]])
     }
     func releaseDrag() {

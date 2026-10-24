@@ -14,6 +14,17 @@ struct Host {
     save_directory: PathBuf,
 }
 
+fn refresh_catalog(game: &mut BrowserGame, root: &std::path::Path) -> Result<(), String> {
+    game.clear_menu_catalog();
+    let catalog = discworld_tools::save_slots::catalog(root).map_err(|e| e.to_string())?;
+    for entry in catalog.entries {
+        let bytes = discworld_tools::save_slots::read(root, entry.id).map_err(|e| e.to_string())?;
+        // Invalid/incompatible records remain reserved on disk, as in the browser host.
+        let _ = game.add_menu_slot(&bytes);
+    }
+    Ok(())
+}
+
 impl Host {
     fn dispatch(&mut self) -> Result<(), String> {
         let request: serde_json::Value =
@@ -32,14 +43,31 @@ impl Host {
             let save_directory = PathBuf::from(text("saves")?);
             let iso = std::fs::read(bundle.join("discworld.iso")).map_err(|e| e.to_string())?;
             let font = std::fs::read(bundle.join("music.sf2")).map_err(|e| e.to_string())?;
-            let game = BrowserGame::new(iso, font)?;
+            let mut game = BrowserGame::new(iso, font)?;
             std::fs::create_dir_all(&save_directory).map_err(|e| e.to_string())?;
+            if let Some(settings) =
+                discworld_tools::settings_file::read(&save_directory.join("settings.json"))
+                    .map_err(|e| e.to_string())?
+            {
+                game.menu_preferences(
+                    &serde_json::to_string(&settings).map_err(|e| e.to_string())?,
+                )?;
+            }
+            refresh_catalog(&mut game, &save_directory.join("slots"))?;
             self.save_directory = save_directory;
             self.game = Some(game);
         } else {
             let game = self.game.as_mut().ok_or("Game is not open")?;
             match text("op")? {
                 "advance" => self.audio = game.advance(1)?,
+                "menu" => {
+                    refresh_catalog(game, &self.save_directory.join("slots"))?;
+                    game.open_menu(text("page")?)?;
+                }
+                "edit-menu" => game.edit_menu(
+                    request["text"].as_str().unwrap_or(""),
+                    request["backspace"].as_bool().unwrap_or(false),
+                )?,
                 "pointer" | "inventory-press" => {
                     let x = request["x"].as_i64().ok_or("missing x")?;
                     let y = request["y"].as_i64().ok_or("missing y")?;
@@ -77,13 +105,77 @@ impl Host {
             }
         }
         let game = self.game.as_mut().ok_or("Game is not open")?;
-        let mut requests = Vec::new();
-        while let Some(request) = game.take_menu_request()? {
-            requests.push(request);
+        let mut notice = None;
+        let mut reset_audio = false;
+        let mut quit = false;
+        while let Some(raw) = game.take_menu_request()? {
+            let request: serde_json::Value =
+                serde_json::from_str(&raw).map_err(|e| e.to_string())?;
+            if !request["settings"].is_null() {
+                let settings = serde_json::from_value(request["settings"].clone())
+                    .map_err(|e| e.to_string())?;
+                discworld_tools::settings_file::write(
+                    &self.save_directory.join("settings.json"),
+                    &settings,
+                )
+                .map_err(|e| e.to_string())?;
+            }
+            match request["request"].as_str() {
+                Some("save") => {
+                    let selection = &request["selection"];
+                    let target = if selection["id"].is_null() {
+                        discworld_core::save_menu::Target::New
+                    } else {
+                        discworld_core::save_menu::Target::Existing(
+                            serde_json::from_value(selection["id"].clone())
+                                .map_err(|e| e.to_string())?,
+                        )
+                    };
+                    let description: Vec<u8> =
+                        serde_json::from_value(selection["description"].clone())
+                            .map_err(|e| e.to_string())?;
+                    let timestamp = std::time::SystemTime::now()
+                        .duration_since(std::time::UNIX_EPOCH)
+                        .map_err(|e| e.to_string())?
+                        .as_millis();
+                    discworld_tools::save_slots::write(
+                        &self.save_directory.join("slots"),
+                        target,
+                        u64::try_from(timestamp).map_err(|e| e.to_string())?,
+                        &description,
+                        &game.save()?,
+                    )
+                    .map_err(|e| e.to_string())?;
+                    refresh_catalog(game, &self.save_directory.join("slots"))?;
+                    notice = Some("Game saved on this device.");
+                }
+                Some("load") => {
+                    let id = serde_json::from_value(request["selection"]["id"].clone())
+                        .map_err(|e| e.to_string())?;
+                    let bytes =
+                        discworld_tools::save_slots::read(&self.save_directory.join("slots"), id)
+                            .map_err(|e| e.to_string())?;
+                    game.load_game(
+                        discworld_audio::slot::decode(&bytes)
+                            .map_err(|e| e.to_string())?
+                            .session,
+                    )?;
+                    reset_audio = true;
+                    notice = Some("Saved game loaded.");
+                }
+                Some("quit") => quit = true,
+                Some("restart") => reset_audio = true,
+                None => {}
+                Some(_) => return Err("Unknown native menu request".into()),
+            }
+        }
+        if reset_audio {
+            self.audio.clear();
         }
         self.frame = game.frame()?;
         self.response = serde_json::to_vec(&serde_json::json!({
-            "tick": game.tick(), "scene": game.scene(), "menu_requests": requests,
+            "tick": game.tick(), "scene": game.scene(), "notice": notice, "reset_audio": reset_audio, "quit": quit,
+            "menu": game.menu_active(), "menu_page": game.menu_page(), "editing": game.menu_editing(),
             "inspection": game.native_inspection()
         }))
         .map_err(|e| e.to_string())?;

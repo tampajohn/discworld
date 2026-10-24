@@ -120,6 +120,71 @@ final class DiscworldLayoutTests: XCTestCase {
         evidence.lifetime = .keepAlways
         add(evidence)
     }
+    func testOriginalMenuNamedSaveAndRelaunchLoad() throws {
+        let app = XCUIApplication(bundleIdentifier: "org.tampajohn.discworld.dev")
+        app.launchArguments = ["--smoke-room"]
+        app.launch()
+        XCTAssertTrue(app.buttons["Resume"].waitForExistence(timeout: 40))
+        XCUIDevice.shared.orientation = .landscapeLeft
+        app.buttons["Resume"].tap()
+        waitFor(app) { ($0["inspection"] as? [String: Any])?["control"] as? Bool == true }
+        app.buttons["Pause"].tap()
+        func tapGame(_ x: Int, _ y: Int) {
+            let canvas = app.descendants(matching: .any).matching(identifier: "game-frame").firstMatch
+            let size = canvas.frame.size
+            let scale = min(size.width / 320, size.height / 200)
+            canvas.coordinate(withNormalizedOffset: .zero).withOffset(CGVector(
+                dx: (size.width - 320 * scale) / 2 + (CGFloat(x) + 0.5) * scale,
+                dy: (size.height - 200 * scale) / 2 + (CGFloat(y) + 0.5) * scale)).tap()
+        }
+        let before = state(app)
+        app.buttons["Menu"].tap()
+        XCTAssertEqual(state(app)["menu_page"] as? String, "Main")
+        tapGame(90, 59)
+        waitFor(app) { $0["menu_page"] as? String == "Save" }
+        XCTAssertTrue(app.keyboards.firstMatch.waitForExistence(timeout: 5))
+        // Tap the real software keys: this canvas-backed UIKeyInput has no
+        // UITextField for XCTest's typeText focus heuristic.
+        for character in "ipad tesx" { app.keyboards.keys[String(character)].tap() }
+        app.keyboards.keys["delete"].tap()
+        app.keyboards.keys["t"].tap()
+        let named = state(app)
+        let shot = XCTAttachment(screenshot: XCUIScreen.main.screenshot())
+        shot.name = "original-save-name-keyboard"
+        shot.lifetime = .keepAlways
+        add(shot)
+        tapGame(262, 69)
+        waitFor(app) { $0["status_text"] as? String == "Game saved on this device." && $0["menu"] as? Bool == false }
+        app.buttons["Pause"].tap()
+        let saved = state(app)
+        app.terminate()
+        app.launchArguments = ["--smoke-load"]
+        app.launch()
+        XCTAssertTrue(app.buttons["Resume"].waitForExistence(timeout: 30))
+        app.buttons["Resume"].tap()
+        waitFor(app) { ($0["inspection"] as? [String: Any])?["control"] as? Bool == true }
+        app.buttons["Menu"].tap()
+        waitFor(app) { $0["menu_page"] as? String == "Main" }
+        tapGame(90, 44)
+        waitFor(app) { $0["menu_page"] as? String == "Load" }
+        tapGame(262, 69)
+        waitFor(app) { $0["status_text"] as? String == "Saved game loaded." && $0["menu"] as? Bool == false }
+        app.buttons["Pause"].tap()
+        let loaded = state(app)
+        XCTAssertEqual(loaded["status_text"] as? String, "Saved game loaded.")
+        XCTAssertEqual(loaded["menu"] as? Bool, false)
+        XCTAssertGreaterThan(try XCTUnwrap(loaded["tick"] as? Int), try XCTUnwrap(before["tick"] as? Int))
+        XCTAssertEqual(loaded["scene"] as? String, before["scene"] as? String)
+        XCTAssertEqual((loaded["inspection"] as? [String: Any])?["lead_position"] as? [Int],
+                       (before["inspection"] as? [String: Any])?["lead_position"] as? [Int])
+        let results = try JSONSerialization.data(withJSONObject: ["before": before, "named": named,
+            "saved": saved, "loaded": loaded], options: [.prettyPrinted, .sortedKeys])
+        let evidence = XCTAttachment(string: String(decoding: results, as: UTF8.self))
+        evidence.name = "original-menu-save-evidence"
+        evidence.lifetime = .keepAlways
+        add(evidence)
+    }
+
     func testPouchPickupStorageAndRetrieval() throws {
         let app = XCUIApplication(bundleIdentifier: "org.tampajohn.discworld.dev")
         app.launchArguments = ["--smoke-room"]

@@ -19,7 +19,7 @@ xcrun simctl launch booted org.tampajohn.discworld.dev
 
 The script currently builds **only for the Apple Silicon simulator**. It
 includes the staged ISO and SoundFont in one ad-hoc-signed app. The observed
-prototype is `assets/apps/Discworld-iPad-13.app`. Startup reaches the bedroom;
+prototype is `assets/apps/Discworld-iPad-15.app`. Startup reaches the bedroom;
 quick-save/load preserves pixels, and a separate app launch loads the same
 save from the application container. See [application evidence](validation/ipad-app-prototype.json).
 
@@ -68,7 +68,7 @@ both landscape orientations and portrait, with the full game scene and controls
 visible in inspected full-screen simulator captures. XCTest verifies that all
 nine host buttons are hittable and wholly inside the window after each rotation.
 See [layout evidence](validation/ipad-native-layout.json). Broader inventory item use,
-the original save menus, save export/import, physical-device signing and full
+menu overwrite/settings/restart/quit acceptance, save export/import, physical-device signing and full
 touch play remain pending.
 
 The layout follows the available window size rather than relying on the
@@ -96,6 +96,28 @@ pointer dereferences. Shared engine crates retain `forbid(unsafe_code)`.
 All calls occur on the main thread; Swift immediately copies borrowed frame,
 audio and response buffers before the next call can replace them. This narrow
 boundary does not provide a general thread-safe foreign API.
+
+## Original menus and named saves
+
+The Menu button opens the runtime's original Main menu and resumes the host
+clock so original button animations can run. Original script control gates still
+apply: menus cannot open during a scene's uninterruptible sequence. Existing
+Save/Load host buttons remain quick-save shortcuts.
+
+The native bridge consumes original Save/Load requests using the same checked,
+atomic slot-file implementation as the macOS tools. Records live in the app's
+Documents/slots directory, include engine/DSP state, and populate the original
+catalog on startup. Invalid/incompatible records stay reserved on disk and are
+omitted from the menu. Settings requests use the existing validated settings-file
+format; settings, overwrite, restart and quit need further UI acceptance.
+
+The software keyboard appears on the original Save page. Printable ASCII and
+Delete feed the shared editor; the game renders the name with its original font.
+The scene scales above the keyboard rather than being covered by it. One named
+save, software-key correction and relaunch/load sequence passed in the simulator;
+the stored name and file checksum were independently inspected. See
+[menu evidence](validation/ipad-native-menu.json). Save import/export and physical
+keyboard/device acceptance remain open.
 
 ## Verified foundation
 
@@ -152,7 +174,7 @@ packages must not acquire these private game resources.
 
 The native host, platform bridge, framebuffer presentation, audio playback and
 basic landscape touch controls are implemented as described above. Complete
-inventory resizing and item handling, original save menus and lifecycle acceptance,
+inventory resizing and broader item handling, remaining menu and lifecycle acceptance,
 retaining original game fonts and artwork.
 
 The internal application must locate and validate the bundled assets at

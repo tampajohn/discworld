@@ -11,6 +11,9 @@ crate-type = ["staticlib", "rlib"]
 [dependencies]
 discworld-web = { path = "../discworld-web", features = ["native-inspection"] }
 serde_json = "1"
+discworld-tools = { path = "../discworld-tools" }
+discworld-core = { path = "../discworld-core" }
+discworld-audio = { path = "../discworld-audio" }
 
 # Only the exported symbol attributes are locally allowed below. The shared
 # runtime retains workspace forbid(unsafe_code); this bridge has no unsafe blocks.

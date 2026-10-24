@@ -1,0 +1,243 @@
+{
+  "simulator": "iPad Pro 11-inch (M5), iOS 26.5",
+  "menu_result_bundle": "assets/validation/ipad-menu4.xcresult",
+  "menu_tests_passed": 1,
+  "menu_tests_failed": 0,
+  "regression_result_bundle": "assets/validation/ipad-menu3/results.xcresult",
+  "regression_tests_passed": 6,
+  "regression_note": "Menu test failed because it opened the menu before script control returned after relaunch; corrected and passed separately in menu4. Six other UI tests passed in menu3 on the same app code.",
+  "states": {
+    "before": {
+      "audio_interrupted": false,
+      "audio_ready": false,
+      "completed_audio_buffers": 0,
+      "editing": false,
+      "frame_sha256": "91e2274a4fbadeb6e48d2831bcaf08b82a851727ceadcd2bac00fb5df6ab386d",
+      "inspection": {
+        "control": true,
+        "cursor": [
+          146,
+          106
+        ],
+        "enabled_tags": [
+          1,
+          2,
+          406,
+          4,
+          555
+        ],
+        "held_object": -1,
+        "inventory": null,
+        "inventory_dragging": false,
+        "inventory_first_cell": null,
+        "inventory_position": null,
+        "lead_position": [
+          200,
+          178
+        ],
+        "pockets": [],
+        "walk_target": null,
+        "world_origin": [
+          0,
+          0
+        ]
+      },
+      "last_operation": "advance",
+      "menu": false,
+      "menu_page": null,
+      "muted": true,
+      "notice": null,
+      "paused": true,
+      "quit": false,
+      "reset_audio": false,
+      "resumption_count": 1,
+      "resumption_tick": 8500,
+      "scene": "rinceroo.scn",
+      "status_text": "",
+      "suspension_count": 0,
+      "tick": 8708
+    },
+    "loaded": {
+      "audio_interrupted": false,
+      "audio_ready": false,
+      "completed_audio_buffers": 0,
+      "editing": false,
+      "frame_sha256": "34ffc56ce9253c53d540f185104e7e18acf3355ccedbe4368b05045c360110c4",
+      "inspection": {
+        "control": true,
+        "cursor": [
+          262,
+          69
+        ],
+        "enabled_tags": [
+          1,
+          2,
+          406,
+          4,
+          555
+        ],
+        "held_object": -1,
+        "inventory": null,
+        "inventory_dragging": false,
+        "inventory_first_cell": null,
+        "inventory_position": null,
+        "lead_position": [
+          200,
+          178
+        ],
+        "pockets": [],
+        "walk_target": null,
+        "world_origin": [
+          0,
+          0
+        ]
+      },
+      "last_operation": "advance",
+      "menu": false,
+      "menu_page": null,
+      "muted": true,
+      "notice": null,
+      "paused": true,
+      "quit": false,
+      "reset_audio": false,
+      "resumption_count": 1,
+      "resumption_tick": 8500,
+      "scene": "rinceroo.scn",
+      "status_text": "Saved game loaded.",
+      "suspension_count": 0,
+      "tick": 8913
+    },
+    "named": {
+      "audio_interrupted": false,
+      "audio_ready": false,
+      "completed_audio_buffers": 0,
+      "editing": true,
+      "frame_sha256": "e1b29d8000f7ebf54a56468d87c4acb8bbad1d4d41bb4224cd67f16d683515d6",
+      "inspection": {
+        "control": true,
+        "cursor": [
+          262,
+          91
+        ],
+        "enabled_tags": [
+          1,
+          2,
+          406,
+          4,
+          555
+        ],
+        "held_object": -1,
+        "inventory": null,
+        "inventory_dragging": false,
+        "inventory_first_cell": null,
+        "inventory_position": null,
+        "lead_position": [
+          200,
+          178
+        ],
+        "pockets": [],
+        "walk_target": null,
+        "world_origin": [
+          0,
+          0
+        ]
+      },
+      "last_operation": "advance",
+      "menu": true,
+      "menu_page": "Save",
+      "muted": true,
+      "notice": null,
+      "paused": false,
+      "quit": false,
+      "reset_audio": false,
+      "resumption_count": 1,
+      "resumption_tick": 8500,
+      "scene": "rinceroo.scn",
+      "status_text": "",
+      "suspension_count": 0,
+      "tick": 8875
+    },
+    "saved": {
+      "audio_interrupted": false,
+      "audio_ready": false,
+      "completed_audio_buffers": 0,
+      "editing": false,
+      "frame_sha256": "2bcf62572cd5910792eaf87cb53499577d6813940de030655d5135cbc3b7f1ce",
+      "inspection": {
+        "control": true,
+        "cursor": [
+          262,
+          69
+        ],
+        "enabled_tags": [
+          1,
+          2,
+          406,
+          4,
+          555
+        ],
+        "held_object": -1,
+        "inventory": null,
+        "inventory_dragging": false,
+        "inventory_first_cell": null,
+        "inventory_position": null,
+        "lead_position": [
+          200,
+          178
+        ],
+        "pockets": [],
+        "walk_target": null,
+        "world_origin": [
+          0,
+          0
+        ]
+      },
+      "last_operation": "advance",
+      "menu": false,
+      "menu_page": null,
+      "muted": true,
+      "notice": null,
+      "paused": true,
+      "quit": false,
+      "reset_audio": false,
+      "resumption_count": 1,
+      "resumption_tick": 8500,
+      "scene": "rinceroo.scn",
+      "status_text": "Game saved on this device.",
+      "suspension_count": 0,
+      "tick": 8917
+    }
+  },
+  "slots": [
+    {
+      "file": "slot-000.dwslot",
+      "description": "ipad test",
+      "sha256": "be5be19ca6aa9abf3110fc4392d00b93a25d805394b928ceee1cce29e374e2ac",
+      "checksum_verified": true
+    },
+    {
+      "file": "slot-001.dwslot",
+      "description": "ipad test",
+      "sha256": "41fdf47953f1233bbd2295e50608b19a3d60360c853390c8fe1948dffcd74f25",
+      "checksum_verified": true
+    }
+  ],
+  "checks": {
+    "storage_unit_tests_passed": 3,
+    "asset_backed_storage_test_passed": 1,
+    "clippy_exit_code": 0,
+    "standalone_build_exit_code": 0
+  },
+  "input": "Original Main/Save/Load canvas taps, software keyboard letter/space/Delete taps, original confirm button, app termination and relaunch.",
+  "visual_inspection": "Original blue save-name and title font, border and translucent backing visible above software keyboard.",
+  "screenshot": "assets/validation/ipad-menu4-attachments/9162400E-3E4D-4539-B362-D41EC99E6D99.png",
+  "standalone_app": "assets/apps/Discworld-iPad-15.app",
+  "standalone_binary_sha256": "d12c461b3038b01906571b9c81c95ad47e9e6dd1d3253e19484f477c94aff2d7",
+  "corrections": [
+    "Opening Menu resumes host clock for original animated button processing.",
+    "Keyboard traits require writable UIKit protocol properties.",
+    "XCTest typeText cannot identify canvas UIKeyInput focus; actual software-key taps used.",
+    "Wait for original script control after startup before opening Load menu."
+  ],
+  "limits": "One named save/relaunch/load path. Menu settings persistence, overwrite/full catalog, restart/quit, physical keyboard, physical iPad and save export/import require further UI acceptance. This is not an exact same-input deterministic replay; UI timing advances the game while menus run."
+}
